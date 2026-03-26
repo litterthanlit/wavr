@@ -6,7 +6,7 @@ type UniformMap = Record<string, WebGLUniformLocation>;
 
 export class GradientEngine {
   private gl: WebGL2RenderingContext;
-  private program: WebGLProgram;
+  private program!: WebGLProgram;
   private uniforms: UniformMap = {};
   private elapsedTime = 0;
   private animationId: number | null = null;
@@ -21,11 +21,19 @@ export class GradientEngine {
     });
     if (!gl) throw new Error("WebGL 2 not supported");
     this.gl = gl;
-    // Compile shaders
+    this.initProgram();
+  }
+
+  initProgram() {
+    const gl = this.gl;
+
+    if (this.program) {
+      gl.deleteProgram(this.program);
+    }
+
     const vertShader = this.compileShader(gl.VERTEX_SHADER, vertexSource);
     const fragShader = this.compileShader(gl.FRAGMENT_SHADER, fragmentSource);
 
-    // Link program
     const program = gl.createProgram()!;
     gl.attachShader(program, vertShader);
     gl.attachShader(program, fragShader);
@@ -39,7 +47,6 @@ export class GradientEngine {
     this.program = program;
     gl.useProgram(program);
 
-    // Setup fullscreen quad
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
     const buffer = gl.createBuffer()!;
@@ -53,7 +60,7 @@ export class GradientEngine {
     gl.enableVertexAttribArray(posLoc);
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
-    // Cache uniform locations
+    this.uniforms = {};
     this.cacheUniforms();
   }
 
@@ -84,7 +91,6 @@ export class GradientEngine {
       const loc = gl.getUniformLocation(this.program, name);
       if (loc) this.uniforms[name] = loc;
     }
-    // Color array
     for (let i = 0; i < 8; i++) {
       const loc = gl.getUniformLocation(this.program, `u_colors[${i}]`);
       if (loc) this.uniforms[`u_colors[${i}]`] = loc;
@@ -132,7 +138,6 @@ export class GradientEngine {
     set1f("u_brightness", state.brightness);
     set1f("u_saturation", state.saturation);
 
-    // Colors
     set1i("u_colorCount", state.colors.length);
     for (let i = 0; i < 8; i++) {
       const key = `u_colors[${i}]`;
@@ -141,7 +146,6 @@ export class GradientEngine {
       }
     }
 
-    // Effects
     set1i("u_noiseEnabled", state.noiseEnabled ? 1 : 0);
     set1f("u_noiseIntensity", state.noiseIntensity);
     set1f("u_noiseScale", state.noiseScale);
@@ -181,7 +185,6 @@ export class GradientEngine {
 
       this.render(state);
 
-      // FPS tracking
       frameCount++;
       const nowMs = now * 1000;
       if (nowMs - lastFpsUpdate >= 500) {
@@ -207,6 +210,6 @@ export class GradientEngine {
 
   destroy() {
     this.stopLoop();
-    this.gl.deleteProgram(this.program);
+    if (this.program) this.gl.deleteProgram(this.program);
   }
 }

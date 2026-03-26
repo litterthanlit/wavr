@@ -42,6 +42,26 @@ export interface GradientState {
   removeColor: (index: number) => void;
   loadPreset: (preset: Partial<GradientState>) => void;
   randomize: () => void;
+  undo: () => void;
+  redo: () => void;
+}
+
+// Keys excluded from undo snapshots
+const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
+  "playing", "set", "setColor", "addColor", "removeColor",
+  "loadPreset", "randomize", "undo", "redo",
+];
+
+type Snapshot = Omit<GradientState, "set" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize" | "undo" | "redo" | "playing">;
+
+function takeSnapshot(state: GradientState): Snapshot {
+  const snap: Record<string, unknown> = {};
+  for (const key of Object.keys(state) as (keyof GradientState)[]) {
+    if (!HISTORY_EXCLUDE_KEYS.includes(key) && typeof state[key] !== "function") {
+      snap[key] = state[key];
+    }
+  }
+  return snap as Snapshot;
 }
 
 function randomHue(): [number, number, number] {
@@ -82,7 +102,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 
 const DEFAULTS: Omit<
   GradientState,
-  "set" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize"
+  "set" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize" | "undo" | "redo"
 > = {
   gradientType: "mesh",
   speed: 0.4,
@@ -113,51 +133,85 @@ const DEFAULTS: Omit<
   playing: true,
 };
 
-export const useGradientStore = create<GradientState>((set) => ({
-  ...DEFAULTS,
-  set: (partial) => set(partial),
-  setColor: (index, color) =>
-    set((state) => {
-      const colors = [...state.colors] as [number, number, number][];
+const MAX_HISTORY = 50;
+const past: Snapshot[] = [];
+let future: Snapshot[] = [];
+
+function pushHistory(snapshot: Snapshot) {
+  past.push(snapshot);
+  if (past.length > MAX_HISTORY) past.shift();
+  future = [];
+}
+
+export const useGradientStore = create<GradientState>((rawSet) => {
+  const set = (partial: Partial<GradientState>) => {
+    const current = useGradientStore.getState();
+    pushHistory(takeSnapshot(current));
+    rawSet(partial);
+  };
+
+  return {
+    ...DEFAULTS,
+    set: (partial) => set(partial),
+    setColor: (index, color) => {
+      const current = useGradientStore.getState();
+      pushHistory(takeSnapshot(current));
+      const colors = [...current.colors] as [number, number, number][];
       colors[index] = color;
-      return { colors };
-    }),
-  addColor: () =>
-    set((state) => {
-      if (state.colors.length >= 8) return state;
-      return { colors: [...state.colors, randomHue()] };
-    }),
-  removeColor: (index) =>
-    set((state) => {
-      if (state.colors.length <= 2) return state;
-      return { colors: state.colors.filter((_, i) => i !== index) };
-    }),
-  loadPreset: (preset) => set(preset),
-  randomize: () => {
-    const count = 3 + Math.floor(Math.random() * 3);
-    const baseHue = Math.random() * 360;
-    const colors: [number, number, number][] = [];
-    for (let i = 0; i < count; i++) {
-      const hue =
-        (baseHue + i * (360 / count) + (Math.random() - 0.5) * 30) % 360;
-      colors.push(
-        hslToRgb(hue, 0.6 + Math.random() * 0.4, 0.4 + Math.random() * 0.3)
-      );
-    }
-    const types: GradientState["gradientType"][] = [
-      "mesh",
-      "radial",
-      "linear",
-      "conic",
-      "plasma",
-    ];
-    set({
-      colors,
-      gradientType: types[Math.floor(Math.random() * types.length)],
-      speed: 0.2 + Math.random() * 0.8,
-      complexity: 2 + Math.floor(Math.random() * 4),
-      scale: 0.5 + Math.random() * 2,
-      distortion: Math.random() * 0.6,
-    });
-  },
-}));
+      rawSet({ colors });
+    },
+    addColor: () => {
+      const current = useGradientStore.getState();
+      if (current.colors.length >= 8) return;
+      pushHistory(takeSnapshot(current));
+      rawSet({ colors: [...current.colors, randomHue()] });
+    },
+    removeColor: (index) => {
+      const current = useGradientStore.getState();
+      if (current.colors.length <= 2) return;
+      pushHistory(takeSnapshot(current));
+      rawSet({ colors: current.colors.filter((_, i) => i !== index) });
+    },
+    loadPreset: (preset) => set(preset),
+    randomize: () => {
+      const count = 3 + Math.floor(Math.random() * 3);
+      const baseHue = Math.random() * 360;
+      const colors: [number, number, number][] = [];
+      for (let i = 0; i < count; i++) {
+        const hue =
+          (baseHue + i * (360 / count) + (Math.random() - 0.5) * 30) % 360;
+        colors.push(
+          hslToRgb(hue, 0.6 + Math.random() * 0.4, 0.4 + Math.random() * 0.3)
+        );
+      }
+      const types: GradientState["gradientType"][] = [
+        "mesh", "radial", "linear", "conic", "plasma",
+      ];
+      set({
+        colors,
+        gradientType: types[Math.floor(Math.random() * types.length)],
+        speed: 0.2 + Math.random() * 0.8,
+        complexity: 2 + Math.floor(Math.random() * 4),
+        scale: 0.5 + Math.random() * 2,
+        distortion: Math.random() * 0.6,
+      });
+    },
+    undo: () => {
+      if (past.length === 0) return;
+      const current = useGradientStore.getState();
+      future.push(takeSnapshot(current));
+      const prev = past.pop()!;
+      rawSet(prev);
+    },
+    redo: () => {
+      if (future.length === 0) return;
+      const current = useGradientStore.getState();
+      past.push(takeSnapshot(current));
+      const next = future.pop()!;
+      rawSet(next);
+    },
+  };
+});
+
+export function canUndo() { return past.length > 0; }
+export function canRedo() { return future.length > 0; }

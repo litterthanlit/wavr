@@ -1,30 +1,57 @@
 "use client";
 
-import { useGradientStore } from "@/lib/store";
+import { useGradientStore, canUndo, canRedo } from "@/lib/store";
 import { useTheme } from "@/lib/useTheme";
 
 interface TopBarProps {
   onExport: () => void;
+  onShowShortcuts: () => void;
 }
 
-export default function TopBar({ onExport }: TopBarProps) {
-  const { playing, randomize, set } = useGradientStore();
+export default function TopBar({ onExport, onShowShortcuts }: TopBarProps) {
+  const { playing, randomize, set, undo, redo } = useGradientStore();
   const { theme, cycleTheme } = useTheme();
 
   const themeLabel = theme === "system" ? "Auto" : theme === "light" ? "Light" : "Dark";
 
   return (
     <header className="h-[52px] shrink-0 border-b border-border bg-base/70 backdrop-blur-[20px] flex items-center justify-between px-4 z-10">
-      <div className="flex items-center gap-3">
-        <span className="font-mono text-sm font-bold text-text-primary tracking-wider">WAVR</span>
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-sm font-bold text-text-primary tracking-wider mr-1">WAVR</span>
+        <button
+          onClick={undo}
+          disabled={!canUndo()}
+          aria-label="Undo"
+          className="px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated
+            border border-border rounded-md transition-all duration-150 disabled:opacity-30 disabled:pointer-events-none"
+        >
+          &#8592;
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo()}
+          aria-label="Redo"
+          className="px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated
+            border border-border rounded-md transition-all duration-150 disabled:opacity-30 disabled:pointer-events-none"
+        >
+          &#8594;
+        </button>
       </div>
 
       <div className="flex items-center gap-2">
         <button
+          onClick={onShowShortcuts}
+          aria-label="Keyboard shortcuts"
+          className="px-2 py-1.5 text-xs text-text-tertiary hover:text-text-primary bg-surface hover:bg-elevated
+            border border-border rounded-md transition-all duration-150"
+        >
+          ?
+        </button>
+        <button
           onClick={cycleTheme}
+          aria-label={`Theme: ${themeLabel}`}
           className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated
             border border-border rounded-md transition-all duration-150"
-          title={`Theme: ${themeLabel}`}
         >
           {themeLabel}
         </button>

@@ -40,10 +40,10 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-base border border-border rounded-xl p-6 w-[380px] shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Export options" className="relative bg-base border border-border rounded-xl p-6 w-[380px] shadow-2xl">
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-sm font-medium text-text-primary">Export</h2>
-          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-lg transition-colors">
+          <button onClick={onClose} aria-label="Close" className="text-text-tertiary hover:text-text-primary text-lg transition-colors">
             x
           </button>
         </div>
