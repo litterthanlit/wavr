@@ -4,7 +4,7 @@ import { useState, type RefObject } from "react";
 import { useGradientStore, GradientState } from "@/lib/store";
 import {
   exportPNG, exportCSS, exportTailwindCSS, exportReactComponent,
-  exportWebComponent, exportGIF, copyToClipboard, exportWebM, generateEmbedCode
+  exportWebComponent, exportStandalonePlayer, exportGIF, copyToClipboard, exportWebM, generateEmbedCode
 } from "@/lib/export";
 import { encodeState } from "@/lib/url";
 
@@ -189,6 +189,11 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
                   const hash = encodeState(store);
                   await copyToClipboard(generateEmbedCode(hash));
                 }}
+              />
+              <ExportButton
+                title="Standalone Player"
+                desc="Single script tag — no dependencies, scroll-linkable"
+                action={async () => { await copyToClipboard(exportStandalonePlayer(stateForExport)); }}
               />
             </>
           )}

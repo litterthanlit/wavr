@@ -44,6 +44,14 @@ export interface GradientState {
   feedbackEnabled: boolean;
   feedbackDecay: number;
 
+  // Audio reactivity
+  audioEnabled: boolean;
+  audioSource: "mic" | "file";
+  audioBassTarget: string;
+  audioTrebleTarget: string;
+  audioEnergyTarget: string;
+  audioSensitivity: number;
+
   // Playback
   playing: boolean;
 
@@ -211,6 +219,12 @@ const DEFAULTS = {
   domainWarp: 0,
   feedbackEnabled: false,
   feedbackDecay: 0.5,
+  audioEnabled: false,
+  audioSource: "mic" as const,
+  audioBassTarget: "distortion",
+  audioTrebleTarget: "brightness",
+  audioEnergyTarget: "scale",
+  audioSensitivity: 0.5,
   playing: true,
   timelineEnabled: false,
   timelineDuration: 10,

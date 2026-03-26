@@ -1,9 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useGradientStore } from "@/lib/store";
+import { getAudioAnalyzer } from "@/components/Canvas";
 import Toggle from "@/components/ui/Toggle";
 import Slider from "@/components/ui/Slider";
+import Select from "@/components/ui/Select";
+
+const AUDIO_TARGETS = [
+  { value: "distortion", label: "Distortion" },
+  { value: "scale", label: "Scale" },
+  { value: "speed", label: "Speed" },
+  { value: "brightness", label: "Brightness" },
+  { value: "complexity", label: "Complexity" },
+  { value: "noiseIntensity", label: "Noise" },
+  { value: "grain", label: "Grain" },
+  { value: "bloomIntensity", label: "Bloom" },
+];
 
 function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -103,6 +116,92 @@ export default function EffectsPanel() {
         <Toggle label="Feedback Loop" checked={store.feedbackEnabled} onChange={(v) => store.setDiscrete({ feedbackEnabled: v })} />
         <Slider label="Decay" value={store.feedbackDecay} min={0} max={0.98} step={0.01} onChange={(v) => store.set({ feedbackDecay: v })} onCommit={() => store.commitSet()} disabled={!store.feedbackEnabled} />
       </Section>
+
+      <div className="border-t border-border my-1" />
+
+      {/* Audio Reactivity */}
+      <AudioSection />
     </div>
+  );
+}
+
+function AudioSection() {
+  const store = useGradientStore();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<string>("");
+
+  const handleToggle = async (enabled: boolean) => {
+    const analyzer = getAudioAnalyzer();
+    if (enabled) {
+      try {
+        if (store.audioSource === "mic") {
+          await analyzer.connectMicrophone();
+          setStatus("Listening...");
+        }
+        store.setDiscrete({ audioEnabled: true });
+      } catch {
+        setStatus("Mic access denied");
+      }
+    } else {
+      await analyzer.disconnect();
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      store.setDiscrete({ audioEnabled: false });
+      setStatus("");
+    }
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const analyzer = getAudioAnalyzer();
+    try {
+      if (audioRef.current) audioRef.current.pause();
+      const audio = await analyzer.connectFile(file);
+      audioRef.current = audio;
+      audio.play();
+      store.setDiscrete({ audioEnabled: true, audioSource: "file" as const });
+      setStatus(file.name);
+    } catch {
+      setStatus("Failed to load audio");
+    }
+  };
+
+  return (
+    <Section title="Audio Reactivity">
+      <Toggle label="Audio Reactive" checked={store.audioEnabled} onChange={handleToggle} />
+      {store.audioEnabled && (
+        <>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { store.setDiscrete({ audioSource: "mic" as const }); handleToggle(true); }}
+              className={`flex-1 py-1.5 text-[11px] rounded-md border transition-all ${
+                store.audioSource === "mic"
+                  ? "bg-accent/10 border-accent/40 text-accent"
+                  : "bg-surface border-border text-text-tertiary hover:text-text-secondary"
+              }`}
+            >
+              Microphone
+            </button>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className={`flex-1 py-1.5 text-[11px] rounded-md border transition-all ${
+                store.audioSource === "file"
+                  ? "bg-accent/10 border-accent/40 text-accent"
+                  : "bg-surface border-border text-text-tertiary hover:text-text-secondary"
+              }`}
+            >
+              Audio File
+            </button>
+            <input ref={fileRef} type="file" accept="audio/*" className="hidden" onChange={handleFile} />
+          </div>
+          {status && <p className="text-[10px] text-text-tertiary truncate">{status}</p>}
+          <Slider label="Sensitivity" value={store.audioSensitivity} min={0.1} max={2} step={0.01} onChange={(v) => store.set({ audioSensitivity: v })} onCommit={() => store.commitSet()} />
+          <Select label="Bass drives" value={store.audioBassTarget} options={AUDIO_TARGETS} onChange={(v) => store.setDiscrete({ audioBassTarget: v })} />
+          <Select label="Treble drives" value={store.audioTrebleTarget} options={AUDIO_TARGETS} onChange={(v) => store.setDiscrete({ audioTrebleTarget: v })} />
+          <Select label="Energy drives" value={store.audioEnergyTarget} options={AUDIO_TARGETS} onChange={(v) => store.setDiscrete({ audioEnergyTarget: v })} />
+        </>
+      )}
+    </Section>
   );
 }
