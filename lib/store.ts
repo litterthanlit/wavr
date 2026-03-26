@@ -31,6 +31,7 @@ export interface GradientState {
   // Blur
   blurEnabled: boolean;
   blurAmount: number;
+  radialBlurAmount: number;
 
   // Playback
   playing: boolean;
@@ -143,6 +144,7 @@ const DEFAULTS: Omit<
   vignette: 0.0,
   blurEnabled: false,
   blurAmount: 0,
+  radialBlurAmount: 0,
   playing: true,
 };
 

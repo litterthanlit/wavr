@@ -85,7 +85,7 @@ export class GradientEngine {
       "u_brightness", "u_saturation", "u_colorCount",
       "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
       "u_particlesEnabled", "u_particleCount", "u_particleSize", "u_mouseReact",
-      "u_bloomEnabled", "u_bloomIntensity", "u_vignette",
+      "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -157,6 +157,7 @@ export class GradientEngine {
     set1i("u_bloomEnabled", state.bloomEnabled ? 1 : 0);
     set1f("u_bloomIntensity", state.bloomIntensity);
     set1f("u_vignette", state.vignette);
+    set1f("u_radialBlurAmount", state.radialBlurAmount);
   }
 
   render(state: GradientState) {

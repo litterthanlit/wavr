@@ -30,6 +30,7 @@ uniform float u_mouseReact;
 uniform bool u_bloomEnabled;
 uniform float u_bloomIntensity;
 uniform float u_vignette;
+uniform float u_radialBlurAmount;
 
 // ============================================================
 // Simplex Noise 2D
@@ -233,13 +234,34 @@ void main() {
   vec2 uv = v_uv;
   float time = u_time * u_speed;
 
-  // Base gradient
+  // Base gradient (with optional radial zoom blur)
   vec3 color;
-  if (u_gradientType == 0) color = meshGradient(uv, time);
-  else if (u_gradientType == 1) color = radialGradient(uv, time);
-  else if (u_gradientType == 2) color = linearGradient(uv, time);
-  else if (u_gradientType == 3) color = conicGradient(uv, time);
-  else color = plasmaGradient(uv, time);
+  if (u_radialBlurAmount > 0.001) {
+    // Radial zoom blur: sample along direction from center to pixel
+    vec2 center = vec2(0.5);
+    vec2 dir = uv - center;
+    float strength = u_radialBlurAmount * 0.02;
+    const int SAMPLES = 12;
+    color = vec3(0.0);
+    for (int s = 0; s < SAMPLES; s++) {
+      float t = float(s) / float(SAMPLES - 1) - 0.5;
+      vec2 sampleUV = uv - dir * t * strength;
+      vec3 sc;
+      if (u_gradientType == 0) sc = meshGradient(sampleUV, time);
+      else if (u_gradientType == 1) sc = radialGradient(sampleUV, time);
+      else if (u_gradientType == 2) sc = linearGradient(sampleUV, time);
+      else if (u_gradientType == 3) sc = conicGradient(sampleUV, time);
+      else sc = plasmaGradient(sampleUV, time);
+      color += sc;
+    }
+    color /= float(SAMPLES);
+  } else {
+    if (u_gradientType == 0) color = meshGradient(uv, time);
+    else if (u_gradientType == 1) color = radialGradient(uv, time);
+    else if (u_gradientType == 2) color = linearGradient(uv, time);
+    else if (u_gradientType == 3) color = conicGradient(uv, time);
+    else color = plasmaGradient(uv, time);
+  }
 
   // Noise overlay
   if (u_noiseEnabled) {

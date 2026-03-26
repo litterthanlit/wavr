@@ -56,8 +56,15 @@ export default function EffectsPanel() {
 
       {/* Blur */}
       <div className="flex flex-col gap-3">
-        <Toggle label="Blur" checked={store.blurEnabled} onChange={(v) => store.setDiscrete({ blurEnabled: v })} />
+        <Toggle label="Gaussian Blur" checked={store.blurEnabled} onChange={(v) => store.setDiscrete({ blurEnabled: v })} />
         <Slider label="Amount" value={store.blurAmount} min={0} max={20} step={0.5} onChange={(v) => store.set({ blurAmount: v })} onCommit={() => store.commitSet()} disabled={!store.blurEnabled} />
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Radial Blur */}
+      <div className="flex flex-col gap-3">
+        <Slider label="Radial Blur" value={store.radialBlurAmount} min={0} max={1} step={0.01} onChange={(v) => store.set({ radialBlurAmount: v })} onCommit={() => store.commitSet()} />
       </div>
     </div>
   );
