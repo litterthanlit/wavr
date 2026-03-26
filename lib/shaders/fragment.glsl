@@ -36,6 +36,10 @@ uniform float u_radialBlurAmount;
 uniform float u_colorBlend;
 uniform float u_chromaticAberration;
 uniform float u_hueShift;
+uniform bool u_asciiEnabled;
+uniform float u_asciiSize;
+uniform bool u_ditherEnabled;
+uniform float u_ditherSize;
 
 // ============================================================
 // Simplex Noise 2D
@@ -455,6 +459,58 @@ void main() {
 
   // Tone mapping (simple reinhard)
   color = color / (color + 1.0);
+
+  // Ordered dithering (Bayer 4x4 matrix)
+  if (u_ditherEnabled) {
+    float cellSize = max(u_ditherSize, 1.0);
+    vec2 pixel = floor(gl_FragCoord.xy / cellSize);
+    int x = int(mod(pixel.x, 4.0));
+    int y = int(mod(pixel.y, 4.0));
+    // Bayer 4x4 threshold matrix (normalized to 0-1)
+    float threshold;
+    int idx = y * 4 + x;
+    if (idx == 0) threshold = 0.0 / 16.0;
+    else if (idx == 1) threshold = 8.0 / 16.0;
+    else if (idx == 2) threshold = 2.0 / 16.0;
+    else if (idx == 3) threshold = 10.0 / 16.0;
+    else if (idx == 4) threshold = 12.0 / 16.0;
+    else if (idx == 5) threshold = 4.0 / 16.0;
+    else if (idx == 6) threshold = 14.0 / 16.0;
+    else if (idx == 7) threshold = 6.0 / 16.0;
+    else if (idx == 8) threshold = 3.0 / 16.0;
+    else if (idx == 9) threshold = 11.0 / 16.0;
+    else if (idx == 10) threshold = 1.0 / 16.0;
+    else if (idx == 11) threshold = 9.0 / 16.0;
+    else if (idx == 12) threshold = 15.0 / 16.0;
+    else if (idx == 13) threshold = 7.0 / 16.0;
+    else if (idx == 14) threshold = 13.0 / 16.0;
+    else threshold = 5.0 / 16.0;
+    // Quantize each channel: step(threshold, luminance)
+    float levels = 4.0; // number of color levels
+    color = floor(color * levels + threshold) / levels;
+  }
+
+  // ASCII art effect
+  if (u_asciiEnabled) {
+    float cellSize = max(u_asciiSize, 2.0);
+    // Quantize UV to cell grid
+    vec2 cell = floor(gl_FragCoord.xy / cellSize);
+    vec2 cellUV = fract(gl_FragCoord.xy / cellSize);
+    // Sample color at cell center for uniform cell color
+    vec2 cellCenter = (cell + 0.5) * cellSize / u_resolution;
+    // Use the already-computed color (re-map from cell center would be expensive)
+    // Instead, quantize the existing color to the cell
+    float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    // ASCII density ramp: " .:-=+*#%@" (10 chars, mapped to luminance)
+    // Render as dot patterns based on luminance
+    vec2 cp = cellUV - 0.5;
+    float dist = length(cp);
+    // Higher luminance = larger filled area
+    float charRadius = lum * 0.5;
+    float charMask = smoothstep(charRadius + 0.02, charRadius - 0.02, dist);
+    // Mix: dark cells show small dots, bright cells fill more
+    color *= charMask * 1.2 + 0.1;
+  }
 
   fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
 }

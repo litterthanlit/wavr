@@ -95,6 +95,7 @@ export class GradientEngine {
       "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
       "u_mouseSmooth", "u_mouseVelocity", "u_colorBlend",
       "u_chromaticAberration", "u_hueShift",
+      "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -172,6 +173,10 @@ export class GradientEngine {
     set1f("u_colorBlend", state.colorBlend);
     set1f("u_chromaticAberration", state.chromaticAberration);
     set1f("u_hueShift", state.hueShift);
+    set1i("u_asciiEnabled", state.asciiEnabled ? 1 : 0);
+    set1f("u_asciiSize", state.asciiSize);
+    set1i("u_ditherEnabled", state.ditherEnabled ? 1 : 0);
+    set1f("u_ditherSize", state.ditherSize);
   }
 
   render(state: GradientState) {

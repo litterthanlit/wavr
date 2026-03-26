@@ -74,6 +74,22 @@ export default function EffectsPanel() {
       <div className="flex flex-col gap-3">
         <Slider label="Radial Blur" value={store.radialBlurAmount} min={0} max={1} step={0.01} onChange={(v) => store.set({ radialBlurAmount: v })} onCommit={() => store.commitSet()} />
       </div>
+
+      <div className="border-t border-border" />
+
+      {/* Dither */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="Dither" checked={store.ditherEnabled} onChange={(v) => store.setDiscrete({ ditherEnabled: v })} />
+        <Slider label="Pixel Size" value={store.ditherSize} min={1} max={12} step={1} onChange={(v) => store.set({ ditherSize: v })} onCommit={() => store.commitSet()} disabled={!store.ditherEnabled} />
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* ASCII */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="ASCII" checked={store.asciiEnabled} onChange={(v) => store.setDiscrete({ asciiEnabled: v })} />
+        <Slider label="Cell Size" value={store.asciiSize} min={2} max={24} step={1} onChange={(v) => store.set({ asciiSize: v })} onCommit={() => store.commitSet()} disabled={!store.asciiEnabled} />
+      </div>
     </div>
   );
 }

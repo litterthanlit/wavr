@@ -42,6 +42,14 @@ export interface GradientState {
   // Hue shift
   hueShift: number;
 
+  // ASCII
+  asciiEnabled: boolean;
+  asciiSize: number;
+
+  // Dither
+  ditherEnabled: boolean;
+  ditherSize: number;
+
   // Playback
   playing: boolean;
 
@@ -157,6 +165,10 @@ const DEFAULTS: Omit<
   colorBlend: 0,
   chromaticAberration: 0,
   hueShift: 0,
+  asciiEnabled: false,
+  asciiSize: 8,
+  ditherEnabled: false,
+  ditherSize: 4,
   playing: true,
 };
 
