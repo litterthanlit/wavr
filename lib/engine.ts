@@ -8,7 +8,7 @@ export class GradientEngine {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
   private uniforms: UniformMap = {};
-  private startTime: number;
+  private elapsedTime = 0;
   private animationId: number | null = null;
   private mouseX = 0.5;
   private mouseY = 0.5;
@@ -21,8 +21,6 @@ export class GradientEngine {
     });
     if (!gl) throw new Error("WebGL 2 not supported");
     this.gl = gl;
-    this.startTime = performance.now() / 1000;
-
     // Compile shaders
     const vertShader = this.compileShader(gl.VERTEX_SHADER, vertexSource);
     const fragShader = this.compileShader(gl.FRAGMENT_SHADER, fragmentSource);
@@ -110,42 +108,51 @@ export class GradientEngine {
     const gl = this.gl;
     const u = this.uniforms;
 
-    const now = performance.now() / 1000 - this.startTime;
-    if (u.u_time) gl.uniform1f(u.u_time, now);
-    if (u.u_resolution) gl.uniform2f(u.u_resolution, gl.canvas.width, gl.canvas.height);
-    if (u.u_mouse) gl.uniform2f(u.u_mouse, this.mouseX, this.mouseY);
+    const set1f = (name: string, val: number) => {
+      if (u[name] !== undefined) gl.uniform1f(u[name], val);
+    };
+    const set1i = (name: string, val: number) => {
+      if (u[name] !== undefined) gl.uniform1i(u[name], val);
+    };
+    const set2f = (name: string, x: number, y: number) => {
+      if (u[name] !== undefined) gl.uniform2f(u[name], x, y);
+    };
+
+    set1f("u_time", this.elapsedTime);
+    set2f("u_resolution", gl.canvas.width, gl.canvas.height);
+    set2f("u_mouse", this.mouseX, this.mouseY);
 
     const typeMap: Record<string, number> = { mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4 };
-    if (u.u_gradientType) gl.uniform1i(u.u_gradientType, typeMap[state.gradientType]);
+    set1i("u_gradientType", typeMap[state.gradientType]);
 
-    if (u.u_speed) gl.uniform1f(u.u_speed, state.speed);
-    if (u.u_complexity) gl.uniform1f(u.u_complexity, state.complexity);
-    if (u.u_scale) gl.uniform1f(u.u_scale, state.scale);
-    if (u.u_distortion) gl.uniform1f(u.u_distortion, state.distortion);
-    if (u.u_brightness) gl.uniform1f(u.u_brightness, state.brightness);
-    if (u.u_saturation) gl.uniform1f(u.u_saturation, state.saturation);
+    set1f("u_speed", state.speed);
+    set1f("u_complexity", state.complexity);
+    set1f("u_scale", state.scale);
+    set1f("u_distortion", state.distortion);
+    set1f("u_brightness", state.brightness);
+    set1f("u_saturation", state.saturation);
 
     // Colors
-    if (u.u_colorCount) gl.uniform1i(u.u_colorCount, state.colors.length);
+    set1i("u_colorCount", state.colors.length);
     for (let i = 0; i < 8; i++) {
       const key = `u_colors[${i}]`;
-      if (u[key] && i < state.colors.length) {
+      if (u[key] !== undefined && i < state.colors.length) {
         gl.uniform3fv(u[key], state.colors[i]);
       }
     }
 
     // Effects
-    if (u.u_noiseEnabled) gl.uniform1i(u.u_noiseEnabled, state.noiseEnabled ? 1 : 0);
-    if (u.u_noiseIntensity) gl.uniform1f(u.u_noiseIntensity, state.noiseIntensity);
-    if (u.u_noiseScale) gl.uniform1f(u.u_noiseScale, state.noiseScale);
-    if (u.u_grain) gl.uniform1f(u.u_grain, state.grain);
-    if (u.u_particlesEnabled) gl.uniform1i(u.u_particlesEnabled, state.particlesEnabled ? 1 : 0);
-    if (u.u_particleCount) gl.uniform1f(u.u_particleCount, state.particleCount);
-    if (u.u_particleSize) gl.uniform1f(u.u_particleSize, state.particleSize);
-    if (u.u_mouseReact) gl.uniform1f(u.u_mouseReact, state.mouseReact);
-    if (u.u_bloomEnabled) gl.uniform1i(u.u_bloomEnabled, state.bloomEnabled ? 1 : 0);
-    if (u.u_bloomIntensity) gl.uniform1f(u.u_bloomIntensity, state.bloomIntensity);
-    if (u.u_vignette) gl.uniform1f(u.u_vignette, state.vignette);
+    set1i("u_noiseEnabled", state.noiseEnabled ? 1 : 0);
+    set1f("u_noiseIntensity", state.noiseIntensity);
+    set1f("u_noiseScale", state.noiseScale);
+    set1f("u_grain", state.grain);
+    set1i("u_particlesEnabled", state.particlesEnabled ? 1 : 0);
+    set1f("u_particleCount", state.particleCount);
+    set1f("u_particleSize", state.particleSize);
+    set1f("u_mouseReact", state.mouseReact);
+    set1i("u_bloomEnabled", state.bloomEnabled ? 1 : 0);
+    set1f("u_bloomIntensity", state.bloomIntensity);
+    set1f("u_vignette", state.vignette);
   }
 
   render(state: GradientState) {
@@ -157,22 +164,31 @@ export class GradientEngine {
   startLoop(getState: () => GradientState, onFrame?: (fps: number) => void) {
     let lastFpsUpdate = performance.now();
     let frameCount = 0;
+    let lastTime = performance.now() / 1000;
 
     const loop = () => {
       this.animationId = requestAnimationFrame(loop);
       const state = getState();
-      if (!state.playing) return;
+      const now = performance.now() / 1000;
+
+      if (!state.playing) {
+        lastTime = now;
+        return;
+      }
+
+      this.elapsedTime += now - lastTime;
+      lastTime = now;
 
       this.render(state);
 
       // FPS tracking
       frameCount++;
-      const now = performance.now();
-      if (now - lastFpsUpdate >= 500) {
-        const fps = Math.round((frameCount / (now - lastFpsUpdate)) * 1000);
+      const nowMs = now * 1000;
+      if (nowMs - lastFpsUpdate >= 500) {
+        const fps = Math.round((frameCount / (nowMs - lastFpsUpdate)) * 1000);
         onFrame?.(fps);
         frameCount = 0;
-        lastFpsUpdate = now;
+        lastFpsUpdate = nowMs;
       }
     };
     loop();

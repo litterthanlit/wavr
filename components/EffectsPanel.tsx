@@ -24,12 +24,18 @@ export default function EffectsPanel() {
 
       <div className="border-t border-border" />
 
+      {/* Mouse Reactivity */}
+      <div className="flex flex-col gap-3">
+        <Slider label="Mouse React" value={store.mouseReact} min={0} max={1} step={0.01} onChange={(v) => store.set({ mouseReact: v })} />
+      </div>
+
+      <div className="border-t border-border" />
+
       {/* Particles */}
       <div className="flex flex-col gap-3">
         <Toggle label="Particles" checked={store.particlesEnabled} onChange={(v) => store.set({ particlesEnabled: v })} />
         <Slider label="Count" value={store.particleCount} min={10} max={300} step={1} onChange={(v) => store.set({ particleCount: v })} disabled={!store.particlesEnabled} />
         <Slider label="Size" value={store.particleSize} min={0.5} max={6} step={0.1} onChange={(v) => store.set({ particleSize: v })} disabled={!store.particlesEnabled} />
-        <Slider label="Mouse React" value={store.mouseReact} min={0} max={1} step={0.01} onChange={(v) => store.set({ mouseReact: v })} disabled={!store.particlesEnabled} />
       </div>
 
       <div className="border-t border-border" />
