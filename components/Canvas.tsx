@@ -93,9 +93,6 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
           const state = useGradientStore.getState();
           const updates: Partial<typeof state> = {};
           if (state.complexity > 1) updates.complexity = state.complexity - 1;
-          if (state.particlesEnabled && state.particleCount > 50) {
-            updates.particleCount = Math.floor(state.particleCount / 2);
-          }
           if (Object.keys(updates).length > 0) {
             useGradientStore.getState().set(updates);
             setToastMsg("Reduced quality for performance");

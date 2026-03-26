@@ -14,9 +14,6 @@ export interface GradientState {
   noiseIntensity: number;
   noiseScale: number;
   grain: number;
-  particlesEnabled: boolean;
-  particleCount: number;
-  particleSize: number;
   mouseReact: number;
   bloomEnabled: boolean;
   bloomIntensity: number;
@@ -31,19 +28,12 @@ export interface GradientState {
   asciiSize: number;
   ditherEnabled: boolean;
   ditherSize: number;
-  voronoiEnabled: boolean;
-  voronoiIntensity: number;
-  voronoiScale: number;
   curlEnabled: boolean;
   curlIntensity: number;
   curlScale: number;
   kaleidoscopeEnabled: boolean;
   kaleidoscopeSegments: number;
   kaleidoscopeRotation: number;
-  metaballsEnabled: boolean;
-  metaballsIntensity: number;
-  metaballsCount: number;
-  metaballsScale: number;
   reactionDiffEnabled: boolean;
   reactionDiffIntensity: number;
   reactionDiffScale: number;
@@ -188,9 +178,6 @@ const DEFAULTS = {
   noiseIntensity: 0.3,
   noiseScale: 1.0,
   grain: 0.0,
-  particlesEnabled: false,
-  particleCount: 50,
-  particleSize: 2.0,
   mouseReact: 0.5,
   bloomEnabled: false,
   bloomIntensity: 0.3,
@@ -205,19 +192,12 @@ const DEFAULTS = {
   asciiSize: 8,
   ditherEnabled: false,
   ditherSize: 4,
-  voronoiEnabled: false,
-  voronoiIntensity: 0.5,
-  voronoiScale: 1.0,
   curlEnabled: false,
   curlIntensity: 0.5,
   curlScale: 1.0,
   kaleidoscopeEnabled: false,
   kaleidoscopeSegments: 6,
   kaleidoscopeRotation: 0,
-  metaballsEnabled: false,
-  metaballsIntensity: 0.7,
-  metaballsCount: 6,
-  metaballsScale: 1.0,
   reactionDiffEnabled: false,
   reactionDiffIntensity: 0.5,
   reactionDiffScale: 1.0,

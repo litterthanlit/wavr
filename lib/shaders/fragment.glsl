@@ -25,9 +25,6 @@ uniform bool u_noiseEnabled;
 uniform float u_noiseIntensity;
 uniform float u_noiseScale;
 uniform float u_grain;
-uniform bool u_particlesEnabled;
-uniform float u_particleCount;
-uniform float u_particleSize;
 uniform float u_mouseReact;
 uniform bool u_bloomEnabled;
 uniform float u_bloomIntensity;
@@ -44,19 +41,12 @@ uniform float u_layerOpacity;
 uniform bool u_isBaseLayer;
 
 // Advanced effects
-uniform bool u_voronoiEnabled;
-uniform float u_voronoiIntensity;
-uniform float u_voronoiScale;
 uniform bool u_curlEnabled;
 uniform float u_curlIntensity;
 uniform float u_curlScale;
 uniform bool u_kaleidoscopeEnabled;
 uniform float u_kaleidoscopeSegments;
 uniform float u_kaleidoscopeRotation;
-uniform bool u_metaballsEnabled;
-uniform float u_metaballsIntensity;
-uniform float u_metaballsCount;
-uniform float u_metaballsScale;
 uniform bool u_reactionDiffEnabled;
 uniform float u_reactionDiffIntensity;
 uniform float u_reactionDiffScale;
@@ -319,49 +309,6 @@ float hash(vec2 p) {
 }
 
 // ============================================================
-// Voronoi Noise
-// ============================================================
-
-// Returns vec3(minDist, edgeDist, cellId)
-vec3 voronoi(vec2 p, float time) {
-  vec2 n = floor(p);
-  vec2 f = fract(p);
-
-  float minDist = 8.0;
-  float minDist2 = 8.0;
-  vec2 minCell = vec2(0.0);
-
-  for (int j = -1; j <= 1; j++) {
-    for (int i = -1; i <= 1; i++) {
-      vec2 g = vec2(float(i), float(j));
-      vec2 cellPos = n + g;
-      // Pseudo-random point inside cell, animated over time
-      vec2 o = vec2(
-        fract(sin(dot(cellPos, vec2(127.1, 311.7))) * 43758.5453),
-        fract(sin(dot(cellPos, vec2(269.5, 183.3))) * 43758.5453)
-      );
-      o = 0.5 + 0.4 * sin(time * 0.5 + 6.2831 * o);
-      vec2 diff = g + o - f;
-      float d = dot(diff, diff);
-      if (d < minDist) {
-        minDist2 = minDist;
-        minDist = d;
-        minCell = cellPos;
-      } else if (d < minDist2) {
-        minDist2 = d;
-      }
-    }
-  }
-
-  minDist = sqrt(minDist);
-  minDist2 = sqrt(minDist2);
-  float edge = minDist2 - minDist;
-  float cellId = fract(sin(dot(minCell, vec2(127.1, 311.7))) * 43758.5453);
-
-  return vec3(minDist, edge, cellId);
-}
-
-// ============================================================
 // Curl Noise (divergence-free 2D flow field)
 // ============================================================
 
@@ -376,45 +323,6 @@ vec2 curlNoise(vec2 p, float time) {
   float dndx = (n3 - n4) / (2.0 * eps);
   float dndy = (n1 - n2) / (2.0 * eps);
   return vec2(dndy, -dndx);
-}
-
-float renderParticles(vec2 uv, float time) {
-  float result = 0.0;
-  float count = u_particleCount;
-  float size = u_particleSize / u_resolution.x;
-
-  for (float i = 0.0; i < 300.0; i++) {
-    if (i >= count) break;
-
-    vec2 seed = vec2(i * 0.123, i * 0.456);
-    vec2 pos = vec2(hash(seed), hash(seed + 1.0));
-
-    // Drift
-    pos.x += sin(time * 0.3 + i * 0.7) * 0.05;
-    pos.y += cos(time * 0.2 + i * 1.1) * 0.05;
-    pos = fract(pos);
-
-    // Physics-based mouse: particles orbit and scatter
-    if (u_mouseReact > 0.0) {
-      vec2 toMouse = u_mouseSmooth - pos;
-      float mouseDist = length(toMouse);
-      vec2 mouseDir = normalize(toMouse + 0.0001);
-      float influence = smoothstep(0.3, 0.0, mouseDist);
-
-      // Attract gently + add tangential orbit from velocity
-      vec2 tangent = vec2(-mouseDir.y, mouseDir.x);
-      float velDot = dot(normalize(u_mouseVelocity + 0.001), tangent);
-      pos += mouseDir * influence * u_mouseReact * 0.02;
-      pos += tangent * influence * velDot * u_mouseReact * 0.01;
-    }
-    pos = clamp(pos, 0.0, 1.0);
-
-    float d = length(uv - pos);
-    float glow = smoothstep(size * 3.0, 0.0, d) * 0.5;
-    float core = smoothstep(size, size * 0.3, d);
-    result += (glow + core) * (0.5 + 0.5 * hash(seed + 2.0));
-  }
-  return clamp(result, 0.0, 1.0);
 }
 
 // ============================================================
@@ -498,16 +406,6 @@ void main() {
     color = mix(color, color * (0.5 + n), u_noiseIntensity);
   }
 
-  // Voronoi noise overlay
-  if (u_voronoiEnabled) {
-    vec2 vp = uv * u_voronoiScale * 5.0;
-    vec3 vor = voronoi(vp, time);
-    float cellColor = vor.z;
-    float edge = smoothstep(0.0, 0.05, vor.y);
-    vec3 voronoiColor = getGradientColor(cellColor) * edge;
-    color = mix(color, voronoiColor, u_voronoiIntensity);
-  }
-
   // Reaction-diffusion pattern overlay (Turing-like patterns)
   if (u_reactionDiffEnabled) {
     vec2 rp = uv * u_reactionDiffScale * 8.0;
@@ -526,40 +424,6 @@ void main() {
       mask
     );
     color = mix(color, rdColor, u_reactionDiffIntensity);
-  }
-
-  // Metaballs overlay
-  if (u_metaballsEnabled) {
-    float field = 0.0;
-    float colorIdx = 0.0;
-    float totalWeight = 0.0;
-    for (float i = 0.0; i < 12.0; i++) {
-      if (i >= u_metaballsCount) break;
-      // Animated blob positions
-      vec2 seed = vec2(i * 1.17, i * 0.53);
-      vec2 blobPos = vec2(
-        0.5 + 0.35 * sin(time * (0.3 + i * 0.07) + seed.x * 6.28),
-        0.5 + 0.35 * cos(time * (0.25 + i * 0.09) + seed.y * 6.28)
-      );
-      float dist = length(uv - blobPos);
-      float radius = u_metaballsScale * (0.06 + 0.03 * sin(i * 2.7));
-      float blob = radius / (dist * dist + 0.001);
-      field += blob;
-      colorIdx += blob * (i / u_metaballsCount);
-      totalWeight += blob;
-    }
-    colorIdx /= max(totalWeight, 0.001);
-    // Threshold for blobby iso-surface
-    float meta = smoothstep(8.0, 12.0, field);
-    vec3 metaColor = getGradientColor(colorIdx);
-    color = mix(color, metaColor, meta * u_metaballsIntensity);
-  }
-
-  // Particles
-  if (u_particlesEnabled) {
-    float p = renderParticles(uv, u_time);
-    vec3 particleColor = getGradientColor(uv.x * 0.5 + uv.y * 0.5);
-    color += particleColor * p * 0.6;
   }
 
   // Bloom (simplified single-pass glow)

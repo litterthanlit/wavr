@@ -17,9 +17,6 @@ export interface ProjectState {
   noiseIntensity: number;
   noiseScale: number;
   grain: number;
-  particlesEnabled: boolean;
-  particleCount: number;
-  particleSize: number;
   mouseReact: number;
   bloomEnabled: boolean;
   bloomIntensity: number;
@@ -55,9 +52,6 @@ export function exportProjectState(state: GradientState): ProjectState {
     noiseIntensity: state.noiseIntensity as number,
     noiseScale: state.noiseScale as number,
     grain: state.grain as number,
-    particlesEnabled: state.particlesEnabled as boolean,
-    particleCount: state.particleCount as number,
-    particleSize: state.particleSize as number,
     mouseReact: state.mouseReact as number,
     bloomEnabled: state.bloomEnabled as boolean,
     bloomIntensity: state.bloomIntensity as number,

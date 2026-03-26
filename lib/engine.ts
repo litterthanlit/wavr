@@ -99,16 +99,14 @@ export class GradientEngine {
       "u_speed", "u_complexity", "u_scale", "u_distortion",
       "u_brightness", "u_saturation", "u_colorCount",
       "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
-      "u_particlesEnabled", "u_particleCount", "u_particleSize", "u_mouseReact",
+      "u_mouseReact",
       "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
       "u_mouseSmooth", "u_mouseVelocity", "u_colorBlend",
       "u_chromaticAberration", "u_hueShift",
       "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
       "u_layerOpacity", "u_isBaseLayer",
-      "u_voronoiEnabled", "u_voronoiIntensity", "u_voronoiScale",
       "u_curlEnabled", "u_curlIntensity", "u_curlScale",
       "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
-      "u_metaballsEnabled", "u_metaballsIntensity", "u_metaballsCount", "u_metaballsScale",
       "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
       "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
     ];
@@ -233,9 +231,6 @@ export class GradientEngine {
     this.setf("u_noiseIntensity", state.noiseIntensity);
     this.setf("u_noiseScale", state.noiseScale);
     this.setf("u_grain", isBaseLayer ? state.grain : 0);
-    this.seti("u_particlesEnabled", isBaseLayer && state.particlesEnabled ? 1 : 0);
-    this.setf("u_particleCount", state.particleCount);
-    this.setf("u_particleSize", state.particleSize);
     this.seti("u_bloomEnabled", isBaseLayer && state.bloomEnabled ? 1 : 0);
     this.setf("u_bloomIntensity", state.bloomIntensity);
     this.setf("u_vignette", isBaseLayer ? state.vignette : 0);
@@ -247,19 +242,12 @@ export class GradientEngine {
     this.setf("u_asciiSize", state.asciiSize);
     this.seti("u_ditherEnabled", isBaseLayer && state.ditherEnabled ? 1 : 0);
     this.setf("u_ditherSize", state.ditherSize);
-    this.seti("u_voronoiEnabled", isBaseLayer && state.voronoiEnabled ? 1 : 0);
-    this.setf("u_voronoiIntensity", state.voronoiIntensity);
-    this.setf("u_voronoiScale", state.voronoiScale);
     this.seti("u_curlEnabled", isBaseLayer && state.curlEnabled ? 1 : 0);
     this.setf("u_curlIntensity", state.curlIntensity);
     this.setf("u_curlScale", state.curlScale);
     this.seti("u_kaleidoscopeEnabled", isBaseLayer && state.kaleidoscopeEnabled ? 1 : 0);
     this.setf("u_kaleidoscopeSegments", state.kaleidoscopeSegments);
     this.setf("u_kaleidoscopeRotation", state.kaleidoscopeRotation);
-    this.seti("u_metaballsEnabled", isBaseLayer && state.metaballsEnabled ? 1 : 0);
-    this.setf("u_metaballsIntensity", state.metaballsIntensity);
-    this.setf("u_metaballsCount", state.metaballsCount);
-    this.setf("u_metaballsScale", state.metaballsScale);
     this.seti("u_reactionDiffEnabled", isBaseLayer && state.reactionDiffEnabled ? 1 : 0);
     this.setf("u_reactionDiffIntensity", state.reactionDiffIntensity);
     this.setf("u_reactionDiffScale", state.reactionDiffScale);
