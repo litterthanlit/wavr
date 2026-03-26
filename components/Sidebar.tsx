@@ -3,6 +3,7 @@
 import { useState } from "react";
 import GradientPanel from "@/components/GradientPanel";
 import EffectsPanel from "@/components/EffectsPanel";
+import PresetsPanel from "@/components/PresetsPanel";
 
 const TABS = [
   { id: "gradient", label: "Gradient" },
@@ -38,9 +39,7 @@ export default function Sidebar() {
       <div className="flex-1 overflow-y-auto">
         {activeTab === "gradient" && <GradientPanel />}
         {activeTab === "effects" && <EffectsPanel />}
-        {activeTab === "presets" && (
-          <div className="p-4 text-xs text-text-tertiary">Presets panel coming soon</div>
-        )}
+        {activeTab === "presets" && <PresetsPanel />}
       </div>
     </div>
   );
