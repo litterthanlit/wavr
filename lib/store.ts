@@ -36,7 +36,12 @@ export interface GradientState {
   playing: boolean;
 
   // Actions
+  /** Live update — does NOT push undo history. Use for continuous changes (sliders). */
   set: (partial: Partial<GradientState>) => void;
+  /** Discrete update — pushes undo history before applying. Use for one-shot changes (toggles, select). */
+  setDiscrete: (partial: Partial<GradientState>) => void;
+  /** Commit the pending snapshot from a continuous interaction (call on pointerUp / drag end). */
+  commitSet: () => void;
   setColor: (index: number, color: [number, number, number]) => void;
   addColor: () => void;
   removeColor: (index: number) => void;
@@ -48,17 +53,25 @@ export interface GradientState {
 
 // Keys excluded from undo snapshots
 const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
-  "playing", "set", "setColor", "addColor", "removeColor",
+  "playing", "set", "setDiscrete", "commitSet", "setColor", "addColor", "removeColor",
   "loadPreset", "randomize", "undo", "redo",
 ];
 
-type Snapshot = Omit<GradientState, "set" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize" | "undo" | "redo" | "playing">;
+type Snapshot = Omit<GradientState, "set" | "setDiscrete" | "commitSet" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize" | "undo" | "redo" | "playing">;
 
 function takeSnapshot(state: GradientState): Snapshot {
   const snap: Record<string, unknown> = {};
   for (const key of Object.keys(state) as (keyof GradientState)[]) {
     if (!HISTORY_EXCLUDE_KEYS.includes(key) && typeof state[key] !== "function") {
-      snap[key] = state[key];
+      const val = state[key];
+      // Deep-copy arrays (colors) to prevent snapshot corruption from later mutations
+      if (Array.isArray(val)) {
+        snap[key] = val.map((item: unknown) =>
+          Array.isArray(item) ? [...item] : item
+        );
+      } else {
+        snap[key] = val;
+      }
     }
   }
   return snap as Snapshot;
@@ -102,7 +115,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 
 const DEFAULTS: Omit<
   GradientState,
-  "set" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize" | "undo" | "redo"
+  "set" | "setDiscrete" | "commitSet" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize" | "undo" | "redo"
 > = {
   gradientType: "mesh",
   speed: 0.4,
@@ -137,42 +150,85 @@ const MAX_HISTORY = 50;
 const past: Snapshot[] = [];
 let future: Snapshot[] = [];
 
+/** Snapshot captured before a continuous interaction (slider drag) began. */
+let pendingSnapshot: Snapshot | null = null;
+
 function pushHistory(snapshot: Snapshot) {
   past.push(snapshot);
   if (past.length > MAX_HISTORY) past.shift();
   future = [];
 }
 
-export const useGradientStore = create<GradientState>((rawSet) => {
-  const set = (partial: Partial<GradientState>) => {
-    const current = useGradientStore.getState();
-    pushHistory(takeSnapshot(current));
-    rawSet(partial);
-  };
+/** Flush any pending snapshot into history (e.g., before a discrete action). */
+function flushPending() {
+  if (pendingSnapshot !== null) {
+    pushHistory(pendingSnapshot);
+    pendingSnapshot = null;
+  }
+}
 
+export const useGradientStore = create<GradientState>((rawSet) => {
   return {
     ...DEFAULTS,
-    set: (partial) => set(partial),
-    setColor: (index, color) => {
+
+    // Live update for continuous interactions (sliders).
+    // Captures a pending snapshot on the first call, then just updates state.
+    set: (partial) => {
+      if (pendingSnapshot === null) {
+        pendingSnapshot = takeSnapshot(useGradientStore.getState());
+      }
+      rawSet(partial);
+    },
+
+    // Commit the pending snapshot from a continuous interaction.
+    // Call this on pointerUp / drag end.
+    commitSet: () => {
+      flushPending();
+    },
+
+    // Discrete update for one-shot changes (toggles, selects, type changes).
+    // Pushes history immediately before applying.
+    setDiscrete: (partial) => {
+      flushPending();
       const current = useGradientStore.getState();
       pushHistory(takeSnapshot(current));
-      const colors = [...current.colors] as [number, number, number][];
-      colors[index] = color;
+      rawSet(partial);
+    },
+
+    setColor: (index, color) => {
+      if (pendingSnapshot === null) {
+        pendingSnapshot = takeSnapshot(useGradientStore.getState());
+      }
+      const current = useGradientStore.getState();
+      const colors = current.colors.map((c, i) =>
+        i === index ? color : ([...c] as [number, number, number])
+      );
       rawSet({ colors });
     },
+
     addColor: () => {
       const current = useGradientStore.getState();
       if (current.colors.length >= 8) return;
+      flushPending();
       pushHistory(takeSnapshot(current));
-      rawSet({ colors: [...current.colors, randomHue()] });
+      rawSet({ colors: [...current.colors.map(c => [...c] as [number, number, number]), randomHue()] });
     },
+
     removeColor: (index) => {
       const current = useGradientStore.getState();
       if (current.colors.length <= 2) return;
+      flushPending();
       pushHistory(takeSnapshot(current));
       rawSet({ colors: current.colors.filter((_, i) => i !== index) });
     },
-    loadPreset: (preset) => set(preset),
+
+    loadPreset: (preset) => {
+      flushPending();
+      const current = useGradientStore.getState();
+      pushHistory(takeSnapshot(current));
+      rawSet(preset);
+    },
+
     randomize: () => {
       const count = 3 + Math.floor(Math.random() * 3);
       const baseHue = Math.random() * 360;
@@ -187,7 +243,11 @@ export const useGradientStore = create<GradientState>((rawSet) => {
       const types: GradientState["gradientType"][] = [
         "mesh", "radial", "linear", "conic", "plasma",
       ];
-      set({
+      // Randomize is a discrete action
+      flushPending();
+      const current = useGradientStore.getState();
+      pushHistory(takeSnapshot(current));
+      rawSet({
         colors,
         gradientType: types[Math.floor(Math.random() * types.length)],
         speed: 0.2 + Math.random() * 0.8,
@@ -196,14 +256,18 @@ export const useGradientStore = create<GradientState>((rawSet) => {
         distortion: Math.random() * 0.6,
       });
     },
+
     undo: () => {
+      flushPending();
       if (past.length === 0) return;
       const current = useGradientStore.getState();
       future.push(takeSnapshot(current));
       const prev = past.pop()!;
       rawSet(prev);
     },
+
     redo: () => {
+      flushPending();
       if (future.length === 0) return;
       const current = useGradientStore.getState();
       past.push(takeSnapshot(current));
@@ -213,5 +277,5 @@ export const useGradientStore = create<GradientState>((rawSet) => {
   };
 });
 
-export function canUndo() { return past.length > 0; }
+export function canUndo() { return past.length > 0 || pendingSnapshot !== null; }
 export function canRedo() { return future.length > 0; }

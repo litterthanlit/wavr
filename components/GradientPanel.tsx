@@ -22,7 +22,7 @@ export default function GradientPanel() {
         label="Gradient Type"
         value={store.gradientType}
         options={GRADIENT_OPTIONS}
-        onChange={(v) => store.set({ gradientType: v as typeof store.gradientType })}
+        onChange={(v) => store.setDiscrete({ gradientType: v as typeof store.gradientType })}
       />
 
       <div className="flex flex-col gap-2">
@@ -32,6 +32,7 @@ export default function GradientPanel() {
             key={i}
             color={color}
             onChange={(c) => store.setColor(i, c)}
+            onCommit={() => store.commitSet()}
             onRemove={() => store.removeColor(i)}
             canRemove={store.colors.length > 2}
           />
@@ -47,12 +48,12 @@ export default function GradientPanel() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <Slider label="Speed" value={store.speed} min={0} max={2} step={0.01} onChange={(v) => store.set({ speed: v })} />
-        <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} />
-        <Slider label="Scale" value={store.scale} min={0.2} max={4} step={0.01} onChange={(v) => store.set({ scale: v })} />
-        <Slider label="Distortion" value={store.distortion} min={0} max={1} step={0.01} onChange={(v) => store.set({ distortion: v })} />
-        <Slider label="Brightness" value={store.brightness} min={0.1} max={2} step={0.01} onChange={(v) => store.set({ brightness: v })} />
-        <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} onChange={(v) => store.set({ saturation: v })} />
+        <Slider label="Speed" value={store.speed} min={0} max={2} step={0.01} onChange={(v) => store.set({ speed: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Scale" value={store.scale} min={0.2} max={4} step={0.01} onChange={(v) => store.set({ scale: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Distortion" value={store.distortion} min={0} max={1} step={0.01} onChange={(v) => store.set({ distortion: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Brightness" value={store.brightness} min={0.1} max={2} step={0.01} onChange={(v) => store.set({ brightness: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} onChange={(v) => store.set({ saturation: v })} onCommit={() => store.commitSet()} />
       </div>
     </div>
   );
