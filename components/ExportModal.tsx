@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useGradientStore } from "@/lib/store";
 import { exportPNG, exportCSS, copyToClipboard, exportWebM } from "@/lib/export";
 
 interface ExportModalProps {
   open: boolean;
   onClose: () => void;
-  canvasRef: HTMLCanvasElement | null;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
 }
 
 export default function ExportModal({ open, onClose, canvasRef }: ExportModalProps) {
@@ -19,7 +19,7 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
   if (!open) return null;
 
   const handlePNG = () => {
-    if (canvasRef) exportPNG(canvasRef);
+    if (canvasRef.current) exportPNG(canvasRef.current);
   };
 
   const handleCSS = async () => {
@@ -30,10 +30,10 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
   };
 
   const handleWebM = async () => {
-    if (!canvasRef || recording) return;
+    if (!canvasRef.current || recording) return;
     setRecording(true);
     setProgress(0);
-    await exportWebM(canvasRef, 5000, "wavr-gradient.webm", setProgress);
+    await exportWebM(canvasRef.current, 5000, "wavr-gradient.webm", setProgress);
     setRecording(false);
   };
 

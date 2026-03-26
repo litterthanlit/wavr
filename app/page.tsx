@@ -20,7 +20,7 @@ export default function Home() {
       <ExportModal
         open={exportOpen}
         onClose={() => setExportOpen(false)}
-        canvasRef={canvasElRef.current}
+        canvasRef={canvasElRef}
       />
     </div>
   );
