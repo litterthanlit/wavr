@@ -1,15 +1,19 @@
+"use client";
+
+import { useState, useRef } from "react";
 import Canvas from "@/components/Canvas";
 import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 
 export default function Home() {
+  const [exportOpen, setExportOpen] = useState(false);
+  const canvasElRef = useRef<HTMLCanvasElement | null>(null);
+
   return (
     <div className="h-screen w-screen bg-root flex flex-col">
-      {/* TopBar placeholder */}
-      <div className="h-[52px] shrink-0 border-b border-border bg-base/70 backdrop-blur-[20px] flex items-center px-4">
-        <span className="font-mono text-sm font-bold text-text-primary tracking-wider">WAVR</span>
-      </div>
+      <TopBar onExport={() => setExportOpen(true)} />
       <div className="flex flex-1 min-h-0">
-        <Canvas />
+        <Canvas onCanvasReady={(el) => { canvasElRef.current = el; }} />
         <Sidebar />
       </div>
     </div>
