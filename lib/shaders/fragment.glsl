@@ -40,6 +40,8 @@ uniform bool u_asciiEnabled;
 uniform float u_asciiSize;
 uniform bool u_ditherEnabled;
 uniform float u_ditherSize;
+uniform float u_layerOpacity;
+uniform bool u_isBaseLayer;
 
 // ============================================================
 // Simplex Noise 2D
@@ -512,5 +514,5 @@ void main() {
     color *= charMask * 1.2 + 0.1;
   }
 
-  fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  fragColor = vec4(clamp(color, 0.0, 1.0), u_layerOpacity);
 }

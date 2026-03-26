@@ -1,6 +1,7 @@
 import vertexSource from "./shaders/vertex.glsl";
 import fragmentSource from "./shaders/fragment.glsl";
 import { GradientState } from "./store";
+import { BlendMode, LayerParams } from "./layers";
 
 type UniformMap = Record<string, WebGLUniformLocation>;
 
@@ -22,9 +23,10 @@ export class GradientEngine {
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", {
-      alpha: false,
+      alpha: true,
       antialias: false,
       preserveDrawingBuffer: true,
+      premultipliedAlpha: false,
     });
     if (!gl) throw new Error("WebGL 2 not supported");
     this.gl = gl;
@@ -96,6 +98,7 @@ export class GradientEngine {
       "u_mouseSmooth", "u_mouseVelocity", "u_colorBlend",
       "u_chromaticAberration", "u_hueShift",
       "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
+      "u_layerOpacity", "u_isBaseLayer",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -120,69 +123,135 @@ export class GradientEngine {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   }
 
-  private setUniforms(state: GradientState) {
+  private setf(name: string, val: number) {
+    const loc = this.uniforms[name];
+    if (loc !== undefined) this.gl.uniform1f(loc, val);
+  }
+
+  private seti(name: string, val: number) {
+    const loc = this.uniforms[name];
+    if (loc !== undefined) this.gl.uniform1i(loc, val);
+  }
+
+  private set2f(name: string, x: number, y: number) {
+    const loc = this.uniforms[name];
+    if (loc !== undefined) this.gl.uniform2f(loc, x, y);
+  }
+
+  private setLayerUniforms(layer: LayerParams) {
     const gl = this.gl;
-    const u = this.uniforms;
-
-    const set1f = (name: string, val: number) => {
-      if (u[name] !== undefined) gl.uniform1f(u[name], val);
-    };
-    const set1i = (name: string, val: number) => {
-      if (u[name] !== undefined) gl.uniform1i(u[name], val);
-    };
-    const set2f = (name: string, x: number, y: number) => {
-      if (u[name] !== undefined) gl.uniform2f(u[name], x, y);
-    };
-
-    set1f("u_time", this.elapsedTime);
-    set2f("u_resolution", gl.canvas.width, gl.canvas.height);
-    set2f("u_mouse", this.mouseX, this.mouseY);
-    set2f("u_mouseSmooth", this.smoothMouseX, this.smoothMouseY);
-    set2f("u_mouseVelocity", this.mouseVelX, this.mouseVelY);
-
     const typeMap: Record<string, number> = { mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4 };
-    set1i("u_gradientType", typeMap[state.gradientType]);
-
-    set1f("u_speed", state.speed);
-    set1f("u_complexity", state.complexity);
-    set1f("u_scale", state.scale);
-    set1f("u_distortion", state.distortion);
-    set1f("u_brightness", state.brightness);
-    set1f("u_saturation", state.saturation);
-
-    set1i("u_colorCount", state.colors.length);
+    this.seti("u_gradientType", typeMap[layer.gradientType]);
+    this.setf("u_speed", layer.speed);
+    this.setf("u_complexity", layer.complexity);
+    this.setf("u_scale", layer.scale);
+    this.setf("u_distortion", layer.distortion);
+    this.seti("u_colorCount", layer.colors.length);
     for (let i = 0; i < 8; i++) {
       const key = `u_colors[${i}]`;
-      if (u[key] !== undefined && i < state.colors.length) {
-        gl.uniform3fv(u[key], state.colors[i]);
+      if (this.uniforms[key] !== undefined && i < layer.colors.length) {
+        gl.uniform3fv(this.uniforms[key], layer.colors[i]);
       }
     }
+    this.setf("u_layerOpacity", layer.opacity);
+  }
 
-    set1i("u_noiseEnabled", state.noiseEnabled ? 1 : 0);
-    set1f("u_noiseIntensity", state.noiseIntensity);
-    set1f("u_noiseScale", state.noiseScale);
-    set1f("u_grain", state.grain);
-    set1i("u_particlesEnabled", state.particlesEnabled ? 1 : 0);
-    set1f("u_particleCount", state.particleCount);
-    set1f("u_particleSize", state.particleSize);
-    set1f("u_mouseReact", state.mouseReact);
-    set1i("u_bloomEnabled", state.bloomEnabled ? 1 : 0);
-    set1f("u_bloomIntensity", state.bloomIntensity);
-    set1f("u_vignette", state.vignette);
-    set1f("u_radialBlurAmount", state.radialBlurAmount);
-    set1f("u_colorBlend", state.colorBlend);
-    set1f("u_chromaticAberration", state.chromaticAberration);
-    set1f("u_hueShift", state.hueShift);
-    set1i("u_asciiEnabled", state.asciiEnabled ? 1 : 0);
-    set1f("u_asciiSize", state.asciiSize);
-    set1i("u_ditherEnabled", state.ditherEnabled ? 1 : 0);
-    set1f("u_ditherSize", state.ditherSize);
+  private setGlobalUniforms(state: GradientState, isBaseLayer: boolean) {
+    this.setf("u_time", this.elapsedTime);
+    this.set2f("u_resolution", this.gl.canvas.width, this.gl.canvas.height);
+    this.set2f("u_mouse", this.mouseX, this.mouseY);
+    this.set2f("u_mouseSmooth", this.smoothMouseX, this.smoothMouseY);
+    this.set2f("u_mouseVelocity", this.mouseVelX, this.mouseVelY);
+    this.setf("u_mouseReact", state.mouseReact);
+
+    // Only apply post-processing on the final layer
+    this.seti("u_isBaseLayer", isBaseLayer ? 1 : 0);
+    this.setf("u_brightness", isBaseLayer ? state.brightness : 1.0);
+    this.setf("u_saturation", isBaseLayer ? state.saturation : 1.0);
+    this.seti("u_noiseEnabled", isBaseLayer && state.noiseEnabled ? 1 : 0);
+    this.setf("u_noiseIntensity", state.noiseIntensity);
+    this.setf("u_noiseScale", state.noiseScale);
+    this.setf("u_grain", isBaseLayer ? state.grain : 0);
+    this.seti("u_particlesEnabled", isBaseLayer && state.particlesEnabled ? 1 : 0);
+    this.setf("u_particleCount", state.particleCount);
+    this.setf("u_particleSize", state.particleSize);
+    this.seti("u_bloomEnabled", isBaseLayer && state.bloomEnabled ? 1 : 0);
+    this.setf("u_bloomIntensity", state.bloomIntensity);
+    this.setf("u_vignette", isBaseLayer ? state.vignette : 0);
+    this.setf("u_radialBlurAmount", state.radialBlurAmount);
+    this.setf("u_colorBlend", state.colorBlend);
+    this.setf("u_chromaticAberration", isBaseLayer ? state.chromaticAberration : 0);
+    this.setf("u_hueShift", isBaseLayer ? state.hueShift : 0);
+    this.seti("u_asciiEnabled", isBaseLayer && state.asciiEnabled ? 1 : 0);
+    this.setf("u_asciiSize", state.asciiSize);
+    this.seti("u_ditherEnabled", isBaseLayer && state.ditherEnabled ? 1 : 0);
+    this.setf("u_ditherSize", state.ditherSize);
+  }
+
+  private applyBlendMode(mode: BlendMode) {
+    const gl = this.gl;
+    gl.enable(gl.BLEND);
+    switch (mode) {
+      case "normal":
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        break;
+      case "add":
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        break;
+      case "multiply":
+        gl.blendFunc(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA);
+        break;
+      case "screen":
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
+        break;
+      case "overlay":
+        // Approximation: use additive for bright, multiply for dark
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        break;
+    }
   }
 
   render(state: GradientState) {
     const gl = this.gl;
-    this.setUniforms(state);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const visibleLayers = state.layers.filter((l) => l.visible);
+
+    if (visibleLayers.length === 0) {
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      return;
+    }
+
+    // Single layer: render directly (no blending overhead)
+    if (visibleLayers.length === 1) {
+      gl.disable(gl.BLEND);
+      const layer = visibleLayers[0];
+      this.setGlobalUniforms(state, true);
+      this.setLayerUniforms(layer);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      return;
+    }
+
+    // Multi-layer: render base, then composite overlays
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    for (let i = 0; i < visibleLayers.length; i++) {
+      const layer = visibleLayers[i];
+      const isLast = i === visibleLayers.length - 1;
+
+      if (i === 0) {
+        gl.disable(gl.BLEND);
+      } else {
+        this.applyBlendMode(layer.blendMode);
+      }
+
+      // Apply global effects only on the last layer
+      this.setGlobalUniforms(state, isLast);
+      this.setLayerUniforms(layer);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+
+    gl.disable(gl.BLEND);
   }
 
   startLoop(getState: () => GradientState, onFrame?: (fps: number) => void) {
@@ -205,13 +274,12 @@ export class GradientEngine {
       lastTime = now;
 
       // Smooth mouse with lerp (exponential decay, frame-rate independent)
-      const lerpFactor = 1.0 - Math.exp(-8.0 * dt); // ~8 Hz smoothing
+      const lerpFactor = 1.0 - Math.exp(-8.0 * dt);
       this.prevSmoothX = this.smoothMouseX;
       this.prevSmoothY = this.smoothMouseY;
       this.smoothMouseX += (this.mouseX - this.smoothMouseX) * lerpFactor;
       this.smoothMouseY += (this.mouseY - this.smoothMouseY) * lerpFactor;
 
-      // Velocity (smoothed delta per second)
       if (dt > 0) {
         const rawVelX = (this.smoothMouseX - this.prevSmoothX) / dt;
         const rawVelY = (this.smoothMouseY - this.prevSmoothY) / dt;

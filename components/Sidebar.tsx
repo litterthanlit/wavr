@@ -3,6 +3,7 @@
 import GradientPanel from "@/components/GradientPanel";
 import EffectsPanel from "@/components/EffectsPanel";
 import PresetsPanel from "@/components/PresetsPanel";
+import LayerPanel from "@/components/LayerPanel";
 import type { SidebarTab } from "@/app/page";
 
 const TABS: { id: SidebarTab; label: string }[] = [
@@ -19,6 +20,12 @@ interface SidebarProps {
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   return (
     <div className="w-[320px] shrink-0 bg-base border-l border-border flex-col h-full hidden md:flex">
+      {/* Layer panel (always visible) */}
+      <div className="border-b border-border shrink-0">
+        <LayerPanel />
+      </div>
+
+      {/* Tab bar */}
       <div className="flex border-b border-border shrink-0">
         {TABS.map((tab) => (
           <button
@@ -34,6 +41,8 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           </button>
         ))}
       </div>
+
+      {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === "gradient" && <GradientPanel />}
         {activeTab === "effects" && <EffectsPanel />}
