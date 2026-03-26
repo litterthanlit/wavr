@@ -1,7 +1,7 @@
 "use client";
 
-import { useGradientStore } from "@/lib/store";
-import { MAX_LAYERS, BlendMode } from "@/lib/layers";
+import { useGradientStore, GradientState } from "@/lib/store";
+import { MAX_LAYERS, BlendMode, LayerParams } from "@/lib/layers";
 import Slider from "@/components/ui/Slider";
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
@@ -36,7 +36,7 @@ export default function LayerPanel() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        {store.layers.map((layer, i) => (
+        {(store.layers as LayerParams[]).map((layer, i) => (
           <div
             key={i}
             onClick={() => store.selectLayer(i)}

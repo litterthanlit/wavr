@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type RefObject } from "react";
-import { useGradientStore } from "@/lib/store";
+import { useGradientStore, GradientState } from "@/lib/store";
 import { exportPNG, exportCSS, copyToClipboard, exportWebM } from "@/lib/export";
 
 interface ExportModalProps {
@@ -14,7 +14,7 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
   const [copied, setCopied] = useState(false);
   const [recording, setRecording] = useState(false);
   const [progress, setProgress] = useState(0);
-  const colors = useGradientStore((s) => s.colors);
+  const colors = useGradientStore((s: GradientState) => s.colors);
 
   if (!open) return null;
 

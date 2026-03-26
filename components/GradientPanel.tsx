@@ -27,7 +27,7 @@ export default function GradientPanel() {
 
       <div className="flex flex-col gap-2">
         <span className="text-xs text-text-secondary">Colors</span>
-        {store.colors.map((color, i) => (
+        {(store.colors as [number, number, number][]).map((color, i) => (
           <ColorInput
             key={i}
             color={color}

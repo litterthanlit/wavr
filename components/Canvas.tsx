@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { GradientEngine } from "@/lib/engine";
-import { useGradientStore } from "@/lib/store";
+import { useGradientStore, GradientState, getInterpolatedParams } from "@/lib/store";
 import Toast from "@/components/ui/Toast";
 
 interface CanvasProps {
@@ -19,8 +19,8 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
   const degradedRef = useRef(false);
   const lowFpsStartRef = useRef<number | null>(null);
   const initErrorRef = useRef<string | null>(null);
-  const blurEnabled = useGradientStore((s) => s.blurEnabled);
-  const blurAmount = useGradientStore((s) => s.blurAmount);
+  const blurEnabled = useGradientStore((s: GradientState) => s.blurEnabled);
+  const blurAmount = useGradientStore((s: GradientState) => s.blurAmount);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const canvas = canvasRef.current;
@@ -111,7 +111,28 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
     window.addEventListener("resize", handleResize);
     window.addEventListener("mousemove", handleMouseMove);
 
-    engine.startLoop(() => useGradientStore.getState(), handleFps);
+    let lastTimelineUpdate = performance.now();
+    engine.startLoop(() => {
+      const state = useGradientStore.getState();
+
+      // Advance timeline position and apply interpolated params
+      if (state.timelineEnabled && state.playing && state.keyframes.length > 0) {
+        const now = performance.now();
+        const dt = (now - lastTimelineUpdate) / 1000;
+        lastTimelineUpdate = now;
+        const newPos = state.timelinePosition + dt;
+        state.setTimelinePosition(newPos);
+
+        const interpolated = getInterpolatedParams();
+        if (interpolated) {
+          return { ...state, ...interpolated };
+        }
+      } else {
+        lastTimelineUpdate = performance.now();
+      }
+
+      return state;
+    }, handleFps);
 
     return () => {
       canvas.removeEventListener("webglcontextlost", handleContextLost);

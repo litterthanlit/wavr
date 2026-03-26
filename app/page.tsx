@@ -7,6 +7,7 @@ import TopBar from "@/components/TopBar";
 import ExportModal from "@/components/ExportModal";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import MobileDrawer from "@/components/MobileDrawer";
+import Timeline from "@/components/Timeline";
 import { useGradientStore } from "@/lib/store";
 
 export type SidebarTab = "gradient" | "effects" | "presets";
@@ -81,7 +82,10 @@ export default function Home() {
         onShowShortcuts={() => setShortcutsOpen(true)}
       />
       <div className="flex flex-1 min-h-0">
-        <Canvas onCanvasReady={(el) => { canvasElRef.current = el; }} />
+        <div className="flex-1 flex flex-col min-h-0">
+          <Canvas onCanvasReady={(el) => { canvasElRef.current = el; }} />
+          <Timeline />
+        </div>
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
       <ExportModal

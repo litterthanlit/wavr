@@ -1,6 +1,6 @@
 "use client";
 
-import { useGradientStore } from "@/lib/store";
+import { useGradientStore, GradientState } from "@/lib/store";
 import { PRESETS } from "@/lib/presets";
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -12,7 +12,7 @@ function rgbToHex(r: number, g: number, b: number): string {
 }
 
 export default function PresetsPanel() {
-  const loadPreset = useGradientStore((s) => s.loadPreset);
+  const loadPreset = useGradientStore((s: GradientState) => s.loadPreset);
 
   return (
     <div className="p-4 grid grid-cols-2 gap-2">

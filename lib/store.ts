@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "./layers";
+import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
 
 export interface GradientState {
   // Layers
@@ -34,6 +35,13 @@ export interface GradientState {
   // Playback
   playing: boolean;
 
+  // Timeline
+  timelineEnabled: boolean;
+  timelineDuration: number;
+  timelinePlaybackMode: PlaybackMode;
+  keyframes: Keyframe[];
+  timelinePosition: number;
+
   // Convenience getters for active layer (derived)
   gradientType: LayerParams["gradientType"];
   speed: number;
@@ -63,6 +71,14 @@ export interface GradientState {
   setLayerBlendMode: (index: number, mode: BlendMode) => void;
   toggleLayerVisibility: (index: number) => void;
   moveLayer: (from: number, to: number) => void;
+
+  // Timeline actions
+  toggleTimeline: () => void;
+  addKeyframe: () => void;
+  removeKeyframe: (index: number) => void;
+  setTimelinePosition: (time: number) => void;
+  setTimelineDuration: (duration: number) => void;
+  setTimelinePlaybackMode: (mode: PlaybackMode) => void;
 }
 
 // Keys excluded from undo snapshots
@@ -71,6 +87,8 @@ const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "loadPreset", "randomize", "undo", "redo",
   "addLayer", "removeLayer", "selectLayer", "setLayerParam", "setLayerOpacity",
   "setLayerBlendMode", "toggleLayerVisibility", "moveLayer",
+  "toggleTimeline", "addKeyframe", "removeKeyframe", "setTimelinePosition",
+  "setTimelineDuration", "setTimelinePlaybackMode",
   // Derived fields
   "gradientType", "speed", "complexity", "scale", "distortion", "colors",
 ];
@@ -170,6 +188,11 @@ const DEFAULTS = {
   ditherEnabled: false,
   ditherSize: 4,
   playing: true,
+  timelineEnabled: false,
+  timelineDuration: 10,
+  timelinePlaybackMode: "loop" as PlaybackMode,
+  keyframes: [] as Keyframe[],
+  timelinePosition: 0,
 };
 
 const MAX_HISTORY = 50;
@@ -472,7 +495,69 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       ...deriveActiveLayerFields(newLayers, newIndex),
     });
   },
+
+  // Timeline
+  toggleTimeline: () => {
+    const current = useGradientStore.getState();
+    rawSet({ timelineEnabled: !current.timelineEnabled });
+  },
+
+  addKeyframe: () => {
+    const current = useGradientStore.getState();
+    flushPending();
+    pushHistory(takeSnapshot(current));
+    const params: KeyframeParams = {};
+    for (const key of KEYFRAMEABLE_PARAMS) {
+      if (key in current) {
+        params[key] = current[key as keyof typeof current] as number;
+      }
+    }
+    const newKf: Keyframe = { time: current.timelinePosition, params };
+    // Replace existing keyframe at same time, or add new
+    const existing = current.keyframes.findIndex(
+      (kf) => Math.abs(kf.time - current.timelinePosition) < 0.05
+    );
+    const newKeyframes = [...current.keyframes];
+    if (existing >= 0) {
+      newKeyframes[existing] = newKf;
+    } else {
+      newKeyframes.push(newKf);
+    }
+    newKeyframes.sort((a, b) => a.time - b.time);
+    rawSet({ keyframes: newKeyframes });
+  },
+
+  removeKeyframe: (index) => {
+    const current = useGradientStore.getState();
+    flushPending();
+    pushHistory(takeSnapshot(current));
+    rawSet({ keyframes: current.keyframes.filter((_, i) => i !== index) });
+  },
+
+  setTimelinePosition: (time) => {
+    rawSet({ timelinePosition: Math.max(0, time) });
+  },
+
+  setTimelineDuration: (duration) => {
+    rawSet({ timelineDuration: Math.max(1, duration) });
+  },
+
+  setTimelinePlaybackMode: (mode) => {
+    rawSet({ timelinePlaybackMode: mode });
+  },
+
 }));
 
 export function canUndo() { return past.length > 0 || pendingSnapshot !== null; }
 export function canRedo() { return future.length > 0; }
+
+export function getInterpolatedParams(): KeyframeParams | null {
+  const state = useGradientStore.getState();
+  if (!state.timelineEnabled || (state.keyframes as Keyframe[]).length === 0) return null;
+  return interpolateKeyframes(
+    state.keyframes as Keyframe[],
+    state.timelinePosition as number,
+    state.timelineDuration as number,
+    state.timelinePlaybackMode as PlaybackMode
+  );
+}
