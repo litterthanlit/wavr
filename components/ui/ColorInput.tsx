@@ -5,6 +5,7 @@ import { useRef } from "react";
 interface ColorInputProps {
   color: [number, number, number];
   onChange: (color: [number, number, number]) => void;
+  onCommit?: () => void;
   onRemove?: () => void;
   canRemove?: boolean;
 }
@@ -27,7 +28,7 @@ function hexToRgb(hex: string): [number, number, number] {
   ];
 }
 
-export default function ColorInput({ color, onChange, onRemove, canRemove }: ColorInputProps) {
+export default function ColorInput({ color, onChange, onCommit, onRemove, canRemove }: ColorInputProps) {
   const pickerRef = useRef<HTMLInputElement>(null);
   const hex = rgbToHex(...color);
 
@@ -43,6 +44,7 @@ export default function ColorInput({ color, onChange, onRemove, canRemove }: Col
         type="color"
         value={hex}
         onChange={(e) => onChange(hexToRgb(e.target.value))}
+        onBlur={() => onCommit?.()}
         className="sr-only"
       />
       <input
@@ -54,6 +56,7 @@ export default function ColorInput({ color, onChange, onRemove, canRemove }: Col
             onChange(hexToRgb(val));
           }
         }}
+        onBlur={() => onCommit?.()}
         className="flex-1 bg-surface border border-border rounded-md px-2 py-1 text-xs font-mono text-text-primary
           focus:outline-none focus:border-border-active transition-colors duration-150"
       />

@@ -1,31 +1,54 @@
 import vertexSource from "./shaders/vertex.glsl";
 import fragmentSource from "./shaders/fragment.glsl";
 import { GradientState } from "./store";
+import { BlendMode, LayerParams } from "./layers";
 
 type UniformMap = Record<string, WebGLUniformLocation>;
 
 export class GradientEngine {
   private gl: WebGL2RenderingContext;
-  private program: WebGLProgram;
+  private program!: WebGLProgram;
   private uniforms: UniformMap = {};
   private elapsedTime = 0;
   private animationId: number | null = null;
   private mouseX = 0.5;
   private mouseY = 0.5;
+  // Smoothed mouse for physics
+  private smoothMouseX = 0.5;
+  private smoothMouseY = 0.5;
+  private mouseVelX = 0;
+  private mouseVelY = 0;
+  private prevSmoothX = 0.5;
+  private prevSmoothY = 0.5;
+  // Feedback loop FBO ping-pong
+  private feedbackFBOs: [WebGLFramebuffer, WebGLFramebuffer] | null = null;
+  private feedbackTextures: [WebGLTexture, WebGLTexture] | null = null;
+  private feedbackIndex = 0;
+  private feedbackWidth = 0;
+  private feedbackHeight = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", {
-      alpha: false,
+      alpha: true,
       antialias: false,
       preserveDrawingBuffer: true,
+      premultipliedAlpha: false,
     });
     if (!gl) throw new Error("WebGL 2 not supported");
     this.gl = gl;
-    // Compile shaders
+    this.initProgram();
+  }
+
+  initProgram() {
+    const gl = this.gl;
+
+    if (this.program) {
+      gl.deleteProgram(this.program);
+    }
+
     const vertShader = this.compileShader(gl.VERTEX_SHADER, vertexSource);
     const fragShader = this.compileShader(gl.FRAGMENT_SHADER, fragmentSource);
 
-    // Link program
     const program = gl.createProgram()!;
     gl.attachShader(program, vertShader);
     gl.attachShader(program, fragShader);
@@ -39,7 +62,6 @@ export class GradientEngine {
     this.program = program;
     gl.useProgram(program);
 
-    // Setup fullscreen quad
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
     const buffer = gl.createBuffer()!;
@@ -53,7 +75,7 @@ export class GradientEngine {
     gl.enableVertexAttribArray(posLoc);
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
-    // Cache uniform locations
+    this.uniforms = {};
     this.cacheUniforms();
   }
 
@@ -78,13 +100,22 @@ export class GradientEngine {
       "u_brightness", "u_saturation", "u_colorCount",
       "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
       "u_particlesEnabled", "u_particleCount", "u_particleSize", "u_mouseReact",
-      "u_bloomEnabled", "u_bloomIntensity", "u_vignette",
+      "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
+      "u_mouseSmooth", "u_mouseVelocity", "u_colorBlend",
+      "u_chromaticAberration", "u_hueShift",
+      "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
+      "u_layerOpacity", "u_isBaseLayer",
+      "u_voronoiEnabled", "u_voronoiIntensity", "u_voronoiScale",
+      "u_curlEnabled", "u_curlIntensity", "u_curlScale",
+      "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
+      "u_metaballsEnabled", "u_metaballsIntensity", "u_metaballsCount", "u_metaballsScale",
+      "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
+      "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
       if (loc) this.uniforms[name] = loc;
     }
-    // Color array
     for (let i = 0; i < 8; i++) {
       const loc = gl.getUniformLocation(this.program, `u_colors[${i}]`);
       if (loc) this.uniforms[`u_colors[${i}]`] = loc;
@@ -104,61 +135,230 @@ export class GradientEngine {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   }
 
-  private setUniforms(state: GradientState) {
+  private initFeedbackFBOs() {
     const gl = this.gl;
-    const u = this.uniforms;
+    const width = gl.canvas.width;
+    const height = gl.canvas.height;
+    this.destroyFeedbackFBOs();
 
-    const set1f = (name: string, val: number) => {
-      if (u[name] !== undefined) gl.uniform1f(u[name], val);
-    };
-    const set1i = (name: string, val: number) => {
-      if (u[name] !== undefined) gl.uniform1i(u[name], val);
-    };
-    const set2f = (name: string, x: number, y: number) => {
-      if (u[name] !== undefined) gl.uniform2f(u[name], x, y);
-    };
+    const textures: WebGLTexture[] = [];
+    const fbos: WebGLFramebuffer[] = [];
 
-    set1f("u_time", this.elapsedTime);
-    set2f("u_resolution", gl.canvas.width, gl.canvas.height);
-    set2f("u_mouse", this.mouseX, this.mouseY);
+    for (let i = 0; i < 2; i++) {
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      textures.push(tex);
 
-    const typeMap: Record<string, number> = { mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4 };
-    set1i("u_gradientType", typeMap[state.gradientType]);
-
-    set1f("u_speed", state.speed);
-    set1f("u_complexity", state.complexity);
-    set1f("u_scale", state.scale);
-    set1f("u_distortion", state.distortion);
-    set1f("u_brightness", state.brightness);
-    set1f("u_saturation", state.saturation);
-
-    // Colors
-    set1i("u_colorCount", state.colors.length);
-    for (let i = 0; i < 8; i++) {
-      const key = `u_colors[${i}]`;
-      if (u[key] !== undefined && i < state.colors.length) {
-        gl.uniform3fv(u[key], state.colors[i]);
-      }
+      const fbo = gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      fbos.push(fbo);
     }
 
-    // Effects
-    set1i("u_noiseEnabled", state.noiseEnabled ? 1 : 0);
-    set1f("u_noiseIntensity", state.noiseIntensity);
-    set1f("u_noiseScale", state.noiseScale);
-    set1f("u_grain", state.grain);
-    set1i("u_particlesEnabled", state.particlesEnabled ? 1 : 0);
-    set1f("u_particleCount", state.particleCount);
-    set1f("u_particleSize", state.particleSize);
-    set1f("u_mouseReact", state.mouseReact);
-    set1i("u_bloomEnabled", state.bloomEnabled ? 1 : 0);
-    set1f("u_bloomIntensity", state.bloomIntensity);
-    set1f("u_vignette", state.vignette);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    this.feedbackFBOs = [fbos[0], fbos[1]];
+    this.feedbackTextures = [textures[0], textures[1]];
+    this.feedbackWidth = width;
+    this.feedbackHeight = height;
+    this.feedbackIndex = 0;
+  }
+
+  private destroyFeedbackFBOs() {
+    const gl = this.gl;
+    if (this.feedbackFBOs) {
+      gl.deleteFramebuffer(this.feedbackFBOs[0]);
+      gl.deleteFramebuffer(this.feedbackFBOs[1]);
+    }
+    if (this.feedbackTextures) {
+      gl.deleteTexture(this.feedbackTextures[0]);
+      gl.deleteTexture(this.feedbackTextures[1]);
+    }
+    this.feedbackFBOs = null;
+    this.feedbackTextures = null;
+  }
+
+  private setf(name: string, val: number) {
+    const loc = this.uniforms[name];
+    if (loc !== undefined) this.gl.uniform1f(loc, val);
+  }
+
+  private seti(name: string, val: number) {
+    const loc = this.uniforms[name];
+    if (loc !== undefined) this.gl.uniform1i(loc, val);
+  }
+
+  private set2f(name: string, x: number, y: number) {
+    const loc = this.uniforms[name];
+    if (loc !== undefined) this.gl.uniform2f(loc, x, y);
+  }
+
+  private setLayerUniforms(layer: LayerParams) {
+    const gl = this.gl;
+    const typeMap: Record<string, number> = { mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4 };
+    this.seti("u_gradientType", typeMap[layer.gradientType]);
+    this.setf("u_speed", layer.speed);
+    this.setf("u_complexity", layer.complexity);
+    this.setf("u_scale", layer.scale);
+    this.setf("u_distortion", layer.distortion);
+    this.seti("u_colorCount", layer.colors.length);
+    for (let i = 0; i < 8; i++) {
+      const key = `u_colors[${i}]`;
+      if (this.uniforms[key] !== undefined && i < layer.colors.length) {
+        gl.uniform3fv(this.uniforms[key], layer.colors[i]);
+      }
+    }
+    this.setf("u_layerOpacity", layer.opacity);
+  }
+
+  private setGlobalUniforms(state: GradientState, isBaseLayer: boolean) {
+    this.setf("u_time", this.elapsedTime);
+    this.set2f("u_resolution", this.gl.canvas.width, this.gl.canvas.height);
+    this.set2f("u_mouse", this.mouseX, this.mouseY);
+    this.set2f("u_mouseSmooth", this.smoothMouseX, this.smoothMouseY);
+    this.set2f("u_mouseVelocity", this.mouseVelX, this.mouseVelY);
+    this.setf("u_mouseReact", state.mouseReact);
+
+    // Only apply post-processing on the final layer
+    this.seti("u_isBaseLayer", isBaseLayer ? 1 : 0);
+    this.setf("u_brightness", isBaseLayer ? state.brightness : 1.0);
+    this.setf("u_saturation", isBaseLayer ? state.saturation : 1.0);
+    this.seti("u_noiseEnabled", isBaseLayer && state.noiseEnabled ? 1 : 0);
+    this.setf("u_noiseIntensity", state.noiseIntensity);
+    this.setf("u_noiseScale", state.noiseScale);
+    this.setf("u_grain", isBaseLayer ? state.grain : 0);
+    this.seti("u_particlesEnabled", isBaseLayer && state.particlesEnabled ? 1 : 0);
+    this.setf("u_particleCount", state.particleCount);
+    this.setf("u_particleSize", state.particleSize);
+    this.seti("u_bloomEnabled", isBaseLayer && state.bloomEnabled ? 1 : 0);
+    this.setf("u_bloomIntensity", state.bloomIntensity);
+    this.setf("u_vignette", isBaseLayer ? state.vignette : 0);
+    this.setf("u_radialBlurAmount", state.radialBlurAmount);
+    this.setf("u_colorBlend", state.colorBlend);
+    this.setf("u_chromaticAberration", isBaseLayer ? state.chromaticAberration : 0);
+    this.setf("u_hueShift", isBaseLayer ? state.hueShift : 0);
+    this.seti("u_asciiEnabled", isBaseLayer && state.asciiEnabled ? 1 : 0);
+    this.setf("u_asciiSize", state.asciiSize);
+    this.seti("u_ditherEnabled", isBaseLayer && state.ditherEnabled ? 1 : 0);
+    this.setf("u_ditherSize", state.ditherSize);
+    this.seti("u_voronoiEnabled", isBaseLayer && state.voronoiEnabled ? 1 : 0);
+    this.setf("u_voronoiIntensity", state.voronoiIntensity);
+    this.setf("u_voronoiScale", state.voronoiScale);
+    this.seti("u_curlEnabled", isBaseLayer && state.curlEnabled ? 1 : 0);
+    this.setf("u_curlIntensity", state.curlIntensity);
+    this.setf("u_curlScale", state.curlScale);
+    this.seti("u_kaleidoscopeEnabled", isBaseLayer && state.kaleidoscopeEnabled ? 1 : 0);
+    this.setf("u_kaleidoscopeSegments", state.kaleidoscopeSegments);
+    this.setf("u_kaleidoscopeRotation", state.kaleidoscopeRotation);
+    this.seti("u_metaballsEnabled", isBaseLayer && state.metaballsEnabled ? 1 : 0);
+    this.setf("u_metaballsIntensity", state.metaballsIntensity);
+    this.setf("u_metaballsCount", state.metaballsCount);
+    this.setf("u_metaballsScale", state.metaballsScale);
+    this.seti("u_reactionDiffEnabled", isBaseLayer && state.reactionDiffEnabled ? 1 : 0);
+    this.setf("u_reactionDiffIntensity", state.reactionDiffIntensity);
+    this.setf("u_reactionDiffScale", state.reactionDiffScale);
+    this.seti("u_feedbackEnabled", isBaseLayer && state.feedbackEnabled ? 1 : 0);
+    this.setf("u_feedbackDecay", state.feedbackDecay);
+  }
+
+  private applyBlendMode(mode: BlendMode) {
+    const gl = this.gl;
+    gl.enable(gl.BLEND);
+    switch (mode) {
+      case "normal":
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        break;
+      case "add":
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        break;
+      case "multiply":
+        gl.blendFunc(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA);
+        break;
+      case "screen":
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
+        break;
+      case "overlay":
+        // Approximation: use additive for bright, multiply for dark
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        break;
+    }
   }
 
   render(state: GradientState) {
     const gl = this.gl;
-    this.setUniforms(state);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    const feedbackActive = state.feedbackEnabled;
+
+    // Set up FBO for feedback if needed
+    if (feedbackActive) {
+      if (!this.feedbackFBOs ||
+          this.feedbackWidth !== gl.canvas.width ||
+          this.feedbackHeight !== gl.canvas.height) {
+        this.initFeedbackFBOs();
+      }
+      // Bind previous frame texture
+      const prevIdx = 1 - this.feedbackIndex;
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.feedbackTextures![prevIdx]);
+      this.seti("u_prevFrame", 0);
+      // Render to current FBO
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.feedbackFBOs![this.feedbackIndex]);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    }
+
+    const visibleLayers = state.layers.filter((l) => l.visible);
+
+    if (visibleLayers.length === 0) {
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    } else if (visibleLayers.length === 1) {
+      // Single layer: render directly (no blending overhead)
+      gl.disable(gl.BLEND);
+      const layer = visibleLayers[0];
+      this.setGlobalUniforms(state, true);
+      this.setLayerUniforms(layer);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    } else {
+      // Multi-layer: render base, then composite overlays
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      for (let i = 0; i < visibleLayers.length; i++) {
+        const layer = visibleLayers[i];
+        const isLast = i === visibleLayers.length - 1;
+
+        if (i === 0) {
+          gl.disable(gl.BLEND);
+        } else {
+          this.applyBlendMode(layer.blendMode);
+        }
+
+        // Apply global effects only on the last layer
+        this.setGlobalUniforms(state, isLast);
+        this.setLayerUniforms(layer);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+
+      gl.disable(gl.BLEND);
+    }
+
+    // Blit FBO to screen and swap buffers
+    if (feedbackActive && this.feedbackFBOs) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.feedbackFBOs[this.feedbackIndex]);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(
+        0, 0, gl.canvas.width, gl.canvas.height,
+        0, 0, gl.canvas.width, gl.canvas.height,
+        gl.COLOR_BUFFER_BIT, gl.NEAREST
+      );
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.feedbackIndex = 1 - this.feedbackIndex;
+    }
   }
 
   startLoop(getState: () => GradientState, onFrame?: (fps: number) => void) {
@@ -176,12 +376,26 @@ export class GradientEngine {
         return;
       }
 
-      this.elapsedTime += now - lastTime;
+      const dt = now - lastTime;
+      this.elapsedTime += dt;
       lastTime = now;
+
+      // Smooth mouse with lerp (exponential decay, frame-rate independent)
+      const lerpFactor = 1.0 - Math.exp(-8.0 * dt);
+      this.prevSmoothX = this.smoothMouseX;
+      this.prevSmoothY = this.smoothMouseY;
+      this.smoothMouseX += (this.mouseX - this.smoothMouseX) * lerpFactor;
+      this.smoothMouseY += (this.mouseY - this.smoothMouseY) * lerpFactor;
+
+      if (dt > 0) {
+        const rawVelX = (this.smoothMouseX - this.prevSmoothX) / dt;
+        const rawVelY = (this.smoothMouseY - this.prevSmoothY) / dt;
+        this.mouseVelX += (rawVelX - this.mouseVelX) * lerpFactor;
+        this.mouseVelY += (rawVelY - this.mouseVelY) * lerpFactor;
+      }
 
       this.render(state);
 
-      // FPS tracking
       frameCount++;
       const nowMs = now * 1000;
       if (nowMs - lastFpsUpdate >= 500) {
@@ -207,6 +421,7 @@ export class GradientEngine {
 
   destroy() {
     this.stopLoop();
-    this.gl.deleteProgram(this.program);
+    this.destroyFeedbackFBOs();
+    if (this.program) this.gl.deleteProgram(this.program);
   }
 }

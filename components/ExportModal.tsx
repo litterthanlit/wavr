@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type RefObject } from "react";
-import { useGradientStore } from "@/lib/store";
-import { exportPNG, exportCSS, copyToClipboard, exportWebM } from "@/lib/export";
+import { useGradientStore, GradientState } from "@/lib/store";
+import { exportPNG, exportCSS, copyToClipboard, exportWebM, generateEmbedCode } from "@/lib/export";
+import { encodeState } from "@/lib/url";
 
 interface ExportModalProps {
   open: boolean;
@@ -12,9 +13,11 @@ interface ExportModalProps {
 
 export default function ExportModal({ open, onClose, canvasRef }: ExportModalProps) {
   const [copied, setCopied] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
   const [recording, setRecording] = useState(false);
   const [progress, setProgress] = useState(0);
-  const colors = useGradientStore((s) => s.colors);
+  const store = useGradientStore();
+  const colors = store.colors as [number, number, number][];
 
   if (!open) return null;
 
@@ -40,10 +43,10 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-base border border-border rounded-xl p-6 w-[380px] shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Export options" className="relative bg-base border border-border rounded-xl p-6 w-[380px] shadow-2xl">
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-sm font-medium text-text-primary">Export</h2>
-          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-lg transition-colors">
+          <button onClick={onClose} aria-label="Close" className="text-text-tertiary hover:text-text-primary text-lg transition-colors">
             x
           </button>
         </div>
@@ -89,6 +92,26 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
             </div>
             <span className="text-xs text-text-tertiary group-hover:text-accent transition-colors">
               {recording ? "..." : "Record"}
+            </span>
+          </button>
+
+          <button
+            onClick={async () => {
+              const hash = encodeState(store);
+              const embed = generateEmbedCode(hash);
+              await copyToClipboard(embed);
+              setEmbedCopied(true);
+              setTimeout(() => setEmbedCopied(false), 2000);
+            }}
+            className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg
+              hover:border-border-active transition-all duration-150 group"
+          >
+            <div className="text-left">
+              <div className="text-xs font-medium text-text-primary">Embed Code</div>
+              <div className="text-xs text-text-tertiary mt-0.5">iframe snippet for your website</div>
+            </div>
+            <span className="text-xs text-text-tertiary group-hover:text-accent transition-colors">
+              {embedCopied ? "Copied!" : "Copy"}
             </span>
           </button>
         </div>

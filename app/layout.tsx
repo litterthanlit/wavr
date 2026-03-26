@@ -14,7 +14,20 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Wavr — Animated Gradient Editor",
-  description: "Create and export animated gradient backgrounds",
+  description: "Create and export animated gradient backgrounds with WebGL",
+  openGraph: {
+    title: "Wavr — Animated Gradient Editor",
+    description: "Create and export animated gradient backgrounds with WebGL",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Wavr — Animated Gradient Editor",
+    description: "Create and export animated gradient backgrounds with WebGL",
+  },
+  other: {
+    "theme-color": "#000000",
+  },
 };
 
 export default function RootLayout({

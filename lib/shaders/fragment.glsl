@@ -8,6 +8,8 @@ out vec4 fragColor;
 uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
+uniform vec2 u_mouseSmooth;
+uniform vec2 u_mouseVelocity;
 uniform int u_gradientType; // 0=mesh, 1=radial, 2=linear, 3=conic, 4=plasma
 uniform float u_speed;
 uniform float u_complexity;
@@ -30,6 +32,37 @@ uniform float u_mouseReact;
 uniform bool u_bloomEnabled;
 uniform float u_bloomIntensity;
 uniform float u_vignette;
+uniform float u_radialBlurAmount;
+uniform float u_colorBlend;
+uniform float u_chromaticAberration;
+uniform float u_hueShift;
+uniform bool u_asciiEnabled;
+uniform float u_asciiSize;
+uniform bool u_ditherEnabled;
+uniform float u_ditherSize;
+uniform float u_layerOpacity;
+uniform bool u_isBaseLayer;
+
+// Advanced effects
+uniform bool u_voronoiEnabled;
+uniform float u_voronoiIntensity;
+uniform float u_voronoiScale;
+uniform bool u_curlEnabled;
+uniform float u_curlIntensity;
+uniform float u_curlScale;
+uniform bool u_kaleidoscopeEnabled;
+uniform float u_kaleidoscopeSegments;
+uniform float u_kaleidoscopeRotation;
+uniform bool u_metaballsEnabled;
+uniform float u_metaballsIntensity;
+uniform float u_metaballsCount;
+uniform float u_metaballsScale;
+uniform bool u_reactionDiffEnabled;
+uniform float u_reactionDiffIntensity;
+uniform float u_reactionDiffScale;
+uniform bool u_feedbackEnabled;
+uniform float u_feedbackDecay;
+uniform sampler2D u_prevFrame;
 
 // ============================================================
 // Simplex Noise 2D
@@ -82,16 +115,60 @@ float fbm(vec2 p, int octaves) {
 }
 
 // ============================================================
+// Physics-based Mouse Displacement
+// ============================================================
+
+// Fluid displacement: pushes UV coords away from mouse like a finger in water
+vec2 fluidDisplace(vec2 uv, float strength) {
+  vec2 toPixel = uv - u_mouseSmooth;
+  float dist = length(toPixel);
+  float radius = 0.35 * strength;
+
+  // Gravity-well falloff: strong close, fades smoothly
+  float influence = smoothstep(radius, 0.0, dist);
+  influence *= influence; // quadratic falloff for more physicality
+
+  // Displacement direction: push away from mouse + add velocity drag
+  vec2 pushDir = normalize(toPixel + 0.0001);
+  vec2 velInfluence = u_mouseVelocity * 0.002 * strength;
+
+  return uv + (pushDir * influence * 0.15 + velInfluence * influence) * strength;
+}
+
+// Vortex swirl: rotates UV around mouse position
+vec2 vortexDisplace(vec2 uv, float strength) {
+  vec2 toPixel = uv - u_mouseSmooth;
+  float dist = length(toPixel);
+  float radius = 0.4 * strength;
+
+  float influence = smoothstep(radius, 0.0, dist);
+  float speed = length(u_mouseVelocity);
+  float angle = influence * (0.5 + speed * 0.01) * strength;
+
+  float s = sin(angle);
+  float c = cos(angle);
+  vec2 rotated = vec2(toPixel.x * c - toPixel.y * s, toPixel.x * s + toPixel.y * c);
+
+  return u_mouseSmooth + rotated;
+}
+
+// Ripple: creates expanding wave rings from mouse
+float rippleEffect(vec2 uv, float time) {
+  float dist = length(uv - u_mouseSmooth);
+  float speed = length(u_mouseVelocity);
+  float rippleStr = smoothstep(0.5, 0.0, dist) * (0.3 + speed * 0.005);
+  return sin(dist * 25.0 - time * 4.0) * rippleStr;
+}
+
+// ============================================================
 // Color Interpolation
 // ============================================================
 
-vec3 getGradientColor(float t) {
+vec3 sampleColorAt(float t) {
   t = clamp(t, 0.0, 1.0);
   float scaledT = t * float(u_colorCount - 1);
   int idx = int(floor(scaledT));
   float frac = fract(scaledT);
-
-  // Smooth interpolation
   frac = frac * frac * (3.0 - 2.0 * frac);
 
   int nextIdx = idx + 1;
@@ -100,46 +177,83 @@ vec3 getGradientColor(float t) {
   return mix(u_colors[idx], u_colors[nextIdx], frac);
 }
 
+vec3 getGradientColor(float t) {
+  if (u_colorBlend < 0.01) {
+    return sampleColorAt(t);
+  }
+
+  // Blend: sample multiple nearby positions and average for smooth transitions
+  // Higher blend = wider sampling = colors melt into each other
+  float spread = u_colorBlend * 0.15;
+  vec3 color = sampleColorAt(t) * 0.4;
+  color += sampleColorAt(t - spread) * 0.15;
+  color += sampleColorAt(t + spread) * 0.15;
+  color += sampleColorAt(t - spread * 2.0) * 0.1;
+  color += sampleColorAt(t + spread * 2.0) * 0.1;
+  color += sampleColorAt(t - spread * 0.5) * 0.05;
+  color += sampleColorAt(t + spread * 0.5) * 0.05;
+  return color;
+}
+
 // ============================================================
-// Gradient Modes
+// Gradient Modes — each with physics-matched mouse interaction
 // ============================================================
 
 vec3 meshGradient(vec2 uv, float time) {
-  vec2 p = uv * u_scale;
+  // Mesh: fluid displacement — mouse pushes colors like water
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = fluidDisplace(p, u_mouseReact);
+  }
+  p *= u_scale;
   int octaves = int(u_complexity);
 
-  // Mouse influence
-  vec2 mouseOffset = (u_mouse - 0.5) * u_mouseReact * 0.5;
-  p += mouseOffset;
-
-  // Layered fBm for organic flowing effect
+  // Layered fBm with velocity-influenced turbulence
+  float velMag = length(u_mouseVelocity) * u_mouseReact * 0.001;
   float n1 = fbm(p + vec2(time * 0.3, time * 0.2), octaves);
-  float n2 = fbm(p + vec2(n1 * u_distortion + time * 0.1, n1 * u_distortion - time * 0.15), octaves);
-  float n3 = fbm(p + vec2(n2 * u_distortion * 0.8, n2 * u_distortion * 0.8 + time * 0.05), octaves);
+  float n2 = fbm(p + vec2(n1 * u_distortion + time * 0.1 + velMag, n1 * u_distortion - time * 0.15), octaves);
+  float n3 = fbm(p + vec2(n2 * u_distortion * 0.8 + velMag * 0.5, n2 * u_distortion * 0.8 + time * 0.05), octaves);
 
   float colorVal = n3 * 0.5 + 0.5;
   return getGradientColor(colorVal);
 }
 
 vec3 radialGradient(vec2 uv, float time) {
-  vec2 center = vec2(0.5) + (u_mouse - 0.5) * u_mouseReact * 0.2;
+  // Radial: ripple waves emanate from mouse position
+  vec2 center = vec2(0.5);
   vec2 p = (uv - center) * u_scale;
   float dist = length(p);
   float angle = atan(p.y, p.x);
 
-  float wave = sin(dist * u_complexity * 3.14159 - time * 2.0 + angle * 2.0) * u_distortion;
-  float n = fbm(vec2(dist + wave, angle + time * 0.2) * 2.0, int(u_complexity));
+  // Mouse creates ripple interference
+  float mouseRipple = 0.0;
+  if (u_mouseReact > 0.0) {
+    mouseRipple = rippleEffect(uv, time) * u_mouseReact * u_distortion;
+  }
 
-  float colorVal = dist + n * u_distortion;
+  float wave = sin(dist * u_complexity * 3.14159 - time * 2.0 + angle * 2.0) * u_distortion;
+  float n = fbm(vec2(dist + wave + mouseRipple, angle + time * 0.2) * 2.0, int(u_complexity));
+
+  float colorVal = dist + n * u_distortion + mouseRipple * 0.5;
   colorVal = fract(colorVal);
   return getGradientColor(colorVal);
 }
 
 vec3 linearGradient(vec2 uv, float time) {
-  vec2 p = uv * u_scale;
-  float mouseInfluence = (u_mouse.x - 0.5) * u_mouseReact * 0.3;
+  // Linear: mouse bends the flow direction
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    // Bend the flow: displace perpendicular to gradient direction
+    vec2 toMouse = uv - u_mouseSmooth;
+    float dist = length(toMouse);
+    float bend = smoothstep(0.4, 0.0, dist) * u_mouseReact;
+    // Velocity determines bend direction
+    p.y += bend * 0.15 * (1.0 + length(u_mouseVelocity) * 0.01);
+    p.x += toMouse.x * bend * 0.1;
+  }
+  p *= u_scale;
 
-  float base = p.x + p.y * 0.5 + mouseInfluence;
+  float base = p.x + p.y * 0.5;
   float wave = sin(p.y * u_complexity * 2.0 + time * 1.5) * u_distortion * 0.3;
   float n = fbm(p + vec2(time * 0.2, 0.0), int(u_complexity)) * u_distortion;
 
@@ -148,10 +262,16 @@ vec3 linearGradient(vec2 uv, float time) {
 }
 
 vec3 conicGradient(vec2 uv, float time) {
-  vec2 center = vec2(0.5) + (u_mouse - 0.5) * u_mouseReact * 0.15;
-  vec2 p = (uv - center) * u_scale;
-  float angle = atan(p.y, p.x) / 6.28318 + 0.5;
-  float dist = length(p);
+  // Conic: vortex swirl at mouse position
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = vortexDisplace(p, u_mouseReact);
+  }
+
+  vec2 center = vec2(0.5);
+  vec2 pp = (p - center) * u_scale;
+  float angle = atan(pp.y, pp.x) / 6.28318 + 0.5;
+  float dist = length(pp);
 
   float spiral = angle + dist * u_complexity * 0.5 - time * 0.3;
   float n = fbm(vec2(spiral, dist) * 2.0, int(u_complexity)) * u_distortion;
@@ -161,9 +281,20 @@ vec3 conicGradient(vec2 uv, float time) {
 }
 
 vec3 plasmaGradient(vec2 uv, float time) {
+  // Plasma: mouse creates interference patterns like a stone in water
   vec2 p = uv * u_scale * 3.0;
-  vec2 mouseOff = (u_mouse - 0.5) * u_mouseReact * 0.4;
-  p += mouseOff;
+
+  // Mouse interference: add a new wave source at mouse position
+  float mouseWave = 0.0;
+  if (u_mouseReact > 0.0) {
+    vec2 toMouse = uv * u_scale * 3.0 - u_mouseSmooth * u_scale * 3.0;
+    float mDist = length(toMouse);
+    float speed = length(u_mouseVelocity);
+    // Expanding rings from mouse, intensity based on reactivity
+    mouseWave = sin(mDist * 6.0 - time * 3.0) * u_mouseReact * 0.6;
+    mouseWave *= smoothstep(2.0, 0.0, mDist); // fade at distance
+    mouseWave *= (1.0 + speed * 0.005); // stronger when moving fast
+  }
 
   float v = 0.0;
   v += sin(p.x * u_complexity + time);
@@ -172,6 +303,7 @@ vec3 plasmaGradient(vec2 uv, float time) {
   float cx = p.x + 0.5 * sin(time * 0.3);
   float cy = p.y + 0.5 * cos(time * 0.4);
   v += sin(sqrt(cx * cx + cy * cy + 1.0) * u_complexity);
+  v += mouseWave;
 
   float colorVal = v * 0.25 + 0.5;
   colorVal += fbm(p * 0.5 + time * 0.1, int(min(u_complexity, 4.0))) * u_distortion * 0.3;
@@ -179,11 +311,71 @@ vec3 plasmaGradient(vec2 uv, float time) {
 }
 
 // ============================================================
-// Particles
+// Particles (with physics-based mouse interaction)
 // ============================================================
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+// ============================================================
+// Voronoi Noise
+// ============================================================
+
+// Returns vec3(minDist, edgeDist, cellId)
+vec3 voronoi(vec2 p, float time) {
+  vec2 n = floor(p);
+  vec2 f = fract(p);
+
+  float minDist = 8.0;
+  float minDist2 = 8.0;
+  vec2 minCell = vec2(0.0);
+
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 cellPos = n + g;
+      // Pseudo-random point inside cell, animated over time
+      vec2 o = vec2(
+        fract(sin(dot(cellPos, vec2(127.1, 311.7))) * 43758.5453),
+        fract(sin(dot(cellPos, vec2(269.5, 183.3))) * 43758.5453)
+      );
+      o = 0.5 + 0.4 * sin(time * 0.5 + 6.2831 * o);
+      vec2 diff = g + o - f;
+      float d = dot(diff, diff);
+      if (d < minDist) {
+        minDist2 = minDist;
+        minDist = d;
+        minCell = cellPos;
+      } else if (d < minDist2) {
+        minDist2 = d;
+      }
+    }
+  }
+
+  minDist = sqrt(minDist);
+  minDist2 = sqrt(minDist2);
+  float edge = minDist2 - minDist;
+  float cellId = fract(sin(dot(minCell, vec2(127.1, 311.7))) * 43758.5453);
+
+  return vec3(minDist, edge, cellId);
+}
+
+// ============================================================
+// Curl Noise (divergence-free 2D flow field)
+// ============================================================
+
+vec2 curlNoise(vec2 p, float time) {
+  float eps = 0.01;
+  // Compute partial derivatives of noise to get curl
+  float n1 = snoise(p + vec2(0.0, eps) + time * 0.3);
+  float n2 = snoise(p - vec2(0.0, eps) + time * 0.3);
+  float n3 = snoise(p + vec2(eps, 0.0) + time * 0.3);
+  float n4 = snoise(p - vec2(eps, 0.0) + time * 0.3);
+  // Curl: perpendicular to gradient = divergence-free
+  float dndx = (n3 - n4) / (2.0 * eps);
+  float dndy = (n1 - n2) / (2.0 * eps);
+  return vec2(dndy, -dndx);
 }
 
 float renderParticles(vec2 uv, float time) {
@@ -202,10 +394,19 @@ float renderParticles(vec2 uv, float time) {
     pos.y += cos(time * 0.2 + i * 1.1) * 0.05;
     pos = fract(pos);
 
-    // Mouse reaction
-    vec2 toMouse = u_mouse - pos;
-    float mouseDist = length(toMouse);
-    pos += normalize(toMouse + 0.001) * u_mouseReact * 0.03 / (mouseDist + 0.1);
+    // Physics-based mouse: particles orbit and scatter
+    if (u_mouseReact > 0.0) {
+      vec2 toMouse = u_mouseSmooth - pos;
+      float mouseDist = length(toMouse);
+      vec2 mouseDir = normalize(toMouse + 0.0001);
+      float influence = smoothstep(0.3, 0.0, mouseDist);
+
+      // Attract gently + add tangential orbit from velocity
+      vec2 tangent = vec2(-mouseDir.y, mouseDir.x);
+      float velDot = dot(normalize(u_mouseVelocity + 0.001), tangent);
+      pos += mouseDir * influence * u_mouseReact * 0.02;
+      pos += tangent * influence * velDot * u_mouseReact * 0.01;
+    }
     pos = clamp(pos, 0.0, 1.0);
 
     float d = length(uv - pos);
@@ -225,6 +426,14 @@ vec3 adjustSaturation(vec3 color, float sat) {
   return mix(vec3(grey), color, sat);
 }
 
+vec3 rotateHue(vec3 color, float angle) {
+  // Rodrigues rotation around the (1,1,1)/sqrt(3) axis in RGB space
+  float cosA = cos(angle);
+  float sinA = sin(angle);
+  vec3 k = vec3(0.57735); // 1/sqrt(3)
+  return color * cosA + cross(k, color) * sinA + k * dot(k, color) * (1.0 - cosA);
+}
+
 // ============================================================
 // Main
 // ============================================================
@@ -233,18 +442,117 @@ void main() {
   vec2 uv = v_uv;
   float time = u_time * u_speed;
 
-  // Base gradient
+  // Curl noise UV distortion (fluid-like swirling)
+  if (u_curlEnabled) {
+    vec2 curl = curlNoise(uv * u_curlScale * 3.0, time);
+    uv += curl * u_curlIntensity * 0.1;
+  }
+
+  // Kaleidoscope (radial mirror symmetry)
+  if (u_kaleidoscopeEnabled) {
+    vec2 centered = uv - 0.5;
+    float angle = atan(centered.y, centered.x) + u_kaleidoscopeRotation * 6.28318 / 360.0;
+    float r = length(centered);
+    float segments = max(u_kaleidoscopeSegments, 2.0);
+    float segAngle = 6.28318 / segments;
+    angle = mod(angle, segAngle);
+    // Mirror alternate segments for seamless reflection
+    if (mod(floor(angle / segAngle + 0.5), 2.0) > 0.5) {
+      angle = segAngle - angle;
+    }
+    uv = vec2(cos(angle), sin(angle)) * r + 0.5;
+  }
+
+  // Base gradient (with optional radial zoom blur)
   vec3 color;
-  if (u_gradientType == 0) color = meshGradient(uv, time);
-  else if (u_gradientType == 1) color = radialGradient(uv, time);
-  else if (u_gradientType == 2) color = linearGradient(uv, time);
-  else if (u_gradientType == 3) color = conicGradient(uv, time);
-  else color = plasmaGradient(uv, time);
+  if (u_radialBlurAmount > 0.001) {
+    // Radial zoom blur: sample along direction from center to pixel
+    vec2 center = vec2(0.5);
+    vec2 dir = uv - center;
+    float strength = u_radialBlurAmount * 0.02;
+    const int SAMPLES = 12;
+    color = vec3(0.0);
+    for (int s = 0; s < SAMPLES; s++) {
+      float t = float(s) / float(SAMPLES - 1) - 0.5;
+      vec2 sampleUV = uv - dir * t * strength;
+      vec3 sc;
+      if (u_gradientType == 0) sc = meshGradient(sampleUV, time);
+      else if (u_gradientType == 1) sc = radialGradient(sampleUV, time);
+      else if (u_gradientType == 2) sc = linearGradient(sampleUV, time);
+      else if (u_gradientType == 3) sc = conicGradient(sampleUV, time);
+      else sc = plasmaGradient(sampleUV, time);
+      color += sc;
+    }
+    color /= float(SAMPLES);
+  } else {
+    if (u_gradientType == 0) color = meshGradient(uv, time);
+    else if (u_gradientType == 1) color = radialGradient(uv, time);
+    else if (u_gradientType == 2) color = linearGradient(uv, time);
+    else if (u_gradientType == 3) color = conicGradient(uv, time);
+    else color = plasmaGradient(uv, time);
+  }
 
   // Noise overlay
   if (u_noiseEnabled) {
     float n = snoise(uv * u_noiseScale * 10.0 + time * 0.5) * 0.5 + 0.5;
     color = mix(color, color * (0.5 + n), u_noiseIntensity);
+  }
+
+  // Voronoi noise overlay
+  if (u_voronoiEnabled) {
+    vec2 vp = uv * u_voronoiScale * 5.0;
+    vec3 vor = voronoi(vp, time);
+    float cellColor = vor.z;
+    float edge = smoothstep(0.0, 0.05, vor.y);
+    vec3 voronoiColor = getGradientColor(cellColor) * edge;
+    color = mix(color, voronoiColor, u_voronoiIntensity);
+  }
+
+  // Reaction-diffusion pattern overlay (Turing-like patterns)
+  if (u_reactionDiffEnabled) {
+    vec2 rp = uv * u_reactionDiffScale * 8.0;
+    // Layered noise with competing activator/inhibitor scales
+    float activator = snoise(rp + time * 0.15);
+    float inhibitor = snoise(rp * 0.5 + time * 0.1 + 100.0);
+    // Sharp threshold creates organic spots/stripes
+    float pattern = activator - inhibitor * 0.6;
+    // Add fine-scale detail
+    pattern += snoise(rp * 2.0 + time * 0.2) * 0.3;
+    // Threshold for crisp pattern edges
+    float mask = smoothstep(-0.1, 0.1, pattern);
+    vec3 rdColor = mix(
+      getGradientColor(0.2),
+      getGradientColor(0.8),
+      mask
+    );
+    color = mix(color, rdColor, u_reactionDiffIntensity);
+  }
+
+  // Metaballs overlay
+  if (u_metaballsEnabled) {
+    float field = 0.0;
+    float colorIdx = 0.0;
+    float totalWeight = 0.0;
+    for (float i = 0.0; i < 12.0; i++) {
+      if (i >= u_metaballsCount) break;
+      // Animated blob positions
+      vec2 seed = vec2(i * 1.17, i * 0.53);
+      vec2 blobPos = vec2(
+        0.5 + 0.35 * sin(time * (0.3 + i * 0.07) + seed.x * 6.28),
+        0.5 + 0.35 * cos(time * (0.25 + i * 0.09) + seed.y * 6.28)
+      );
+      float dist = length(uv - blobPos);
+      float radius = u_metaballsScale * (0.06 + 0.03 * sin(i * 2.7));
+      float blob = radius / (dist * dist + 0.001);
+      field += blob;
+      colorIdx += blob * (i / u_metaballsCount);
+      totalWeight += blob;
+    }
+    colorIdx /= max(totalWeight, 0.001);
+    // Threshold for blobby iso-surface
+    float meta = smoothstep(8.0, 12.0, field);
+    vec3 metaColor = getGradientColor(colorIdx);
+    color = mix(color, metaColor, meta * u_metaballsIntensity);
   }
 
   // Particles
@@ -259,6 +567,36 @@ void main() {
     float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
     float bloomMask = smoothstep(0.6, 1.0, luminance);
     color += color * bloomMask * u_bloomIntensity;
+  }
+
+  // Chromatic aberration (before color adjustments for maximum effect)
+  if (u_chromaticAberration > 0.001) {
+    vec2 center = vec2(0.5);
+    vec2 dir = uv - center;
+    float caOffset = u_chromaticAberration * 0.01;
+    // Re-sample R and B channels at offset UVs
+    vec2 uvR = uv + dir * caOffset;
+    vec2 uvB = uv - dir * caOffset;
+    float rSample, bSample;
+    // Sample red channel from offset position
+    vec3 cR;
+    if (u_gradientType == 0) cR = meshGradient(uvR, time);
+    else if (u_gradientType == 1) cR = radialGradient(uvR, time);
+    else if (u_gradientType == 2) cR = linearGradient(uvR, time);
+    else if (u_gradientType == 3) cR = conicGradient(uvR, time);
+    else cR = plasmaGradient(uvR, time);
+    vec3 cB;
+    if (u_gradientType == 0) cB = meshGradient(uvB, time);
+    else if (u_gradientType == 1) cB = radialGradient(uvB, time);
+    else if (u_gradientType == 2) cB = linearGradient(uvB, time);
+    else if (u_gradientType == 3) cB = conicGradient(uvB, time);
+    else cB = plasmaGradient(uvB, time);
+    color = vec3(cR.r, color.g, cB.b);
+  }
+
+  // Hue shift
+  if (abs(u_hueShift) > 0.01) {
+    color = rotateHue(color, u_hueShift * 6.28318 / 360.0);
   }
 
   // Saturation
@@ -280,8 +618,70 @@ void main() {
     color += grainNoise * u_grain * 0.15;
   }
 
+  // Feedback loop (blend with previous frame)
+  if (u_feedbackEnabled) {
+    vec3 prev = texture(u_prevFrame, v_uv).rgb;
+    // Slight UV offset for motion trails
+    vec2 fbUV = v_uv + vec2(sin(u_time * 0.1) * 0.002, cos(u_time * 0.13) * 0.002);
+    vec3 prevOffset = texture(u_prevFrame, fbUV).rgb;
+    vec3 feedback = mix(prev, prevOffset, 0.5);
+    color = mix(color, max(color, feedback), u_feedbackDecay);
+  }
+
   // Tone mapping (simple reinhard)
   color = color / (color + 1.0);
 
-  fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  // Ordered dithering (Bayer 4x4 matrix)
+  if (u_ditherEnabled) {
+    float cellSize = max(u_ditherSize, 1.0);
+    vec2 pixel = floor(gl_FragCoord.xy / cellSize);
+    int x = int(mod(pixel.x, 4.0));
+    int y = int(mod(pixel.y, 4.0));
+    // Bayer 4x4 threshold matrix (normalized to 0-1)
+    float threshold;
+    int idx = y * 4 + x;
+    if (idx == 0) threshold = 0.0 / 16.0;
+    else if (idx == 1) threshold = 8.0 / 16.0;
+    else if (idx == 2) threshold = 2.0 / 16.0;
+    else if (idx == 3) threshold = 10.0 / 16.0;
+    else if (idx == 4) threshold = 12.0 / 16.0;
+    else if (idx == 5) threshold = 4.0 / 16.0;
+    else if (idx == 6) threshold = 14.0 / 16.0;
+    else if (idx == 7) threshold = 6.0 / 16.0;
+    else if (idx == 8) threshold = 3.0 / 16.0;
+    else if (idx == 9) threshold = 11.0 / 16.0;
+    else if (idx == 10) threshold = 1.0 / 16.0;
+    else if (idx == 11) threshold = 9.0 / 16.0;
+    else if (idx == 12) threshold = 15.0 / 16.0;
+    else if (idx == 13) threshold = 7.0 / 16.0;
+    else if (idx == 14) threshold = 13.0 / 16.0;
+    else threshold = 5.0 / 16.0;
+    // Quantize each channel: step(threshold, luminance)
+    float levels = 4.0; // number of color levels
+    color = floor(color * levels + threshold) / levels;
+  }
+
+  // ASCII art effect
+  if (u_asciiEnabled) {
+    float cellSize = max(u_asciiSize, 2.0);
+    // Quantize UV to cell grid
+    vec2 cell = floor(gl_FragCoord.xy / cellSize);
+    vec2 cellUV = fract(gl_FragCoord.xy / cellSize);
+    // Sample color at cell center for uniform cell color
+    vec2 cellCenter = (cell + 0.5) * cellSize / u_resolution;
+    // Use the already-computed color (re-map from cell center would be expensive)
+    // Instead, quantize the existing color to the cell
+    float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    // ASCII density ramp: " .:-=+*#%@" (10 chars, mapped to luminance)
+    // Render as dot patterns based on luminance
+    vec2 cp = cellUV - 0.5;
+    float dist = length(cp);
+    // Higher luminance = larger filled area
+    float charRadius = lum * 0.5;
+    float charMask = smoothstep(charRadius + 0.02, charRadius - 0.02, dist);
+    // Mix: dark cells show small dots, bright cells fill more
+    color *= charMask * 1.2 + 0.1;
+  }
+
+  fragColor = vec4(clamp(color, 0.0, 1.0), u_layerOpacity);
 }

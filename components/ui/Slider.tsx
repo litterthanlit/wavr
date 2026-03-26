@@ -7,10 +7,11 @@ interface SliderProps {
   max: number;
   step: number;
   onChange: (value: number) => void;
+  onCommit?: (value: number) => void;
   disabled?: boolean;
 }
 
-export default function Slider({ label, value, min, max, step, onChange, disabled }: SliderProps) {
+export default function Slider({ label, value, min, max, step, onChange, onCommit, disabled }: SliderProps) {
   const percent = ((value - min) / (max - min)) * 100;
 
   return (
@@ -26,6 +27,7 @@ export default function Slider({ label, value, min, max, step, onChange, disable
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
+        onPointerUp={(e) => onCommit?.(parseFloat((e.target as HTMLInputElement).value))}
         className="w-full h-1 rounded-full appearance-none cursor-pointer
           [&::-webkit-slider-thumb]:appearance-none
           [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
