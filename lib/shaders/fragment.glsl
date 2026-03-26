@@ -30,6 +30,8 @@ uniform bool u_bloomEnabled;
 uniform float u_bloomIntensity;
 uniform float u_vignette;
 uniform float u_radialBlurAmount;
+uniform bool u_blurEnabled;
+uniform float u_blurAmount;
 uniform float u_colorBlend;
 uniform float u_chromaticAberration;
 uniform float u_hueShift;
@@ -300,10 +302,6 @@ vec3 plasmaGradient(vec2 uv, float time) {
   return getGradientColor(fract(colorVal));
 }
 
-// ============================================================
-// Particles (with physics-based mouse interaction)
-// ============================================================
-
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
@@ -343,6 +341,18 @@ vec3 rotateHue(vec3 color, float angle) {
 }
 
 // ============================================================
+// Gradient Dispatch Helper
+// ============================================================
+
+vec3 computeGradient(vec2 uv, float time) {
+  if (u_gradientType == 0) return meshGradient(uv, time);
+  else if (u_gradientType == 1) return radialGradient(uv, time);
+  else if (u_gradientType == 2) return linearGradient(uv, time);
+  else if (u_gradientType == 3) return conicGradient(uv, time);
+  else return plasmaGradient(uv, time);
+}
+
+// ============================================================
 // Main
 // ============================================================
 
@@ -374,7 +384,6 @@ void main() {
   // Base gradient (with optional radial zoom blur)
   vec3 color;
   if (u_radialBlurAmount > 0.001) {
-    // Radial zoom blur: sample along direction from center to pixel
     vec2 center = vec2(0.5);
     vec2 dir = uv - center;
     float strength = u_radialBlurAmount * 0.02;
@@ -382,22 +391,11 @@ void main() {
     color = vec3(0.0);
     for (int s = 0; s < SAMPLES; s++) {
       float t = float(s) / float(SAMPLES - 1) - 0.5;
-      vec2 sampleUV = uv - dir * t * strength;
-      vec3 sc;
-      if (u_gradientType == 0) sc = meshGradient(sampleUV, time);
-      else if (u_gradientType == 1) sc = radialGradient(sampleUV, time);
-      else if (u_gradientType == 2) sc = linearGradient(sampleUV, time);
-      else if (u_gradientType == 3) sc = conicGradient(sampleUV, time);
-      else sc = plasmaGradient(sampleUV, time);
-      color += sc;
+      color += computeGradient(uv - dir * t * strength, time);
     }
     color /= float(SAMPLES);
   } else {
-    if (u_gradientType == 0) color = meshGradient(uv, time);
-    else if (u_gradientType == 1) color = radialGradient(uv, time);
-    else if (u_gradientType == 2) color = linearGradient(uv, time);
-    else if (u_gradientType == 3) color = conicGradient(uv, time);
-    else color = plasmaGradient(uv, time);
+    color = computeGradient(uv, time);
   }
 
   // Noise overlay
@@ -426,35 +424,13 @@ void main() {
     color = mix(color, rdColor, u_reactionDiffIntensity);
   }
 
-  // Bloom (simplified single-pass glow)
-  if (u_bloomEnabled) {
-    float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    float bloomMask = smoothstep(0.6, 1.0, luminance);
-    color += color * bloomMask * u_bloomIntensity;
-  }
-
-  // Chromatic aberration (before color adjustments for maximum effect)
+  // Chromatic aberration (splits R/B channels of the composed gradient)
   if (u_chromaticAberration > 0.001) {
     vec2 center = vec2(0.5);
     vec2 dir = uv - center;
     float caOffset = u_chromaticAberration * 0.01;
-    // Re-sample R and B channels at offset UVs
-    vec2 uvR = uv + dir * caOffset;
-    vec2 uvB = uv - dir * caOffset;
-    float rSample, bSample;
-    // Sample red channel from offset position
-    vec3 cR;
-    if (u_gradientType == 0) cR = meshGradient(uvR, time);
-    else if (u_gradientType == 1) cR = radialGradient(uvR, time);
-    else if (u_gradientType == 2) cR = linearGradient(uvR, time);
-    else if (u_gradientType == 3) cR = conicGradient(uvR, time);
-    else cR = plasmaGradient(uvR, time);
-    vec3 cB;
-    if (u_gradientType == 0) cB = meshGradient(uvB, time);
-    else if (u_gradientType == 1) cB = radialGradient(uvB, time);
-    else if (u_gradientType == 2) cB = linearGradient(uvB, time);
-    else if (u_gradientType == 3) cB = conicGradient(uvB, time);
-    else cB = plasmaGradient(uvB, time);
+    vec3 cR = computeGradient(uv + dir * caOffset, time);
+    vec3 cB = computeGradient(uv - dir * caOffset, time);
     color = vec3(cR.r, color.g, cB.b);
   }
 
@@ -469,6 +445,13 @@ void main() {
   // Brightness
   color *= u_brightness;
 
+  // Bloom (after color adjustments so highlights match final palette)
+  if (u_bloomEnabled) {
+    float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    float bloomMask = smoothstep(0.6, 1.0, luminance);
+    color += color * bloomMask * u_bloomIntensity;
+  }
+
   // Vignette
   if (u_vignette > 0.0) {
     float vig = length(uv - 0.5) * 1.414;
@@ -476,20 +459,35 @@ void main() {
     color *= 1.0 - vig * u_vignette;
   }
 
-  // Film grain
-  if (u_grain > 0.0) {
-    float grainNoise = hash(uv * u_resolution + fract(u_time * 100.0)) * 2.0 - 1.0;
-    color += grainNoise * u_grain * 0.15;
+  // Gaussian blur (9-tap weighted kernel — blurs gradient, not pixel effects)
+  if (u_blurEnabled && u_blurAmount > 0.0) {
+    float px = u_blurAmount / u_resolution.x;
+    float py = u_blurAmount / u_resolution.y;
+    vec3 sum = color * 4.0;
+    sum += computeGradient(uv + vec2(px, 0.0), time) * 2.0;
+    sum += computeGradient(uv - vec2(px, 0.0), time) * 2.0;
+    sum += computeGradient(uv + vec2(0.0, py), time) * 2.0;
+    sum += computeGradient(uv - vec2(0.0, py), time) * 2.0;
+    sum += computeGradient(uv + vec2(px, py), time);
+    sum += computeGradient(uv - vec2(px, py), time);
+    sum += computeGradient(uv + vec2(px, -py), time);
+    sum += computeGradient(uv - vec2(px, -py), time);
+    color = sum / 16.0;
   }
 
-  // Feedback loop (blend with previous frame)
+  // Feedback loop (before grain so noise doesn't accumulate across frames)
   if (u_feedbackEnabled) {
     vec3 prev = texture(u_prevFrame, v_uv).rgb;
-    // Slight UV offset for motion trails
     vec2 fbUV = v_uv + vec2(sin(u_time * 0.1) * 0.002, cos(u_time * 0.13) * 0.002);
     vec3 prevOffset = texture(u_prevFrame, fbUV).rgb;
     vec3 feedback = mix(prev, prevOffset, 0.5);
     color = mix(color, max(color, feedback), u_feedbackDecay);
+  }
+
+  // Film grain
+  if (u_grain > 0.0) {
+    float grainNoise = hash(uv * u_resolution + fract(u_time * 100.0)) * 2.0 - 1.0;
+    color += grainNoise * u_grain * 0.15;
   }
 
   // Tone mapping (simple reinhard)

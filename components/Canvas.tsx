@@ -19,8 +19,6 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
   const degradedRef = useRef(false);
   const lowFpsStartRef = useRef<number | null>(null);
   const initErrorRef = useRef<string | null>(null);
-  const blurEnabled = useGradientStore((s: GradientState) => s.blurEnabled);
-  const blurAmount = useGradientStore((s: GradientState) => s.blurAmount);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const canvas = canvasRef.current;
@@ -168,7 +166,6 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
       <canvas
         ref={canvasRef}
         className="block"
-        style={blurEnabled && blurAmount > 0 ? { filter: `blur(${blurAmount}px)` } : undefined}
       />
       {contextLost && (
         <div className="absolute inset-0 flex items-center justify-center bg-root/80">
