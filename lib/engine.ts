@@ -12,6 +12,13 @@ export class GradientEngine {
   private animationId: number | null = null;
   private mouseX = 0.5;
   private mouseY = 0.5;
+  // Smoothed mouse for physics
+  private smoothMouseX = 0.5;
+  private smoothMouseY = 0.5;
+  private mouseVelX = 0;
+  private mouseVelY = 0;
+  private prevSmoothX = 0.5;
+  private prevSmoothY = 0.5;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", {
@@ -86,6 +93,7 @@ export class GradientEngine {
       "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
       "u_particlesEnabled", "u_particleCount", "u_particleSize", "u_mouseReact",
       "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
+      "u_mouseSmooth", "u_mouseVelocity",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -127,6 +135,8 @@ export class GradientEngine {
     set1f("u_time", this.elapsedTime);
     set2f("u_resolution", gl.canvas.width, gl.canvas.height);
     set2f("u_mouse", this.mouseX, this.mouseY);
+    set2f("u_mouseSmooth", this.smoothMouseX, this.smoothMouseY);
+    set2f("u_mouseVelocity", this.mouseVelX, this.mouseVelY);
 
     const typeMap: Record<string, number> = { mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4 };
     set1i("u_gradientType", typeMap[state.gradientType]);
@@ -181,8 +191,24 @@ export class GradientEngine {
         return;
       }
 
-      this.elapsedTime += now - lastTime;
+      const dt = now - lastTime;
+      this.elapsedTime += dt;
       lastTime = now;
+
+      // Smooth mouse with lerp (exponential decay, frame-rate independent)
+      const lerpFactor = 1.0 - Math.exp(-8.0 * dt); // ~8 Hz smoothing
+      this.prevSmoothX = this.smoothMouseX;
+      this.prevSmoothY = this.smoothMouseY;
+      this.smoothMouseX += (this.mouseX - this.smoothMouseX) * lerpFactor;
+      this.smoothMouseY += (this.mouseY - this.smoothMouseY) * lerpFactor;
+
+      // Velocity (smoothed delta per second)
+      if (dt > 0) {
+        const rawVelX = (this.smoothMouseX - this.prevSmoothX) / dt;
+        const rawVelY = (this.smoothMouseY - this.prevSmoothY) / dt;
+        this.mouseVelX += (rawVelX - this.mouseVelX) * lerpFactor;
+        this.mouseVelY += (rawVelY - this.mouseVelY) * lerpFactor;
+      }
 
       this.render(state);
 

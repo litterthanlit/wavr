@@ -245,3 +245,5 @@ Monochrome: mesh, speed=0.3, colors=[charcoal, gray, white, steel], saturation=0
 - Custom shader code editor
 - Audio reactivity
 - 3D gradient effects
+- ASCII art effect (render gradient as ASCII characters in the fragment shader)
+- Dither effect (ordered/Floyd-Steinberg dithering as a post-process shader pass)

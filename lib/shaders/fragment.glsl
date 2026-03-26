@@ -8,6 +8,8 @@ out vec4 fragColor;
 uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
+uniform vec2 u_mouseSmooth;
+uniform vec2 u_mouseVelocity;
 uniform int u_gradientType; // 0=mesh, 1=radial, 2=linear, 3=conic, 4=plasma
 uniform float u_speed;
 uniform float u_complexity;
@@ -83,6 +85,52 @@ float fbm(vec2 p, int octaves) {
 }
 
 // ============================================================
+// Physics-based Mouse Displacement
+// ============================================================
+
+// Fluid displacement: pushes UV coords away from mouse like a finger in water
+vec2 fluidDisplace(vec2 uv, float strength) {
+  vec2 toPixel = uv - u_mouseSmooth;
+  float dist = length(toPixel);
+  float radius = 0.35 * strength;
+
+  // Gravity-well falloff: strong close, fades smoothly
+  float influence = smoothstep(radius, 0.0, dist);
+  influence *= influence; // quadratic falloff for more physicality
+
+  // Displacement direction: push away from mouse + add velocity drag
+  vec2 pushDir = normalize(toPixel + 0.0001);
+  vec2 velInfluence = u_mouseVelocity * 0.002 * strength;
+
+  return uv + (pushDir * influence * 0.15 + velInfluence * influence) * strength;
+}
+
+// Vortex swirl: rotates UV around mouse position
+vec2 vortexDisplace(vec2 uv, float strength) {
+  vec2 toPixel = uv - u_mouseSmooth;
+  float dist = length(toPixel);
+  float radius = 0.4 * strength;
+
+  float influence = smoothstep(radius, 0.0, dist);
+  float speed = length(u_mouseVelocity);
+  float angle = influence * (0.5 + speed * 0.01) * strength;
+
+  float s = sin(angle);
+  float c = cos(angle);
+  vec2 rotated = vec2(toPixel.x * c - toPixel.y * s, toPixel.x * s + toPixel.y * c);
+
+  return u_mouseSmooth + rotated;
+}
+
+// Ripple: creates expanding wave rings from mouse
+float rippleEffect(vec2 uv, float time) {
+  float dist = length(uv - u_mouseSmooth);
+  float speed = length(u_mouseVelocity);
+  float rippleStr = smoothstep(0.5, 0.0, dist) * (0.3 + speed * 0.005);
+  return sin(dist * 25.0 - time * 4.0) * rippleStr;
+}
+
+// ============================================================
 // Color Interpolation
 // ============================================================
 
@@ -92,7 +140,7 @@ vec3 getGradientColor(float t) {
   int idx = int(floor(scaledT));
   float frac = fract(scaledT);
 
-  // Smooth interpolation
+  // Smooth interpolation (Hermite)
   frac = frac * frac * (3.0 - 2.0 * frac);
 
   int nextIdx = idx + 1;
@@ -102,45 +150,64 @@ vec3 getGradientColor(float t) {
 }
 
 // ============================================================
-// Gradient Modes
+// Gradient Modes — each with physics-matched mouse interaction
 // ============================================================
 
 vec3 meshGradient(vec2 uv, float time) {
-  vec2 p = uv * u_scale;
+  // Mesh: fluid displacement — mouse pushes colors like water
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = fluidDisplace(p, u_mouseReact);
+  }
+  p *= u_scale;
   int octaves = int(u_complexity);
 
-  // Mouse influence
-  vec2 mouseOffset = (u_mouse - 0.5) * u_mouseReact * 0.5;
-  p += mouseOffset;
-
-  // Layered fBm for organic flowing effect
+  // Layered fBm with velocity-influenced turbulence
+  float velMag = length(u_mouseVelocity) * u_mouseReact * 0.001;
   float n1 = fbm(p + vec2(time * 0.3, time * 0.2), octaves);
-  float n2 = fbm(p + vec2(n1 * u_distortion + time * 0.1, n1 * u_distortion - time * 0.15), octaves);
-  float n3 = fbm(p + vec2(n2 * u_distortion * 0.8, n2 * u_distortion * 0.8 + time * 0.05), octaves);
+  float n2 = fbm(p + vec2(n1 * u_distortion + time * 0.1 + velMag, n1 * u_distortion - time * 0.15), octaves);
+  float n3 = fbm(p + vec2(n2 * u_distortion * 0.8 + velMag * 0.5, n2 * u_distortion * 0.8 + time * 0.05), octaves);
 
   float colorVal = n3 * 0.5 + 0.5;
   return getGradientColor(colorVal);
 }
 
 vec3 radialGradient(vec2 uv, float time) {
-  vec2 center = vec2(0.5) + (u_mouse - 0.5) * u_mouseReact * 0.2;
+  // Radial: ripple waves emanate from mouse position
+  vec2 center = vec2(0.5);
   vec2 p = (uv - center) * u_scale;
   float dist = length(p);
   float angle = atan(p.y, p.x);
 
-  float wave = sin(dist * u_complexity * 3.14159 - time * 2.0 + angle * 2.0) * u_distortion;
-  float n = fbm(vec2(dist + wave, angle + time * 0.2) * 2.0, int(u_complexity));
+  // Mouse creates ripple interference
+  float mouseRipple = 0.0;
+  if (u_mouseReact > 0.0) {
+    mouseRipple = rippleEffect(uv, time) * u_mouseReact * u_distortion;
+  }
 
-  float colorVal = dist + n * u_distortion;
+  float wave = sin(dist * u_complexity * 3.14159 - time * 2.0 + angle * 2.0) * u_distortion;
+  float n = fbm(vec2(dist + wave + mouseRipple, angle + time * 0.2) * 2.0, int(u_complexity));
+
+  float colorVal = dist + n * u_distortion + mouseRipple * 0.5;
   colorVal = fract(colorVal);
   return getGradientColor(colorVal);
 }
 
 vec3 linearGradient(vec2 uv, float time) {
-  vec2 p = uv * u_scale;
-  float mouseInfluence = (u_mouse.x - 0.5) * u_mouseReact * 0.3;
+  // Linear: mouse bends the flow direction
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    // Bend the flow: displace perpendicular to gradient direction
+    vec2 toMouse = uv - u_mouseSmooth;
+    float dist = length(toMouse);
+    float bend = smoothstep(0.4, 0.0, dist) * u_mouseReact;
+    // Velocity determines bend direction
+    p.y += bend * 0.15 * (1.0 + length(u_mouseVelocity) * 0.01);
+    p.x += toMouse.x * bend * 0.1;
+  }
+  p *= u_scale;
 
-  float base = p.x + p.y * 0.5 + mouseInfluence;
+  float base = p.x + p.y * 0.5;
   float wave = sin(p.y * u_complexity * 2.0 + time * 1.5) * u_distortion * 0.3;
   float n = fbm(p + vec2(time * 0.2, 0.0), int(u_complexity)) * u_distortion;
 
@@ -149,10 +216,16 @@ vec3 linearGradient(vec2 uv, float time) {
 }
 
 vec3 conicGradient(vec2 uv, float time) {
-  vec2 center = vec2(0.5) + (u_mouse - 0.5) * u_mouseReact * 0.15;
-  vec2 p = (uv - center) * u_scale;
-  float angle = atan(p.y, p.x) / 6.28318 + 0.5;
-  float dist = length(p);
+  // Conic: vortex swirl at mouse position
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = vortexDisplace(p, u_mouseReact);
+  }
+
+  vec2 center = vec2(0.5);
+  vec2 pp = (p - center) * u_scale;
+  float angle = atan(pp.y, pp.x) / 6.28318 + 0.5;
+  float dist = length(pp);
 
   float spiral = angle + dist * u_complexity * 0.5 - time * 0.3;
   float n = fbm(vec2(spiral, dist) * 2.0, int(u_complexity)) * u_distortion;
@@ -162,9 +235,20 @@ vec3 conicGradient(vec2 uv, float time) {
 }
 
 vec3 plasmaGradient(vec2 uv, float time) {
+  // Plasma: mouse creates interference patterns like a stone in water
   vec2 p = uv * u_scale * 3.0;
-  vec2 mouseOff = (u_mouse - 0.5) * u_mouseReact * 0.4;
-  p += mouseOff;
+
+  // Mouse interference: add a new wave source at mouse position
+  float mouseWave = 0.0;
+  if (u_mouseReact > 0.0) {
+    vec2 toMouse = uv * u_scale * 3.0 - u_mouseSmooth * u_scale * 3.0;
+    float mDist = length(toMouse);
+    float speed = length(u_mouseVelocity);
+    // Expanding rings from mouse, intensity based on reactivity
+    mouseWave = sin(mDist * 6.0 - time * 3.0) * u_mouseReact * 0.6;
+    mouseWave *= smoothstep(2.0, 0.0, mDist); // fade at distance
+    mouseWave *= (1.0 + speed * 0.005); // stronger when moving fast
+  }
 
   float v = 0.0;
   v += sin(p.x * u_complexity + time);
@@ -173,6 +257,7 @@ vec3 plasmaGradient(vec2 uv, float time) {
   float cx = p.x + 0.5 * sin(time * 0.3);
   float cy = p.y + 0.5 * cos(time * 0.4);
   v += sin(sqrt(cx * cx + cy * cy + 1.0) * u_complexity);
+  v += mouseWave;
 
   float colorVal = v * 0.25 + 0.5;
   colorVal += fbm(p * 0.5 + time * 0.1, int(min(u_complexity, 4.0))) * u_distortion * 0.3;
@@ -180,7 +265,7 @@ vec3 plasmaGradient(vec2 uv, float time) {
 }
 
 // ============================================================
-// Particles
+// Particles (with physics-based mouse interaction)
 // ============================================================
 
 float hash(vec2 p) {
@@ -203,10 +288,19 @@ float renderParticles(vec2 uv, float time) {
     pos.y += cos(time * 0.2 + i * 1.1) * 0.05;
     pos = fract(pos);
 
-    // Mouse reaction
-    vec2 toMouse = u_mouse - pos;
-    float mouseDist = length(toMouse);
-    pos += normalize(toMouse + 0.001) * u_mouseReact * 0.03 / (mouseDist + 0.1);
+    // Physics-based mouse: particles orbit and scatter
+    if (u_mouseReact > 0.0) {
+      vec2 toMouse = u_mouseSmooth - pos;
+      float mouseDist = length(toMouse);
+      vec2 mouseDir = normalize(toMouse + 0.0001);
+      float influence = smoothstep(0.3, 0.0, mouseDist);
+
+      // Attract gently + add tangential orbit from velocity
+      vec2 tangent = vec2(-mouseDir.y, mouseDir.x);
+      float velDot = dot(normalize(u_mouseVelocity + 0.001), tangent);
+      pos += mouseDir * influence * u_mouseReact * 0.02;
+      pos += tangent * influence * velDot * u_mouseReact * 0.01;
+    }
     pos = clamp(pos, 0.0, 1.0);
 
     float d = length(uv - pos);
