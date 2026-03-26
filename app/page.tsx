@@ -1,4 +1,5 @@
 import Canvas from "@/components/Canvas";
+import Sidebar from "@/components/Sidebar";
 
 export default function Home() {
   return (
@@ -9,8 +10,7 @@ export default function Home() {
       </div>
       <div className="flex flex-1 min-h-0">
         <Canvas />
-        {/* Sidebar placeholder */}
-        <div className="w-[320px] shrink-0 bg-base border-l border-border" />
+        <Sidebar />
       </div>
     </div>
   );
