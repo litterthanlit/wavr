@@ -50,6 +50,9 @@ uniform float u_voronoiScale;
 uniform bool u_curlEnabled;
 uniform float u_curlIntensity;
 uniform float u_curlScale;
+uniform bool u_kaleidoscopeEnabled;
+uniform float u_kaleidoscopeSegments;
+uniform float u_kaleidoscopeRotation;
 
 // ============================================================
 // Simplex Noise 2D
@@ -433,6 +436,21 @@ void main() {
   if (u_curlEnabled) {
     vec2 curl = curlNoise(uv * u_curlScale * 3.0, time);
     uv += curl * u_curlIntensity * 0.1;
+  }
+
+  // Kaleidoscope (radial mirror symmetry)
+  if (u_kaleidoscopeEnabled) {
+    vec2 centered = uv - 0.5;
+    float angle = atan(centered.y, centered.x) + u_kaleidoscopeRotation * 6.28318 / 360.0;
+    float r = length(centered);
+    float segments = max(u_kaleidoscopeSegments, 2.0);
+    float segAngle = 6.28318 / segments;
+    angle = mod(angle, segAngle);
+    // Mirror alternate segments for seamless reflection
+    if (mod(floor(angle / segAngle + 0.5), 2.0) > 0.5) {
+      angle = segAngle - angle;
+    }
+    uv = vec2(cos(angle), sin(angle)) * r + 0.5;
   }
 
   // Base gradient (with optional radial zoom blur)

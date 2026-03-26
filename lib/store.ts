@@ -37,6 +37,9 @@ export interface GradientState {
   curlEnabled: boolean;
   curlIntensity: number;
   curlScale: number;
+  kaleidoscopeEnabled: boolean;
+  kaleidoscopeSegments: number;
+  kaleidoscopeRotation: number;
 
   // Playback
   playing: boolean;
@@ -199,6 +202,9 @@ const DEFAULTS = {
   curlEnabled: false,
   curlIntensity: 0.5,
   curlScale: 1.0,
+  kaleidoscopeEnabled: false,
+  kaleidoscopeSegments: 6,
+  kaleidoscopeRotation: 0,
   playing: true,
   timelineEnabled: false,
   timelineDuration: 10,

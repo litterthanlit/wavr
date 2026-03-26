@@ -101,6 +101,7 @@ export class GradientEngine {
       "u_layerOpacity", "u_isBaseLayer",
       "u_voronoiEnabled", "u_voronoiIntensity", "u_voronoiScale",
       "u_curlEnabled", "u_curlIntensity", "u_curlScale",
+      "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -194,6 +195,9 @@ export class GradientEngine {
     this.seti("u_curlEnabled", isBaseLayer && state.curlEnabled ? 1 : 0);
     this.setf("u_curlIntensity", state.curlIntensity);
     this.setf("u_curlScale", state.curlScale);
+    this.seti("u_kaleidoscopeEnabled", isBaseLayer && state.kaleidoscopeEnabled ? 1 : 0);
+    this.setf("u_kaleidoscopeSegments", state.kaleidoscopeSegments);
+    this.setf("u_kaleidoscopeRotation", state.kaleidoscopeRotation);
   }
 
   private applyBlendMode(mode: BlendMode) {
