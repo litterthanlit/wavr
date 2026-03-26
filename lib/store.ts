@@ -47,6 +47,8 @@ export interface GradientState {
   reactionDiffEnabled: boolean;
   reactionDiffIntensity: number;
   reactionDiffScale: number;
+  feedbackEnabled: boolean;
+  feedbackDecay: number;
 
   // Playback
   playing: boolean;
@@ -219,6 +221,8 @@ const DEFAULTS = {
   reactionDiffEnabled: false,
   reactionDiffIntensity: 0.5,
   reactionDiffScale: 1.0,
+  feedbackEnabled: false,
+  feedbackDecay: 0.5,
   playing: true,
   timelineEnabled: false,
   timelineDuration: 10,

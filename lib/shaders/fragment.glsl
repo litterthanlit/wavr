@@ -60,6 +60,9 @@ uniform float u_metaballsScale;
 uniform bool u_reactionDiffEnabled;
 uniform float u_reactionDiffIntensity;
 uniform float u_reactionDiffScale;
+uniform bool u_feedbackEnabled;
+uniform float u_feedbackDecay;
+uniform sampler2D u_prevFrame;
 
 // ============================================================
 // Simplex Noise 2D
@@ -613,6 +616,16 @@ void main() {
   if (u_grain > 0.0) {
     float grainNoise = hash(uv * u_resolution + fract(u_time * 100.0)) * 2.0 - 1.0;
     color += grainNoise * u_grain * 0.15;
+  }
+
+  // Feedback loop (blend with previous frame)
+  if (u_feedbackEnabled) {
+    vec3 prev = texture(u_prevFrame, v_uv).rgb;
+    // Slight UV offset for motion trails
+    vec2 fbUV = v_uv + vec2(sin(u_time * 0.1) * 0.002, cos(u_time * 0.13) * 0.002);
+    vec3 prevOffset = texture(u_prevFrame, fbUV).rgb;
+    vec3 feedback = mix(prev, prevOffset, 0.5);
+    color = mix(color, max(color, feedback), u_feedbackDecay);
   }
 
   // Tone mapping (simple reinhard)

@@ -136,6 +136,14 @@ export default function EffectsPanel() {
         <Slider label="Intensity" value={store.reactionDiffIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ reactionDiffIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.reactionDiffEnabled} />
         <Slider label="Scale" value={store.reactionDiffScale} min={0.2} max={5} step={0.1} onChange={(v) => store.set({ reactionDiffScale: v })} onCommit={() => store.commitSet()} disabled={!store.reactionDiffEnabled} />
       </div>
+
+      <div className="border-t border-border" />
+
+      {/* Feedback Loop */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="Feedback Loop" checked={store.feedbackEnabled} onChange={(v) => store.setDiscrete({ feedbackEnabled: v })} />
+        <Slider label="Decay" value={store.feedbackDecay} min={0} max={0.98} step={0.01} onChange={(v) => store.set({ feedbackDecay: v })} onCommit={() => store.commitSet()} disabled={!store.feedbackEnabled} />
+      </div>
     </div>
   );
 }

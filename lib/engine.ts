@@ -20,6 +20,12 @@ export class GradientEngine {
   private mouseVelY = 0;
   private prevSmoothX = 0.5;
   private prevSmoothY = 0.5;
+  // Feedback loop FBO ping-pong
+  private feedbackFBOs: [WebGLFramebuffer, WebGLFramebuffer] | null = null;
+  private feedbackTextures: [WebGLTexture, WebGLTexture] | null = null;
+  private feedbackIndex = 0;
+  private feedbackWidth = 0;
+  private feedbackHeight = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", {
@@ -104,6 +110,7 @@ export class GradientEngine {
       "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
       "u_metaballsEnabled", "u_metaballsIntensity", "u_metaballsCount", "u_metaballsScale",
       "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
+      "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -126,6 +133,55 @@ export class GradientEngine {
     gl.canvas.width = width * dpr;
     gl.canvas.height = height * dpr;
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  }
+
+  private initFeedbackFBOs() {
+    const gl = this.gl;
+    const width = gl.canvas.width;
+    const height = gl.canvas.height;
+    this.destroyFeedbackFBOs();
+
+    const textures: WebGLTexture[] = [];
+    const fbos: WebGLFramebuffer[] = [];
+
+    for (let i = 0; i < 2; i++) {
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      textures.push(tex);
+
+      const fbo = gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      fbos.push(fbo);
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    this.feedbackFBOs = [fbos[0], fbos[1]];
+    this.feedbackTextures = [textures[0], textures[1]];
+    this.feedbackWidth = width;
+    this.feedbackHeight = height;
+    this.feedbackIndex = 0;
+  }
+
+  private destroyFeedbackFBOs() {
+    const gl = this.gl;
+    if (this.feedbackFBOs) {
+      gl.deleteFramebuffer(this.feedbackFBOs[0]);
+      gl.deleteFramebuffer(this.feedbackFBOs[1]);
+    }
+    if (this.feedbackTextures) {
+      gl.deleteTexture(this.feedbackTextures[0]);
+      gl.deleteTexture(this.feedbackTextures[1]);
+    }
+    this.feedbackFBOs = null;
+    this.feedbackTextures = null;
   }
 
   private setf(name: string, val: number) {
@@ -207,6 +263,8 @@ export class GradientEngine {
     this.seti("u_reactionDiffEnabled", isBaseLayer && state.reactionDiffEnabled ? 1 : 0);
     this.setf("u_reactionDiffIntensity", state.reactionDiffIntensity);
     this.setf("u_reactionDiffScale", state.reactionDiffScale);
+    this.seti("u_feedbackEnabled", isBaseLayer && state.feedbackEnabled ? 1 : 0);
+    this.setf("u_feedbackDecay", state.feedbackDecay);
   }
 
   private applyBlendMode(mode: BlendMode) {
@@ -234,45 +292,73 @@ export class GradientEngine {
 
   render(state: GradientState) {
     const gl = this.gl;
+    const feedbackActive = state.feedbackEnabled;
+
+    // Set up FBO for feedback if needed
+    if (feedbackActive) {
+      if (!this.feedbackFBOs ||
+          this.feedbackWidth !== gl.canvas.width ||
+          this.feedbackHeight !== gl.canvas.height) {
+        this.initFeedbackFBOs();
+      }
+      // Bind previous frame texture
+      const prevIdx = 1 - this.feedbackIndex;
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.feedbackTextures![prevIdx]);
+      this.seti("u_prevFrame", 0);
+      // Render to current FBO
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.feedbackFBOs![this.feedbackIndex]);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    }
+
     const visibleLayers = state.layers.filter((l) => l.visible);
 
     if (visibleLayers.length === 0) {
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      return;
-    }
-
-    // Single layer: render directly (no blending overhead)
-    if (visibleLayers.length === 1) {
+    } else if (visibleLayers.length === 1) {
+      // Single layer: render directly (no blending overhead)
       gl.disable(gl.BLEND);
       const layer = visibleLayers[0];
       this.setGlobalUniforms(state, true);
       this.setLayerUniforms(layer);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      return;
-    }
+    } else {
+      // Multi-layer: render base, then composite overlays
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Multi-layer: render base, then composite overlays
-    gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+      for (let i = 0; i < visibleLayers.length; i++) {
+        const layer = visibleLayers[i];
+        const isLast = i === visibleLayers.length - 1;
 
-    for (let i = 0; i < visibleLayers.length; i++) {
-      const layer = visibleLayers[i];
-      const isLast = i === visibleLayers.length - 1;
+        if (i === 0) {
+          gl.disable(gl.BLEND);
+        } else {
+          this.applyBlendMode(layer.blendMode);
+        }
 
-      if (i === 0) {
-        gl.disable(gl.BLEND);
-      } else {
-        this.applyBlendMode(layer.blendMode);
+        // Apply global effects only on the last layer
+        this.setGlobalUniforms(state, isLast);
+        this.setLayerUniforms(layer);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
 
-      // Apply global effects only on the last layer
-      this.setGlobalUniforms(state, isLast);
-      this.setLayerUniforms(layer);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.disable(gl.BLEND);
     }
 
-    gl.disable(gl.BLEND);
+    // Blit FBO to screen and swap buffers
+    if (feedbackActive && this.feedbackFBOs) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.feedbackFBOs[this.feedbackIndex]);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(
+        0, 0, gl.canvas.width, gl.canvas.height,
+        0, 0, gl.canvas.width, gl.canvas.height,
+        gl.COLOR_BUFFER_BIT, gl.NEAREST
+      );
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.feedbackIndex = 1 - this.feedbackIndex;
+    }
   }
 
   startLoop(getState: () => GradientState, onFrame?: (fps: number) => void) {
@@ -335,6 +421,7 @@ export class GradientEngine {
 
   destroy() {
     this.stopLoop();
+    this.destroyFeedbackFBOs();
     if (this.program) this.gl.deleteProgram(this.program);
   }
 }
