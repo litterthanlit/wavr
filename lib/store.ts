@@ -31,6 +31,9 @@ export interface GradientState {
   asciiSize: number;
   ditherEnabled: boolean;
   ditherSize: number;
+  voronoiEnabled: boolean;
+  voronoiIntensity: number;
+  voronoiScale: number;
 
   // Playback
   playing: boolean;
@@ -187,6 +190,9 @@ const DEFAULTS = {
   asciiSize: 8,
   ditherEnabled: false,
   ditherSize: 4,
+  voronoiEnabled: false,
+  voronoiIntensity: 0.5,
+  voronoiScale: 1.0,
   playing: true,
   timelineEnabled: false,
   timelineDuration: 10,

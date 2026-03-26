@@ -43,6 +43,11 @@ uniform float u_ditherSize;
 uniform float u_layerOpacity;
 uniform bool u_isBaseLayer;
 
+// Advanced effects
+uniform bool u_voronoiEnabled;
+uniform float u_voronoiIntensity;
+uniform float u_voronoiScale;
+
 // ============================================================
 // Simplex Noise 2D
 // ============================================================
@@ -297,6 +302,49 @@ float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
+// ============================================================
+// Voronoi Noise
+// ============================================================
+
+// Returns vec3(minDist, edgeDist, cellId)
+vec3 voronoi(vec2 p, float time) {
+  vec2 n = floor(p);
+  vec2 f = fract(p);
+
+  float minDist = 8.0;
+  float minDist2 = 8.0;
+  vec2 minCell = vec2(0.0);
+
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 cellPos = n + g;
+      // Pseudo-random point inside cell, animated over time
+      vec2 o = vec2(
+        fract(sin(dot(cellPos, vec2(127.1, 311.7))) * 43758.5453),
+        fract(sin(dot(cellPos, vec2(269.5, 183.3))) * 43758.5453)
+      );
+      o = 0.5 + 0.4 * sin(time * 0.5 + 6.2831 * o);
+      vec2 diff = g + o - f;
+      float d = dot(diff, diff);
+      if (d < minDist) {
+        minDist2 = minDist;
+        minDist = d;
+        minCell = cellPos;
+      } else if (d < minDist2) {
+        minDist2 = d;
+      }
+    }
+  }
+
+  minDist = sqrt(minDist);
+  minDist2 = sqrt(minDist2);
+  float edge = minDist2 - minDist;
+  float cellId = fract(sin(dot(minCell, vec2(127.1, 311.7))) * 43758.5453);
+
+  return vec3(minDist, edge, cellId);
+}
+
 float renderParticles(vec2 uv, float time) {
   float result = 0.0;
   float count = u_particleCount;
@@ -394,6 +442,16 @@ void main() {
   if (u_noiseEnabled) {
     float n = snoise(uv * u_noiseScale * 10.0 + time * 0.5) * 0.5 + 0.5;
     color = mix(color, color * (0.5 + n), u_noiseIntensity);
+  }
+
+  // Voronoi noise overlay
+  if (u_voronoiEnabled) {
+    vec2 vp = uv * u_voronoiScale * 5.0;
+    vec3 vor = voronoi(vp, time);
+    float cellColor = vor.z;
+    float edge = smoothstep(0.0, 0.05, vor.y);
+    vec3 voronoiColor = getGradientColor(cellColor) * edge;
+    color = mix(color, voronoiColor, u_voronoiIntensity);
   }
 
   // Particles

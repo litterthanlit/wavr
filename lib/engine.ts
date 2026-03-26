@@ -99,6 +99,7 @@ export class GradientEngine {
       "u_chromaticAberration", "u_hueShift",
       "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
       "u_layerOpacity", "u_isBaseLayer",
+      "u_voronoiEnabled", "u_voronoiIntensity", "u_voronoiScale",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -186,6 +187,9 @@ export class GradientEngine {
     this.setf("u_asciiSize", state.asciiSize);
     this.seti("u_ditherEnabled", isBaseLayer && state.ditherEnabled ? 1 : 0);
     this.setf("u_ditherSize", state.ditherSize);
+    this.seti("u_voronoiEnabled", isBaseLayer && state.voronoiEnabled ? 1 : 0);
+    this.setf("u_voronoiIntensity", state.voronoiIntensity);
+    this.setf("u_voronoiScale", state.voronoiScale);
   }
 
   private applyBlendMode(mode: BlendMode) {

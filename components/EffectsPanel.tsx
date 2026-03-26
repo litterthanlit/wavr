@@ -90,6 +90,15 @@ export default function EffectsPanel() {
         <Toggle label="ASCII" checked={store.asciiEnabled} onChange={(v) => store.setDiscrete({ asciiEnabled: v })} />
         <Slider label="Cell Size" value={store.asciiSize} min={2} max={24} step={1} onChange={(v) => store.set({ asciiSize: v })} onCommit={() => store.commitSet()} disabled={!store.asciiEnabled} />
       </div>
+
+      <div className="border-t border-border" />
+
+      {/* Voronoi */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="Voronoi" checked={store.voronoiEnabled} onChange={(v) => store.setDiscrete({ voronoiEnabled: v })} />
+        <Slider label="Intensity" value={store.voronoiIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ voronoiIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.voronoiEnabled} />
+        <Slider label="Scale" value={store.voronoiScale} min={0.2} max={5} step={0.1} onChange={(v) => store.set({ voronoiScale: v })} onCommit={() => store.commitSet()} disabled={!store.voronoiEnabled} />
+      </div>
     </div>
   );
 }
