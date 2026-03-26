@@ -100,6 +100,7 @@ export class GradientEngine {
       "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
       "u_layerOpacity", "u_isBaseLayer",
       "u_voronoiEnabled", "u_voronoiIntensity", "u_voronoiScale",
+      "u_curlEnabled", "u_curlIntensity", "u_curlScale",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -190,6 +191,9 @@ export class GradientEngine {
     this.seti("u_voronoiEnabled", isBaseLayer && state.voronoiEnabled ? 1 : 0);
     this.setf("u_voronoiIntensity", state.voronoiIntensity);
     this.setf("u_voronoiScale", state.voronoiScale);
+    this.seti("u_curlEnabled", isBaseLayer && state.curlEnabled ? 1 : 0);
+    this.setf("u_curlIntensity", state.curlIntensity);
+    this.setf("u_curlScale", state.curlScale);
   }
 
   private applyBlendMode(mode: BlendMode) {

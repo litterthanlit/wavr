@@ -34,6 +34,9 @@ export interface GradientState {
   voronoiEnabled: boolean;
   voronoiIntensity: number;
   voronoiScale: number;
+  curlEnabled: boolean;
+  curlIntensity: number;
+  curlScale: number;
 
   // Playback
   playing: boolean;
@@ -193,6 +196,9 @@ const DEFAULTS = {
   voronoiEnabled: false,
   voronoiIntensity: 0.5,
   voronoiScale: 1.0,
+  curlEnabled: false,
+  curlIntensity: 0.5,
+  curlScale: 1.0,
   playing: true,
   timelineEnabled: false,
   timelineDuration: 10,

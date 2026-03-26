@@ -47,6 +47,9 @@ uniform bool u_isBaseLayer;
 uniform bool u_voronoiEnabled;
 uniform float u_voronoiIntensity;
 uniform float u_voronoiScale;
+uniform bool u_curlEnabled;
+uniform float u_curlIntensity;
+uniform float u_curlScale;
 
 // ============================================================
 // Simplex Noise 2D
@@ -345,6 +348,23 @@ vec3 voronoi(vec2 p, float time) {
   return vec3(minDist, edge, cellId);
 }
 
+// ============================================================
+// Curl Noise (divergence-free 2D flow field)
+// ============================================================
+
+vec2 curlNoise(vec2 p, float time) {
+  float eps = 0.01;
+  // Compute partial derivatives of noise to get curl
+  float n1 = snoise(p + vec2(0.0, eps) + time * 0.3);
+  float n2 = snoise(p - vec2(0.0, eps) + time * 0.3);
+  float n3 = snoise(p + vec2(eps, 0.0) + time * 0.3);
+  float n4 = snoise(p - vec2(eps, 0.0) + time * 0.3);
+  // Curl: perpendicular to gradient = divergence-free
+  float dndx = (n3 - n4) / (2.0 * eps);
+  float dndy = (n1 - n2) / (2.0 * eps);
+  return vec2(dndy, -dndx);
+}
+
 float renderParticles(vec2 uv, float time) {
   float result = 0.0;
   float count = u_particleCount;
@@ -408,6 +428,12 @@ vec3 rotateHue(vec3 color, float angle) {
 void main() {
   vec2 uv = v_uv;
   float time = u_time * u_speed;
+
+  // Curl noise UV distortion (fluid-like swirling)
+  if (u_curlEnabled) {
+    vec2 curl = curlNoise(uv * u_curlScale * 3.0, time);
+    uv += curl * u_curlIntensity * 0.1;
+  }
 
   // Base gradient (with optional radial zoom blur)
   vec3 color;

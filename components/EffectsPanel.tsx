@@ -99,6 +99,15 @@ export default function EffectsPanel() {
         <Slider label="Intensity" value={store.voronoiIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ voronoiIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.voronoiEnabled} />
         <Slider label="Scale" value={store.voronoiScale} min={0.2} max={5} step={0.1} onChange={(v) => store.set({ voronoiScale: v })} onCommit={() => store.commitSet()} disabled={!store.voronoiEnabled} />
       </div>
+
+      <div className="border-t border-border" />
+
+      {/* Curl Noise */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="Curl Noise" checked={store.curlEnabled} onChange={(v) => store.setDiscrete({ curlEnabled: v })} />
+        <Slider label="Intensity" value={store.curlIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ curlIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.curlEnabled} />
+        <Slider label="Scale" value={store.curlScale} min={0.2} max={5} step={0.1} onChange={(v) => store.set({ curlScale: v })} onCommit={() => store.commitSet()} disabled={!store.curlEnabled} />
+      </div>
     </div>
   );
 }
