@@ -2199,3 +2199,78 @@ Task 12 (Polish) — after all others
 ```
 
 Tasks 2+3, 8+9+10, and 6 (within itself) can be parallelized.
+
+---
+
+## Sub-project 2: Creative Engine
+
+### Task 1: Physics-based Mouse Interaction [DONE]
+
+**Files:** `lib/engine.ts`, `lib/shaders/fragment.glsl`
+
+- [x] Smoothed mouse position (exponential lerp on CPU, frame-rate independent)
+- [x] Mouse velocity tracking (passed as `u_mouseVelocity` uniform)
+- [x] Per-mode fluid displacement in shader:
+  - Mesh: gravitational warp (radial UV displacement, like pushing through water)
+  - Radial: ripple waves emanating from mouse position
+  - Linear: flow direction bending near mouse
+  - Conic: vortex swirl at mouse position
+  - Plasma: interference patterns (stone-in-water effect)
+  - Particles: orbit + scatter based on mouse velocity tangent
+
+### Task 2: Color Blending Improvements
+
+**Files:** `lib/store.ts`, `lib/shaders/fragment.glsl`, `lib/engine.ts`, `components/EffectsPanel.tsx`
+
+- [ ] Add `colorBlend` parameter (0-1) to store
+- [ ] In shader: wider interpolation between color stops when blend is high
+- [ ] Smoother color transitions that work synergistically with blur effects
+- [ ] Add slider to EffectsPanel
+
+### Task 3: Chromatic Aberration
+
+**Files:** `lib/store.ts`, `lib/shaders/fragment.glsl`, `lib/engine.ts`, `components/EffectsPanel.tsx`
+
+- [ ] Add `chromaticAberration` parameter (0-1) to store
+- [ ] In shader: offset R, G, B channels radially from center
+- [ ] Add slider to EffectsPanel
+
+### Task 4: Color Shift / Hue Rotation
+
+**Files:** `lib/store.ts`, `lib/shaders/fragment.glsl`, `lib/engine.ts`, `components/EffectsPanel.tsx`
+
+- [ ] Add `hueShift` parameter (0-360) to store
+- [ ] In shader: rotate hue in post-processing via RGB-to-HSL-to-RGB
+- [ ] Add slider to GradientPanel (near saturation/brightness)
+
+### Task 5: ASCII Art Effect (future)
+
+- [ ] Render gradient luminance as ASCII characters in fragment shader
+- [ ] Character set density mapping (e.g., ` .:-=+*#%@`)
+- [ ] Toggle + font size control
+
+### Task 6: Dither Effect (future)
+
+- [ ] Ordered dithering (Bayer matrix) as post-process
+- [ ] Optional Floyd-Steinberg approximation
+- [ ] Toggle + threshold control
+
+### Task 7: Layer System (future)
+
+- [ ] Multiple gradient layers with independent parameters
+- [ ] Blending modes (normal, multiply, screen, overlay, add)
+- [ ] Per-layer opacity
+- [ ] Layer reordering
+
+### Task 8: Animation Timeline (future)
+
+- [ ] Keyframe-based parameter animation
+- [ ] Timeline scrubbing UI
+- [ ] Playback controls with loop/bounce modes
+
+---
+
+### Priority
+
+- **Now:** Tasks 2, 3, 4 (effects that ship quickly)
+- **Future:** Tasks 5-8 (larger architectural changes)
