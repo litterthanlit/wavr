@@ -52,6 +52,10 @@ uniform float u_kaleidoscopeRotation;
 uniform bool u_reactionDiffEnabled;
 uniform float u_reactionDiffIntensity;
 uniform float u_reactionDiffScale;
+uniform bool u_pixelSortEnabled;
+uniform float u_pixelSortIntensity;
+uniform float u_pixelSortThreshold;
+uniform float u_domainWarp;
 uniform bool u_feedbackEnabled;
 uniform float u_feedbackDecay;
 uniform sampler2D u_prevFrame;
@@ -202,11 +206,19 @@ vec3 meshGradient(vec2 uv, float time) {
 
   // Layered fBm with velocity-influenced turbulence
   float velMag = length(u_mouseVelocity) * u_mouseReact * 0.001;
+  float warp = u_distortion + u_domainWarp * 0.5;
   float n1 = fbm(p + vec2(time * 0.3, time * 0.2), octaves);
-  float n2 = fbm(p + vec2(n1 * u_distortion + time * 0.1 + velMag, n1 * u_distortion - time * 0.15), octaves);
-  float n3 = fbm(p + vec2(n2 * u_distortion * 0.8 + velMag * 0.5, n2 * u_distortion * 0.8 + time * 0.05), octaves);
-
-  float colorVal = n3 * 0.5 + 0.5;
+  float n2 = fbm(p + vec2(n1 * warp + time * 0.1 + velMag, n1 * warp - time * 0.15), octaves);
+  float n3 = fbm(p + vec2(n2 * warp * 0.8 + velMag * 0.5, n2 * warp * 0.8 + time * 0.05), octaves);
+  // Extra warping layers when domain warp is active
+  float colorVal;
+  if (u_domainWarp > 0.01) {
+    float n4 = fbm(p + vec2(n3 * warp * 0.6 + time * 0.03, n3 * warp * 0.6 - time * 0.07), octaves);
+    float n5 = fbm(p + vec2(n4 * warp * 0.4, n4 * warp * 0.4 + time * 0.02), octaves);
+    colorVal = mix(n3, n5, u_domainWarp) * 0.5 + 0.5;
+  } else {
+    colorVal = n3 * 0.5 + 0.5;
+  }
   return getGradientColor(colorVal);
 }
 
@@ -492,6 +504,26 @@ void main() {
 
   // Tone mapping (simple reinhard)
   color = color / (color + 1.0);
+
+  // Pixel sorting (glitch art — horizontal streak displacement by brightness)
+  if (u_pixelSortEnabled) {
+    float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    // Only sort pixels above the brightness threshold
+    if (lum > u_pixelSortThreshold) {
+      // Displacement amount scales with brightness distance from threshold
+      float sortAmount = (lum - u_pixelSortThreshold) / (1.0 - u_pixelSortThreshold + 0.001);
+      // Animated horizontal offset with noise for organic streaks
+      float rowNoise = hash(vec2(floor(uv.y * u_resolution.y), floor(u_time * 2.0)));
+      float offset = sortAmount * u_pixelSortIntensity * 0.15 * (rowNoise * 2.0 - 1.0);
+      // Re-sample gradient at displaced position
+      vec2 sortedUV = uv + vec2(offset, 0.0);
+      sortedUV.x = clamp(sortedUV.x, 0.0, 1.0);
+      vec3 sortedColor = computeGradient(sortedUV, time);
+      // Apply tone mapping to the re-sampled color too
+      sortedColor = sortedColor / (sortedColor + 1.0);
+      color = mix(color, sortedColor, sortAmount * u_pixelSortIntensity);
+    }
+  }
 
   // Ordered dithering (Bayer 4x4 matrix)
   if (u_ditherEnabled) {

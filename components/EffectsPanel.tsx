@@ -111,6 +111,15 @@ export default function EffectsPanel() {
 
       <div className="border-t border-border" />
 
+      {/* Pixel Sort */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="Pixel Sort" checked={store.pixelSortEnabled} onChange={(v) => store.setDiscrete({ pixelSortEnabled: v })} />
+        <Slider label="Intensity" value={store.pixelSortIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ pixelSortIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.pixelSortEnabled} />
+        <Slider label="Threshold" value={store.pixelSortThreshold} min={0} max={1} step={0.01} onChange={(v) => store.set({ pixelSortThreshold: v })} onCommit={() => store.commitSet()} disabled={!store.pixelSortEnabled} />
+      </div>
+
+      <div className="border-t border-border" />
+
       {/* Feedback Loop */}
       <div className="flex flex-col gap-3">
         <Toggle label="Feedback Loop" checked={store.feedbackEnabled} onChange={(v) => store.setDiscrete({ feedbackEnabled: v })} />

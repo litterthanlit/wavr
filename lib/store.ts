@@ -37,6 +37,10 @@ export interface GradientState {
   reactionDiffEnabled: boolean;
   reactionDiffIntensity: number;
   reactionDiffScale: number;
+  pixelSortEnabled: boolean;
+  pixelSortIntensity: number;
+  pixelSortThreshold: number;
+  domainWarp: number;
   feedbackEnabled: boolean;
   feedbackDecay: number;
 
@@ -201,6 +205,10 @@ const DEFAULTS = {
   reactionDiffEnabled: false,
   reactionDiffIntensity: 0.5,
   reactionDiffScale: 1.0,
+  pixelSortEnabled: false,
+  pixelSortIntensity: 0.5,
+  pixelSortThreshold: 0.5,
+  domainWarp: 0,
   feedbackEnabled: false,
   feedbackDecay: 0.5,
   playing: true,
