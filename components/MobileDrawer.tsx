@@ -4,7 +4,7 @@ import { useState } from "react";
 import GradientPanel from "@/components/GradientPanel";
 import EffectsPanel from "@/components/EffectsPanel";
 import PresetsPanel from "@/components/PresetsPanel";
-import type { SidebarTab } from "@/app/page";
+import type { SidebarTab } from "@/lib/types";
 
 const TABS: { id: SidebarTab; label: string }[] = [
   { id: "gradient", label: "Gradient" },
