@@ -101,6 +101,7 @@ export class GradientEngine {
       "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
       "u_mouseReact",
       "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
+      "u_blurEnabled", "u_blurAmount",
       "u_mouseSmooth", "u_mouseVelocity", "u_colorBlend",
       "u_chromaticAberration", "u_hueShift",
       "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
@@ -235,6 +236,8 @@ export class GradientEngine {
     this.setf("u_bloomIntensity", state.bloomIntensity);
     this.setf("u_vignette", isBaseLayer ? state.vignette : 0);
     this.setf("u_radialBlurAmount", state.radialBlurAmount);
+    this.seti("u_blurEnabled", isBaseLayer && state.blurEnabled ? 1 : 0);
+    this.setf("u_blurAmount", state.blurAmount);
     this.setf("u_colorBlend", state.colorBlend);
     this.setf("u_chromaticAberration", isBaseLayer ? state.chromaticAberration : 0);
     this.setf("u_hueShift", isBaseLayer ? state.hueShift : 0);
