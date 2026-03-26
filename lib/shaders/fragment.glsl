@@ -53,6 +53,10 @@ uniform float u_curlScale;
 uniform bool u_kaleidoscopeEnabled;
 uniform float u_kaleidoscopeSegments;
 uniform float u_kaleidoscopeRotation;
+uniform bool u_metaballsEnabled;
+uniform float u_metaballsIntensity;
+uniform float u_metaballsCount;
+uniform float u_metaballsScale;
 
 // ============================================================
 // Simplex Noise 2D
@@ -496,6 +500,33 @@ void main() {
     float edge = smoothstep(0.0, 0.05, vor.y);
     vec3 voronoiColor = getGradientColor(cellColor) * edge;
     color = mix(color, voronoiColor, u_voronoiIntensity);
+  }
+
+  // Metaballs overlay
+  if (u_metaballsEnabled) {
+    float field = 0.0;
+    float colorIdx = 0.0;
+    float totalWeight = 0.0;
+    for (float i = 0.0; i < 12.0; i++) {
+      if (i >= u_metaballsCount) break;
+      // Animated blob positions
+      vec2 seed = vec2(i * 1.17, i * 0.53);
+      vec2 blobPos = vec2(
+        0.5 + 0.35 * sin(time * (0.3 + i * 0.07) + seed.x * 6.28),
+        0.5 + 0.35 * cos(time * (0.25 + i * 0.09) + seed.y * 6.28)
+      );
+      float dist = length(uv - blobPos);
+      float radius = u_metaballsScale * (0.06 + 0.03 * sin(i * 2.7));
+      float blob = radius / (dist * dist + 0.001);
+      field += blob;
+      colorIdx += blob * (i / u_metaballsCount);
+      totalWeight += blob;
+    }
+    colorIdx /= max(totalWeight, 0.001);
+    // Threshold for blobby iso-surface
+    float meta = smoothstep(8.0, 12.0, field);
+    vec3 metaColor = getGradientColor(colorIdx);
+    color = mix(color, metaColor, meta * u_metaballsIntensity);
   }
 
   // Particles

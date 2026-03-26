@@ -40,6 +40,10 @@ export interface GradientState {
   kaleidoscopeEnabled: boolean;
   kaleidoscopeSegments: number;
   kaleidoscopeRotation: number;
+  metaballsEnabled: boolean;
+  metaballsIntensity: number;
+  metaballsCount: number;
+  metaballsScale: number;
 
   // Playback
   playing: boolean;
@@ -205,6 +209,10 @@ const DEFAULTS = {
   kaleidoscopeEnabled: false,
   kaleidoscopeSegments: 6,
   kaleidoscopeRotation: 0,
+  metaballsEnabled: false,
+  metaballsIntensity: 0.7,
+  metaballsCount: 6,
+  metaballsScale: 1.0,
   playing: true,
   timelineEnabled: false,
   timelineDuration: 10,

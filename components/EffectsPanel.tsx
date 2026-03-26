@@ -117,6 +117,16 @@ export default function EffectsPanel() {
         <Slider label="Segments" value={store.kaleidoscopeSegments} min={2} max={12} step={1} onChange={(v) => store.set({ kaleidoscopeSegments: v })} onCommit={() => store.commitSet()} disabled={!store.kaleidoscopeEnabled} />
         <Slider label="Rotation" value={store.kaleidoscopeRotation} min={0} max={360} step={1} onChange={(v) => store.set({ kaleidoscopeRotation: v })} onCommit={() => store.commitSet()} disabled={!store.kaleidoscopeEnabled} />
       </div>
+
+      <div className="border-t border-border" />
+
+      {/* Metaballs */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="Metaballs" checked={store.metaballsEnabled} onChange={(v) => store.setDiscrete({ metaballsEnabled: v })} />
+        <Slider label="Intensity" value={store.metaballsIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ metaballsIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.metaballsEnabled} />
+        <Slider label="Count" value={store.metaballsCount} min={2} max={12} step={1} onChange={(v) => store.set({ metaballsCount: v })} onCommit={() => store.commitSet()} disabled={!store.metaballsEnabled} />
+        <Slider label="Size" value={store.metaballsScale} min={0.2} max={3} step={0.1} onChange={(v) => store.set({ metaballsScale: v })} onCommit={() => store.commitSet()} disabled={!store.metaballsEnabled} />
+      </div>
     </div>
   );
 }
