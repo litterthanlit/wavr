@@ -19,7 +19,7 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   return (
-    <div className="w-[320px] shrink-0 bg-base border-l border-border flex-col h-full hidden md:flex">
+    <div className="w-[320px] shrink-0 bg-base border-l border-border flex flex-col h-full">
       {/* Layer panel (always visible) */}
       <div className="border-b border-border shrink-0">
         <LayerPanel />
