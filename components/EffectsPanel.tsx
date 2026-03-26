@@ -54,6 +54,14 @@ export default function EffectsPanel() {
 
       <div className="border-t border-border" />
 
+      {/* Color Blending & Chromatic Aberration */}
+      <div className="flex flex-col gap-3">
+        <Slider label="Color Blend" value={store.colorBlend} min={0} max={1} step={0.01} onChange={(v) => store.set({ colorBlend: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Chromatic Aberration" value={store.chromaticAberration} min={0} max={1} step={0.01} onChange={(v) => store.set({ chromaticAberration: v })} onCommit={() => store.commitSet()} />
+      </div>
+
+      <div className="border-t border-border" />
+
       {/* Blur */}
       <div className="flex flex-col gap-3">
         <Toggle label="Gaussian Blur" checked={store.blurEnabled} onChange={(v) => store.setDiscrete({ blurEnabled: v })} />

@@ -33,6 +33,9 @@ uniform bool u_bloomEnabled;
 uniform float u_bloomIntensity;
 uniform float u_vignette;
 uniform float u_radialBlurAmount;
+uniform float u_colorBlend;
+uniform float u_chromaticAberration;
+uniform float u_hueShift;
 
 // ============================================================
 // Simplex Noise 2D
@@ -134,19 +137,35 @@ float rippleEffect(vec2 uv, float time) {
 // Color Interpolation
 // ============================================================
 
-vec3 getGradientColor(float t) {
+vec3 sampleColorAt(float t) {
   t = clamp(t, 0.0, 1.0);
   float scaledT = t * float(u_colorCount - 1);
   int idx = int(floor(scaledT));
   float frac = fract(scaledT);
-
-  // Smooth interpolation (Hermite)
   frac = frac * frac * (3.0 - 2.0 * frac);
 
   int nextIdx = idx + 1;
   if (nextIdx >= u_colorCount) nextIdx = u_colorCount - 1;
 
   return mix(u_colors[idx], u_colors[nextIdx], frac);
+}
+
+vec3 getGradientColor(float t) {
+  if (u_colorBlend < 0.01) {
+    return sampleColorAt(t);
+  }
+
+  // Blend: sample multiple nearby positions and average for smooth transitions
+  // Higher blend = wider sampling = colors melt into each other
+  float spread = u_colorBlend * 0.15;
+  vec3 color = sampleColorAt(t) * 0.4;
+  color += sampleColorAt(t - spread) * 0.15;
+  color += sampleColorAt(t + spread) * 0.15;
+  color += sampleColorAt(t - spread * 2.0) * 0.1;
+  color += sampleColorAt(t + spread * 2.0) * 0.1;
+  color += sampleColorAt(t - spread * 0.5) * 0.05;
+  color += sampleColorAt(t + spread * 0.5) * 0.05;
+  return color;
 }
 
 // ============================================================
@@ -320,6 +339,14 @@ vec3 adjustSaturation(vec3 color, float sat) {
   return mix(vec3(grey), color, sat);
 }
 
+vec3 rotateHue(vec3 color, float angle) {
+  // Rodrigues rotation around the (1,1,1)/sqrt(3) axis in RGB space
+  float cosA = cos(angle);
+  float sinA = sin(angle);
+  vec3 k = vec3(0.57735); // 1/sqrt(3)
+  return color * cosA + cross(k, color) * sinA + k * dot(k, color) * (1.0 - cosA);
+}
+
 // ============================================================
 // Main
 // ============================================================
@@ -375,6 +402,36 @@ void main() {
     float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
     float bloomMask = smoothstep(0.6, 1.0, luminance);
     color += color * bloomMask * u_bloomIntensity;
+  }
+
+  // Chromatic aberration (before color adjustments for maximum effect)
+  if (u_chromaticAberration > 0.001) {
+    vec2 center = vec2(0.5);
+    vec2 dir = uv - center;
+    float caOffset = u_chromaticAberration * 0.01;
+    // Re-sample R and B channels at offset UVs
+    vec2 uvR = uv + dir * caOffset;
+    vec2 uvB = uv - dir * caOffset;
+    float rSample, bSample;
+    // Sample red channel from offset position
+    vec3 cR;
+    if (u_gradientType == 0) cR = meshGradient(uvR, time);
+    else if (u_gradientType == 1) cR = radialGradient(uvR, time);
+    else if (u_gradientType == 2) cR = linearGradient(uvR, time);
+    else if (u_gradientType == 3) cR = conicGradient(uvR, time);
+    else cR = plasmaGradient(uvR, time);
+    vec3 cB;
+    if (u_gradientType == 0) cB = meshGradient(uvB, time);
+    else if (u_gradientType == 1) cB = radialGradient(uvB, time);
+    else if (u_gradientType == 2) cB = linearGradient(uvB, time);
+    else if (u_gradientType == 3) cB = conicGradient(uvB, time);
+    else cB = plasmaGradient(uvB, time);
+    color = vec3(cR.r, color.g, cB.b);
+  }
+
+  // Hue shift
+  if (abs(u_hueShift) > 0.01) {
+    color = rotateHue(color, u_hueShift * 6.28318 / 360.0);
   }
 
   // Saturation

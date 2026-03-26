@@ -33,6 +33,15 @@ export interface GradientState {
   blurAmount: number;
   radialBlurAmount: number;
 
+  // Color blending
+  colorBlend: number;
+
+  // Chromatic aberration
+  chromaticAberration: number;
+
+  // Hue shift
+  hueShift: number;
+
   // Playback
   playing: boolean;
 
@@ -145,6 +154,9 @@ const DEFAULTS: Omit<
   blurEnabled: false,
   blurAmount: 0,
   radialBlurAmount: 0,
+  colorBlend: 0,
+  chromaticAberration: 0,
+  hueShift: 0,
   playing: true,
 };
 
