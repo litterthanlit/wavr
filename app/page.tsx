@@ -81,8 +81,8 @@ export default function Home() {
         onExport={() => setExportOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
       />
-      <div className="flex flex-1 min-h-0">
-        <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <Canvas onCanvasReady={(el) => { canvasElRef.current = el; }} />
           <Timeline />
         </div>
