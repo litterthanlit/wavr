@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import Canvas from "@/components/Canvas";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
+import ExportModal from "@/components/ExportModal";
 
 export default function Home() {
   const [exportOpen, setExportOpen] = useState(false);
@@ -16,6 +17,11 @@ export default function Home() {
         <Canvas onCanvasReady={(el) => { canvasElRef.current = el; }} />
         <Sidebar />
       </div>
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        canvasRef={canvasElRef.current}
+      />
     </div>
   );
 }
