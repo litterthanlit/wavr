@@ -10,6 +10,7 @@ import MobileDrawer from "@/components/MobileDrawer";
 import Timeline from "@/components/Timeline";
 import ProjectsModal from "@/components/ProjectsModal";
 import { useGradientStore } from "@/lib/store";
+import { decodeState } from "@/lib/url";
 
 export type SidebarTab = "gradient" | "effects" | "presets";
 
@@ -80,6 +81,17 @@ export default function Home() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  // Load state from URL hash on mount
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith("#s=")) {
+      const state = decodeState(hash);
+      if (state) {
+        useGradientStore.getState().loadPreset(state);
+      }
+    }
+  }, []);
 
   return (
     <div className="h-screen w-screen bg-root flex flex-col">

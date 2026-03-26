@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useGradientStore, canUndo, canRedo } from "@/lib/store";
 import { useTheme } from "@/lib/useTheme";
+import { copyShareUrl } from "@/lib/url";
 
 interface TopBarProps {
   onExport: () => void;
@@ -10,8 +12,10 @@ interface TopBarProps {
 }
 
 export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBarProps) {
-  const { playing, randomize, set, undo, redo } = useGradientStore();
+  const store = useGradientStore();
+  const { playing, randomize, set, undo, redo } = store;
   const { theme, cycleTheme } = useTheme();
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const themeLabel = theme === "system" ? "Auto" : theme === "light" ? "Light" : "Dark";
 
@@ -69,6 +73,17 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBar
             border border-border rounded-md transition-all duration-150 w-16"
         >
           {playing ? "Pause" : "Play"}
+        </button>
+        <button
+          onClick={async () => {
+            await copyShareUrl(store);
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 2000);
+          }}
+          className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated
+            border border-border rounded-md transition-all duration-150"
+        >
+          {linkCopied ? "Copied!" : "Share"}
         </button>
         <button
           onClick={onProjects}
