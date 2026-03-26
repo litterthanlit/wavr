@@ -57,6 +57,9 @@ uniform bool u_metaballsEnabled;
 uniform float u_metaballsIntensity;
 uniform float u_metaballsCount;
 uniform float u_metaballsScale;
+uniform bool u_reactionDiffEnabled;
+uniform float u_reactionDiffIntensity;
+uniform float u_reactionDiffScale;
 
 // ============================================================
 // Simplex Noise 2D
@@ -500,6 +503,26 @@ void main() {
     float edge = smoothstep(0.0, 0.05, vor.y);
     vec3 voronoiColor = getGradientColor(cellColor) * edge;
     color = mix(color, voronoiColor, u_voronoiIntensity);
+  }
+
+  // Reaction-diffusion pattern overlay (Turing-like patterns)
+  if (u_reactionDiffEnabled) {
+    vec2 rp = uv * u_reactionDiffScale * 8.0;
+    // Layered noise with competing activator/inhibitor scales
+    float activator = snoise(rp + time * 0.15);
+    float inhibitor = snoise(rp * 0.5 + time * 0.1 + 100.0);
+    // Sharp threshold creates organic spots/stripes
+    float pattern = activator - inhibitor * 0.6;
+    // Add fine-scale detail
+    pattern += snoise(rp * 2.0 + time * 0.2) * 0.3;
+    // Threshold for crisp pattern edges
+    float mask = smoothstep(-0.1, 0.1, pattern);
+    vec3 rdColor = mix(
+      getGradientColor(0.2),
+      getGradientColor(0.8),
+      mask
+    );
+    color = mix(color, rdColor, u_reactionDiffIntensity);
   }
 
   // Metaballs overlay

@@ -127,6 +127,15 @@ export default function EffectsPanel() {
         <Slider label="Count" value={store.metaballsCount} min={2} max={12} step={1} onChange={(v) => store.set({ metaballsCount: v })} onCommit={() => store.commitSet()} disabled={!store.metaballsEnabled} />
         <Slider label="Size" value={store.metaballsScale} min={0.2} max={3} step={0.1} onChange={(v) => store.set({ metaballsScale: v })} onCommit={() => store.commitSet()} disabled={!store.metaballsEnabled} />
       </div>
+
+      <div className="border-t border-border" />
+
+      {/* Reaction-Diffusion */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="Reaction-Diffusion" checked={store.reactionDiffEnabled} onChange={(v) => store.setDiscrete({ reactionDiffEnabled: v })} />
+        <Slider label="Intensity" value={store.reactionDiffIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ reactionDiffIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.reactionDiffEnabled} />
+        <Slider label="Scale" value={store.reactionDiffScale} min={0.2} max={5} step={0.1} onChange={(v) => store.set({ reactionDiffScale: v })} onCommit={() => store.commitSet()} disabled={!store.reactionDiffEnabled} />
+      </div>
     </div>
   );
 }

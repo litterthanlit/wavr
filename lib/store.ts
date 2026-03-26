@@ -44,6 +44,9 @@ export interface GradientState {
   metaballsIntensity: number;
   metaballsCount: number;
   metaballsScale: number;
+  reactionDiffEnabled: boolean;
+  reactionDiffIntensity: number;
+  reactionDiffScale: number;
 
   // Playback
   playing: boolean;
@@ -213,6 +216,9 @@ const DEFAULTS = {
   metaballsIntensity: 0.7,
   metaballsCount: 6,
   metaballsScale: 1.0,
+  reactionDiffEnabled: false,
+  reactionDiffIntensity: 0.5,
+  reactionDiffScale: 1.0,
   playing: true,
   timelineEnabled: false,
   timelineDuration: 10,

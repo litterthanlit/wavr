@@ -103,6 +103,7 @@ export class GradientEngine {
       "u_curlEnabled", "u_curlIntensity", "u_curlScale",
       "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
       "u_metaballsEnabled", "u_metaballsIntensity", "u_metaballsCount", "u_metaballsScale",
+      "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -203,6 +204,9 @@ export class GradientEngine {
     this.setf("u_metaballsIntensity", state.metaballsIntensity);
     this.setf("u_metaballsCount", state.metaballsCount);
     this.setf("u_metaballsScale", state.metaballsScale);
+    this.seti("u_reactionDiffEnabled", isBaseLayer && state.reactionDiffEnabled ? 1 : 0);
+    this.setf("u_reactionDiffIntensity", state.reactionDiffIntensity);
+    this.setf("u_reactionDiffScale", state.reactionDiffScale);
   }
 
   private applyBlendMode(mode: BlendMode) {
