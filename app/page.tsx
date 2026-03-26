@@ -8,6 +8,7 @@ import ExportModal from "@/components/ExportModal";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import MobileDrawer from "@/components/MobileDrawer";
 import Timeline from "@/components/Timeline";
+import ProjectsModal from "@/components/ProjectsModal";
 import { useGradientStore } from "@/lib/store";
 
 export type SidebarTab = "gradient" | "effects" | "presets";
@@ -15,6 +16,7 @@ export type SidebarTab = "gradient" | "effects" | "presets";
 export default function Home() {
   const [exportOpen, setExportOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("gradient");
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -49,9 +51,13 @@ export default function Home() {
         case "e":
           setExportOpen(true);
           break;
+        case "p":
+          setProjectsOpen((prev) => !prev);
+          break;
         case "Escape":
           setExportOpen(false);
           setShortcutsOpen(false);
+          setProjectsOpen(false);
           break;
         case "1":
           setActiveTab("gradient");
@@ -80,6 +86,7 @@ export default function Home() {
       <TopBar
         onExport={() => setExportOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
+        onProjects={() => setProjectsOpen(true)}
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
@@ -96,6 +103,10 @@ export default function Home() {
       <ShortcutsModal
         open={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
+      />
+      <ProjectsModal
+        open={projectsOpen}
+        onClose={() => setProjectsOpen(false)}
       />
       <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
     </div>

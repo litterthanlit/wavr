@@ -6,9 +6,10 @@ import { useTheme } from "@/lib/useTheme";
 interface TopBarProps {
   onExport: () => void;
   onShowShortcuts: () => void;
+  onProjects: () => void;
 }
 
-export default function TopBar({ onExport, onShowShortcuts }: TopBarProps) {
+export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBarProps) {
   const { playing, randomize, set, undo, redo } = useGradientStore();
   const { theme, cycleTheme } = useTheme();
 
@@ -68,6 +69,13 @@ export default function TopBar({ onExport, onShowShortcuts }: TopBarProps) {
             border border-border rounded-md transition-all duration-150 w-16"
         >
           {playing ? "Pause" : "Play"}
+        </button>
+        <button
+          onClick={onProjects}
+          className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated
+            border border-border rounded-md transition-all duration-150"
+        >
+          Projects
         </button>
         <button
           onClick={onExport}
