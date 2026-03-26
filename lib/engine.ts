@@ -109,6 +109,8 @@ export class GradientEngine {
       "u_curlEnabled", "u_curlIntensity", "u_curlScale",
       "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
       "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
+      "u_pixelSortEnabled", "u_pixelSortIntensity", "u_pixelSortThreshold",
+      "u_domainWarp",
       "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
     ];
     for (const name of names) {
@@ -254,6 +256,10 @@ export class GradientEngine {
     this.seti("u_reactionDiffEnabled", isBaseLayer && state.reactionDiffEnabled ? 1 : 0);
     this.setf("u_reactionDiffIntensity", state.reactionDiffIntensity);
     this.setf("u_reactionDiffScale", state.reactionDiffScale);
+    this.seti("u_pixelSortEnabled", isBaseLayer && state.pixelSortEnabled ? 1 : 0);
+    this.setf("u_pixelSortIntensity", state.pixelSortIntensity);
+    this.setf("u_pixelSortThreshold", state.pixelSortThreshold);
+    this.setf("u_domainWarp", state.domainWarp);
     this.seti("u_feedbackEnabled", isBaseLayer && state.feedbackEnabled ? 1 : 0);
     this.setf("u_feedbackDecay", state.feedbackDecay);
   }
