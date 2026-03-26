@@ -52,12 +52,23 @@ export default function LayerPanel() {
                 e.stopPropagation();
                 store.toggleLayerVisibility(i);
               }}
-              className={`text-[10px] w-5 h-5 flex items-center justify-center rounded transition-colors ${
-                layer.visible ? "text-text-secondary" : "text-text-tertiary opacity-40"
+              className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${
+                layer.visible ? "text-text-secondary hover:text-text-primary" : "text-text-tertiary opacity-40"
               }`}
               aria-label={layer.visible ? "Hide layer" : "Show layer"}
             >
-              {layer.visible ? "O" : "-"}
+              {layer.visible ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              )}
             </button>
 
             {/* Color preview dots */}
@@ -83,10 +94,13 @@ export default function LayerPanel() {
                   e.stopPropagation();
                   store.removeLayer(i);
                 }}
-                className="text-text-tertiary hover:text-text-primary text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                className="text-text-tertiary hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
                 aria-label="Remove layer"
               >
-                x
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             )}
           </div>

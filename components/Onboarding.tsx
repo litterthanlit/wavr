@@ -5,23 +5,23 @@ import { useState, useEffect } from "react";
 const STEPS = [
   {
     title: "Welcome to Wavr",
-    desc: "Create animated gradients with real-time controls. Move your mouse over the canvas to interact.",
+    desc: "Create animated gradients with real-time controls. Move your mouse over the canvas to interact with the gradient.",
   },
   {
     title: "Gradient Controls",
-    desc: "Use the sidebar on the right to change gradient type, colors, speed, and other parameters.",
+    desc: "Use the Gradient tab in the sidebar to change type, colors, speed, and distortion. Try Domain Warp in mesh mode for deeper organic patterns.",
   },
   {
     title: "Effects",
-    desc: "Switch to the Effects tab to add noise, particles, bloom, blur, ASCII art, dithering, and more.",
+    desc: "Switch to the Effects tab for noise, bloom, blur, curl noise, kaleidoscope, dithering, ASCII art, and more. Sections collapse to keep things tidy.",
   },
   {
     title: "Layers",
-    desc: "Add up to 4 layers at the top of the sidebar. Each layer has its own gradient type and blend mode.",
+    desc: "Add up to 4 layers at the top of the sidebar. Each layer has its own gradient type, colors, and blend mode.",
   },
   {
     title: "Export & Share",
-    desc: "Click Export to download as PNG, CSS, video, or embed code. Click Share to copy a link.",
+    desc: "Click Export to download as PNG, CSS, video, or embed code. Click Share to copy a shareable link.",
   },
   {
     title: "Keyboard Shortcuts",
