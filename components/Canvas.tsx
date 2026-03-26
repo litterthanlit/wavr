@@ -12,6 +12,8 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GradientEngine | null>(null);
   const [fps, setFps] = useState(0);
+  const blurEnabled = useGradientStore((s) => s.blurEnabled);
+  const blurAmount = useGradientStore((s) => s.blurAmount);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const canvas = canvasRef.current;
@@ -62,7 +64,11 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
 
   return (
     <div className="relative flex-1 h-full overflow-hidden">
-      <canvas ref={canvasRef} className="block" />
+      <canvas
+        ref={canvasRef}
+        className="block"
+        style={blurEnabled && blurAmount > 0 ? { filter: `blur(${blurAmount}px)` } : undefined}
+      />
       <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded">
         {fps} FPS
       </div>

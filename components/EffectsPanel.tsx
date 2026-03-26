@@ -45,6 +45,14 @@ export default function EffectsPanel() {
       <div className="flex flex-col gap-3">
         <Slider label="Vignette" value={store.vignette} min={0} max={1} step={0.01} onChange={(v) => store.set({ vignette: v })} />
       </div>
+
+      <div className="border-t border-border" />
+
+      {/* Blur */}
+      <div className="flex flex-col gap-3">
+        <Toggle label="Blur" checked={store.blurEnabled} onChange={(v) => store.set({ blurEnabled: v })} />
+        <Slider label="Amount" value={store.blurAmount} min={0} max={20} step={0.5} onChange={(v) => store.set({ blurAmount: v })} disabled={!store.blurEnabled} />
+      </div>
     </div>
   );
 }

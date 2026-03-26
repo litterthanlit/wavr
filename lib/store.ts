@@ -28,6 +28,10 @@ export interface GradientState {
   bloomIntensity: number;
   vignette: number;
 
+  // Blur
+  blurEnabled: boolean;
+  blurAmount: number;
+
   // Playback
   playing: boolean;
 
@@ -104,6 +108,8 @@ const DEFAULTS: Omit<
   bloomEnabled: false,
   bloomIntensity: 0.3,
   vignette: 0.0,
+  blurEnabled: false,
+  blurAmount: 0,
   playing: true,
 };
 

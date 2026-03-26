@@ -36,7 +36,7 @@ export default function Slider({ label, value, min, max, step, onChange, disable
           [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-150
           [&::-webkit-slider-thumb]:hover:scale-110"
         style={{
-          background: `linear-gradient(to right, #635BFF ${percent}%, rgba(255,255,255,0.08) ${percent}%)`,
+          background: `linear-gradient(to right, var(--color-accent) ${percent}%, var(--color-slider-track) ${percent}%)`,
         }}
       />
     </div>

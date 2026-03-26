@@ -1,6 +1,7 @@
 "use client";
 
 import { useGradientStore } from "@/lib/store";
+import { useTheme } from "@/lib/useTheme";
 
 interface TopBarProps {
   onExport: () => void;
@@ -8,6 +9,9 @@ interface TopBarProps {
 
 export default function TopBar({ onExport }: TopBarProps) {
   const { playing, randomize, set } = useGradientStore();
+  const { theme, cycleTheme } = useTheme();
+
+  const themeLabel = theme === "system" ? "Auto" : theme === "light" ? "Light" : "Dark";
 
   return (
     <header className="h-[52px] shrink-0 border-b border-border bg-base/70 backdrop-blur-[20px] flex items-center justify-between px-4 z-10">
@@ -16,6 +20,14 @@ export default function TopBar({ onExport }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        <button
+          onClick={cycleTheme}
+          className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated
+            border border-border rounded-md transition-all duration-150"
+          title={`Theme: ${themeLabel}`}
+        >
+          {themeLabel}
+        </button>
         <button
           onClick={randomize}
           className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated
