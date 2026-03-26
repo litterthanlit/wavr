@@ -25,7 +25,7 @@ export const PRESETS: Preset[] = [
         [0.2, 0.4, 1.0],
       ],
       noiseEnabled: false,
-      particlesEnabled: false,
+
       bloomEnabled: false,
       grain: 0,
       vignette: 0.2,
@@ -48,7 +48,7 @@ export const PRESETS: Preset[] = [
         [0.94, 0.33, 0.48],
       ],
       noiseEnabled: false,
-      particlesEnabled: false,
+
       bloomEnabled: false,
       grain: 0,
       vignette: 0.3,
@@ -71,7 +71,7 @@ export const PRESETS: Preset[] = [
         [0.0, 0.1, 0.4],
       ],
       noiseEnabled: false,
-      particlesEnabled: false,
+
       bloomEnabled: false,
       grain: 0.08,
       vignette: 0.4,
@@ -94,7 +94,7 @@ export const PRESETS: Preset[] = [
         [1.0, 1.0, 0.0],
       ],
       noiseEnabled: false,
-      particlesEnabled: false,
+
       bloomEnabled: false,
       grain: 0,
       vignette: 0,
@@ -117,7 +117,7 @@ export const PRESETS: Preset[] = [
         [0.0, 0.5, 0.5],
       ],
       noiseEnabled: false,
-      particlesEnabled: false,
+
       bloomEnabled: false,
       grain: 0,
       vignette: 0.2,
@@ -140,7 +140,7 @@ export const PRESETS: Preset[] = [
         [0.55, 0.0, 0.0],
       ],
       noiseEnabled: false,
-      particlesEnabled: false,
+
       bloomEnabled: true,
       bloomIntensity: 0.4,
       grain: 0.06,
@@ -164,9 +164,6 @@ export const PRESETS: Preset[] = [
         [0.2, 0.8, 0.4],
       ],
       noiseEnabled: false,
-      particlesEnabled: true,
-      particleCount: 80,
-      particleSize: 2.0,
       bloomEnabled: false,
       grain: 0,
       vignette: 0.15,
@@ -189,7 +186,7 @@ export const PRESETS: Preset[] = [
         [0.44, 0.5, 0.56],
       ],
       noiseEnabled: false,
-      particlesEnabled: false,
+
       bloomEnabled: false,
       grain: 0.1,
       vignette: 0.25,

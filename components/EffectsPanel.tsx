@@ -31,15 +31,6 @@ export default function EffectsPanel() {
 
       <div className="border-t border-border" />
 
-      {/* Particles */}
-      <div className="flex flex-col gap-3">
-        <Toggle label="Particles" checked={store.particlesEnabled} onChange={(v) => store.setDiscrete({ particlesEnabled: v })} />
-        <Slider label="Count" value={store.particleCount} min={10} max={300} step={1} onChange={(v) => store.set({ particleCount: v })} onCommit={() => store.commitSet()} disabled={!store.particlesEnabled} />
-        <Slider label="Size" value={store.particleSize} min={0.5} max={6} step={0.1} onChange={(v) => store.set({ particleSize: v })} onCommit={() => store.commitSet()} disabled={!store.particlesEnabled} />
-      </div>
-
-      <div className="border-t border-border" />
-
       {/* Bloom & Vignette */}
       <div className="flex flex-col gap-3">
         <Toggle label="Bloom" checked={store.bloomEnabled} onChange={(v) => store.setDiscrete({ bloomEnabled: v })} />
@@ -93,15 +84,6 @@ export default function EffectsPanel() {
 
       <div className="border-t border-border" />
 
-      {/* Voronoi */}
-      <div className="flex flex-col gap-3">
-        <Toggle label="Voronoi" checked={store.voronoiEnabled} onChange={(v) => store.setDiscrete({ voronoiEnabled: v })} />
-        <Slider label="Intensity" value={store.voronoiIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ voronoiIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.voronoiEnabled} />
-        <Slider label="Scale" value={store.voronoiScale} min={0.2} max={5} step={0.1} onChange={(v) => store.set({ voronoiScale: v })} onCommit={() => store.commitSet()} disabled={!store.voronoiEnabled} />
-      </div>
-
-      <div className="border-t border-border" />
-
       {/* Curl Noise */}
       <div className="flex flex-col gap-3">
         <Toggle label="Curl Noise" checked={store.curlEnabled} onChange={(v) => store.setDiscrete({ curlEnabled: v })} />
@@ -116,16 +98,6 @@ export default function EffectsPanel() {
         <Toggle label="Kaleidoscope" checked={store.kaleidoscopeEnabled} onChange={(v) => store.setDiscrete({ kaleidoscopeEnabled: v })} />
         <Slider label="Segments" value={store.kaleidoscopeSegments} min={2} max={12} step={1} onChange={(v) => store.set({ kaleidoscopeSegments: v })} onCommit={() => store.commitSet()} disabled={!store.kaleidoscopeEnabled} />
         <Slider label="Rotation" value={store.kaleidoscopeRotation} min={0} max={360} step={1} onChange={(v) => store.set({ kaleidoscopeRotation: v })} onCommit={() => store.commitSet()} disabled={!store.kaleidoscopeEnabled} />
-      </div>
-
-      <div className="border-t border-border" />
-
-      {/* Metaballs */}
-      <div className="flex flex-col gap-3">
-        <Toggle label="Metaballs" checked={store.metaballsEnabled} onChange={(v) => store.setDiscrete({ metaballsEnabled: v })} />
-        <Slider label="Intensity" value={store.metaballsIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ metaballsIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.metaballsEnabled} />
-        <Slider label="Count" value={store.metaballsCount} min={2} max={12} step={1} onChange={(v) => store.set({ metaballsCount: v })} onCommit={() => store.commitSet()} disabled={!store.metaballsEnabled} />
-        <Slider label="Size" value={store.metaballsScale} min={0.2} max={3} step={0.1} onChange={(v) => store.set({ metaballsScale: v })} onCommit={() => store.commitSet()} disabled={!store.metaballsEnabled} />
       </div>
 
       <div className="border-t border-border" />
