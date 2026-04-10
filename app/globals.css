@@ -13,8 +13,8 @@
   --color-text-tertiary: var(--color-text-tertiary-val);
   --color-accent: var(--color-accent-val);
   --color-slider-track: var(--color-slider-track-val);
-  --font-sans: "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Geist", sans-serif;
+  --font-mono: "Geist Mono", monospace;
 }
 
 /* Dark theme (default, matches system dark preference) */
@@ -87,7 +87,6 @@ body {
   background: var(--color-root);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-  overflow: hidden;
   transition: background-color 0.2s, color 0.2s;
 }
 
