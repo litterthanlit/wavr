@@ -124,6 +124,8 @@ function deepCopyLayers(layers: LayerParams[]): LayerParams[] {
   return layers.map((l) => ({
     ...l,
     colors: l.colors.map((c) => [...c] as [number, number, number]),
+    mask1: { ...l.mask1, position: [...l.mask1.position] as [number, number], scale: [...l.mask1.scale] as [number, number] },
+    mask2: { ...l.mask2, position: [...l.mask2.position] as [number, number], scale: [...l.mask2.scale] as [number, number] },
   }));
 }
 
