@@ -2,6 +2,36 @@ export type BlendMode = "normal" | "multiply" | "screen" | "overlay" | "add";
 
 export type ImageBlendMode = "replace" | "normal" | "multiply" | "screen" | "overlay";
 
+export type MaskShape = "none" | "circle" | "roundedRect" | "ellipse" | "polygon" | "star" | "blob";
+
+export type MaskBlendMode = "union" | "subtract" | "intersect" | "smoothUnion";
+
+export interface MaskParams {
+  shape: MaskShape;
+  position: [number, number];
+  scale: [number, number];
+  rotation: number;
+  feather: number;
+  invert: boolean;
+  cornerRadius: number;
+  sides: number;
+  starInnerRadius: number;
+  noiseDistortion: number;
+}
+
+export const DEFAULT_MASK: MaskParams = {
+  shape: "none",
+  position: [0, 0],
+  scale: [1, 1],
+  rotation: 0,
+  feather: 0.01,
+  invert: false,
+  cornerRadius: 0.1,
+  sides: 6,
+  starInnerRadius: 0.4,
+  noiseDistortion: 0,
+};
+
 export interface LayerParams {
   gradientType: "mesh" | "radial" | "linear" | "conic" | "plasma" | "dither" | "scanline" | "glitch" | "image";
   speed: number;
@@ -21,6 +51,12 @@ export interface LayerParams {
   distortionMapIntensity: number;
   imageBlendMode: ImageBlendMode;
   imageBlendOpacity: number;
+  // Mask
+  maskEnabled: boolean;
+  mask1: MaskParams;
+  mask2: MaskParams;
+  maskBlendMode: MaskBlendMode;
+  maskSmoothness: number;
 }
 
 export const DEFAULT_LAYER: LayerParams = {
@@ -46,12 +82,19 @@ export const DEFAULT_LAYER: LayerParams = {
   distortionMapIntensity: 0.3,
   imageBlendMode: "replace",
   imageBlendOpacity: 1.0,
+  maskEnabled: false,
+  mask1: { ...DEFAULT_MASK },
+  mask2: { ...DEFAULT_MASK },
+  maskBlendMode: "union",
+  maskSmoothness: 0.1,
 };
 
 export function createLayer(overrides?: Partial<LayerParams>): LayerParams {
   return {
     ...DEFAULT_LAYER,
     colors: DEFAULT_LAYER.colors.map((c) => [...c] as [number, number, number]),
+    mask1: { ...DEFAULT_MASK },
+    mask2: { ...DEFAULT_MASK },
     ...overrides,
   };
 }
