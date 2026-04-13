@@ -122,6 +122,15 @@ export class GradientEngine {
       "u_imageScale", "u_imageOffset",
       "u_distortionMapIntensity",
       "u_imageBlendMode", "u_imageBlendOpacity",
+      // Mask uniforms
+      "u_maskEnabled",
+      "u_mask1Type", "u_mask1Position", "u_mask1Scale", "u_mask1Rotation",
+      "u_mask1Feather", "u_mask1Invert", "u_mask1CornerRadius",
+      "u_mask1Sides", "u_mask1StarInner", "u_mask1NoiseDist",
+      "u_mask2Type", "u_mask2Position", "u_mask2Scale", "u_mask2Rotation",
+      "u_mask2Feather", "u_mask2Invert", "u_mask2CornerRadius",
+      "u_mask2Sides", "u_mask2StarInner", "u_mask2NoiseDist",
+      "u_maskBlendMode", "u_maskSmoothness",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -317,6 +326,41 @@ export class GradientEngine {
     };
     this.seti("u_imageBlendMode", blendModeMap[layer.imageBlendMode]);
     this.setf("u_imageBlendOpacity", layer.imageBlendOpacity);
+
+    // Mask uniforms
+    const maskShapeMap: Record<string, number> = {
+      none: 0, circle: 1, roundedRect: 2, ellipse: 3, polygon: 4, star: 5, blob: 6,
+    };
+    const maskBlendMap: Record<string, number> = {
+      union: 0, subtract: 1, intersect: 2, smoothUnion: 3,
+    };
+
+    this.seti("u_maskEnabled", layer.maskEnabled ? 1 : 0);
+
+    this.seti("u_mask1Type", maskShapeMap[layer.mask1.shape]);
+    this.set2f("u_mask1Position", layer.mask1.position[0], layer.mask1.position[1]);
+    this.set2f("u_mask1Scale", layer.mask1.scale[0], layer.mask1.scale[1]);
+    this.setf("u_mask1Rotation", layer.mask1.rotation);
+    this.setf("u_mask1Feather", layer.mask1.feather);
+    this.setf("u_mask1Invert", layer.mask1.invert ? 1.0 : 0.0);
+    this.setf("u_mask1CornerRadius", layer.mask1.cornerRadius);
+    this.setf("u_mask1Sides", layer.mask1.sides);
+    this.setf("u_mask1StarInner", layer.mask1.starInnerRadius);
+    this.setf("u_mask1NoiseDist", layer.mask1.noiseDistortion);
+
+    this.seti("u_mask2Type", maskShapeMap[layer.mask2.shape]);
+    this.set2f("u_mask2Position", layer.mask2.position[0], layer.mask2.position[1]);
+    this.set2f("u_mask2Scale", layer.mask2.scale[0], layer.mask2.scale[1]);
+    this.setf("u_mask2Rotation", layer.mask2.rotation);
+    this.setf("u_mask2Feather", layer.mask2.feather);
+    this.setf("u_mask2Invert", layer.mask2.invert ? 1.0 : 0.0);
+    this.setf("u_mask2CornerRadius", layer.mask2.cornerRadius);
+    this.setf("u_mask2Sides", layer.mask2.sides);
+    this.setf("u_mask2StarInner", layer.mask2.starInnerRadius);
+    this.setf("u_mask2NoiseDist", layer.mask2.noiseDistortion);
+
+    this.seti("u_maskBlendMode", maskBlendMap[layer.maskBlendMode]);
+    this.setf("u_maskSmoothness", layer.maskSmoothness);
   }
 
   private setGlobalUniforms(state: GradientState, isBaseLayer: boolean) {
