@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useGradientStore, GradientState } from "@/lib/store";
+import { useGradientStore } from "@/lib/store";
 import { PRESETS, CATEGORY_ORDER, CATEGORY_LABELS, PresetCategory } from "@/lib/presets";
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -13,7 +13,7 @@ function rgbToHex(r: number, g: number, b: number): string {
 }
 
 export default function PresetsPanel() {
-  const loadPreset = useGradientStore((s: GradientState) => s.loadPreset);
+  const loadPreset = useGradientStore((s) => s.loadPreset);
   const [collapsed, setCollapsed] = useState<Set<PresetCategory>>(new Set());
 
   const toggleCategory = (cat: PresetCategory) => {
