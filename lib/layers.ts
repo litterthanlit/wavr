@@ -1,7 +1,9 @@
 export type BlendMode = "normal" | "multiply" | "screen" | "overlay" | "add";
 
+export type ImageBlendMode = "replace" | "normal" | "multiply" | "screen" | "overlay";
+
 export interface LayerParams {
-  gradientType: "mesh" | "radial" | "linear" | "conic" | "plasma";
+  gradientType: "mesh" | "radial" | "linear" | "conic" | "plasma" | "dither" | "scanline" | "glitch" | "image";
   speed: number;
   complexity: number;
   scale: number;
@@ -10,6 +12,15 @@ export interface LayerParams {
   opacity: number;
   blendMode: BlendMode;
   visible: boolean;
+  // Image / texture
+  imageData: string | null;
+  imageScale: number;
+  imageOffset: [number, number];
+  distortionMapData: string | null;
+  distortionMapEnabled: boolean;
+  distortionMapIntensity: number;
+  imageBlendMode: ImageBlendMode;
+  imageBlendOpacity: number;
 }
 
 export const DEFAULT_LAYER: LayerParams = {
@@ -27,6 +38,14 @@ export const DEFAULT_LAYER: LayerParams = {
   opacity: 1.0,
   blendMode: "normal",
   visible: true,
+  imageData: null,
+  imageScale: 1.0,
+  imageOffset: [0, 0],
+  distortionMapData: null,
+  distortionMapEnabled: false,
+  distortionMapIntensity: 0.3,
+  imageBlendMode: "replace",
+  imageBlendOpacity: 1.0,
 };
 
 export function createLayer(overrides?: Partial<LayerParams>): LayerParams {
