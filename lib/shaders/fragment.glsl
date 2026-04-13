@@ -10,7 +10,7 @@ uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 uniform vec2 u_mouseSmooth;
 uniform vec2 u_mouseVelocity;
-uniform int u_gradientType; // 0=mesh, 1=radial, 2=linear, 3=conic, 4=plasma
+uniform int u_gradientType; // 0=mesh, 1=radial, 2=linear, 3=conic, 4=plasma, 5=dither, 6=scanline, 7=glitch
 uniform float u_speed;
 uniform float u_complexity;
 uniform float u_scale;
@@ -59,6 +59,17 @@ uniform float u_domainWarp;
 uniform bool u_feedbackEnabled;
 uniform float u_feedbackDecay;
 uniform sampler2D u_prevFrame;
+
+// Image / texture
+uniform sampler2D u_imageTexture;
+uniform sampler2D u_distortionMap;
+uniform float u_hasImage;
+uniform float u_hasDistortionMap;
+uniform float u_imageScale;
+uniform vec2 u_imageOffset;
+uniform float u_distortionMapIntensity;
+uniform int u_imageBlendMode;  // 0=replace, 1=normal, 2=multiply, 3=screen, 4=overlay
+uniform float u_imageBlendOpacity;
 
 // ============================================================
 // Simplex Noise 2D
@@ -353,6 +364,321 @@ vec3 rotateHue(vec3 color, float angle) {
 }
 
 // ============================================================
+// Dither / Halftone Gradient
+// ============================================================
+
+vec3 ditherGradient(vec2 uv, float time) {
+  // Mouse: fluid displacement
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = fluidDisplace(p, u_mouseReact);
+  }
+
+  // Build luminance field: blend between clean gradient and organic noise
+  // Low complexity (1) = clean directional dissolution (image 2 style)
+  // High complexity (8) = organic flowing pattern (image 1 style)
+  float organicMix = clamp((u_complexity - 1.0) / 7.0, 0.0, 1.0);
+
+  // Clean gradient: simple vertical dissolution
+  float cleanLum = 1.0 - p.y; // top = sparse, bottom = dense
+
+  // Organic field: fBm noise with domain warping for flowing texture
+  vec2 np = p * u_scale * 2.0;
+  int octaves = int(u_complexity);
+  float warp = u_distortion + u_domainWarp * 0.5;
+  float n1 = fbm(np + vec2(time * 0.25, time * 0.18), octaves);
+  float n2 = fbm(np + vec2(n1 * warp + time * 0.1, n1 * warp - time * 0.12), octaves);
+  float n3 = fbm(np + vec2(n2 * warp * 0.7, n2 * warp * 0.7 + time * 0.06), octaves);
+  float organicLum = n3 * 0.5 + 0.5;
+
+  // Blend between clean and organic
+  float luminance = mix(cleanLum, organicLum, organicMix);
+
+  // Add subtle time-based movement even in clean mode
+  float drift = snoise(p * u_scale + vec2(time * 0.15, time * 0.1)) * u_distortion * 0.3;
+  luminance += drift * (1.0 - organicMix * 0.5);
+  luminance = clamp(luminance, 0.0, 1.0);
+
+  // Grid cell: divide into dot grid
+  // Scale controls cell size — larger scale = bigger cells = fewer dots
+  float cellSize = max(u_scale * 8.0, 2.0);
+  vec2 cellCoord = gl_FragCoord.xy / cellSize;
+  vec2 cellId = floor(cellCoord);
+  vec2 cellUV = fract(cellCoord) - 0.5; // centered at 0,0
+
+  // Sample luminance at cell center for uniform dot sizing
+  vec2 cellCenterUV = (cellId + 0.5) * cellSize / u_resolution;
+  // Re-evaluate luminance at cell center
+  vec2 cp = cellCenterUV;
+  if (u_mouseReact > 0.0) {
+    cp = fluidDisplace(cp, u_mouseReact);
+  }
+  float cellClean = 1.0 - cp.y;
+  vec2 cnp = cp * u_scale * 2.0;
+  float cn1 = fbm(cnp + vec2(time * 0.25, time * 0.18), octaves);
+  float cn2 = fbm(cnp + vec2(cn1 * warp + time * 0.1, cn1 * warp - time * 0.12), octaves);
+  float cn3 = fbm(cnp + vec2(cn2 * warp * 0.7, cn2 * warp * 0.7 + time * 0.06), octaves);
+  float cellOrganic = cn3 * 0.5 + 0.5;
+  float cellLum = mix(cellClean, cellOrganic, organicMix);
+  float cellDrift = snoise(cp * u_scale + vec2(time * 0.15, time * 0.1)) * u_distortion * 0.3;
+  cellLum += cellDrift * (1.0 - organicMix * 0.5);
+  cellLum = clamp(cellLum, 0.0, 1.0);
+
+  // Dot radius: luminance drives how large the dot is
+  // High luminance (bright) = large dot (dense), low = small dot (sparse)
+  float dotRadius = cellLum * 0.5;
+
+  // Distance from cell center — circular dots
+  float dist = length(cellUV);
+
+  // Sharp edge for crisp halftone dots
+  float dot = 1.0 - smoothstep(dotRadius - 0.02, dotRadius + 0.02, dist);
+
+  // Colors: colors[0] = dot color, colors[1] = background
+  vec3 dotColor = u_colors[0];
+  vec3 bgColor = u_colorCount > 1 ? u_colors[1] : vec3(1.0);
+  return mix(bgColor, dotColor, dot);
+}
+
+// ============================================================
+// Scanline / CRT Gradient
+// ============================================================
+
+vec3 scanlineGradient(vec2 uv, float time) {
+  // Mouse: fluid displacement
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = fluidDisplace(p, u_mouseReact);
+  }
+
+  // Number of vertical columns driven by complexity
+  float numColumns = floor(u_complexity * 3.0 + 2.0); // 5–26 columns
+
+  // Vertical scanline stripe pattern
+  float stripeFreq = u_scale * 200.0;
+  float stripe = sin(p.x * stripeFreq * 3.14159) * 0.5 + 0.5;
+  stripe = smoothstep(0.3, 0.7, stripe); // sharpen to thin lines
+  float scanlineMask = mix(0.15, 1.0, stripe); // dark gaps between lines
+
+  // Fine horizontal crosshatch overlay (halftone grid texture)
+  float hatchFreq = u_scale * 120.0;
+  float hatch = sin(p.y * hatchFreq * 3.14159) * 0.5 + 0.5;
+  hatch = smoothstep(0.4, 0.6, hatch);
+  float crosshatch = mix(0.7, 1.0, hatch);
+
+  // Build color blocks — each column gets a color and a height
+  vec3 color = vec3(0.0);
+  float totalWeight = 0.0;
+
+  for (int i = 0; i < 8; i++) {
+    if (float(i) >= numColumns) break;
+
+    float fi = float(i);
+    // Column x position and width
+    float colCenter = (fi + 0.5) / numColumns;
+    float colWidth = 1.0 / numColumns;
+
+    // Distance from column center (horizontal)
+    float dx = abs(p.x - colCenter) / colWidth;
+    float colMask = 1.0 - smoothstep(0.35, 0.55, dx);
+
+    // Block height: each column rises to a different height
+    // Animated with time and offset by noise for organic movement
+    float heightSeed = hash(vec2(fi * 7.13, 3.17));
+    float heightAnim = sin(time * 0.4 + fi * 1.7) * u_distortion * 0.3;
+    float blockHeight = 0.2 + heightSeed * 0.6 + heightAnim;
+    blockHeight = clamp(blockHeight, 0.05, 0.95);
+
+    // Block extends from bottom — stronger at bottom, fades at top
+    float blockMask = smoothstep(blockHeight + 0.02, blockHeight - 0.05, 1.0 - p.y);
+
+    // Color from palette — cycle through available colors
+    int colorIdx = int(mod(fi, float(u_colorCount)));
+    vec3 blockColor = u_colors[colorIdx];
+
+    // Accumulate with additive-ish blending for overlap glow
+    float weight = colMask * blockMask;
+    color += blockColor * weight;
+    totalWeight += weight;
+  }
+
+  // Normalize but preserve additive overlap brightness
+  if (totalWeight > 0.0) {
+    color = color / max(totalWeight, 0.5);
+    color *= min(totalWeight, 1.5); // allow slight over-bright on overlaps
+  }
+
+  // Apply scanline and crosshatch textures
+  color *= scanlineMask * crosshatch;
+
+  // Subtle background noise (dark halftone texture on empty areas)
+  float bgNoise = hash(floor(gl_FragCoord.xy / 2.0)) * 0.06;
+  color += vec3(bgNoise) * (1.0 - min(totalWeight, 1.0));
+
+  return color;
+}
+
+// ============================================================
+// Glitch / Data Drag Gradient
+// ============================================================
+
+vec3 glitchGradient(vec2 uv, float time) {
+  // Mouse: fluid displacement
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = fluidDisplace(p, u_mouseReact);
+  }
+
+  // Mode blend: low complexity = vertical slit-scan, high = horizontal data mosh
+  float moshMix = clamp((u_complexity - 1.0) / 7.0, 0.0, 1.0);
+
+  vec3 color = vec3(0.0);
+
+  // === LAYER 1: Vertical slit-scan streaks (dominant at low complexity) ===
+  {
+    // Divide into vertical columns
+    float numCols = 30.0 + u_complexity * 10.0;
+    float colId = floor(p.x * numCols);
+    float colFrac = fract(p.x * numCols);
+
+    // Each column has a unique drag amount — hash gives deterministic randomness
+    float dragSeed = hash(vec2(colId, 1.0));
+    float dragAnim = sin(time * 0.3 + colId * 0.7) * 0.2;
+    float dragAmount = (dragSeed * 0.7 + 0.1 + dragAnim) * u_distortion;
+
+    // The "source" y-position — where this column samples its color from
+    // Columns with high drag stretch a small y-range over the full height
+    float sourceY = mix(p.y, dragSeed * 0.4 + 0.3, dragAmount);
+
+    // Color from palette based on source position
+    float colorT = fract(sourceY + dragSeed * 0.3);
+    vec3 slitColor = getGradientColor(colorT);
+
+    // Brightness varies by drag amount — stretched columns glow brighter
+    float brightness = 0.6 + dragAmount * 0.8;
+    slitColor *= brightness;
+
+    // Thin column gaps for that slit-scan line separation
+    float columnMask = smoothstep(0.0, 0.08, colFrac) * smoothstep(1.0, 0.92, colFrac);
+
+    // Vertical fade — streaks are strongest in the middle band, fade at edges
+    float verticalPresence = smoothstep(0.0, 0.15, p.y) * smoothstep(1.0, 0.7, p.y);
+    verticalPresence = mix(verticalPresence, 1.0, dragAmount * 0.5);
+
+    color += slitColor * columnMask * verticalPresence * (1.0 - moshMix * 0.7);
+  }
+
+  // === LAYER 2: Horizontal data mosh bands (dominant at high complexity) ===
+  {
+    // Create horizontal band structure
+    float bandScale = 8.0 + u_complexity * 4.0;
+    float bandId = floor(p.y * bandScale);
+    float bandFrac = fract(p.y * bandScale);
+
+    // Each band has unique properties
+    float bandSeed = hash(vec2(bandId, 7.77));
+    float bandSeed2 = hash(vec2(bandId, 13.31));
+
+    // Band visibility — not all bands are active (sparse on dark bg)
+    float activity = step(0.55 - u_distortion * 0.3, bandSeed);
+
+    // Horizontal offset/smear — the "corruption" displacement
+    float smearTime = floor(time * 2.0 + bandId) * 0.5; // quantized time for stutter
+    float smear = hash(vec2(bandId, smearTime)) * 2.0 - 1.0;
+    smear *= u_distortion * 0.4;
+
+    // Block size within band — some bands are chunky, some are fine
+    float blockSize = mix(0.02, 0.15, bandSeed2) * u_scale;
+    float blockId = floor((p.x + smear) / blockSize);
+    float blockSeed = hash(vec2(blockId, bandId));
+
+    // Color: sample from palette with offset
+    float colorT = fract(bandSeed * 0.7 + blockSeed * 0.3 + time * 0.05);
+    vec3 bandColor = getGradientColor(colorT);
+
+    // Block-level variation — some blocks within band are brighter/dimmer
+    float blockBright = 0.3 + blockSeed * 0.9;
+
+    // Band edge softness
+    float bandMask = smoothstep(0.0, 0.1, bandFrac) * smoothstep(1.0, 0.9, bandFrac);
+
+    // Horizontal extent — bands don't span full width
+    float bandWidth = 0.2 + bandSeed2 * 0.6;
+    float bandCenter = bandSeed * 0.6 + 0.2 + sin(time * 0.4 + bandId) * 0.1;
+    float hMask = smoothstep(bandCenter - bandWidth * 0.5 - 0.02, bandCenter - bandWidth * 0.5, p.x)
+                * smoothstep(bandCenter + bandWidth * 0.5 + 0.02, bandCenter + bandWidth * 0.5, p.x);
+
+    // Occasional bright "signal" flash
+    float flash = step(0.92, hash(vec2(bandId, floor(time * 3.0))));
+    blockBright += flash * 1.5;
+
+    color += bandColor * bandMask * hMask * activity * blockBright * moshMix;
+  }
+
+  // === LAYER 3: Micro-detail — fine scanline texture ===
+  {
+    // Subtle horizontal scanlines for CRT texture
+    float scanline = sin(gl_FragCoord.y * 1.5) * 0.5 + 0.5;
+    scanline = mix(1.0, 0.85 + scanline * 0.15, 0.4);
+    color *= scanline;
+  }
+
+  // === LAYER 4: Chromatic split on bright areas ===
+  {
+    float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    if (lum > 0.3) {
+      // Subtle RGB channel offset for that digital-artifact shimmer
+      float shift = u_distortion * 0.008;
+      float rOff = hash(vec2(floor(p.y * 80.0), floor(time * 4.0))) * shift;
+      float bOff = hash(vec2(floor(p.y * 80.0), floor(time * 4.0) + 100.0)) * shift;
+      // Only shift the contribution, not re-sample the whole gradient
+      color.r *= 1.0 + rOff * 5.0;
+      color.b *= 1.0 + bOff * 5.0;
+    }
+  }
+
+  // === LAYER 5: Reflection/ghost below bright bands ===
+  {
+    // Sample from mirrored y position (reflected below)
+    float mirrorY = 1.0 - p.y;
+    float reflBandId = floor(mirrorY * (8.0 + u_complexity * 4.0));
+    float reflSeed = hash(vec2(reflBandId, 7.77));
+    float reflActivity = step(0.55 - u_distortion * 0.3, reflSeed);
+
+    // Ghost reflection: much dimmer, slightly blurred
+    float reflStrength = 0.12 * moshMix * reflActivity;
+    float reflFade = smoothstep(0.5, 1.0, p.y); // only visible in bottom half
+    color += color * reflStrength * reflFade;
+  }
+
+  return color;
+}
+
+// ============================================================
+// Image Gradient (type 8) — samples uploaded texture
+// ============================================================
+
+vec3 imageGradient(vec2 uv, float time) {
+  vec2 imgUV = (uv - 0.5) / u_imageScale + 0.5 + u_imageOffset;
+
+  // Apply mouse displacement before sampling
+  if (u_mouseReact > 0.01) {
+    vec2 mouseDir = imgUV - u_mouseSmooth;
+    float mouseDist = length(mouseDir);
+    float mouseRadius = 0.35 * u_mouseReact;
+    if (mouseDist < mouseRadius) {
+      float strength = (1.0 - mouseDist / mouseRadius);
+      strength *= strength;
+      vec2 vel = u_mouseVelocity;
+      imgUV += (mouseDir / (mouseDist + 0.001)) * strength * 0.05 * u_mouseReact;
+      imgUV += vel * strength * 0.01;
+    }
+  }
+
+  return texture(u_imageTexture, clamp(imgUV, 0.0, 1.0)).rgb;
+}
+
+// ============================================================
 // Gradient Dispatch Helper
 // ============================================================
 
@@ -361,7 +687,11 @@ vec3 computeGradient(vec2 uv, float time) {
   else if (u_gradientType == 1) return radialGradient(uv, time);
   else if (u_gradientType == 2) return linearGradient(uv, time);
   else if (u_gradientType == 3) return conicGradient(uv, time);
-  else return plasmaGradient(uv, time);
+  else if (u_gradientType == 4) return plasmaGradient(uv, time);
+  else if (u_gradientType == 5) return ditherGradient(uv, time);
+  else if (u_gradientType == 6) return scanlineGradient(uv, time);
+  else if (u_gradientType == 7) return glitchGradient(uv, time);
+  else return imageGradient(uv, time);
 }
 
 // ============================================================
@@ -371,6 +701,12 @@ vec3 computeGradient(vec2 uv, float time) {
 void main() {
   vec2 uv = v_uv;
   float time = u_time * u_speed;
+
+  // Distortion map UV displacement (applied first, chains with everything)
+  if (u_hasDistortionMap > 0.5) {
+    vec2 distSample = texture(u_distortionMap, uv).rg;
+    uv += (distSample - 0.5) * u_distortionMapIntensity;
+  }
 
   // Curl noise UV distortion (fluid-like swirling)
   if (u_curlEnabled) {
@@ -408,6 +744,25 @@ void main() {
     color /= float(SAMPLES);
   } else {
     color = computeGradient(uv, time);
+  }
+
+  // Image blend over procedural gradient (when type != image but image is uploaded)
+  if (u_hasImage > 0.5 && u_gradientType != 8) {
+    vec2 imgUV = (uv - 0.5) / u_imageScale + 0.5 + u_imageOffset;
+    vec4 imgSample = texture(u_imageTexture, clamp(imgUV, 0.0, 1.0));
+    vec3 imgColor = imgSample.rgb;
+    float imgAlpha = imgSample.a * u_imageBlendOpacity;
+
+    if (u_imageBlendMode == 0) color = imgColor;
+    else if (u_imageBlendMode == 1) color = mix(color, imgColor, imgAlpha);
+    else if (u_imageBlendMode == 2) color = mix(color, color * imgColor, imgAlpha);
+    else if (u_imageBlendMode == 3) color = mix(color, 1.0 - (1.0 - color) * (1.0 - imgColor), imgAlpha);
+    else if (u_imageBlendMode == 4) {
+      vec3 ov = mix(2.0 * color * imgColor,
+                    1.0 - 2.0 * (1.0 - color) * (1.0 - imgColor),
+                    step(0.5, color));
+      color = mix(color, ov, imgAlpha);
+    }
   }
 
   // Noise overlay
