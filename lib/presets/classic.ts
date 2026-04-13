@@ -1,15 +1,9 @@
-import { GradientState } from "./store";
+import { Preset } from "./index";
 
-type PresetData = Partial<Omit<GradientState, "set" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize">>;
-
-export interface Preset {
-  name: string;
-  data: PresetData;
-}
-
-export const PRESETS: Preset[] = [
+export const CLASSIC_PRESETS: Preset[] = [
   {
     name: "Aurora",
+    category: "classic",
     data: {
       gradientType: "mesh",
       speed: 0.4,
@@ -25,7 +19,6 @@ export const PRESETS: Preset[] = [
         [0.2, 0.4, 1.0],
       ],
       noiseEnabled: false,
-
       bloomEnabled: false,
       grain: 0,
       vignette: 0.2,
@@ -33,6 +26,7 @@ export const PRESETS: Preset[] = [
   },
   {
     name: "Sunset",
+    category: "classic",
     data: {
       gradientType: "mesh",
       speed: 0.3,
@@ -48,7 +42,6 @@ export const PRESETS: Preset[] = [
         [0.94, 0.33, 0.48],
       ],
       noiseEnabled: false,
-
       bloomEnabled: false,
       grain: 0,
       vignette: 0.3,
@@ -56,6 +49,7 @@ export const PRESETS: Preset[] = [
   },
   {
     name: "Midnight",
+    category: "classic",
     data: {
       gradientType: "mesh",
       speed: 0.25,
@@ -71,7 +65,6 @@ export const PRESETS: Preset[] = [
         [0.0, 0.1, 0.4],
       ],
       noiseEnabled: false,
-
       bloomEnabled: false,
       grain: 0.08,
       vignette: 0.4,
@@ -79,6 +72,7 @@ export const PRESETS: Preset[] = [
   },
   {
     name: "Candy",
+    category: "classic",
     data: {
       gradientType: "plasma",
       speed: 0.6,
@@ -94,7 +88,6 @@ export const PRESETS: Preset[] = [
         [1.0, 1.0, 0.0],
       ],
       noiseEnabled: false,
-
       bloomEnabled: false,
       grain: 0,
       vignette: 0,
@@ -102,6 +95,7 @@ export const PRESETS: Preset[] = [
   },
   {
     name: "Ocean",
+    category: "classic",
     data: {
       gradientType: "linear",
       speed: 0.35,
@@ -117,7 +111,6 @@ export const PRESETS: Preset[] = [
         [0.0, 0.5, 0.5],
       ],
       noiseEnabled: false,
-
       bloomEnabled: false,
       grain: 0,
       vignette: 0.2,
@@ -125,6 +118,7 @@ export const PRESETS: Preset[] = [
   },
   {
     name: "Lava",
+    category: "classic",
     data: {
       gradientType: "mesh",
       speed: 0.5,
@@ -140,7 +134,6 @@ export const PRESETS: Preset[] = [
         [0.55, 0.0, 0.0],
       ],
       noiseEnabled: false,
-
       bloomEnabled: true,
       bloomIntensity: 0.4,
       grain: 0.06,
@@ -149,6 +142,7 @@ export const PRESETS: Preset[] = [
   },
   {
     name: "Cyber",
+    category: "classic",
     data: {
       gradientType: "conic",
       speed: 0.4,
@@ -171,6 +165,7 @@ export const PRESETS: Preset[] = [
   },
   {
     name: "Monochrome",
+    category: "classic",
     data: {
       gradientType: "mesh",
       speed: 0.3,
@@ -186,7 +181,6 @@ export const PRESETS: Preset[] = [
         [0.44, 0.5, 0.56],
       ],
       noiseEnabled: false,
-
       bloomEnabled: false,
       grain: 0.1,
       vignette: 0.25,
