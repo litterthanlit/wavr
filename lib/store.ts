@@ -92,6 +92,10 @@ export interface GradientState {
   toggleLayerVisibility: (index: number) => void;
   moveLayer: (from: number, to: number) => void;
 
+  // Image actions
+  setLayerImage: (layerIndex: number, dataURL: string | null) => void;
+  setLayerDistortionMap: (layerIndex: number, dataURL: string | null) => void;
+
   // Timeline actions
   toggleTimeline: () => void;
   addKeyframe: () => void;
@@ -107,6 +111,7 @@ const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "loadPreset", "randomize", "undo", "redo",
   "addLayer", "removeLayer", "selectLayer", "setLayerParam", "setLayerOpacity",
   "setLayerBlendMode", "toggleLayerVisibility", "moveLayer",
+  "setLayerImage", "setLayerDistortionMap",
   "toggleTimeline", "addKeyframe", "removeKeyframe", "setTimelinePosition",
   "setTimelineDuration", "setTimelinePlaybackMode",
   // Derived fields
@@ -379,7 +384,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       const hue = (baseHue + i * (360 / count) + (Math.random() - 0.5) * 30) % 360;
       colors.push(hslToRgb(hue, 0.6 + Math.random() * 0.4, 0.4 + Math.random() * 0.3));
     }
-    const types: LayerParams["gradientType"][] = ["mesh", "radial", "linear", "conic", "plasma"];
+    const types: LayerParams["gradientType"][] = ["mesh", "radial", "linear", "conic", "plasma", "dither", "scanline", "glitch"];
     const gradientType = types[Math.floor(Math.random() * types.length)];
     const speed = 0.2 + Math.random() * 0.8;
     const complexity = 2 + Math.floor(Math.random() * 4);
@@ -532,6 +537,27 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       activeLayerIndex: newIndex,
       ...deriveActiveLayerFields(newLayers, newIndex),
     });
+  },
+
+  // Image actions
+  setLayerImage: (layerIndex, dataURL) => {
+    flushPending();
+    const current = useGradientStore.getState();
+    pushHistory(takeSnapshot(current));
+    const newLayers = current.layers.map((l, i) =>
+      i === layerIndex ? { ...l, imageData: dataURL } : l
+    );
+    rawSet({ layers: newLayers });
+  },
+
+  setLayerDistortionMap: (layerIndex, dataURL) => {
+    flushPending();
+    const current = useGradientStore.getState();
+    pushHistory(takeSnapshot(current));
+    const newLayers = current.layers.map((l, i) =>
+      i === layerIndex ? { ...l, distortionMapData: dataURL } : l
+    );
+    rawSet({ layers: newLayers });
   },
 
   // Timeline
