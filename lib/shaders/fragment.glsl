@@ -71,6 +71,31 @@ uniform float u_distortionMapIntensity;
 uniform int u_imageBlendMode;  // 0=replace, 1=normal, 2=multiply, 3=screen, 4=overlay
 uniform float u_imageBlendOpacity;
 
+// Mask
+uniform bool u_maskEnabled;
+uniform int u_mask1Type;       // 0=none, 1=circle, 2=roundedRect, 3=ellipse, 4=polygon, 5=star, 6=blob
+uniform vec2 u_mask1Position;
+uniform vec2 u_mask1Scale;
+uniform float u_mask1Rotation;
+uniform float u_mask1Feather;
+uniform float u_mask1Invert;
+uniform float u_mask1CornerRadius;
+uniform float u_mask1Sides;
+uniform float u_mask1StarInner;
+uniform float u_mask1NoiseDist;
+uniform int u_mask2Type;
+uniform vec2 u_mask2Position;
+uniform vec2 u_mask2Scale;
+uniform float u_mask2Rotation;
+uniform float u_mask2Feather;
+uniform float u_mask2Invert;
+uniform float u_mask2CornerRadius;
+uniform float u_mask2Sides;
+uniform float u_mask2StarInner;
+uniform float u_mask2NoiseDist;
+uniform int u_maskBlendMode;   // 0=union, 1=subtract, 2=intersect, 3=smoothUnion
+uniform float u_maskSmoothness;
+
 // ============================================================
 // Simplex Noise 2D
 // ============================================================
@@ -165,6 +190,91 @@ float rippleEffect(vec2 uv, float time) {
   float speed = length(u_mouseVelocity);
   float rippleStr = smoothstep(0.5, 0.0, dist) * (0.3 + speed * 0.005);
   return sin(dist * 25.0 - time * 4.0) * rippleStr;
+}
+
+// ============================================================
+// SDF Shape Primitives (for masking)
+// ============================================================
+
+float sdCircle(vec2 p, float r) {
+  return length(p) - r;
+}
+
+float sdRoundedBox(vec2 p, vec2 b, float r) {
+  vec2 q = abs(p) - b + r;
+  return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+}
+
+float sdEllipse(vec2 p, vec2 ab) {
+  p = abs(p);
+  if (p.x > p.y) { p = p.yx; ab = ab.yx; }
+  float l = ab.y * ab.y - ab.x * ab.x;
+  float m = ab.x * p.x / l;
+  float m2 = m * m;
+  float n = ab.y * p.y / l;
+  float n2 = n * n;
+  float c = (m2 + n2 - 1.0) / 3.0;
+  float c3 = c * c * c;
+  float q = c3 + m2 * n2 * 2.0;
+  float d = c3 + m2 * n2;
+  float g = m + m * n2;
+  float co;
+  if (d < 0.0) {
+    float h = acos(q / c3) / 3.0;
+    float s = cos(h);
+    float t = sin(h) * sqrt(3.0);
+    float rx = sqrt(-c * (s + t + 2.0) + m2);
+    float ry = sqrt(-c * (s - t + 2.0) + m2);
+    co = (ry + sign(l) * rx + abs(g) / (rx * ry) - m) / 2.0;
+  } else {
+    float h = 2.0 * m * n * sqrt(d);
+    float s = sign(q + h) * pow(abs(q + h), 1.0 / 3.0);
+    float u = sign(q - h) * pow(abs(q - h), 1.0 / 3.0);
+    float rx = -s - u - c * 4.0 + 2.0 * m2;
+    float ry = (s - u) * sqrt(3.0);
+    float rm = sqrt(rx * rx + ry * ry);
+    co = (ry / sqrt(rm - rx) + 2.0 * g / rm - m) / 2.0;
+  }
+  vec2 r = ab * vec2(co, sqrt(max(1.0 - co * co, 0.0)));
+  return length(r - p) * sign(p.y - r.y);
+}
+
+float sdPolygon(vec2 p, float r, float n) {
+  float an = 3.14159265 / n;
+  float he = r * cos(an);
+  p = abs(p);
+  float bn = mod(atan(p.x, p.y), 2.0 * an) - an;
+  p = length(p) * vec2(cos(bn), abs(sin(bn)));
+  p -= vec2(he, 0.0);
+  p.y += clamp(-p.y, 0.0, r * sin(an));
+  return length(p) * sign(p.x);
+}
+
+float sdStar(vec2 p, float r, float n, float m) {
+  float an = 3.14159265 / n;
+  float en = 3.14159265 / m;
+  vec2 acs = vec2(cos(an), sin(an));
+  vec2 ecs = vec2(cos(en), sin(en));
+  float bn = mod(atan(p.x, p.y), 2.0 * an) - an;
+  p = length(p) * vec2(cos(bn), abs(sin(bn)));
+  p -= r * acs;
+  p += ecs * clamp(-dot(p, ecs), 0.0, r * acs.y / ecs.y);
+  return length(p) * sign(p.x);
+}
+
+float sdBlob(vec2 p, float r, float time, float dist) {
+  float angle = atan(p.y, p.x);
+  float noise = snoise(vec2(angle * 2.0, time * 0.5)) * dist;
+  return length(p) - r * (1.0 + noise * 0.3);
+}
+
+// Boolean operations on SDF values
+float opUnion(float d1, float d2) { return min(d1, d2); }
+float opSubtract(float d1, float d2) { return max(d1, -d2); }
+float opIntersect(float d1, float d2) { return max(d1, d2); }
+float opSmoothUnion(float d1, float d2, float k) {
+  float h = clamp(0.5 + 0.5 * (d2 - d1) / k, 0.0, 1.0);
+  return mix(d2, d1, h) - k * h * (1.0 - h);
 }
 
 // ============================================================
@@ -679,6 +789,65 @@ vec3 imageGradient(vec2 uv, float time) {
 }
 
 // ============================================================
+// Mask Evaluation
+// ============================================================
+
+float evaluateMaskSDF(vec2 uv, int type, vec2 pos, vec2 scl, float rot,
+                      bool invert, float cornerRadius, float sides, float starInner,
+                      float noiseDist, float time) {
+  if (type == 0) return -1.0; // none = fully inside
+
+  vec2 p = uv - 0.5 - pos;
+  float c = cos(rot), s = sin(rot);
+  p = mat2(c, s, -s, c) * p;
+  p /= scl;
+
+  float aspect = u_resolution.x / u_resolution.y;
+  p.x *= aspect;
+
+  float d;
+  if (type == 1) d = sdCircle(p, 0.4);
+  else if (type == 2) d = sdRoundedBox(p, vec2(0.4), cornerRadius);
+  else if (type == 3) d = sdEllipse(p, vec2(0.4, 0.3));
+  else if (type == 4) d = sdPolygon(p, 0.4, sides);
+  else if (type == 5) d = sdStar(p, 0.4, sides, starInner * sides);
+  else d = sdBlob(p, 0.4, time, noiseDist);
+
+  if (type != 6 && noiseDist > 0.01) {
+    d += snoise(p * 8.0 + time * 0.3) * noiseDist * 0.1;
+  }
+
+  if (invert) d = -d;
+  return d;
+}
+
+float computeMask(vec2 uv, float time) {
+  if (!u_maskEnabled) return 1.0;
+  if (u_mask1Type == 0) return 1.0;
+
+  float d1 = evaluateMaskSDF(uv, u_mask1Type, u_mask1Position, u_mask1Scale,
+    u_mask1Rotation, u_mask1Invert > 0.5,
+    u_mask1CornerRadius, u_mask1Sides, u_mask1StarInner, u_mask1NoiseDist, time);
+
+  if (u_mask2Type == 0) {
+    return 1.0 - smoothstep(-u_mask1Feather, u_mask1Feather, d1);
+  }
+
+  float d2 = evaluateMaskSDF(uv, u_mask2Type, u_mask2Position, u_mask2Scale,
+    u_mask2Rotation, u_mask2Invert > 0.5,
+    u_mask2CornerRadius, u_mask2Sides, u_mask2StarInner, u_mask2NoiseDist, time);
+
+  float combined;
+  if (u_maskBlendMode == 0) combined = opUnion(d1, d2);
+  else if (u_maskBlendMode == 1) combined = opSubtract(d1, d2);
+  else if (u_maskBlendMode == 2) combined = opIntersect(d1, d2);
+  else combined = opSmoothUnion(d1, d2, u_maskSmoothness);
+
+  float feather = max(u_mask1Feather, u_mask2Feather);
+  return 1.0 - smoothstep(-feather, feather, combined);
+}
+
+// ============================================================
 // Gradient Dispatch Helper
 // ============================================================
 
@@ -932,5 +1101,8 @@ void main() {
     color *= charMask * 1.2 + 0.1;
   }
 
-  fragColor = vec4(clamp(color, 0.0, 1.0), u_layerOpacity);
+  // Shape mask (applied after all effects)
+  float mask = computeMask(v_uv, u_time * u_speed);
+
+  fragColor = vec4(clamp(color, 0.0, 1.0), u_layerOpacity * mask);
 }
