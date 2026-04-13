@@ -27,6 +27,10 @@ export class GradientEngine {
   private feedbackWidth = 0;
   private feedbackHeight = 0;
 
+  // Image texture cache
+  private textureCache: Map<string, WebGLTexture> = new Map();
+  private pendingLoads: Set<string> = new Set();
+
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", {
       alpha: true,
@@ -112,6 +116,12 @@ export class GradientEngine {
       "u_pixelSortEnabled", "u_pixelSortIntensity", "u_pixelSortThreshold",
       "u_domainWarp",
       "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
+      // Image/texture uniforms
+      "u_imageTexture", "u_distortionMap",
+      "u_hasImage", "u_hasDistortionMap",
+      "u_imageScale", "u_imageOffset",
+      "u_distortionMapIntensity",
+      "u_imageBlendMode", "u_imageBlendOpacity",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -185,6 +195,58 @@ export class GradientEngine {
     this.feedbackTextures = null;
   }
 
+  loadImageTexture(dataURL: string): WebGLTexture | null {
+    if (this.textureCache.has(dataURL)) {
+      return this.textureCache.get(dataURL)!;
+    }
+    if (this.pendingLoads.has(dataURL)) {
+      return null;
+    }
+    this.pendingLoads.add(dataURL);
+    const img = new Image();
+    img.onload = () => {
+      this.pendingLoads.delete(dataURL);
+      const gl = this.gl;
+      let source: TexImageSource = img;
+      if (img.width > 2048 || img.height > 2048) {
+        const canvas = document.createElement("canvas");
+        const ratio = Math.min(2048 / img.width, 2048 / img.height);
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        source = canvas;
+      }
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      this.textureCache.set(dataURL, tex);
+    };
+    img.src = dataURL;
+    return null;
+  }
+
+  cleanupTextures(layers: LayerParams[]) {
+    const referenced = new Set<string>();
+    for (const layer of layers) {
+      if (layer.imageData) referenced.add(layer.imageData);
+      if (layer.distortionMapData) referenced.add(layer.distortionMapData);
+    }
+    for (const [key, tex] of this.textureCache) {
+      if (!referenced.has(key)) {
+        this.gl.deleteTexture(tex);
+        this.textureCache.delete(key);
+      }
+    }
+  }
+
   private setf(name: string, val: number) {
     const loc = this.uniforms[name];
     if (loc !== undefined) this.gl.uniform1f(loc, val);
@@ -202,7 +264,10 @@ export class GradientEngine {
 
   private setLayerUniforms(layer: LayerParams) {
     const gl = this.gl;
-    const typeMap: Record<string, number> = { mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4 };
+    const typeMap: Record<string, number> = {
+      mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4,
+      dither: 5, scanline: 6, glitch: 7, image: 8,
+    };
     this.seti("u_gradientType", typeMap[layer.gradientType]);
     this.setf("u_speed", layer.speed);
     this.setf("u_complexity", layer.complexity);
@@ -216,6 +281,42 @@ export class GradientEngine {
       }
     }
     this.setf("u_layerOpacity", layer.opacity);
+
+    // Image texture (unit 1)
+    const imageTex = layer.imageData ? this.loadImageTexture(layer.imageData) : null;
+    if (imageTex) {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, imageTex);
+      this.seti("u_imageTexture", 1);
+      this.setf("u_hasImage", 1.0);
+    } else {
+      this.setf("u_hasImage", 0.0);
+    }
+
+    // Distortion map (unit 2)
+    const distortionTex = (layer.distortionMapEnabled && layer.distortionMapData)
+      ? this.loadImageTexture(layer.distortionMapData)
+      : null;
+    if (distortionTex) {
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, distortionTex);
+      this.seti("u_distortionMap", 2);
+      this.setf("u_hasDistortionMap", 1.0);
+    } else {
+      this.setf("u_hasDistortionMap", 0.0);
+    }
+
+    // Image transform uniforms
+    this.setf("u_imageScale", layer.imageScale);
+    this.set2f("u_imageOffset", layer.imageOffset[0], layer.imageOffset[1]);
+    this.setf("u_distortionMapIntensity", layer.distortionMapIntensity);
+
+    // Blend mode: replace=0, normal=1, multiply=2, screen=3, overlay=4
+    const blendModeMap: Record<string, number> = {
+      replace: 0, normal: 1, multiply: 2, screen: 3, overlay: 4,
+    };
+    this.seti("u_imageBlendMode", blendModeMap[layer.imageBlendMode]);
+    this.setf("u_imageBlendOpacity", layer.imageBlendOpacity);
   }
 
   private setGlobalUniforms(state: GradientState, isBaseLayer: boolean) {
@@ -344,6 +445,9 @@ export class GradientEngine {
       gl.disable(gl.BLEND);
     }
 
+    // Clean up unused cached textures
+    this.cleanupTextures(state.layers);
+
     // Blit FBO to screen and swap buffers
     if (feedbackActive && this.feedbackFBOs) {
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.feedbackFBOs[this.feedbackIndex]);
@@ -419,6 +523,10 @@ export class GradientEngine {
   destroy() {
     this.stopLoop();
     this.destroyFeedbackFBOs();
+    for (const tex of this.textureCache.values()) {
+      this.gl.deleteTexture(tex);
+    }
+    this.textureCache.clear();
     if (this.program) this.gl.deleteProgram(this.program);
   }
 }
