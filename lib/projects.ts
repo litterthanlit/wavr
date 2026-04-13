@@ -73,6 +73,16 @@ export function exportProjectState(state: GradientState): ProjectState {
   };
 }
 
+export function exportProjectStateForUrl(state: GradientState): ProjectState {
+  const exported = exportProjectState(state);
+  exported.layers = exported.layers.map((l) => ({
+    ...l,
+    imageData: null,
+    distortionMapData: null,
+  }));
+  return exported;
+}
+
 export function loadProjects(): SavedProject[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -96,7 +106,14 @@ export function saveProject(name: string, state: GradientState): void {
   } else {
     projects.push(entry);
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "QuotaExceededError") {
+      throw new Error("Storage quota exceeded. Try removing unused projects or images.");
+    }
+    throw e;
+  }
 }
 
 export function deleteProject(name: string): void {

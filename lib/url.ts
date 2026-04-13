@@ -1,8 +1,8 @@
 import { GradientState } from "./store";
-import { exportProjectState, ProjectState } from "./projects";
+import { exportProjectStateForUrl, ProjectState } from "./projects";
 
 export function encodeState(state: GradientState): string {
-  const data = exportProjectState(state);
+  const data = exportProjectStateForUrl(state);
   const json = JSON.stringify(data);
   // Base64url encode
   const base64 = btoa(json)
