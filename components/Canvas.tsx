@@ -43,9 +43,10 @@ function applyAudioBands(state: GradientState, bands: AudioBands): Partial<Gradi
 
 interface CanvasProps {
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
+  onEngineReady?: (engine: GradientEngine) => void;
 }
 
-export default function Canvas({ onCanvasReady }: CanvasProps) {
+export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GradientEngine | null>(null);
   const [fps, setFps] = useState(0);
@@ -82,6 +83,7 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
     }
     engineRef.current = engine;
     onCanvasReady?.(canvas);
+    onEngineReady?.(engine);
 
     const resize = () => {
       const parent = canvas.parentElement;
@@ -185,7 +187,7 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
       clearTimeout(resizeTimeout);
       engine.destroy();
     };
-  }, [handleMouseMove, onCanvasReady]);
+  }, [handleMouseMove, onCanvasReady, onEngineReady]);
 
   // Reduced motion: pause by default
   useEffect(() => {
