@@ -103,6 +103,11 @@ uniform sampler2D u_textMaskTexture;
 // Custom GLSL
 uniform bool u_customEnabled;
 
+// Parallax depth (Phase 7)
+uniform bool u_parallaxEnabled;
+uniform float u_parallaxStrength;
+uniform float u_layerDepth;
+
 // ============================================================
 // Simplex Noise 2D
 // ============================================================
@@ -883,6 +888,13 @@ vec3 computeGradient(vec2 uv, float time) {
 void main() {
   vec2 uv = v_uv;
   float time = u_time * u_speed;
+
+  // Parallax depth offset (applied first — shifts entire layer)
+  if (u_parallaxEnabled) {
+    vec2 offset = u_mouseSmooth * u_layerDepth * u_parallaxStrength * 0.05;
+    offset.x *= u_resolution.y / u_resolution.x; // aspect ratio correction
+    uv = fract(uv + offset); // wrap for seamless edges
+  }
 
   // Distortion map UV displacement (applied first, chains with everything)
   if (u_hasDistortionMap > 0.5) {
