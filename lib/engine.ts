@@ -136,6 +136,8 @@ export class GradientEngine {
       "u_textMaskEnabled", "u_textMaskTexture",
       // Custom GLSL
       "u_customEnabled",
+      // Phase 7: Parallax
+      "u_parallaxEnabled", "u_parallaxStrength", "u_layerDepth",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -377,6 +379,8 @@ export class GradientEngine {
       }
     }
     this.setf("u_layerOpacity", layer.opacity);
+    // Parallax depth (per-layer)
+    this.setf("u_layerDepth", layer.depth);
 
     // Image texture (unit 1)
     const imageTex = layer.imageData ? this.loadImageTexture(layer.imageData) : null;
@@ -502,6 +506,9 @@ export class GradientEngine {
     this.setf("u_domainWarp", state.domainWarp);
     this.seti("u_feedbackEnabled", isBaseLayer && state.feedbackEnabled ? 1 : 0);
     this.setf("u_feedbackDecay", state.feedbackDecay);
+    // Parallax (active on all layers, not just base)
+    this.seti("u_parallaxEnabled", state.parallaxEnabled ? 1 : 0);
+    this.setf("u_parallaxStrength", state.parallaxStrength);
   }
 
   private applyBlendMode(mode: BlendMode) {
