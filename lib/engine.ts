@@ -30,6 +30,7 @@ export class GradientEngine {
   // Image texture cache
   private textureCache: Map<string, WebGLTexture> = new Map();
   private pendingLoads: Set<string> = new Set();
+  private textMaskTexture: WebGLTexture | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", {
@@ -131,6 +132,10 @@ export class GradientEngine {
       "u_mask2Feather", "u_mask2Invert", "u_mask2CornerRadius",
       "u_mask2Sides", "u_mask2StarInner", "u_mask2NoiseDist",
       "u_maskBlendMode", "u_maskSmoothness",
+      // Text mask
+      "u_textMaskEnabled", "u_textMaskTexture",
+      // Custom GLSL
+      "u_customEnabled",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -240,6 +245,88 @@ export class GradientEngine {
     };
     img.src = dataURL;
     return null;
+  }
+
+  updateTextMaskTexture(canvas: HTMLCanvasElement) {
+    const gl = this.gl;
+    if (!this.textMaskTexture) {
+      this.textMaskTexture = gl.createTexture()!;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, this.textMaskTexture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
+  setCustomShader(code: string | null): { success: boolean; error?: string } {
+    const gl = this.gl;
+
+    if (code === null) {
+      // Revert to default shader
+      try {
+        this.initProgram();
+        this.seti("u_customEnabled", 0);
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : "Reset failed" };
+      }
+    }
+
+    // Wrap user code in customGradient function and inject into shader
+    const customFunc = `vec3 customGradient(vec2 uv, float time) {\n${code}\n}`;
+
+    // Replace the placeholder customGradient in the fragment source
+    const modifiedFragment = fragmentSource.replace(
+      /vec3 customGradient\(vec2 uv, float time\) \{[^}]*\}/,
+      customFunc
+    );
+
+    try {
+      const vertShader = this.compileShader(gl.VERTEX_SHADER, vertexSource);
+      const fragShader = this.compileShader(gl.FRAGMENT_SHADER, modifiedFragment);
+
+      const newProgram = gl.createProgram()!;
+      gl.attachShader(newProgram, vertShader);
+      gl.attachShader(newProgram, fragShader);
+      gl.linkProgram(newProgram);
+
+      if (!gl.getProgramParameter(newProgram, gl.LINK_STATUS)) {
+        const log = gl.getProgramInfoLog(newProgram);
+        gl.deleteProgram(newProgram);
+        return { success: false, error: log ?? "Link failed" };
+      }
+
+      // Success — swap programs
+      if (this.program) gl.deleteProgram(this.program);
+      this.program = newProgram;
+      gl.useProgram(newProgram);
+
+      // Re-bind the VAO (fullscreen quad)
+      const vao = gl.createVertexArray()!;
+      gl.bindVertexArray(vao);
+      const buffer = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      const posLoc = gl.getAttribLocation(newProgram, "a_position");
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+      this.uniforms = {};
+      this.cacheUniforms();
+      this.seti("u_customEnabled", 1);
+
+      return { success: true };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Compilation failed";
+      // Extract GLSL error from "Shader compile failed: " prefix
+      const cleaned = msg.replace(/^Shader compile failed:\s*/, "");
+      return { success: false, error: cleaned };
+    }
   }
 
   cleanupTextures(layers: LayerParams[]) {
@@ -361,6 +448,14 @@ export class GradientEngine {
 
     this.seti("u_maskBlendMode", maskBlendMap[layer.maskBlendMode]);
     this.setf("u_maskSmoothness", layer.maskSmoothness);
+
+    // Text mask
+    this.setf("u_textMaskEnabled", layer.textMaskEnabled ? 1.0 : 0.0);
+    if (layer.textMaskEnabled && this.textMaskTexture) {
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, this.textMaskTexture);
+      this.seti("u_textMaskTexture", 3);
+    }
   }
 
   private setGlobalUniforms(state: GradientState, isBaseLayer: boolean) {
@@ -571,6 +666,10 @@ export class GradientEngine {
       this.gl.deleteTexture(tex);
     }
     this.textureCache.clear();
+    if (this.textMaskTexture) {
+      this.gl.deleteTexture(this.textMaskTexture);
+      this.textMaskTexture = null;
+    }
     if (this.program) this.gl.deleteProgram(this.program);
   }
 }
