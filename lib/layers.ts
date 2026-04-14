@@ -66,6 +66,8 @@ export interface LayerParams {
   textMaskFontWeight: number;
   textMaskLetterSpacing: number;
   textMaskAlign: TextMaskAlign;
+  // Parallax depth
+  depth: number;
 }
 
 export const DEFAULT_LAYER: LayerParams = {
@@ -102,6 +104,7 @@ export const DEFAULT_LAYER: LayerParams = {
   textMaskFontWeight: 700,
   textMaskLetterSpacing: 0,
   textMaskAlign: "center",
+  depth: 0,
 };
 
 export function createLayer(overrides?: Partial<LayerParams>): LayerParams {
