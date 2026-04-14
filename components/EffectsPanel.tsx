@@ -108,6 +108,12 @@ export default function EffectsPanel() {
         <Slider label="Threshold" value={store.pixelSortThreshold} min={0} max={1} step={0.01} onChange={(v) => store.set({ pixelSortThreshold: v })} onCommit={() => store.commitSet()} disabled={!store.pixelSortEnabled} />
       </Section>
 
+      {/* 3D Depth */}
+      <Section title="3D Depth">
+        <Toggle label="Parallax" checked={store.parallaxEnabled} onChange={(v) => store.setDiscrete({ parallaxEnabled: v })} />
+        <Slider label="Strength" value={store.parallaxStrength} min={0} max={1} step={0.01} onChange={(v) => store.set({ parallaxStrength: v })} onCommit={() => store.commitSet()} disabled={!store.parallaxEnabled} />
+      </Section>
+
       <div className="border-t border-border my-1" />
 
       {/* Advanced */}

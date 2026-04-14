@@ -138,6 +138,22 @@ export default function LayerPanel() {
                 ))}
               </select>
             </div>
+            {store.parallaxEnabled && (
+              <Slider
+                label="Depth"
+                value={store.layers[store.activeLayerIndex]?.depth ?? 0}
+                min={-1}
+                max={1}
+                step={0.01}
+                onChange={(v) => {
+                  const newLayers = store.layers.map((l, i) =>
+                    i === store.activeLayerIndex ? { ...l, depth: v } : l
+                  );
+                  store.set({ layers: newLayers });
+                }}
+                onCommit={() => store.commitSet()}
+              />
+            )}
           </div>
         </>
       )}
