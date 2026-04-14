@@ -1,0 +1,2 @@
+export { aurora, bladeRunner, broadcastSignal, candy, corruption, cyber, dataMosh, deepSea, dissolve, filmNoir, forestCanopy, lava, liquidMetal, midnight, monochrome, morse, neonBars, newspaper, northernLights, ocean, oilSlick, prism, retroCrt, sandstorm, signalLoss, slitScan, smoke, stipple, sunset, tron, vaporwave, vhs } from '@wavr/core/presets';
+import '@wavr/core/presets/all';
