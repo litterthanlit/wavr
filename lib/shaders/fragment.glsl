@@ -1257,6 +1257,18 @@ void main() {
     color *= charMask * 1.2 + 0.1;
   }
 
+  // 3D Shape Projection (raymarching)
+  if (u_3dEnabled) {
+    vec4 projected = raymarched3D(v_uv);
+    if (projected.a > 0.0) {
+      // projected.xy = surface UV, projected.z = shade factor
+      vec3 surfaceColor = computeGradient(projected.xy, time);
+      color = surfaceColor * projected.z;
+    } else {
+      discard;
+    }
+  }
+
   // Shape mask (applied after all effects)
   float mask = computeMask(v_uv, u_time * u_speed);
 

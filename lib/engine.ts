@@ -20,6 +20,8 @@ export class GradientEngine {
   private mouseVelY = 0;
   private prevSmoothX = 0.5;
   private prevSmoothY = 0.5;
+  // 3D rotation accumulator
+  private rotationAngle = 0;
   // Feedback loop FBO ping-pong
   private feedbackFBOs: [WebGLFramebuffer, WebGLFramebuffer] | null = null;
   private feedbackTextures: [WebGLTexture, WebGLTexture] | null = null;
@@ -138,6 +140,9 @@ export class GradientEngine {
       "u_customEnabled",
       // Phase 7: Parallax
       "u_parallaxEnabled", "u_parallaxStrength", "u_layerDepth",
+      // Phase 7: 3D Shape Projection
+      "u_3dEnabled", "u_3dShape", "u_3dPerspective",
+      "u_3dRotationSpeed", "u_3dRotation", "u_3dZoom", "u_3dLighting",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -509,6 +514,19 @@ export class GradientEngine {
     // Parallax (active on all layers, not just base)
     this.seti("u_parallaxEnabled", state.parallaxEnabled ? 1 : 0);
     this.setf("u_parallaxStrength", state.parallaxStrength);
+    // 3D Shape Projection
+    this.seti("u_3dEnabled", state.threeDEnabled ? 1 : 0);
+    this.seti("u_3dShape", state.threeDShape);
+    this.setf("u_3dPerspective", state.threeDPerspective);
+    this.setf("u_3dRotationSpeed", state.threeDRotationSpeed);
+    this.setf("u_3dZoom", state.threeDZoom);
+    this.setf("u_3dLighting", state.threeDLighting);
+    // Rotation: auto-rotation + mouse-driven offset
+    if (state.threeDEnabled) {
+      const azimuth = this.rotationAngle + (this.smoothMouseX - 0.5) * 2.0;
+      const elevation = (this.smoothMouseY - 0.5) * 1.5;
+      this.set2f("u_3dRotation", azimuth, elevation);
+    }
   }
 
   private applyBlendMode(mode: BlendMode) {
@@ -639,6 +657,11 @@ export class GradientEngine {
         const rawVelY = (this.smoothMouseY - this.prevSmoothY) / dt;
         this.mouseVelX += (rawVelX - this.mouseVelX) * lerpFactor;
         this.mouseVelY += (rawVelY - this.mouseVelY) * lerpFactor;
+      }
+
+      // Accumulate 3D auto-rotation
+      if (state.threeDEnabled) {
+        this.rotationAngle += state.threeDRotationSpeed * dt;
       }
 
       this.render(state);
