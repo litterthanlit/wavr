@@ -2,21 +2,38 @@
 
 ## What This Project Is
 
-Wavr is an interactive animated gradient editor — think Unicorn Studio. Users create moving mesh gradients and visual effects through a visual editor, then export as CSS/PNG/video. See `PRD.md` for product spec, `ROADMAP.md` for what's next, `.context/HANDOFF.md` for full architecture details.
+Wavr is an interactive animated gradient editor — think Unicorn Studio. Users create moving mesh gradients and visual effects through a visual editor, then export as CSS/PNG/video. Also published as `@wavr/gradient` — a standalone React component. See `ROADMAP.md` for what's next, `.context/HANDOFF.md` for full architecture details.
 
 ## Tech Stack
 
-- **Next.js 14+** with App Router (TypeScript)
+- **pnpm monorepo** with Turborepo
+- **Next.js 16** with App Router (TypeScript)
 - **WebGL 2** with raw GLSL shaders (no Three.js)
-- **Zustand** for state management
+- **Zustand** for state management (editor only)
 - **Tailwind CSS** for styling
+- **tsup** for package builds
+
+## Project Structure
+
+```
+apps/editor/     ← Next.js gradient editor
+packages/core/   ← @wavr/core — engine, shaders, types, presets (internal)
+packages/react/  ← @wavr/gradient — published React component
+```
 
 ## Commands
 
 ```bash
-npm run dev       # Start dev server
-npm run build     # Production build
-npm run lint      # ESLint
+npx pnpm install                # Install all workspace deps
+npx pnpm build                  # Build everything
+npx pnpm dev --filter=editor    # Dev server
+
+# Or from apps/editor/:
+cd apps/editor && npx next dev
+cd apps/editor && npx next build
+
+# Package only:
+npx pnpm --filter @wavr/gradient build
 ```
 
 ## Architecture
@@ -25,16 +42,16 @@ Single WebGL fragment shader renders to a fullscreen quad. 9 gradient modes sele
 
 Gradient params (type, colors, speed, etc.) are per-layer. Global effects (bloom, vignette, etc.) are on the store root. Store uses `set()` for continuous updates (sliders), `setDiscrete()` for one-shot (toggles/selects), `commitSet()` on pointerUp.
 
-Sidebar has 4 tabs: Gradient, Effects, Presets, Code. Keyboard shortcuts 1-4 switch tabs.
+**Two type systems:** `GradientConfig` (public, nested, used by npm package) and `GradientState` (flat, internal, used by editor store + engine). `resolveConfig()` and `stateToConfig()` in `packages/core/src/config.ts` bridge them.
 
 ## Adding a New Gradient Mode
 
 Update 5 files:
-1. `lib/layers.ts` — add to `gradientType` union type
-2. `lib/store.ts` — add to randomize `types` array
-3. `lib/engine.ts` — add to `typeMap` object
-4. `lib/shaders/fragment.glsl` — add function + update `computeGradient()` dispatch
-5. `components/GradientPanel.tsx` — add to `GRADIENT_OPTIONS` array
+1. `packages/core/src/layers.ts` — add to `gradientType` union type
+2. `apps/editor/lib/store.ts` — add to randomize `types` array
+3. `packages/core/src/engine.ts` — add to `typeMap` object
+4. `packages/core/src/shaders/fragment.glsl` — add function + update `computeGradient()` dispatch
+5. `apps/editor/components/GradientPanel.tsx` — add to `GRADIENT_OPTIONS` array
 
 ## Code Style
 
@@ -49,4 +66,4 @@ Update 5 files:
 - Don't recompile shaders on parameter change — use uniforms
 - Don't use `setInterval` for render loop — use `requestAnimationFrame`
 - Don't store GL context in React state — use a ref
-- Don't add a backend — client-only tool
+- Don't publish `@wavr/core` — it's internal only

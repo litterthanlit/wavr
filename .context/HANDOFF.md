@@ -2,11 +2,62 @@
 
 ## What This Is
 
-Wavr is an interactive animated gradient editor (like Unicorn Studio) built with Next.js 16, WebGL 2, and Zustand. It's a browser-native creative tool for designing, animating, and exporting GPU-rendered gradients.
+Wavr is an interactive animated gradient editor (like Unicorn Studio) built with Next.js 16, WebGL 2, and Zustand. It's a browser-native creative tool for designing, animating, and exporting GPU-rendered gradients. Also published as `@wavr/gradient` — a standalone React component for embedding gradients.
 
 **Repo:** https://github.com/litterthanlit/wavr
 **Branch:** `litterthanlit/bordeux` (active development)
-**Open PR:** https://github.com/litterthanlit/wavr/pull/10 (Phases 5, 6, 8, 9)
+**Open PR:** https://github.com/litterthanlit/wavr/pull/11 (monorepo + npm package)
+
+---
+
+## Project Structure (Monorepo)
+
+```
+wavr/
+├── apps/
+│   └── editor/              ← Next.js gradient editor app
+│       ├── app/             ← Pages (/, /editor)
+│       ├── components/      ← React components (Canvas, Sidebar, panels, modals)
+│       ├── lib/             ← Editor-only: store, timeline, export, audio, presets (old format)
+│       ├── src/             ← LiftKit CSS + utilities
+│       ├── public/
+│       ├── package.json
+│       ├── next.config.ts
+│       └── tsconfig.json
+├── packages/
+│   ├── core/                ← @wavr/core (internal, not published)
+│   │   ├── src/
+│   │   │   ├── engine.ts    ← GradientEngine class (WebGL2, render loop, mouse physics)
+│   │   │   ├── layers.ts    ← LayerParams, MaskParams, defaults
+│   │   │   ├── math.ts      ← mat4 utilities for MVP computation
+│   │   │   ├── types.ts     ← Public API types (GradientConfig, LayerConfig, RGBColor)
+│   │   │   ├── config.ts    ← resolveConfig() + stateToConfig() mapping
+│   │   │   ├── create.ts    ← createGradient() imperative API
+│   │   │   ├── index.ts     ← Barrel exports
+│   │   │   ├── shaders/
+│   │   │   │   ├── fragment.glsl  ← ~1280 lines, 9 modes + effects + 3D
+│   │   │   │   └── vertex.glsl   ← Mesh distortion + MVP
+│   │   │   └── presets/     ← All presets in GradientConfig format
+│   │   │       ├── index.ts  ← Tree-shakeable named exports
+│   │   │       ├── all.ts    ← Full preset map
+│   │   │       └── *.ts      ← Per-category files
+│   │   └── package.json
+│   └── react/               ← @wavr/gradient (published to npm)
+│       ├── src/
+│       │   ├── WavrGradient.tsx  ← React wrapper (~120 lines)
+│       │   ├── index.ts     ← Main entry
+│       │   ├── presets.ts   ← Re-exports from core
+│       │   └── presets-all.ts
+│       ├── dist/            ← Built output (ESM + CJS + DTS)
+│       ├── tsup.config.ts
+│       └── package.json
+├── pnpm-workspace.yaml
+├── turbo.json
+├── package.json             ← Workspace root
+├── CLAUDE.md
+├── ROADMAP.md
+└── docs/superpowers/        ← Design specs + implementation plans
+```
 
 ---
 
@@ -18,50 +69,39 @@ Wavr is an interactive animated gradient editor (like Unicorn Studio) built with
 - **Zustand store** — single source of truth, undo/redo (50-deep snapshot stack), discrete vs continuous updates
 - **UI** — Sidebar (320px) with 4 tabs (Gradient/Effects/Presets/Code), TopBar with undo/redo/randomize/play-pause/share/projects/export
 - **Effects** — noise overlay, film grain, bloom, vignette, Gaussian blur, radial zoom blur, color blend, chromatic aberration, hue shift, ASCII art, ordered dithering, curl noise, kaleidoscope, reaction-diffusion, pixel sorting, domain warp, feedback loop (FBO ping-pong)
-- **32 presets** across 7 categories (classic, dither, scanline, glitch, cinematic, nature, abstract) with grouped/collapsible panel
-- **Export** — PNG, animated CSS, WebM video, GIF, React component, Web Component, Tailwind CSS, iframe embed, standalone player, embed widget (config-driven)
-- **Keyboard shortcuts** — Space (play/pause), R (randomize), E (export), P (projects), ? (shortcuts), 1/2/3/4 (tabs), Cmd+Z/Shift+Cmd+Z (undo/redo)
-- **Accessibility** — prefers-reduced-motion, focus-visible, ARIA labels
-- **Error recovery** — WebGL context loss/restore, graceful fallback
-- **Performance guards** — auto-degrade fBm octaves below 30fps
-- **Physics-based mouse** — smoothed position (exponential lerp), velocity tracking per mode
-- **Layer system** — up to 4 layers, each with independent gradient type/colors/speed/complexity/scale/distortion/opacity/blend mode
-- **Animation timeline** — keyframes on 10 parameters, Hermite interpolation, loop/bounce/once modes
-- **Audio reactivity** — FFT analysis, mic + file input, bass/treble/energy mapping
-- **Sharing** — URL encoding (base64url hash), localStorage projects
-- **Landing page** at `/`, **Editor** at `/editor`, onboarding tour, SEO
+- **32 presets** across 7 categories (classic, dither, scanline, glitch, cinematic, nature, abstract)
+- **Export** — PNG, animated CSS, WebM video, GIF, React component, Web Component, Tailwind CSS, iframe embed, standalone player, embed widget
+- **Keyboard shortcuts, accessibility, error recovery, performance guards**
+- **Layer system** — up to 4 layers, blend modes, independent params
+- **Animation timeline** — keyframes, Hermite interpolation, loop/bounce/once
+- **Audio reactivity** — FFT analysis, mic + file input
+- **Sharing** — URL encoding, localStorage projects
 
 ### Phase 5: Image & Texture Input
-- Upload PNG/JPG as 9th gradient mode ("image") — all effects apply on top
-- Image as distortion map — grayscale UV displacement for any gradient mode
-- Blend image with procedural gradient — 5 blend modes (replace, normal, multiply, screen, overlay) + opacity
-- Client-side only (FileReader API), resize to 2048px max, base64 in project saves
-- Texture units: 0=feedback, 1=image, 2=distortion map, 3=text mask
+- Upload PNG/JPG as 9th gradient mode, image as distortion map, 5 blend modes
 
 ### Phase 6: Shape Masking
-- 7 SDF shapes: circle, rounded rect, ellipse, polygon (3-12 sides), star, blob (noise-distorted)
-- 2 masks per layer with boolean ops (union, subtract, intersect, smooth union)
-- Controls: position, scale, rotation, feathering, inversion, noise edge distortion
-- Applied after all post-processing, before final fragColor output
-- 22 mask uniforms set per-layer
-
-### Phase 8: Preset Library Expansion
-- 32 presets across 7 categories with grouped/collapsible panel UI
-- Categories: Classic (8), Dither (4), Scanline (4), Glitch (4), Cinematic (4), Nature (4), Abstract (4)
-
-### Phase 9: Designer Polish
-- **Text mask** — canvas-to-texture pipeline, live gradient-clipped text in editor. Controls: text content, font size (32-200), weight (400-900), letter spacing, alignment. Mutually exclusive with shape mask.
-- **Custom GLSL editor** — "Code" tab (4th sidebar tab), textarea with 500ms debounce compile, green/red status indicator, Reset button. User code injected as `customGradient()` function body. All uniforms + helpers (snoise, fbm, getGradientColor) available. Stored in localStorage projects, not URL sharing.
-- **Embed widget export** — config-driven `<wavr-gradient>` Web Component snippet in Export modal. Serializes gradient type, colors, params, and effects subset into compact JSON config.
-- **Text mask CSS export** — `background-clip: text` output when text mask is active
+- 7 SDF shapes, 2 masks per layer, boolean ops, feathering
 
 ### Phase 7: 3D Depth Effects
-- **Parallax Depth Layers** — per-layer `depth` param (-1 to 1), UV offset = `mouseSmooth * depth * strength * 0.05` with aspect correction and `fract()` wrap. Applied before all other UV transforms. Global toggle + strength in EffectsPanel, depth slider per layer in LayerPanel.
-- **3D Shape Projection** — raymarching 5 SDF shapes (sphere, torus, plane, cylinder, cube) in fragment shader. 64-step march, central-difference normals, per-shape UV mapping (spherical, toroidal, planar, cylindrical, box-face). Diffuse+specular lighting with configurable intensity. Mouse + auto-rotation drives camera. Gradient resampled at surface UV via `computeGradient(surfaceUV, time)`. Applied after all post-processing, before masks. UI in GradientPanel.
-- **Mesh Distortion** — global effect. 64×64 indexed triangle grid (4096 vertices, 1.1× oversize). Conditional VAO swap: quad when disabled, grid when enabled. Vertex displacement along +Z via `cheapNoise()` (sin-based v1) + mouse-reactive `exp(-dist)` falloff. MVP matrix computed per-frame from `mat4Perspective/LookAt/RotateX/RotateY/Multiply` (`lib/math.ts`). UI in EffectsPanel.
-- **Mutual exclusivity** — 3D shape and mesh distortion cannot both be active. Parallax works with both. Enforced by UI toggle handlers.
-- **New file:** `lib/math.ts` — minimal mat4 utilities (~80 lines, zero deps)
-- **Texture units:** 0=feedback, 1=image, 2=distortion map, 3=text mask (unchanged)
+- **Parallax Depth Layers** — per-layer depth offset, mouse-driven UV shift with damping + aspect correction
+- **3D Shape Projection** — raymarched SDFs (sphere, torus, plane, cylinder, cube), surface UV mapping, diffuse+specular lighting
+- **Mesh Distortion** — 64×64 grid, sin-noise vertex displacement, MVP projection, mouse-reactive terrain
+- **Mutual exclusivity** — 3D shape and mesh distortion can't both be active
+
+### Phase 8: Preset Library Expansion
+- 32 presets across 7 categories with grouped/collapsible panel
+
+### Phase 9: Designer Polish
+- Text mask, custom GLSL editor, embed widget export, text mask CSS export
+
+### Phase 10.2: npm Package (@wavr/gradient)
+- **Monorepo restructure** — pnpm workspaces + Turborepo, three packages (core, react, editor)
+- **`@wavr/core`** (internal) — engine decoupled from Zustand store via `EngineState` interface, `createGradient()` imperative API, `resolveConfig()`/`stateToConfig()` mapping between clean `GradientConfig` and flat engine state, all presets converted to `GradientConfig` format
+- **`@wavr/gradient`** (published) — `<WavrGradient config={aurora} />` React component with mouse+touch interaction, scroll-linked mode, pause/play, speed multiplier, ResizeObserver, WebGL context loss handling
+- **Three entry points:** `@wavr/gradient` (component + types), `@wavr/gradient/presets` (tree-shakeable), `@wavr/gradient/presets/all` (full map)
+- **Build:** tsup (ESM + CJS + DTS), full shader bundled (~5KB gzipped)
+- **Editor dogfoods core** — imports engine, layers, math from `@wavr/core`
 
 ---
 
@@ -69,93 +109,77 @@ Wavr is an interactive animated gradient editor (like Unicorn Studio) built with
 
 - **Next.js 16** (App Router, TypeScript, Turbopack)
 - **WebGL 2** with raw GLSL shaders (NO Three.js)
-- **Zustand** for state management
+- **Zustand** for state management (editor only)
 - **Tailwind CSS** for styling
 - **LiftKit** (@chainlift/liftkit) for Material Design 3 theme tokens
-- **Vercel** for deployment
+- **pnpm workspaces** + **Turborepo** for monorepo
+- **tsup** (esbuild) for package builds
 
 ---
 
 ## Key Architecture Decisions
 
-1. **Single shader program** — all 9 gradient modes selected via `u_gradientType` int uniform (0–8). No shader recompilation on parameter change. Exception: Custom GLSL editor recompiles when user code changes.
+1. **Single shader program** — all 9 gradient modes selected via `u_gradientType` int uniform (0–8). No shader recompilation on parameter change. Exception: Custom GLSL editor.
 2. **Multi-pass layer rendering** — each layer rendered as separate fullscreen quad with WebGL blending. Global effects applied only on final layer.
-3. **Derived state fields** — `gradientType`, `speed`, `complexity`, `scale`, `distortion`, `colors` on the store are derived from the active layer for backward compatibility.
-4. **Continuous vs discrete updates** — `set()` for sliders (captures pending snapshot on first call), `setDiscrete()` for toggles/selects (pushes history immediately), `commitSet()` on pointerUp.
-5. **Mouse physics on CPU** — smoothed position and velocity computed in engine.ts, passed as uniforms.
-6. **Texture units** — 0=feedback FBO, 1=image texture, 2=distortion map, 3=text mask.
-7. **Mask exclusivity** — shape mask and text mask are mutually exclusive (UI toggle logic).
+3. **Two type systems** — `GradientState` (flat, internal, used by editor store + engine) and `GradientConfig` (nested, public, used by npm package). `resolveConfig()` and `stateToConfig()` bridge them.
+4. **Continuous vs discrete updates** — `set()` for sliders, `setDiscrete()` for toggles/selects, `commitSet()` on pointerUp.
+5. **Mouse physics on CPU** — smoothed position + velocity in engine.ts, passed as uniforms.
+6. **Texture units** — 0=feedback FBO, 1=image, 2=distortion map, 3=text mask.
+7. **Conditional geometry** — `drawGeometry(useMesh)` swaps quad VAO for 64×64 grid when mesh distortion is active.
+8. **Engine decoupled from store** — `EngineState` interface in core, `GradientState` in editor. Editor's store satisfies `EngineState` (structural typing).
 
 ---
 
-## File Map
+## Commands
 
-```
-app/
-  page.tsx              — Landing page (/)
-  editor/page.tsx       — Editor (/editor), wires Canvas↔Sidebar via engineRef
-  layout.tsx            — Root layout with fonts + OG metadata
-  globals.css           — Tailwind + LiftKit theme tokens (light/dark)
-  sitemap.ts, robots.ts — SEO
+```bash
+# From repo root:
+npx pnpm install              # Install all workspace deps
+npx pnpm build                # Build everything (turbo)
+npx pnpm dev --filter=editor  # Dev server for editor
 
-components/
-  Canvas.tsx            — WebGL canvas, render loop, perf guards, context recovery, text mask rendering
-  TopBar.tsx            — Logo, undo/redo, share, projects, export buttons
-  Sidebar.tsx           — Layer panel + 4 tabbed panels (Gradient/Effects/Presets/Code)
-  LayerPanel.tsx        — Layer stack with visibility/opacity/blend controls
-  GradientPanel.tsx     — Type select (9 types), colors, params, image upload, mask, text mask controls
-  EffectsPanel.tsx      — All effect toggles + sliders
-  PresetsPanel.tsx      — Grouped/collapsible preset panel (32 presets, 7 categories)
-  CustomGLSLPanel.tsx   — Custom GLSL editor textarea, compile status, reset, reference docs
-  Timeline.tsx          — Keyframe timeline bar
-  ExportModal.tsx       — PNG/CSS/WebM/GIF/React/WebComponent/Embed/EmbedWidget export
-  ProjectsModal.tsx     — Save/load projects
-  ShortcutsModal.tsx    — Keyboard shortcuts overlay
-  Onboarding.tsx        — First-time walkthrough
-  MobileDrawer.tsx      — Bottom drawer for mobile
-  ui/                   — Slider, Toggle, ColorInput, Select, Toast
+# Editor only:
+cd apps/editor && npx next build
+cd apps/editor && npx next dev
 
-lib/
-  store.ts              — Zustand store (all state + actions + undo/redo + customGLSL)
-  engine.ts             — WebGL engine (compile, render, multi-layer, mouse physics, text mask texture, custom shader)
-  layers.ts             — Layer type definitions + factory (9 gradient types, mask params, text mask params)
-  timeline.ts           — Keyframe interpolation logic
-  presets.ts            — 32 preset definitions across 7 categories
-  export.ts             — PNG/CSS/WebM/GIF/embed/embed-widget export functions
-  projects.ts           — localStorage project persistence
-  url.ts                — URL state encoding/decoding
-  audio.ts              — Audio input + FFT analysis
-  useTheme.ts           — Theme hook (system detection + manual toggle)
-  types.ts              — Shared types (SidebarTab = gradient | effects | presets | code)
-  shaders/
-    vertex.glsl         — Fullscreen quad vertex shader
-    fragment.glsl       — Main fragment shader (~1100 lines, 9 modes + effects + masks + custom GLSL)
+# Package only:
+npx pnpm --filter @wavr/gradient build
+ls packages/react/dist/       # Verify outputs
 ```
 
 ---
 
 ## What's Next — See ROADMAP.md
 
-1. **Phase 10: Community & Distribution** — gallery, npm package, Figma/Framer plugin
+1. **10.1 Community Gallery** — browse, fork, remix public gradients (first backend)
+2. **10.3 Figma/Framer Plugin** — export gradients as Figma fills or Framer components
 
 ---
 
 ## Suggested Prompt for Next Agent
 
 ```
-You're continuing work on Wavr, an animated gradient editor competing with Unicorn Studio.
+You're continuing work on Wavr, an animated gradient editor + npm package.
 
 Read these docs first:
 - CLAUDE.md — code style, architecture rules, what NOT to do
 - ROADMAP.md — full feature roadmap with priorities
 - .context/HANDOFF.md — what's built, file map, architecture decisions
 
-Start Phase 10: Community & Distribution. The goal is to add a community
-gallery for sharing/remixing gradients, publish an npm package
-(@wavr/gradient), and build Figma/Framer plugins.
+The project is a pnpm monorepo:
+- apps/editor/ — Next.js editor app
+- packages/core/ — internal engine + shader + presets
+- packages/react/ — published as @wavr/gradient
 
-Key constraint: This requires a backend for the first time (community
-gallery needs persistence). The editor itself remains client-only.
+Remaining roadmap items:
+- 10.1 Community Gallery — needs backend for first time
+- 10.3 Figma/Framer Plugin
+
+Key files:
+- packages/core/src/engine.ts — WebGL engine
+- packages/core/src/shaders/fragment.glsl — ~1280 line shader
+- packages/core/src/types.ts — public GradientConfig type
+- apps/editor/lib/store.ts — Zustand store
 ```
 
 ---
@@ -164,12 +188,11 @@ gallery needs persistence). The editor itself remains client-only.
 
 - **Don't use Three.js** — raw WebGL only (per CLAUDE.md)
 - **Don't recompile shaders on param change** — use uniforms (exception: custom GLSL editor)
-- **The store has layers** — gradient params are per-layer, global effects are on store root
+- **Monorepo** — pnpm workspaces, use `npx pnpm` if pnpm isn't installed globally
+- **Two type systems** — `GradientConfig` (public, nested) vs `GradientState` (internal, flat). Use `resolveConfig()` / `stateToConfig()` to convert.
 - **TypeScript strict mode** — no `any` types
-- **Build must pass** — run `npm run build` before committing
-- **Gradient type enum** — currently 0–8 in shader. Next type gets 9.
-- **Fragment shader is ~1280 lines** — each gradient mode is a self-contained function, plus 3D SDF/raymarching section
-- **Texture units** — 0=feedback, 1=image, 2=distortion map, 3=text mask. Next gets 4.
-- **Custom GLSL** — `setCustomShader()` recompiles the shader. The `customGradient()` placeholder is replaced via regex.
-- **Geometry** — engine has conditional quad/grid VAO swap for mesh distortion. `drawGeometry(useMesh)` handles this.
-- **New file** — `lib/math.ts` provides mat4 utilities for MVP computation
+- **Build must pass** — `npx pnpm build` from root
+- **Fragment shader is ~1280 lines** — 9 gradient modes + effects + 3D SDF/raymarching
+- **Texture units** — 0=feedback, 1=image, 2=distortion map, 3=text mask
+- **Geometry** — engine has conditional quad/grid VAO swap. `drawGeometry(useMesh)` handles this.
+- **Package entry points** — `@wavr/gradient`, `@wavr/gradient/presets`, `@wavr/gradient/presets/all`
