@@ -2,6 +2,7 @@ import vertexSource from "./shaders/vertex.glsl";
 import fragmentSource from "./shaders/fragment.glsl";
 import { GradientState } from "./store";
 import { BlendMode, LayerParams } from "./layers";
+import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply } from "./math";
 
 type UniformMap = Record<string, WebGLUniformLocation>;
 
@@ -33,6 +34,11 @@ export class GradientEngine {
   private textureCache: Map<string, WebGLTexture> = new Map();
   private pendingLoads: Set<string> = new Set();
   private textMaskTexture: WebGLTexture | null = null;
+
+  // Grid mesh for mesh distortion (Phase 7)
+  private quadVAO!: WebGLVertexArrayObject;
+  private gridVAO: WebGLVertexArrayObject | null = null;
+  private gridIndexCount = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", {
@@ -69,8 +75,8 @@ export class GradientEngine {
     this.program = program;
     gl.useProgram(program);
 
-    const vao = gl.createVertexArray()!;
-    gl.bindVertexArray(vao);
+    this.quadVAO = gl.createVertexArray()!;
+    gl.bindVertexArray(this.quadVAO);
     const buffer = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(
@@ -84,6 +90,61 @@ export class GradientEngine {
 
     this.uniforms = {};
     this.cacheUniforms();
+  }
+
+  private initGridMesh() {
+    const gl = this.gl;
+    const subdivisions = 64;
+    const extent = 1.1; // 1.1× oversize to hide displaced edges
+
+    const vertices: number[] = [];
+    for (let y = 0; y <= subdivisions; y++) {
+      for (let x = 0; x <= subdivisions; x++) {
+        const px = (x / subdivisions) * 2 * extent - extent;
+        const py = (y / subdivisions) * 2 * extent - extent;
+        vertices.push(px, py);
+      }
+    }
+
+    const indices: number[] = [];
+    const cols = subdivisions + 1;
+    for (let y = 0; y < subdivisions; y++) {
+      for (let x = 0; x < subdivisions; x++) {
+        const i = y * cols + x;
+        indices.push(i, i + 1, i + cols);
+        indices.push(i + 1, i + cols + 1, i + cols);
+      }
+    }
+    this.gridIndexCount = indices.length;
+
+    this.gridVAO = gl.createVertexArray()!;
+    gl.bindVertexArray(this.gridVAO);
+
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(this.program, "a_position");
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
+
+    gl.bindVertexArray(null);
+  }
+
+  private drawGeometry(useMesh: boolean) {
+    const gl = this.gl;
+    if (useMesh) {
+      if (!this.gridVAO) this.initGridMesh();
+      gl.bindVertexArray(this.gridVAO!);
+      gl.drawElements(gl.TRIANGLES, this.gridIndexCount, gl.UNSIGNED_INT, 0);
+    } else {
+      gl.bindVertexArray(this.quadVAO);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
   }
 
   private compileShader(type: number, source: string): WebGLShader {
@@ -143,6 +204,8 @@ export class GradientEngine {
       // Phase 7: 3D Shape Projection
       "u_3dEnabled", "u_3dShape", "u_3dPerspective",
       "u_3dRotationSpeed", "u_3dRotation", "u_3dZoom", "u_3dLighting",
+      // Phase 7: Mesh Distortion
+      "u_meshEnabled", "u_meshDisplacement", "u_meshFrequency", "u_meshSpeed", "u_mvp",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -314,8 +377,8 @@ export class GradientEngine {
       gl.useProgram(newProgram);
 
       // Re-bind the VAO (fullscreen quad)
-      const vao = gl.createVertexArray()!;
-      gl.bindVertexArray(vao);
+      this.quadVAO = gl.createVertexArray()!;
+      gl.bindVertexArray(this.quadVAO);
       const buffer = gl.createBuffer()!;
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -363,6 +426,11 @@ export class GradientEngine {
   private set2f(name: string, x: number, y: number) {
     const loc = this.uniforms[name];
     if (loc !== undefined) this.gl.uniform2f(loc, x, y);
+  }
+
+  private setMat4(name: string, val: Float32Array) {
+    const loc = this.uniforms[name];
+    if (loc !== undefined) this.gl.uniformMatrix4fv(loc, false, val);
   }
 
   private setLayerUniforms(layer: LayerParams) {
@@ -527,6 +595,26 @@ export class GradientEngine {
       const elevation = (this.smoothMouseY - 0.5) * 1.5;
       this.set2f("u_3dRotation", azimuth, elevation);
     }
+    // Mesh Distortion
+    this.seti("u_meshEnabled", state.meshDistortionEnabled ? 1 : 0);
+    this.setf("u_meshDisplacement", state.meshDisplacement);
+    this.setf("u_meshFrequency", state.meshFrequency);
+    this.setf("u_meshSpeed", state.meshSpeed);
+
+    // MVP matrix for mesh distortion
+    if (state.meshDistortionEnabled) {
+      const canvas = this.gl.canvas as HTMLCanvasElement;
+      const aspect = canvas.width / canvas.height;
+      const proj = mat4Perspective(Math.PI / 3, aspect, 0.1, 100.0);
+      const view = mat4LookAt([0, 0.8, 2.0], [0, 0, 0], [0, 1, 0]);
+      // Subtle mouse-driven rotation
+      const azimuth = (this.smoothMouseX - 0.5) * 0.5;
+      const elevation = (this.smoothMouseY - 0.5) * 0.3;
+      let mv = mat4RotateY(view, azimuth);
+      mv = mat4RotateX(mv, elevation);
+      const mvp = mat4Multiply(proj, mv);
+      this.setMat4("u_mvp", mvp);
+    }
   }
 
   private applyBlendMode(mode: BlendMode) {
@@ -584,7 +672,7 @@ export class GradientEngine {
       const layer = visibleLayers[0];
       this.setGlobalUniforms(state, true);
       this.setLayerUniforms(layer);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      this.drawGeometry(state.meshDistortionEnabled);
     } else {
       // Multi-layer: render base, then composite overlays
       gl.clearColor(0, 0, 0, 1);
@@ -603,11 +691,14 @@ export class GradientEngine {
         // Apply global effects only on the last layer
         this.setGlobalUniforms(state, isLast);
         this.setLayerUniforms(layer);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        this.drawGeometry(state.meshDistortionEnabled);
       }
 
       gl.disable(gl.BLEND);
     }
+
+    // Restore quad VAO as default
+    this.gl.bindVertexArray(this.quadVAO);
 
     // Clean up unused cached textures
     this.cleanupTextures(state.layers);
