@@ -58,10 +58,11 @@
 - Needs backend (Vercel Postgres or KV)
 - User profiles (optional, can start anonymous)
 
-### 10.2 npm Package
-- `@wavr/gradient` — standalone React component
-- Zero-config: `<WavrGradient preset="aurora" />`
-- Tree-shakeable, <20KB gzipped
+### 10.2 npm Package ✅
+- `@wavr/gradient` — standalone React component published from monorepo
+- `<WavrGradient config={aurora} />` with tree-shakeable preset imports
+- Full shader bundled (~5KB gzipped), all effects + 3D features included
+- Monorepo: `packages/core` (engine, internal), `packages/react` (published), `apps/editor`
 
 ### 10.3 Figma/Framer Plugin
 - Export Wavr gradient as a Figma fill or Framer component
