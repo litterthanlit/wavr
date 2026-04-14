@@ -96,6 +96,13 @@ uniform float u_mask2NoiseDist;
 uniform int u_maskBlendMode;   // 0=union, 1=subtract, 2=intersect, 3=smoothUnion
 uniform float u_maskSmoothness;
 
+// Text mask
+uniform float u_textMaskEnabled;
+uniform sampler2D u_textMaskTexture;
+
+// Custom GLSL
+uniform bool u_customEnabled;
+
 // ============================================================
 // Simplex Noise 2D
 // ============================================================
@@ -851,7 +858,13 @@ float computeMask(vec2 uv, float time) {
 // Gradient Dispatch Helper
 // ============================================================
 
+// Custom GLSL placeholder — replaced by engine when user provides custom code
+vec3 customGradient(vec2 uv, float time) {
+  return meshGradient(uv, time); // fallback
+}
+
 vec3 computeGradient(vec2 uv, float time) {
+  if (u_customEnabled) return customGradient(uv, time);
   if (u_gradientType == 0) return meshGradient(uv, time);
   else if (u_gradientType == 1) return radialGradient(uv, time);
   else if (u_gradientType == 2) return linearGradient(uv, time);
@@ -1103,6 +1116,11 @@ void main() {
 
   // Shape mask (applied after all effects)
   float mask = computeMask(v_uv, u_time * u_speed);
+
+  // Text mask (overrides shape mask when enabled)
+  if (u_textMaskEnabled > 0.5) {
+    mask = texture(u_textMaskTexture, v_uv).r;
+  }
 
   fragColor = vec4(clamp(color, 0.0, 1.0), u_layerOpacity * mask);
 }
