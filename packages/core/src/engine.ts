@@ -75,6 +75,7 @@ export class GradientEngine {
   private prevSmoothY = 0.5;
   // 3D rotation accumulator
   private rotationAngle = 0;
+  private speedMultiplier = 1.0;
   // Feedback loop FBO ping-pong
   private feedbackFBOs: [WebGLFramebuffer, WebGLFramebuffer] | null = null;
   private feedbackTextures: [WebGLTexture, WebGLTexture] | null = null;
@@ -272,6 +273,14 @@ export class GradientEngine {
   setMouse(x: number, y: number) {
     this.mouseX = x;
     this.mouseY = y;
+  }
+
+  setElapsedTime(t: number) {
+    this.elapsedTime = t;
+  }
+
+  setSpeedMultiplier(multiplier: number) {
+    this.speedMultiplier = multiplier;
   }
 
   resize(width: number, height: number) {
@@ -785,7 +794,7 @@ export class GradientEngine {
       }
 
       const dt = now - lastTime;
-      this.elapsedTime += dt;
+      this.elapsedTime += dt * this.speedMultiplier;
       lastTime = now;
 
       // Smooth mouse with lerp (exponential decay, frame-rate independent)
