@@ -62,6 +62,26 @@ export interface GradientState {
   keyframes: Keyframe[];
   timelinePosition: number;
 
+  // Custom GLSL
+  customGLSL: string | null;
+
+  // 3D Depth Effects (Phase 7)
+  // Parallax
+  parallaxEnabled: boolean;
+  parallaxStrength: number;
+  // 3D Shape Projection
+  threeDEnabled: boolean;
+  threeDShape: number; // 0=sphere, 1=torus, 2=plane, 3=cylinder, 4=cube
+  threeDPerspective: number;
+  threeDRotationSpeed: number;
+  threeDZoom: number;
+  threeDLighting: number;
+  // Mesh Distortion
+  meshDistortionEnabled: boolean;
+  meshDisplacement: number;
+  meshFrequency: number;
+  meshSpeed: number;
+
   // Convenience getters for active layer (derived)
   gradientType: LayerParams["gradientType"];
   speed: number;
@@ -116,6 +136,7 @@ const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "setTimelineDuration", "setTimelinePlaybackMode",
   // Derived fields
   "gradientType", "speed", "complexity", "scale", "distortion", "colors",
+  "customGLSL",
 ];
 
 type Snapshot = Record<string, unknown>;
@@ -238,6 +259,20 @@ const DEFAULTS = {
   timelinePlaybackMode: "loop" as PlaybackMode,
   keyframes: [] as Keyframe[],
   timelinePosition: 0,
+  customGLSL: null,
+  // 3D Depth Effects
+  parallaxEnabled: false,
+  parallaxStrength: 0.5,
+  threeDEnabled: false,
+  threeDShape: 0,
+  threeDPerspective: 1.5,
+  threeDRotationSpeed: 0.3,
+  threeDZoom: 1.0,
+  threeDLighting: 0.5,
+  meshDistortionEnabled: false,
+  meshDisplacement: 0.3,
+  meshFrequency: 2.0,
+  meshSpeed: 0.5,
 };
 
 const MAX_HISTORY = 50;

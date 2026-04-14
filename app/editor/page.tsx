@@ -12,6 +12,7 @@ import ProjectsModal from "@/components/ProjectsModal";
 import Onboarding from "@/components/Onboarding";
 import { useGradientStore } from "@/lib/store";
 import { decodeState } from "@/lib/url";
+import { GradientEngine } from "@/lib/engine";
 import type { SidebarTab } from "@/lib/types";
 
 export default function EditorPage() {
@@ -20,6 +21,7 @@ export default function EditorPage() {
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("gradient");
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
+  const engineRef = useRef<GradientEngine | null>(null);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -69,6 +71,9 @@ export default function EditorPage() {
         case "3":
           setActiveTab("presets");
           break;
+        case "4":
+          setActiveTab("code");
+          break;
         case "?":
           setShortcutsOpen((prev) => !prev);
           break;
@@ -102,10 +107,13 @@ export default function EditorPage() {
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
-          <Canvas onCanvasReady={(el) => { canvasElRef.current = el; }} />
+          <Canvas
+            onCanvasReady={(el) => { canvasElRef.current = el; }}
+            onEngineReady={(eng) => { engineRef.current = eng; }}
+          />
           <Timeline />
         </div>
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
       </div>
       <ExportModal
         open={exportOpen}

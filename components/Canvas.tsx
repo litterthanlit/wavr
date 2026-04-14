@@ -43,9 +43,10 @@ function applyAudioBands(state: GradientState, bands: AudioBands): Partial<Gradi
 
 interface CanvasProps {
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
+  onEngineReady?: (engine: GradientEngine) => void;
 }
 
-export default function Canvas({ onCanvasReady }: CanvasProps) {
+export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GradientEngine | null>(null);
   const [fps, setFps] = useState(0);
@@ -53,6 +54,8 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
   const [contextLost, setContextLost] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const degradedRef = useRef(false);
+  const textCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastTextParamsRef = useRef<string>("");
   const lowFpsStartRef = useRef<number | null>(null);
   const initErrorRef = useRef<string | null>(null);
 
@@ -80,6 +83,7 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
     }
     engineRef.current = engine;
     onCanvasReady?.(canvas);
+    onEngineReady?.(engine);
 
     const resize = () => {
       const parent = canvas.parentElement;
@@ -183,7 +187,7 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
       clearTimeout(resizeTimeout);
       engine.destroy();
     };
-  }, [handleMouseMove, onCanvasReady]);
+  }, [handleMouseMove, onCanvasReady, onEngineReady]);
 
   // Reduced motion: pause by default
   useEffect(() => {
@@ -192,6 +196,71 @@ export default function Canvas({ onCanvasReady }: CanvasProps) {
       useGradientStore.getState().set({ playing: false });
     }
   }, []);
+
+  // Text mask: render text to offscreen canvas and upload as texture
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    const state = useGradientStore.getState();
+    const layer = state.layers[state.activeLayerIndex];
+    if (!layer) return;
+
+    // Build a key from text params to detect changes
+    const paramKey = JSON.stringify({
+      enabled: layer.textMaskEnabled,
+      content: layer.textMaskContent,
+      fontSize: layer.textMaskFontSize,
+      fontWeight: layer.textMaskFontWeight,
+      letterSpacing: layer.textMaskLetterSpacing,
+      align: layer.textMaskAlign,
+    });
+
+    if (paramKey === lastTextParamsRef.current) return;
+    lastTextParamsRef.current = paramKey;
+
+    if (!layer.textMaskEnabled || !layer.textMaskContent) return;
+
+    // Create offscreen canvas on first use
+    if (!textCanvasRef.current) {
+      textCanvasRef.current = document.createElement("canvas");
+    }
+    const tc = textCanvasRef.current;
+    const mainCanvas = canvasRef.current;
+    if (!mainCanvas) return;
+
+    tc.width = mainCanvas.width;
+    tc.height = mainCanvas.height;
+
+    const ctx = tc.getContext("2d");
+    if (!ctx) return;
+
+    // Black background (mask = 0)
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, tc.width, tc.height);
+
+    // White text (mask = 1)
+    const fontSize = layer.textMaskFontSize * (window.devicePixelRatio || 1);
+    ctx.font = `${layer.textMaskFontWeight} ${fontSize}px system-ui, sans-serif`;
+    ctx.fillStyle = "white";
+    ctx.textBaseline = "middle";
+
+    let x: number;
+    if (layer.textMaskAlign === "left") {
+      ctx.textAlign = "left";
+      x = fontSize * 0.5;
+    } else if (layer.textMaskAlign === "right") {
+      ctx.textAlign = "right";
+      x = tc.width - fontSize * 0.5;
+    } else {
+      ctx.textAlign = "center";
+      x = tc.width / 2;
+    }
+
+    ctx.fillText(layer.textMaskContent, x, tc.height / 2);
+
+    engine.updateTextMaskTexture(tc);
+  });
 
   if (error) {
     return (

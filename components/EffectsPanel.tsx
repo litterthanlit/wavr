@@ -108,6 +108,26 @@ export default function EffectsPanel() {
         <Slider label="Threshold" value={store.pixelSortThreshold} min={0} max={1} step={0.01} onChange={(v) => store.set({ pixelSortThreshold: v })} onCommit={() => store.commitSet()} disabled={!store.pixelSortEnabled} />
       </Section>
 
+      {/* 3D Depth */}
+      <Section title="3D Depth">
+        <Toggle label="Parallax" checked={store.parallaxEnabled} onChange={(v) => store.setDiscrete({ parallaxEnabled: v })} />
+        <Slider label="Strength" value={store.parallaxStrength} min={0} max={1} step={0.01} onChange={(v) => store.set({ parallaxStrength: v })} onCommit={() => store.commitSet()} disabled={!store.parallaxEnabled} />
+        <Toggle
+          label="Mesh Distortion"
+          checked={store.meshDistortionEnabled}
+          onChange={(v) => {
+            if (v && store.threeDEnabled) {
+              store.setDiscrete({ meshDistortionEnabled: v, threeDEnabled: false });
+            } else {
+              store.setDiscrete({ meshDistortionEnabled: v });
+            }
+          }}
+        />
+        <Slider label="Displacement" value={store.meshDisplacement} min={0} max={1} step={0.01} onChange={(v) => store.set({ meshDisplacement: v })} onCommit={() => store.commitSet()} disabled={!store.meshDistortionEnabled} />
+        <Slider label="Frequency" value={store.meshFrequency} min={0.5} max={5} step={0.1} onChange={(v) => store.set({ meshFrequency: v })} onCommit={() => store.commitSet()} disabled={!store.meshDistortionEnabled} />
+        <Slider label="Speed" value={store.meshSpeed} min={0} max={2} step={0.01} onChange={(v) => store.set({ meshSpeed: v })} onCommit={() => store.commitSet()} disabled={!store.meshDistortionEnabled} />
+      </Section>
+
       <div className="border-t border-border my-1" />
 
       {/* Advanced */}

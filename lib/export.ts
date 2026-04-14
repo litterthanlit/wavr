@@ -15,7 +15,10 @@ export function exportPNG(canvas: HTMLCanvasElement, filename = "wavr-gradient.p
   }, "image/png");
 }
 
-export function exportCSS(colors: [number, number, number][]): string {
+export function exportCSS(
+  colors: [number, number, number][],
+  textMask?: { enabled: boolean; content: string; fontSize: number; fontWeight: number; letterSpacing: number; align: string }
+): string {
   const hexColors = colors.map(([r, g, b]) => {
     const toHex = (n: number) =>
       Math.round(n * 255)
@@ -25,6 +28,27 @@ export function exportCSS(colors: [number, number, number][]): string {
   });
 
   const stops = hexColors.join(", ");
+
+  if (textMask?.enabled && textMask.content) {
+    return `.wavr-gradient-text {
+  background: linear-gradient(135deg, ${stops});
+  background-size: 400% 400%;
+  animation: wavr-shift 8s ease infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: ${textMask.fontSize}px;
+  font-weight: ${textMask.fontWeight};
+  letter-spacing: ${textMask.letterSpacing}em;
+  text-align: ${textMask.align};
+}
+
+@keyframes wavr-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}`;
+  }
 
   return `.wavr-gradient {
   background: linear-gradient(135deg, ${stops});
@@ -37,6 +61,79 @@ export function exportCSS(colors: [number, number, number][]): string {
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }`;
+}
+
+interface EmbedConfig {
+  type: number;
+  colors: [number, number, number][];
+  speed: number;
+  complexity: number;
+  scale: number;
+  distortion: number;
+  brightness?: number;
+  saturation?: number;
+  hueShift?: number;
+  noiseEnabled?: boolean;
+  noiseIntensity?: number;
+  noiseScale?: number;
+  grain?: number;
+  bloomEnabled?: boolean;
+  bloomIntensity?: number;
+  vignette?: number;
+  chromaticAberration?: number;
+  domainWarp?: number;
+}
+
+export function generateEmbedConfig(state: ExportableState & {
+  noiseEnabled?: boolean;
+  noiseIntensity?: number;
+  noiseScale?: number;
+  grain?: number;
+  bloomEnabled?: boolean;
+  bloomIntensity?: number;
+  vignette?: number;
+  chromaticAberration?: number;
+  hueShift?: number;
+  domainWarp?: number;
+}): EmbedConfig {
+  const typeMap: Record<string, number> = {
+    mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4,
+    dither: 5, scanline: 6, glitch: 7, image: 8,
+  };
+
+  const config: EmbedConfig = {
+    type: typeMap[state.gradientType] ?? 0,
+    colors: state.colors.map(c => c.map(v => +v.toFixed(3)) as [number, number, number]),
+    speed: +state.speed.toFixed(2),
+    complexity: Math.round(state.complexity),
+    scale: +state.scale.toFixed(2),
+    distortion: +state.distortion.toFixed(2),
+  };
+
+  // Only include non-default values to keep config small
+  if (state.brightness !== undefined && state.brightness !== 1.0) config.brightness = +state.brightness.toFixed(2);
+  if (state.saturation !== undefined && state.saturation !== 1.0) config.saturation = +state.saturation.toFixed(2);
+  if (state.hueShift) config.hueShift = Math.round(state.hueShift);
+  if (state.noiseEnabled) {
+    config.noiseEnabled = true;
+    config.noiseIntensity = +(state.noiseIntensity ?? 0.3).toFixed(2);
+    config.noiseScale = +(state.noiseScale ?? 1.0).toFixed(2);
+  }
+  if (state.grain) config.grain = +state.grain.toFixed(2);
+  if (state.bloomEnabled) {
+    config.bloomEnabled = true;
+    config.bloomIntensity = +(state.bloomIntensity ?? 0.3).toFixed(2);
+  }
+  if (state.vignette) config.vignette = +state.vignette.toFixed(2);
+  if (state.chromaticAberration) config.chromaticAberration = +state.chromaticAberration.toFixed(3);
+  if (state.domainWarp) config.domainWarp = +state.domainWarp.toFixed(2);
+
+  return config;
+}
+
+export function generateEmbedSnippet(config: EmbedConfig): string {
+  const json = JSON.stringify(config);
+  return `<script src="https://wavr.app/embed.js"></script>\n<wavr-gradient data-config='${json}' style="width:100%;height:400px;display:block"></wavr-gradient>`;
 }
 
 export function copyToClipboard(text: string): Promise<void> {

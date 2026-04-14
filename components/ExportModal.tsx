@@ -4,7 +4,8 @@ import { useState, type RefObject } from "react";
 import { useGradientStore, GradientState } from "@/lib/store";
 import {
   exportPNG, exportCSS, exportTailwindCSS, exportReactComponent,
-  exportWebComponent, exportStandalonePlayer, exportGIF, copyToClipboard, exportWebM, generateEmbedCode
+  exportWebComponent, exportStandalonePlayer, exportGIF, copyToClipboard, exportWebM, generateEmbedCode,
+  generateEmbedConfig, generateEmbedSnippet
 } from "@/lib/export";
 import { encodeState } from "@/lib/url";
 
@@ -160,7 +161,18 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
               <ExportButton
                 title="CSS"
                 desc="Animated gradient with keyframes"
-                action={async () => { await copyToClipboard(exportCSS(colors)); }}
+                action={async () => {
+                  const layer = store.layers[store.activeLayerIndex];
+                  const textMask = layer?.textMaskEnabled ? {
+                    enabled: true,
+                    content: layer.textMaskContent,
+                    fontSize: layer.textMaskFontSize,
+                    fontWeight: layer.textMaskFontWeight,
+                    letterSpacing: layer.textMaskLetterSpacing,
+                    align: layer.textMaskAlign,
+                  } : undefined;
+                  await copyToClipboard(exportCSS(colors, textMask));
+                }}
               />
               <ExportButton
                 title="Tailwind CSS"
@@ -194,6 +206,27 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
                 title="Standalone Player"
                 desc="Single script tag — no dependencies, scroll-linkable"
                 action={async () => { await copyToClipboard(exportStandalonePlayer(stateForExport)); }}
+              />
+              <ExportButton
+                title="Embed Widget"
+                desc="Config-driven Web Component — all gradient modes"
+                action={async () => {
+                  const embedState = {
+                    ...stateForExport,
+                    noiseEnabled: store.noiseEnabled,
+                    noiseIntensity: store.noiseIntensity,
+                    noiseScale: store.noiseScale,
+                    grain: store.grain,
+                    bloomEnabled: store.bloomEnabled,
+                    bloomIntensity: store.bloomIntensity,
+                    vignette: store.vignette,
+                    chromaticAberration: store.chromaticAberration,
+                    hueShift: store.hueShift,
+                    domainWarp: store.domainWarp,
+                  };
+                  const config = generateEmbedConfig(embedState);
+                  await copyToClipboard(generateEmbedSnippet(config));
+                }}
               />
             </>
           )}

@@ -6,7 +6,7 @@ import Select from "@/components/ui/Select";
 import Slider from "@/components/ui/Slider";
 import ColorInput from "@/components/ui/ColorInput";
 import Toggle from "@/components/ui/Toggle";
-import { LayerParams, MaskParams } from "@/lib/layers";
+import { LayerParams, MaskParams, TextMaskAlign } from "@/lib/layers";
 
 const GRADIENT_OPTIONS = [
   { value: "mesh", label: "Mesh" },
@@ -35,6 +35,12 @@ const MASK_BLEND_OPTIONS = [
   { value: "subtract", label: "Subtract" },
   { value: "intersect", label: "Intersect" },
   { value: "smoothUnion", label: "Smooth Union" },
+];
+
+const TEXT_ALIGN_OPTIONS = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
 ];
 
 const MAX_IMAGE_SIZE = 2048;
@@ -377,7 +383,11 @@ export default function GradientPanel() {
         <Toggle
           label="Enable Mask"
           checked={activeLayer.maskEnabled}
-          onChange={(v) => store.setLayerParam({ maskEnabled: v })}
+          onChange={(v) => {
+            const updates: Partial<LayerParams> = { maskEnabled: v };
+            if (v) updates.textMaskEnabled = false;
+            store.setLayerParam(updates);
+          }}
         />
         {activeLayer.maskEnabled && (
           <>
@@ -417,6 +427,60 @@ export default function GradientPanel() {
 
       <div className="border-t border-border" />
 
+      {/* Text Mask */}
+      <div className="flex flex-col gap-3">
+        <SectionHeader>Text Mask</SectionHeader>
+        <Toggle
+          label="Enable Text Mask"
+          checked={activeLayer.textMaskEnabled}
+          onChange={(v) => {
+            // Mutually exclusive with shape mask
+            const updates: Partial<LayerParams> = { textMaskEnabled: v };
+            if (v) updates.maskEnabled = false;
+            store.setLayerParam(updates);
+          }}
+        />
+        {activeLayer.textMaskEnabled && (
+          <>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-medium text-text-tertiary">Text</span>
+              <input
+                type="text"
+                value={activeLayer.textMaskContent}
+                onChange={(e) => {
+                  const newLayers = store.layers.map((l, i) =>
+                    i === store.activeLayerIndex ? { ...l, textMaskContent: e.target.value } : l
+                  );
+                  store.set({ layers: newLayers } as Partial<typeof store>);
+                }}
+                onBlur={() => store.commitSet()}
+                placeholder="Enter text..."
+                className="w-full px-2 py-1.5 text-xs bg-surface border border-border rounded-md
+                  text-text-primary placeholder:text-text-tertiary focus:outline-none
+                  focus:border-accent transition-colors"
+              />
+            </div>
+            <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1}
+              onChange={(v) => updateLayerField("textMaskFontSize", v)}
+              onCommit={() => store.commitSet()} />
+            <Slider label="Weight" value={activeLayer.textMaskFontWeight} min={400} max={900} step={100}
+              onChange={(v) => updateLayerField("textMaskFontWeight", v)}
+              onCommit={() => store.commitSet()} />
+            <Slider label="Spacing" value={activeLayer.textMaskLetterSpacing} min={-0.05} max={0.2} step={0.005}
+              onChange={(v) => updateLayerField("textMaskLetterSpacing", v)}
+              onCommit={() => store.commitSet()} />
+            <Select
+              label="Align"
+              value={activeLayer.textMaskAlign}
+              options={TEXT_ALIGN_OPTIONS}
+              onChange={(v) => store.setLayerParam({ textMaskAlign: v as TextMaskAlign })}
+            />
+          </>
+        )}
+      </div>
+
+      <div className="border-t border-border" />
+
       {/* Animation */}
       <div className="flex flex-col gap-3">
         <SectionHeader>Animation</SectionHeader>
@@ -437,6 +501,42 @@ export default function GradientPanel() {
         <Slider label="Brightness" value={store.brightness} min={0.1} max={2} step={0.01} onChange={(v) => store.set({ brightness: v })} onCommit={() => store.commitSet()} />
         <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} onChange={(v) => store.set({ saturation: v })} onCommit={() => store.commitSet()} />
         <Slider label="Hue Shift" value={store.hueShift} min={0} max={360} step={1} onChange={(v) => store.set({ hueShift: v })} onCommit={() => store.commitSet()} />
+      </div>
+
+      {/* 3D Shape Projection */}
+      <div className="border-t border-border my-2" />
+      <div className="flex flex-col gap-3">
+        <Toggle
+          label="3D Shape Projection"
+          checked={store.threeDEnabled}
+          onChange={(v) => {
+            if (v && store.meshDistortionEnabled) {
+              store.setDiscrete({ threeDEnabled: v, meshDistortionEnabled: false });
+            } else {
+              store.setDiscrete({ threeDEnabled: v });
+            }
+          }}
+        />
+        {store.threeDEnabled && (
+          <>
+            <Select
+              label="Shape"
+              value={String(store.threeDShape)}
+              options={[
+                { value: "0", label: "Sphere" },
+                { value: "1", label: "Torus" },
+                { value: "2", label: "Plane" },
+                { value: "3", label: "Cylinder" },
+                { value: "4", label: "Cube" },
+              ]}
+              onChange={(v) => store.setDiscrete({ threeDShape: Number(v) })}
+            />
+            <Slider label="Perspective" value={store.threeDPerspective} min={0.5} max={3} step={0.1} onChange={(v) => store.set({ threeDPerspective: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Rotation Speed" value={store.threeDRotationSpeed} min={0} max={2} step={0.01} onChange={(v) => store.set({ threeDRotationSpeed: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Zoom" value={store.threeDZoom} min={0.5} max={2} step={0.01} onChange={(v) => store.set({ threeDZoom: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Lighting" value={store.threeDLighting} min={0} max={1} step={0.01} onChange={(v) => store.set({ threeDLighting: v })} onCommit={() => store.commitSet()} />
+          </>
+        )}
       </div>
     </div>
   );

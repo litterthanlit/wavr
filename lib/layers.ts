@@ -6,6 +6,8 @@ export type MaskShape = "none" | "circle" | "roundedRect" | "ellipse" | "polygon
 
 export type MaskBlendMode = "union" | "subtract" | "intersect" | "smoothUnion";
 
+export type TextMaskAlign = "left" | "center" | "right";
+
 export interface MaskParams {
   shape: MaskShape;
   position: [number, number];
@@ -57,6 +59,15 @@ export interface LayerParams {
   mask2: MaskParams;
   maskBlendMode: MaskBlendMode;
   maskSmoothness: number;
+  // Text mask
+  textMaskEnabled: boolean;
+  textMaskContent: string;
+  textMaskFontSize: number;
+  textMaskFontWeight: number;
+  textMaskLetterSpacing: number;
+  textMaskAlign: TextMaskAlign;
+  // Parallax depth
+  depth: number;
 }
 
 export const DEFAULT_LAYER: LayerParams = {
@@ -87,6 +98,13 @@ export const DEFAULT_LAYER: LayerParams = {
   mask2: { ...DEFAULT_MASK },
   maskBlendMode: "union",
   maskSmoothness: 0.1,
+  textMaskEnabled: false,
+  textMaskContent: "",
+  textMaskFontSize: 80,
+  textMaskFontWeight: 700,
+  textMaskLetterSpacing: 0,
+  textMaskAlign: "center",
+  depth: 0,
 };
 
 export function createLayer(overrides?: Partial<LayerParams>): LayerParams {

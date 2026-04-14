@@ -1,23 +1,28 @@
 "use client";
 
+import React from "react";
 import GradientPanel from "@/components/GradientPanel";
 import EffectsPanel from "@/components/EffectsPanel";
 import PresetsPanel from "@/components/PresetsPanel";
 import LayerPanel from "@/components/LayerPanel";
+import CustomGLSLPanel from "@/components/CustomGLSLPanel";
+import { GradientEngine } from "@/lib/engine";
 import type { SidebarTab } from "@/lib/types";
 
 const TABS: { id: SidebarTab; label: string }[] = [
   { id: "gradient", label: "Gradient" },
   { id: "effects", label: "Effects" },
   { id: "presets", label: "Presets" },
+  { id: "code", label: "Code" },
 ];
 
 interface SidebarProps {
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
+  engineRef: React.RefObject<GradientEngine | null>;
 }
 
-export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarProps) {
   return (
     <div className="w-[320px] shrink-0 bg-base border-l border-border flex flex-col h-full">
       {/* Layer panel (always visible) */}
@@ -47,6 +52,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         {activeTab === "gradient" && <GradientPanel />}
         {activeTab === "effects" && <EffectsPanel />}
         {activeTab === "presets" && <PresetsPanel />}
+        {activeTab === "code" && <CustomGLSLPanel engineRef={engineRef} />}
       </div>
     </div>
   );
