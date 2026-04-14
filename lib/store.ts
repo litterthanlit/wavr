@@ -62,6 +62,9 @@ export interface GradientState {
   keyframes: Keyframe[];
   timelinePosition: number;
 
+  // Custom GLSL
+  customGLSL: string | null;
+
   // Convenience getters for active layer (derived)
   gradientType: LayerParams["gradientType"];
   speed: number;
@@ -116,6 +119,7 @@ const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "setTimelineDuration", "setTimelinePlaybackMode",
   // Derived fields
   "gradientType", "speed", "complexity", "scale", "distortion", "colors",
+  "customGLSL",
 ];
 
 type Snapshot = Record<string, unknown>;
@@ -238,6 +242,7 @@ const DEFAULTS = {
   timelinePlaybackMode: "loop" as PlaybackMode,
   keyframes: [] as Keyframe[],
   timelinePosition: 0,
+  customGLSL: null,
 };
 
 const MAX_HISTORY = 50;
