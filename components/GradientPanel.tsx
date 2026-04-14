@@ -502,6 +502,42 @@ export default function GradientPanel() {
         <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} onChange={(v) => store.set({ saturation: v })} onCommit={() => store.commitSet()} />
         <Slider label="Hue Shift" value={store.hueShift} min={0} max={360} step={1} onChange={(v) => store.set({ hueShift: v })} onCommit={() => store.commitSet()} />
       </div>
+
+      {/* 3D Shape Projection */}
+      <div className="border-t border-border my-2" />
+      <div className="flex flex-col gap-3">
+        <Toggle
+          label="3D Shape Projection"
+          checked={store.threeDEnabled}
+          onChange={(v) => {
+            if (v && store.meshDistortionEnabled) {
+              store.setDiscrete({ threeDEnabled: v, meshDistortionEnabled: false });
+            } else {
+              store.setDiscrete({ threeDEnabled: v });
+            }
+          }}
+        />
+        {store.threeDEnabled && (
+          <>
+            <Select
+              label="Shape"
+              value={String(store.threeDShape)}
+              options={[
+                { value: "0", label: "Sphere" },
+                { value: "1", label: "Torus" },
+                { value: "2", label: "Plane" },
+                { value: "3", label: "Cylinder" },
+                { value: "4", label: "Cube" },
+              ]}
+              onChange={(v) => store.setDiscrete({ threeDShape: Number(v) })}
+            />
+            <Slider label="Perspective" value={store.threeDPerspective} min={0.5} max={3} step={0.1} onChange={(v) => store.set({ threeDPerspective: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Rotation Speed" value={store.threeDRotationSpeed} min={0} max={2} step={0.01} onChange={(v) => store.set({ threeDRotationSpeed: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Zoom" value={store.threeDZoom} min={0.5} max={2} step={0.01} onChange={(v) => store.set({ threeDZoom: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Lighting" value={store.threeDLighting} min={0} max={1} step={0.01} onChange={(v) => store.set({ threeDLighting: v })} onCommit={() => store.commitSet()} />
+          </>
+        )}
+      </div>
     </div>
   );
 }
