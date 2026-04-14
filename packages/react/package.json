@@ -1,0 +1,44 @@
+{
+  "name": "@wavr/gradient",
+  "version": "0.1.0",
+  "description": "Animated WebGL gradient React component",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./presets": {
+      "types": "./dist/presets.d.ts",
+      "import": "./dist/presets.mjs",
+      "require": "./dist/presets.js"
+    },
+    "./presets/all": {
+      "types": "./dist/presets-all.d.ts",
+      "import": "./dist/presets-all.mjs",
+      "require": "./dist/presets-all.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "@wavr/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react": "^19"
+  }
+}

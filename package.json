@@ -1,36 +1,12 @@
 {
-  "name": "bordeaux",
-  "version": "0.1.0",
+  "name": "wavr",
   "private": true,
-  "engines": {
-    "node": ">=20.x"
-  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "add": "liftkit add"
-  },
-  "dependencies": {
-    "@csstools/normalize.css": "^12.1.1",
-    "@material/material-color-utilities": "^0.4.0",
-    "lucide-react": "^1.7.0",
-    "next": "16.2.1",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "zustand": "^5.0.12"
+    "dev": "turbo dev --filter=editor",
+    "build": "turbo build",
+    "lint": "turbo lint"
   },
   "devDependencies": {
-    "@chainlift/liftkit": "^0.2.0",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.1",
-    "raw-loader": "^4.0.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "turbo": "^2.4.0"
   }
 }

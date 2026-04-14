@@ -1,0 +1,201 @@
+<h2>Phase 7: 3D Depth Effects — Full Design Overview</h2>
+<p class="subtitle">Three sub-features, one unified architecture</p>
+
+<div class="section">
+  <h3>Render Pipeline (Updated)</h3>
+  <div class="mockup">
+    <div class="mockup-header">Fragment Shader Pipeline — Before vs After</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6; padding: 20px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div>
+          <div style="font-weight: bold; margin-bottom: 8px; color: #999;">CURRENT</div>
+          <div style="background: #1a1a2e; padding: 16px; border-radius: 8px; color: #e0e0e0;">
+            <div style="color: #666;">1.</div> Distortion Map UV<br>
+            <div style="color: #666;">2.</div> Curl Noise UV<br>
+            <div style="color: #666;">3.</div> Kaleidoscope UV<br>
+            <div style="color: #666;">4.</div> <strong>computeGradient()</strong><br>
+            <div style="color: #666;">5.</div> Image Blend<br>
+            <div style="color: #666;">6-18.</div> Post-processing<br>
+            <div style="color: #666;">19.</div> Mask Application<br>
+            <div style="color: #666;">20.</div> → fragColor
+          </div>
+        </div>
+        <div>
+          <div style="font-weight: bold; margin-bottom: 8px; color: #4CAF50;">PHASE 7</div>
+          <div style="background: #1a2e1a; padding: 16px; border-radius: 8px; color: #e0e0e0;">
+            <div style="color: #4CAF50;">NEW →</div> <strong>Parallax UV offset</strong> (7.2)<br>
+            <div style="color: #666;">1.</div> Distortion Map UV<br>
+            <div style="color: #666;">2.</div> Curl Noise UV<br>
+            <div style="color: #666;">3.</div> Kaleidoscope UV<br>
+            <div style="color: #666;">4.</div> computeGradient()<br>
+            <div style="color: #666;">5.</div> Image Blend<br>
+            <div style="color: #666;">6-18.</div> Post-processing<br>
+            <div style="color: #4CAF50;">NEW →</div> <strong>3D Shape Projection</strong> (7.1)<br>
+            <div style="color: #666;">19.</div> Mask Application<br>
+            <div style="color: #666;">20.</div> → fragColor
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding: 12px; background: #2a1a2e; border-radius: 8px; color: #e0e0e0;">
+        <div style="font-weight: bold; color: #CE93D8; margin-bottom: 4px;">VERTEX SHADER (7.3 — when mesh distortion active)</div>
+        Grid 64×64 (1.1× oversize) → sin-noise displacement on +Z → MVP projection<br>
+        <span style="color: #999;">Replaces fullscreen quad. Falls back to quad when disabled.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>New Uniforms</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+    <div class="mockup">
+      <div class="mockup-header">7.1 — Shape Projection</div>
+      <div class="mockup-body" style="font-size: 13px; font-family: monospace; padding: 16px; line-height: 1.8;">
+        u_3dEnabled <span style="color:#999">bool</span><br>
+        u_3dShape <span style="color:#999">int 0-4</span><br>
+        u_3dPerspective <span style="color:#999">float 0.5-3.0</span><br>
+        u_3dRotationSpeed <span style="color:#999">float</span><br>
+        u_3dRotation <span style="color:#999">vec2</span><br>
+        u_3dZoom <span style="color:#999">float 0.5-2.0</span><br>
+        u_3dLighting <span style="color:#999">float 0-1</span>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">7.2 — Parallax Layers</div>
+      <div class="mockup-body" style="font-size: 13px; font-family: monospace; padding: 16px; line-height: 1.8;">
+        u_parallaxEnabled <span style="color:#999">bool</span><br>
+        u_parallaxStrength <span style="color:#999">float 0-1</span><br>
+        u_layerDepth <span style="color:#999">float -1 to 1</span><br>
+        <span style="color:#666">↑ set per layer pass</span>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">7.3 — Mesh Distortion</div>
+      <div class="mockup-body" style="font-size: 13px; font-family: monospace; padding: 16px; line-height: 1.8;">
+        u_meshEnabled <span style="color:#999">bool</span><br>
+        u_meshDisplacement <span style="color:#999">float 0-1</span><br>
+        u_meshFrequency <span style="color:#999">float 0.5-5</span><br>
+        u_meshSpeed <span style="color:#999">float 0-2</span><br>
+        u_mvp <span style="color:#999">mat4</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>File Changes</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div class="mockup">
+      <div class="mockup-header">Modified Files</div>
+      <div class="mockup-body" style="font-size: 13px; padding: 16px; line-height: 1.8;">
+        <strong>lib/shaders/fragment.glsl</strong> — raymarching SDFs, parallax UV offset, 3D projection function (~300 lines)<br><br>
+        <strong>lib/shaders/vertex.glsl</strong> — MVP transform, noise displacement (~40 lines)<br><br>
+        <strong>lib/engine.ts</strong> — grid mesh creation, VAO swap, MVP matrix computation, new uniform setters<br><br>
+        <strong>lib/store.ts</strong> — new 3D state fields (global + per-layer depth)<br><br>
+        <strong>lib/layers.ts</strong> — add <code>depth</code> to LayerParams<br><br>
+        <strong>components/GradientPanel.tsx</strong> — 3D shape controls section<br><br>
+        <strong>components/EffectsPanel.tsx</strong> — parallax + mesh distortion sections<br><br>
+        <strong>components/LayerPanel.tsx</strong> — depth slider per layer
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">New Files</div>
+      <div class="mockup-body" style="font-size: 13px; padding: 16px; line-height: 1.8;">
+        <strong>lib/math.ts</strong> — mat4 helpers (perspective, lookAt, rotate) — ~80 lines, no dependencies<br><br>
+        <span style="color: #999;">No other new files needed. Everything integrates into existing modules.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>UI Placement</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+    <div class="mockup">
+      <div class="mockup-header">GradientPanel — New "3D Shape" Section</div>
+      <div class="mockup-body" style="padding: 16px; font-size: 12px;">
+        <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>3D Shape Projection</span>
+            <span style="background:#333;padding:2px 8px;border-radius:4px;font-size:11px;">OFF</span>
+          </div>
+        </div>
+        <div style="color: #666; padding: 4px 12px; font-size: 11px;">
+          Shape: Sphere ▾<br>
+          Perspective: ━━━━●━━━<br>
+          Rotation Speed: ━━●━━━━━<br>
+          Zoom: ━━━━━●━━━<br>
+          Lighting: ━━━●━━━━━
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">EffectsPanel — New Sections</div>
+      <div class="mockup-body" style="padding: 16px; font-size: 12px;">
+        <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Parallax Depth</span>
+            <span style="background:#333;padding:2px 8px;border-radius:4px;font-size:11px;">OFF</span>
+          </div>
+        </div>
+        <div style="color: #666; padding: 4px 12px; font-size: 11px; margin-bottom: 12px;">
+          Strength: ━━━━●━━━
+        </div>
+        <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Mesh Distortion</span>
+            <span style="background:#333;padding:2px 8px;border-radius:4px;font-size:11px;">OFF</span>
+          </div>
+        </div>
+        <div style="color: #666; padding: 4px 12px; font-size: 11px;">
+          Displacement: ━━━●━━━━━<br>
+          Frequency: ━━━━●━━━<br>
+          Speed: ━━●━━━━━
+        </div>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">LayerPanel — Depth Slider</div>
+      <div class="mockup-body" style="padding: 16px; font-size: 12px;">
+        <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px;">
+          <span>Layer 1</span> <span style="color:#999">mesh</span>
+        </div>
+        <div style="color: #666; padding: 4px 12px; font-size: 11px;">
+          Opacity: ━━━━━━━●<br>
+          Blend: Normal ▾<br>
+          <span style="color: #4CAF50;">Depth: ━━━━●━━━</span> <span style="color:#4CAF50;font-size:10px;">NEW</span>
+        </div>
+        <div style="background: #2a2a3e; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; margin-top: 8px;">
+          <span>Layer 2</span> <span style="color:#999">radial</span>
+        </div>
+        <div style="color: #666; padding: 4px 12px; font-size: 11px;">
+          Opacity: ━━━━━●━━<br>
+          Blend: Screen ▾<br>
+          <span style="color: #4CAF50;">Depth: ━━●━━━━━</span> <span style="color:#4CAF50;font-size:10px;">NEW</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Mutual Exclusivity Rules</h3>
+  <div class="mockup">
+    <div class="mockup-body" style="padding: 20px; font-size: 14px;">
+      <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; text-align: center;">
+        <div style="background: #1a2e1a; padding: 12px; border-radius: 8px;">
+          <strong>3D Shape (7.1)</strong><br>
+          <span style="color: #999; font-size: 12px;">Raymarching in fragment</span>
+        </div>
+        <div style="color: #f44336; font-size: 24px;">✕</div>
+        <div style="background: #2a1a2e; padding: 12px; border-radius: 8px;">
+          <strong>Mesh Distortion (7.3)</strong><br>
+          <span style="color: #999; font-size: 12px;">Vertex displacement on grid</span>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 12px; color: #999; font-size: 12px;">
+        Enabling one disables the other. Both can coexist with Parallax (7.2).
+      </div>
+    </div>
+  </div>
+</div>

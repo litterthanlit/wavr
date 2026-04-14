@@ -1,0 +1,86 @@
+<h2>Phase 7: 3D Depth Effects — Architecture Approaches</h2>
+<p class="subtitle">How to integrate 3D rendering into the existing fullscreen-quad + fragment shader pipeline</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Unified Shader — Everything in Fragment</h3>
+      <p>Raymarching for 7.1 shapes, parallax UV offset for 7.2, and a <strong>separate render path</strong> for 7.3 mesh distortion (swap fullscreen quad for subdivided grid when mesh mode is active).</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>7.1 + 7.2 require zero engine changes — pure GLSL</li>
+            <li>Raymarching gives pixel-perfect smooth surfaces</li>
+            <li>Parallax is a simple UV shift per layer</li>
+            <li>Mesh distortion isolated to its own code path</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Two geometry paths in engine (quad vs grid) adds complexity</li>
+            <li>Raymarching is expensive — ~50-100 steps per pixel per shape</li>
+            <li>Fragment shader grows by ~300 lines</li>
+          </ul>
+        </div>
+      </div>
+      <p><strong style="color: #4CAF50;">Recommended</strong> — cleanest separation, leverages existing architecture for 7.1/7.2, only changes engine for 7.3</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Always Mesh — Replace Quad with Grid</h3>
+      <p>Replace the fullscreen quad with a 64x64 grid mesh for <strong>all</strong> rendering. 7.1 uses vertex displacement to approximate shapes, 7.2 offsets layer positions, 7.3 uses noise displacement. When no 3D is active, the mesh renders flat (identity).</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Single geometry path — no conditional switching</li>
+            <li>All 3D effects share the same vertex pipeline</li>
+            <li>Mesh is always available for future features</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>4K vertices on every frame even for 2D gradients (wasted GPU work)</li>
+            <li>Vertex-approximated sphere/torus looks faceted vs raymarched</li>
+            <li>Breaks the "fullscreen quad" invariant — risk of regressions in all existing modes</li>
+            <li>More invasive engine refactor</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Multi-Pass Compositing — Separate 3D Pass</h3>
+      <p>Render the gradient to an offscreen FBO first (existing pipeline), then sample that texture in a second pass that does raymarching/mesh distortion. Two-pass compositing.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Zero changes to existing gradient pipeline</li>
+            <li>3D is a pure post-process — easy to toggle on/off</li>
+            <li>Gradient texture can be reused for multiple 3D views</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Extra FBO + texture copy per frame (memory + bandwidth)</li>
+            <li>Complicates feedback loop (already uses FBO ping-pong)</li>
+            <li>Post-processing effects applied before or after 3D? Ordering gets messy</li>
+            <li>Parallax requires per-layer 3D — would need N FBOs for N layers</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
