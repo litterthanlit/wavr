@@ -43,24 +43,11 @@
 
 ---
 
-## Phase 7: 3D Depth Effects (Next Up)
-
-**Goal:** This is Unicorn Studio's killer differentiator. Gradients projected onto 3D surfaces with parallax and perspective.
-
-### 7.1 Sphere/Torus Projection
-- Raymarching in fragment shader — project the gradient onto a sphere or torus
-- Mouse controls rotation angle
-- Controls: shape (sphere, torus, plane), perspective strength, rotation speed
-
-### 7.2 Parallax Depth Layers
-- Multiple gradient layers at different simulated depths
-- Mouse movement creates parallax shift between layers
-- Subtle but powerful for hero sections
-
-### 7.3 Mesh Distortion
-- 3D plane mesh with vertex displacement driven by noise
-- Gradient rendered as texture on the displaced mesh
-- Would require switching from fullscreen quad to actual vertex mesh — vertex shader becomes non-trivial
+### Phase 7: 3D Depth Effects ✅
+- **Parallax Depth Layers** — per-layer depth offset (-1 to 1), mouse-driven UV shift with 0.05 damping, aspect ratio correction, fract() wrap
+- **3D Shape Projection** — raymarched SDFs (sphere, torus, plane, cylinder, cube), mouse+auto rotation, configurable perspective/zoom/lighting, gradient resampled at surface UV
+- **Mesh Distortion** — 64×64 grid mesh (1.1× oversize), sin-noise vertex displacement along +Z, MVP projection, mouse-reactive terrain
+- Mutual exclusivity: 3D shape and mesh distortion cannot both be active; parallax works with both
 
 ---
 
@@ -90,5 +77,5 @@
 | 8. Preset Expansion | High | Low | ✅ Shipped |
 | 6. Shape Masking | High | Medium | ✅ Shipped |
 | 9. Designer Polish | High | Medium | ✅ Shipped |
-| 7. 3D Depth Effects | Very High | High | Next |
-| 10. Community | Medium | High | Planned |
+| 7. 3D Depth Effects | Very High | High | ✅ Shipped |
+| 10. Community | Medium | High | Next |

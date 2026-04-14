@@ -55,6 +55,14 @@ Wavr is an interactive animated gradient editor (like Unicorn Studio) built with
 - **Embed widget export** — config-driven `<wavr-gradient>` Web Component snippet in Export modal. Serializes gradient type, colors, params, and effects subset into compact JSON config.
 - **Text mask CSS export** — `background-clip: text` output when text mask is active
 
+### Phase 7: 3D Depth Effects
+- **Parallax Depth Layers** — per-layer `depth` param (-1 to 1), UV offset = `mouseSmooth * depth * strength * 0.05` with aspect correction and `fract()` wrap. Applied before all other UV transforms. Global toggle + strength in EffectsPanel, depth slider per layer in LayerPanel.
+- **3D Shape Projection** — raymarching 5 SDF shapes (sphere, torus, plane, cylinder, cube) in fragment shader. 64-step march, central-difference normals, per-shape UV mapping (spherical, toroidal, planar, cylindrical, box-face). Diffuse+specular lighting with configurable intensity. Mouse + auto-rotation drives camera. Gradient resampled at surface UV via `computeGradient(surfaceUV, time)`. Applied after all post-processing, before masks. UI in GradientPanel.
+- **Mesh Distortion** — global effect. 64×64 indexed triangle grid (4096 vertices, 1.1× oversize). Conditional VAO swap: quad when disabled, grid when enabled. Vertex displacement along +Z via `cheapNoise()` (sin-based v1) + mouse-reactive `exp(-dist)` falloff. MVP matrix computed per-frame from `mat4Perspective/LookAt/RotateX/RotateY/Multiply` (`lib/math.ts`). UI in EffectsPanel.
+- **Mutual exclusivity** — 3D shape and mesh distortion cannot both be active. Parallax works with both. Enforced by UI toggle handlers.
+- **New file:** `lib/math.ts` — minimal mat4 utilities (~80 lines, zero deps)
+- **Texture units:** 0=feedback, 1=image, 2=distortion map, 3=text mask (unchanged)
+
 ---
 
 ## Tech Stack
@@ -128,8 +136,7 @@ lib/
 
 ## What's Next — See ROADMAP.md
 
-1. **Phase 7: 3D Depth Effects** — raymarched sphere/torus, parallax layers, mesh distortion
-2. **Phase 10: Community** — gallery, npm package, Figma/Framer plugin
+1. **Phase 10: Community & Distribution** — gallery, npm package, Figma/Framer plugin
 
 ---
 
@@ -143,22 +150,12 @@ Read these docs first:
 - ROADMAP.md — full feature roadmap with priorities
 - .context/HANDOFF.md — what's built, file map, architecture decisions
 
-Start Phase 7: 3D Depth Effects. The goal is to project gradients onto
-3D surfaces (sphere, torus) via raymarching in the fragment shader, and
-add parallax depth between layers driven by mouse movement.
+Start Phase 10: Community & Distribution. The goal is to add a community
+gallery for sharing/remixing gradients, publish an npm package
+(@wavr/gradient), and build Figma/Framer plugins.
 
-Sub-features:
-- 7.1 Sphere/Torus Projection — raymarching SDF in fragment shader,
-  mouse controls rotation, perspective strength slider
-- 7.2 Parallax Depth Layers — per-layer depth offset, mouse parallax shift
-- 7.3 Mesh Distortion (stretch) — vertex displacement on 3D plane mesh
-
-Key constraint: 7.1 and 7.2 work within the existing fullscreen-quad
-architecture (fragment shader only). 7.3 requires vertex mesh geometry
-which is a larger engine change — consider deferring.
-
-Key files: lib/shaders/fragment.glsl, lib/engine.ts, lib/store.ts,
-lib/layers.ts, components/GradientPanel.tsx, components/EffectsPanel.tsx
+Key constraint: This requires a backend for the first time (community
+gallery needs persistence). The editor itself remains client-only.
 ```
 
 ---
@@ -171,6 +168,8 @@ lib/layers.ts, components/GradientPanel.tsx, components/EffectsPanel.tsx
 - **TypeScript strict mode** — no `any` types
 - **Build must pass** — run `npm run build` before committing
 - **Gradient type enum** — currently 0–8 in shader. Next type gets 9.
-- **Fragment shader is ~1100 lines** — each gradient mode is a self-contained function
+- **Fragment shader is ~1280 lines** — each gradient mode is a self-contained function, plus 3D SDF/raymarching section
 - **Texture units** — 0=feedback, 1=image, 2=distortion map, 3=text mask. Next gets 4.
 - **Custom GLSL** — `setCustomShader()` recompiles the shader. The `customGradient()` placeholder is replaced via regex.
+- **Geometry** — engine has conditional quad/grid VAO swap for mesh distortion. `drawGeometry(useMesh)` handles this.
+- **New file** — `lib/math.ts` provides mat4 utilities for MVP computation
