@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useGradientStore } from "@/lib/store";
-import { GradientEngine } from "@/lib/engine";
+import { GradientEngine } from "@wavr/core";
 
 const DEFAULT_TEMPLATE = `  vec2 p = uv * u_scale;
   float n = fbm(p + vec2(time * 0.3, time * 0.2), int(u_complexity));

@@ -12,7 +12,7 @@ import ProjectsModal from "@/components/ProjectsModal";
 import Onboarding from "@/components/Onboarding";
 import { useGradientStore } from "@/lib/store";
 import { decodeState } from "@/lib/url";
-import { GradientEngine } from "@/lib/engine";
+import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
 
 export default function EditorPage() {

@@ -6,7 +6,7 @@ import EffectsPanel from "@/components/EffectsPanel";
 import PresetsPanel from "@/components/PresetsPanel";
 import LayerPanel from "@/components/LayerPanel";
 import CustomGLSLPanel from "@/components/CustomGLSLPanel";
-import { GradientEngine } from "@/lib/engine";
+import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
 
 const TABS: { id: SidebarTab; label: string }[] = [

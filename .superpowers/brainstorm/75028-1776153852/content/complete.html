@@ -1,0 +1,67 @@
+<h2>Phase 7: 3D Depth Effects — Complete</h2>
+<p class="subtitle">All 14 tasks implemented, build passes, docs updated</p>
+
+<div class="section">
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+    <div class="mockup">
+      <div class="mockup-header" style="background: #1b5e20;">7.2 Parallax Depth ✓</div>
+      <div class="mockup-body" style="padding: 16px; font-size: 13px; line-height: 1.8;">
+        Per-layer depth slider<br>
+        Mouse-driven UV shift<br>
+        0.05 damping + aspect correction<br>
+        fract() wrap for seamless edges<br>
+        <span style="color: #999;">4 tasks, 4 commits</span>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header" style="background: #1565c0;">7.1 3D Shapes ✓</div>
+      <div class="mockup-body" style="padding: 16px; font-size: 13px; line-height: 1.8;">
+        5 shapes (sphere, torus, plane, cylinder, cube)<br>
+        64-step raymarching<br>
+        Surface UV resampling<br>
+        Diffuse + specular lighting<br>
+        <span style="color: #999;">4 tasks, 4 commits</span>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header" style="background: #6a1b9a;">7.3 Mesh Distortion ✓</div>
+      <div class="mockup-body" style="padding: 16px; font-size: 13px; line-height: 1.8;">
+        64×64 grid mesh (4K vertices)<br>
+        Sin-noise displacement on +Z<br>
+        MVP projection via mat4 utils<br>
+        Mouse-reactive terrain<br>
+        <span style="color: #999;">5 tasks, 3 commits</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Commits</h3>
+  <div style="font-family: monospace; font-size: 12px; line-height: 2; background: #1a1a2e; padding: 16px; border-radius: 8px;">
+    <span style="color: #4CAF50;">adc2fcb</span> feat(phase7): add parallax, 3D shape, and mesh distortion state<br>
+    <span style="color: #4CAF50;">de89aae</span> feat(phase7): parallax UV offset in fragment shader<br>
+    <span style="color: #4CAF50;">b54f910</span> feat(phase7): wire parallax uniforms in engine<br>
+    <span style="color: #4CAF50;">7ea5c52</span> feat(phase7): parallax UI in EffectsPanel and LayerPanel<br>
+    <span style="color: #2196F3;">commit</span> feat(phase7): 3D SDF functions and raymarching in fragment shader<br>
+    <span style="color: #2196F3;">23b3b7d</span> feat(phase7): wire 3D shape projection into render pipeline<br>
+    <span style="color: #2196F3;">commit</span> feat(phase7): 3D shape projection UI controls<br>
+    <span style="color: #9C27B0;">2e220a9</span> feat(phase7): mat4 utility functions for MVP computation<br>
+    <span style="color: #9C27B0;">3a78907</span> feat(phase7): mesh distortion engine — grid mesh, vertex shader, MVP wiring<br>
+    <span style="color: #9C27B0;">6e4e8d6</span> feat(phase7): mesh distortion UI with mutual exclusivity<br>
+    <span style="color: #FF9800;">8d44dcd</span> docs: update ROADMAP.md and HANDOFF.md for Phase 7 completion
+  </div>
+</div>
+
+<div class="section">
+  <h3>Next Steps</h3>
+  <div style="padding: 16px; background: #2a2a3e; border-radius: 8px; font-size: 14px;">
+    <strong>Run <code>npm run dev</code> and test:</strong>
+    <ul style="margin-top: 8px; line-height: 2;">
+      <li>Effects tab → 3D Depth → Parallax ON → adjust layer depths</li>
+      <li>Gradient tab → 3D Shape Projection ON → try all 5 shapes</li>
+      <li>Effects tab → Mesh Distortion ON → adjust displacement/frequency</li>
+      <li>Verify mutual exclusivity: 3D shape + mesh can't both be on</li>
+    </ul>
+  </div>
+</div>

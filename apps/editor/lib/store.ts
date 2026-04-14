@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "./layers";
+import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
 
 export interface GradientState {

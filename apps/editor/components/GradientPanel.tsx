@@ -6,7 +6,7 @@ import Select from "@/components/ui/Select";
 import Slider from "@/components/ui/Slider";
 import ColorInput from "@/components/ui/ColorInput";
 import Toggle from "@/components/ui/Toggle";
-import { LayerParams, MaskParams, TextMaskAlign } from "@/lib/layers";
+import { LayerParams, MaskParams, TextMaskAlign } from "@wavr/core";
 
 const GRADIENT_OPTIONS = [
   { value: "mesh", label: "Mesh" },

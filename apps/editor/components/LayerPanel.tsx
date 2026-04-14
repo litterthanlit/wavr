@@ -1,7 +1,7 @@
 "use client";
 
 import { useGradientStore, GradientState } from "@/lib/store";
-import { MAX_LAYERS, BlendMode, LayerParams } from "@/lib/layers";
+import { MAX_LAYERS, BlendMode, LayerParams } from "@wavr/core";
 import Slider from "@/components/ui/Slider";
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [

@@ -1,0 +1,2 @@
+{"type":"server-started","port":55402,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:55402","screen_dir":"/Users/niki_g/conductor/workspaces/wavr/bordeaux/.superpowers/brainstorm/72920-1776070205/content","state_dir":"/Users/niki_g/conductor/workspaces/wavr/bordeaux/.superpowers/brainstorm/72920-1776070205/state"}
+{"type":"server-stopped","reason":"idle timeout"}

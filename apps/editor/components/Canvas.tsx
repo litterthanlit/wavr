@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { GradientEngine } from "@/lib/engine";
+import { GradientEngine } from "@wavr/core";
 import { useGradientStore, GradientState, getInterpolatedParams } from "@/lib/store";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
 import Toast from "@/components/ui/Toast";

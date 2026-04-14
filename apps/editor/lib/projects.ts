@@ -1,5 +1,5 @@
 import { GradientState } from "./store";
-import { LayerParams } from "./layers";
+import { LayerParams } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
 
 export interface SavedProject {
