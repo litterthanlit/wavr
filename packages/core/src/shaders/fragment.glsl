@@ -118,6 +118,10 @@ uniform float u_glowRadius;
 uniform bool u_causticEnabled;
 uniform float u_causticIntensity;
 
+// Phase 11: Mouse Trail
+uniform bool u_trailEnabled;
+uniform sampler2D u_trailTexture;
+
 // Phase 11 Week 3: Voronoi, Liquify
 uniform bool u_liquifyEnabled;
 uniform float u_liquifyIntensity;
@@ -1366,6 +1370,12 @@ void main() {
   if (u_causticEnabled) {
     float caust = caustic(uv, time) * u_causticIntensity;
     color += color * caust * 0.3;
+  }
+
+  // Mouse trail composite
+  if (u_trailEnabled) {
+    vec4 trail = texture(u_trailTexture, uv);
+    color += trail.rgb * trail.a * 0.6;
   }
 
   // Click ripple (expanding ring from click position)

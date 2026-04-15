@@ -92,6 +92,9 @@ export function resolveConfig(config: GradientConfig): EngineState {
     liquifyEnabled: config.liquify?.enabled ?? false,
     liquifyIntensity: config.liquify?.intensity ?? 0.3,
     liquifyScale: config.liquify?.scale ?? 2.0,
+    trailEnabled: config.trail?.enabled ?? false,
+    trailLength: config.trail?.length ?? 0.96,
+    trailWidth: config.trail?.width ?? 0.05,
     playing: true,
     customGLSL: null,
   };

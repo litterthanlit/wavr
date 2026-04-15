@@ -56,6 +56,7 @@ export interface GradientConfig {
   glow?: { enabled: boolean; intensity: number; radius: number };
   caustic?: { enabled: boolean; intensity: number };
   liquify?: { enabled: boolean; intensity: number; scale: number };
+  trail?: { enabled: boolean; length: number; width: number };
 }
 
 export interface GradientHandle {

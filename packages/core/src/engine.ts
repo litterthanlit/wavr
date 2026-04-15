@@ -1,5 +1,6 @@
 import vertexSource from "./shaders/vertex.glsl";
 import fragmentSource from "./shaders/fragment.glsl";
+import trailFragSource from "./shaders/trail.glsl";
 import { BlendMode, LayerParams } from "./layers";
 import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply } from "./math";
 
@@ -64,6 +65,9 @@ export interface EngineState {
   liquifyEnabled: boolean;
   liquifyIntensity: number;
   liquifyScale: number;
+  trailEnabled: boolean;
+  trailLength: number;
+  trailWidth: number;
   playing: boolean;
   customGLSL: string | null;
 }
@@ -101,6 +105,15 @@ export class GradientEngine {
   private feedbackIndex = 0;
   private feedbackWidth = 0;
   private feedbackHeight = 0;
+
+  // Trail FBO ping-pong
+  private trailProgram: WebGLProgram | null = null;
+  private trailUniforms: UniformMap = {};
+  private trailFBOs: [WebGLFramebuffer, WebGLFramebuffer] | null = null;
+  private trailTextures: [WebGLTexture, WebGLTexture] | null = null;
+  private trailIndex = 0;
+  private trailWidth = 0;
+  private trailHeight = 0;
 
   // Image texture cache
   private textureCache: Map<string, WebGLTexture> = new Map();
@@ -285,6 +298,7 @@ export class GradientEngine {
       "u_glowEnabled", "u_glowIntensity", "u_glowRadius",
       "u_causticEnabled", "u_causticIntensity",
       "u_liquifyEnabled", "u_liquifyIntensity", "u_liquifyScale",
+      "u_trailEnabled", "u_trailTexture",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -370,6 +384,142 @@ export class GradientEngine {
     }
     this.feedbackFBOs = null;
     this.feedbackTextures = null;
+  }
+
+  private initTrailProgram() {
+    const gl = this.gl;
+    // Simple fullscreen vertex shader (reuse same quad)
+    const vertSrc = `#version 300 es
+precision highp float;
+in vec2 a_position;
+out vec2 v_uv;
+void main() {
+  v_uv = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+    const vertShader = this.compileShader(gl.VERTEX_SHADER, vertSrc);
+    const fragShader = this.compileShader(gl.FRAGMENT_SHADER, trailFragSource);
+
+    const program = gl.createProgram()!;
+    gl.attachShader(program, vertShader);
+    gl.attachShader(program, fragShader);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      const log = gl.getProgramInfoLog(program);
+      throw new Error(`Trail program link failed: ${log}`);
+    }
+
+    this.trailProgram = program;
+    this.trailUniforms = {};
+    const names = ["u_trailPass", "u_trailPrev", "u_trailDecay", "u_trailMouse", "u_trailWidth"];
+    for (const name of names) {
+      const loc = gl.getUniformLocation(program, name);
+      if (loc) this.trailUniforms[name] = loc;
+    }
+  }
+
+  private initTrailFBOs() {
+    const gl = this.gl;
+    // Trail at 1/4 resolution for performance
+    const width = Math.max(1, Math.floor(gl.canvas.width / 4));
+    const height = Math.max(1, Math.floor(gl.canvas.height / 4));
+    this.destroyTrailFBOs();
+
+    const textures: WebGLTexture[] = [];
+    const fbos: WebGLFramebuffer[] = [];
+
+    for (let i = 0; i < 2; i++) {
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      textures.push(tex);
+
+      const fbo = gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      fbos.push(fbo);
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    this.trailFBOs = [fbos[0], fbos[1]];
+    this.trailTextures = [textures[0], textures[1]];
+    this.trailWidth = width;
+    this.trailHeight = height;
+    this.trailIndex = 0;
+  }
+
+  private destroyTrailFBOs() {
+    const gl = this.gl;
+    if (this.trailFBOs) {
+      gl.deleteFramebuffer(this.trailFBOs[0]);
+      gl.deleteFramebuffer(this.trailFBOs[1]);
+    }
+    if (this.trailTextures) {
+      gl.deleteTexture(this.trailTextures[0]);
+      gl.deleteTexture(this.trailTextures[1]);
+    }
+    this.trailFBOs = null;
+    this.trailTextures = null;
+  }
+
+  private renderTrailPass(state: EngineState) {
+    const gl = this.gl;
+    if (!state.trailEnabled) return;
+
+    // Lazy init
+    if (!this.trailProgram) this.initTrailProgram();
+    const expectedW = Math.max(1, Math.floor(gl.canvas.width / 4));
+    const expectedH = Math.max(1, Math.floor(gl.canvas.height / 4));
+    if (!this.trailFBOs || this.trailWidth !== expectedW || this.trailHeight !== expectedH) {
+      this.initTrailFBOs();
+    }
+
+    const prev = 1 - this.trailIndex;
+    const curr = this.trailIndex;
+
+    gl.useProgram(this.trailProgram!);
+    gl.bindVertexArray(this.quadVAO);
+
+    // Pass 1: Decay previous trail into current FBO
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.trailFBOs![curr]);
+    gl.viewport(0, 0, this.trailWidth, this.trailHeight);
+    gl.disable(gl.BLEND);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.trailTextures![prev]);
+    const tu = this.trailUniforms;
+    if (tu["u_trailPass"]) gl.uniform1i(tu["u_trailPass"], 0);
+    if (tu["u_trailPrev"]) gl.uniform1i(tu["u_trailPrev"], 0);
+    if (tu["u_trailDecay"]) gl.uniform1f(tu["u_trailDecay"], state.trailLength);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Pass 2: Draw circle at mouse position (additive)
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+
+    if (tu["u_trailPass"]) gl.uniform1i(tu["u_trailPass"], 1);
+    if (tu["u_trailMouse"]) gl.uniform2f(tu["u_trailMouse"], this.smoothMouseX, this.smoothMouseY);
+    if (tu["u_trailWidth"]) gl.uniform1f(tu["u_trailWidth"], state.trailWidth);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    // Swap
+    this.trailIndex = prev;
+
+    // Switch back to main program
+    gl.useProgram(this.program);
   }
 
   loadImageTexture(dataURL: string): WebGLTexture | null {
@@ -704,6 +854,15 @@ export class GradientEngine {
     // Caustics
     this.seti("u_causticEnabled", isBaseLayer && state.causticEnabled ? 1 : 0);
     this.setf("u_causticIntensity", state.causticIntensity);
+    // Trail
+    const trailActive = isBaseLayer && state.trailEnabled && this.trailTextures;
+    this.seti("u_trailEnabled", trailActive ? 1 : 0);
+    if (trailActive) {
+      const gl = this.gl;
+      gl.activeTexture(gl.TEXTURE4);
+      gl.bindTexture(gl.TEXTURE_2D, this.trailTextures![this.trailIndex]);
+      this.seti("u_trailTexture", 4);
+    }
     // Liquify
     this.seti("u_liquifyEnabled", isBaseLayer && state.liquifyEnabled ? 1 : 0);
     this.setf("u_liquifyIntensity", state.liquifyIntensity);
@@ -755,6 +914,10 @@ export class GradientEngine {
 
   render(state: EngineState) {
     const gl = this.gl;
+
+    // Trail pass (before main render — writes to separate FBO)
+    this.renderTrailPass(state);
+
     const feedbackActive = state.feedbackEnabled;
 
     // Set up FBO for feedback if needed
@@ -907,6 +1070,11 @@ export class GradientEngine {
   destroy() {
     this.stopLoop();
     this.destroyFeedbackFBOs();
+    this.destroyTrailFBOs();
+    if (this.trailProgram) {
+      this.gl.deleteProgram(this.trailProgram);
+      this.trailProgram = null;
+    }
     for (const tex of this.textureCache.values()) {
       this.gl.deleteTexture(tex);
     }

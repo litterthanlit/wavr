@@ -57,6 +57,9 @@ export interface GradientState {
   liquifyEnabled: boolean;
   liquifyIntensity: number;
   liquifyScale: number;
+  trailEnabled: boolean;
+  trailLength: number;
+  trailWidth: number;
 
   // Audio reactivity
   audioEnabled: boolean;
@@ -273,6 +276,9 @@ const DEFAULTS = {
   liquifyEnabled: false,
   liquifyIntensity: 0.3,
   liquifyScale: 2.0,
+  trailEnabled: false,
+  trailLength: 0.96,
+  trailWidth: 0.05,
   audioEnabled: false,
   audioSource: "mic" as const,
   audioBassTarget: "distortion",

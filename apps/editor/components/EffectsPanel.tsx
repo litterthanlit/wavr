@@ -143,6 +143,9 @@ export default function EffectsPanel() {
       {/* Advanced */}
       <Section title="Advanced">
         <Slider label="Mouse React" value={store.mouseReact} min={0} max={1} step={0.01} onChange={(v) => store.set({ mouseReact: v })} onCommit={() => store.commitSet()} />
+        <Toggle label="Mouse Trail" checked={store.trailEnabled} onChange={(v) => store.setDiscrete({ trailEnabled: v })} />
+        <Slider label="Trail Length" value={store.trailLength} min={0.9} max={0.99} step={0.01} onChange={(v) => store.set({ trailLength: v })} onCommit={() => store.commitSet()} disabled={!store.trailEnabled} />
+        <Slider label="Trail Width" value={store.trailWidth} min={0.01} max={0.15} step={0.005} onChange={(v) => store.set({ trailWidth: v })} onCommit={() => store.commitSet()} disabled={!store.trailEnabled} />
         <Toggle label="Click Ripple" checked={store.rippleEnabled} onChange={(v) => store.setDiscrete({ rippleEnabled: v })} />
         <Slider label="Intensity" value={store.rippleIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ rippleIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.rippleEnabled} />
         <Toggle label="Feedback Loop" checked={store.feedbackEnabled} onChange={(v) => store.setDiscrete({ feedbackEnabled: v })} />
