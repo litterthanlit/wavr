@@ -1,6 +1,8 @@
 import vertexSource from "./shaders/vertex.glsl";
 import fragmentSource from "./shaders/fragment.glsl";
 import trailFragSource from "./shaders/trail.glsl";
+import bloomExtractSource from "./shaders/bloom-extract.glsl";
+import blurSource from "./shaders/blur.glsl";
 import { BlendMode, LayerParams } from "./layers";
 import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply } from "./math";
 
@@ -68,6 +70,7 @@ export interface EngineState {
   trailEnabled: boolean;
   trailLength: number;
   trailWidth: number;
+  realBloomEnabled: boolean;
   playing: boolean;
   customGLSL: string | null;
 }
@@ -105,6 +108,22 @@ export class GradientEngine {
   private feedbackIndex = 0;
   private feedbackWidth = 0;
   private feedbackHeight = 0;
+
+  // Real bloom FBO pipeline
+  private bloomExtractProgram: WebGLProgram | null = null;
+  private bloomBlurProgram: WebGLProgram | null = null;
+  private bloomExtractUniforms: UniformMap = {};
+  private bloomBlurUniforms: UniformMap = {};
+  private bloomSceneFBO: WebGLFramebuffer | null = null;
+  private bloomSceneTex: WebGLTexture | null = null;
+  private bloomFBO_A: WebGLFramebuffer | null = null;
+  private bloomTex_A: WebGLTexture | null = null;
+  private bloomFBO_B: WebGLFramebuffer | null = null;
+  private bloomTex_B: WebGLTexture | null = null;
+  private bloomWidth = 0;
+  private bloomHeight = 0;
+  private bloomSceneWidth = 0;
+  private bloomSceneHeight = 0;
 
   // Trail FBO ping-pong
   private trailProgram: WebGLProgram | null = null;
@@ -467,6 +486,204 @@ void main() {
     }
     this.trailFBOs = null;
     this.trailTextures = null;
+  }
+
+  private initBloomPrograms() {
+    const gl = this.gl;
+    const vertSrc = `#version 300 es
+precision highp float;
+in vec2 a_position;
+out vec2 v_uv;
+void main() {
+  v_uv = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+    // Extract program
+    const extractVert = this.compileShader(gl.VERTEX_SHADER, vertSrc);
+    const extractFrag = this.compileShader(gl.FRAGMENT_SHADER, bloomExtractSource);
+    const extractProg = gl.createProgram()!;
+    gl.attachShader(extractProg, extractVert);
+    gl.attachShader(extractProg, extractFrag);
+    gl.linkProgram(extractProg);
+    if (!gl.getProgramParameter(extractProg, gl.LINK_STATUS)) {
+      throw new Error(`Bloom extract link failed: ${gl.getProgramInfoLog(extractProg)}`);
+    }
+    this.bloomExtractProgram = extractProg;
+    this.bloomExtractUniforms = {};
+    for (const name of ["u_source", "u_threshold"]) {
+      const loc = gl.getUniformLocation(extractProg, name);
+      if (loc) this.bloomExtractUniforms[name] = loc;
+    }
+
+    // Blur program
+    const blurVert = this.compileShader(gl.VERTEX_SHADER, vertSrc);
+    const blurFrag = this.compileShader(gl.FRAGMENT_SHADER, blurSource);
+    const blurProg = gl.createProgram()!;
+    gl.attachShader(blurProg, blurVert);
+    gl.attachShader(blurProg, blurFrag);
+    gl.linkProgram(blurProg);
+    if (!gl.getProgramParameter(blurProg, gl.LINK_STATUS)) {
+      throw new Error(`Bloom blur link failed: ${gl.getProgramInfoLog(blurProg)}`);
+    }
+    this.bloomBlurProgram = blurProg;
+    this.bloomBlurUniforms = {};
+    for (const name of ["u_source", "u_direction"]) {
+      const loc = gl.getUniformLocation(blurProg, name);
+      if (loc) this.bloomBlurUniforms[name] = loc;
+    }
+  }
+
+  private initBloomFBOs() {
+    const gl = this.gl;
+    this.destroyBloomFBOs();
+
+    const sceneW = gl.canvas.width;
+    const sceneH = gl.canvas.height;
+    const bloomW = Math.max(1, Math.floor(sceneW / 4));
+    const bloomH = Math.max(1, Math.floor(sceneH / 4));
+
+    // Scene FBO (full res — captures rendered gradient)
+    this.bloomSceneTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomSceneTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, sceneW, sceneH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.bloomSceneFBO = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomSceneFBO);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.bloomSceneTex, 0);
+
+    // Bloom ping-pong FBOs (1/4 res)
+    const makeFBO = () => {
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bloomW, bloomH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const fbo = gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      return { fbo, tex };
+    };
+
+    const a = makeFBO();
+    const b = makeFBO();
+    this.bloomFBO_A = a.fbo;
+    this.bloomTex_A = a.tex;
+    this.bloomFBO_B = b.fbo;
+    this.bloomTex_B = b.tex;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    this.bloomWidth = bloomW;
+    this.bloomHeight = bloomH;
+    this.bloomSceneWidth = sceneW;
+    this.bloomSceneHeight = sceneH;
+  }
+
+  private destroyBloomFBOs() {
+    const gl = this.gl;
+    if (this.bloomSceneFBO) { gl.deleteFramebuffer(this.bloomSceneFBO); this.bloomSceneFBO = null; }
+    if (this.bloomSceneTex) { gl.deleteTexture(this.bloomSceneTex); this.bloomSceneTex = null; }
+    if (this.bloomFBO_A) { gl.deleteFramebuffer(this.bloomFBO_A); this.bloomFBO_A = null; }
+    if (this.bloomTex_A) { gl.deleteTexture(this.bloomTex_A); this.bloomTex_A = null; }
+    if (this.bloomFBO_B) { gl.deleteFramebuffer(this.bloomFBO_B); this.bloomFBO_B = null; }
+    if (this.bloomTex_B) { gl.deleteTexture(this.bloomTex_B); this.bloomTex_B = null; }
+  }
+
+  private renderBloomPass(state: EngineState) {
+    if (!state.realBloomEnabled) return;
+    const gl = this.gl;
+
+    // Lazy init programs
+    if (!this.bloomExtractProgram) this.initBloomPrograms();
+    // Ensure FBOs match canvas size
+    if (!this.bloomSceneFBO ||
+        this.bloomSceneWidth !== gl.canvas.width ||
+        this.bloomSceneHeight !== gl.canvas.height) {
+      this.initBloomFBOs();
+    }
+
+    gl.bindVertexArray(this.quadVAO);
+    gl.disable(gl.BLEND);
+
+    // Step 1: Render gradient to scene FBO (the gradient was already rendered
+    // to the screen — blit screen to scene FBO)
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.bloomSceneFBO!);
+    gl.blitFramebuffer(
+      0, 0, gl.canvas.width, gl.canvas.height,
+      0, 0, gl.canvas.width, gl.canvas.height,
+      gl.COLOR_BUFFER_BIT, gl.LINEAR
+    );
+
+    // Step 2: Extract bright pixels → bloomFBO_A (1/4 res)
+    gl.useProgram(this.bloomExtractProgram!);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFBO_A!);
+    gl.viewport(0, 0, this.bloomWidth, this.bloomHeight);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomSceneTex!);
+    const eu = this.bloomExtractUniforms;
+    if (eu["u_source"]) gl.uniform1i(eu["u_source"], 0);
+    if (eu["u_threshold"]) gl.uniform1f(eu["u_threshold"], 0.5);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Step 3: Horizontal blur bloomTex_A → bloomFBO_B
+    gl.useProgram(this.bloomBlurProgram!);
+    const bu = this.bloomBlurUniforms;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFBO_B!);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex_A!);
+    if (bu["u_source"]) gl.uniform1i(bu["u_source"], 0);
+    if (bu["u_direction"]) gl.uniform2f(bu["u_direction"], 1.0 / this.bloomWidth, 0.0);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Step 4: Vertical blur bloomTex_B → bloomFBO_A
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFBO_A!);
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex_B!);
+    if (bu["u_direction"]) gl.uniform2f(bu["u_direction"], 0.0, 1.0 / this.bloomHeight);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Step 5: Composite — draw scene + bloom to screen
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+    // First, restore the scene
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.bloomSceneFBO!);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.blitFramebuffer(
+      0, 0, gl.canvas.width, gl.canvas.height,
+      0, 0, gl.canvas.width, gl.canvas.height,
+      gl.COLOR_BUFFER_BIT, gl.NEAREST
+    );
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+
+    // Then additively blend the bloom on top
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+
+    // Re-use the blur program to just pass through bloomTex_A
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex_A!);
+    // Zero direction = no blur, just passthrough
+    if (bu["u_direction"]) gl.uniform2f(bu["u_direction"], 0.0, 0.0);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    gl.disable(gl.BLEND);
+
+    // Switch back to main program
+    gl.useProgram(this.program);
   }
 
   private renderTrailPass(state: EngineState) {
@@ -976,6 +1193,12 @@ void main() {
     // Restore quad VAO as default
     this.gl.bindVertexArray(this.quadVAO);
 
+    // Real bloom pass (extract + blur + composite)
+    if (!feedbackActive) {
+      // Only run when not using feedback FBOs (they use different framebuffer flow)
+      this.renderBloomPass(state);
+    }
+
     // Clean up unused cached textures
     this.cleanupTextures(state.layers);
 
@@ -1071,9 +1294,18 @@ void main() {
     this.stopLoop();
     this.destroyFeedbackFBOs();
     this.destroyTrailFBOs();
+    this.destroyBloomFBOs();
     if (this.trailProgram) {
       this.gl.deleteProgram(this.trailProgram);
       this.trailProgram = null;
+    }
+    if (this.bloomExtractProgram) {
+      this.gl.deleteProgram(this.bloomExtractProgram);
+      this.bloomExtractProgram = null;
+    }
+    if (this.bloomBlurProgram) {
+      this.gl.deleteProgram(this.bloomBlurProgram);
+      this.bloomBlurProgram = null;
     }
     for (const tex of this.textureCache.values()) {
       this.gl.deleteTexture(tex);

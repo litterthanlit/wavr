@@ -57,6 +57,7 @@ export interface GradientConfig {
   caustic?: { enabled: boolean; intensity: number };
   liquify?: { enabled: boolean; intensity: number; scale: number };
   trail?: { enabled: boolean; length: number; width: number };
+  realBloomEnabled?: boolean;
 }
 
 export interface GradientHandle {

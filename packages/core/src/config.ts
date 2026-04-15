@@ -95,6 +95,7 @@ export function resolveConfig(config: GradientConfig): EngineState {
     trailEnabled: config.trail?.enabled ?? false,
     trailLength: config.trail?.length ?? 0.96,
     trailWidth: config.trail?.width ?? 0.05,
+    realBloomEnabled: config.realBloomEnabled ?? false,
     playing: true,
     customGLSL: null,
   };

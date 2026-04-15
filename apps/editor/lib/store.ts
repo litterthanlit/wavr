@@ -60,6 +60,7 @@ export interface GradientState {
   trailEnabled: boolean;
   trailLength: number;
   trailWidth: number;
+  realBloomEnabled: boolean;
 
   // Audio reactivity
   audioEnabled: boolean;
@@ -279,6 +280,7 @@ const DEFAULTS = {
   trailEnabled: false,
   trailLength: 0.96,
   trailWidth: 0.05,
+  realBloomEnabled: false,
   audioEnabled: false,
   audioSource: "mic" as const,
   audioBassTarget: "distortion",
