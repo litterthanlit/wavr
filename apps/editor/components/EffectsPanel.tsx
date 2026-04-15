@@ -63,6 +63,11 @@ export default function EffectsPanel() {
       <Section title="Lighting" defaultOpen>
         <Toggle label="Bloom" checked={store.bloomEnabled} onChange={(v) => store.setDiscrete({ bloomEnabled: v })} />
         <Slider label="Intensity" value={store.bloomIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ bloomIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.bloomEnabled} />
+        <Toggle label="Soft Glow" checked={store.glowEnabled} onChange={(v) => store.setDiscrete({ glowEnabled: v })} />
+        <Slider label="Intensity" value={store.glowIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ glowIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.glowEnabled} />
+        <Slider label="Radius" value={store.glowRadius} min={0.01} max={0.1} step={0.005} onChange={(v) => store.set({ glowRadius: v })} onCommit={() => store.commitSet()} disabled={!store.glowEnabled} />
+        <Toggle label="Caustics" checked={store.causticEnabled} onChange={(v) => store.setDiscrete({ causticEnabled: v })} />
+        <Slider label="Intensity" value={store.causticIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ causticIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.causticEnabled} />
         <Slider label="Vignette" value={store.vignette} min={0} max={1} step={0.01} onChange={(v) => store.set({ vignette: v })} onCommit={() => store.commitSet()} />
       </Section>
 
@@ -70,6 +75,8 @@ export default function EffectsPanel() {
 
       {/* Color */}
       <Section title="Color">
+        <Toggle label="Oklab Blending" checked={store.oklabEnabled} onChange={(v) => store.setDiscrete({ oklabEnabled: v })} />
+        <Select label="Tone Mapping" value={String(store.toneMapMode)} options={[{ value: "0", label: "None" }, { value: "1", label: "Reinhard" }, { value: "2", label: "ACES Filmic" }]} onChange={(v) => store.setDiscrete({ toneMapMode: Number(v) })} />
         <Slider label="Color Blend" value={store.colorBlend} min={0} max={1} step={0.01} onChange={(v) => store.set({ colorBlend: v })} onCommit={() => store.commitSet()} />
         <Slider label="Chromatic Aberration" value={store.chromaticAberration} min={0} max={1} step={0.01} onChange={(v) => store.set({ chromaticAberration: v })} onCommit={() => store.commitSet()} />
       </Section>
@@ -133,6 +140,8 @@ export default function EffectsPanel() {
       {/* Advanced */}
       <Section title="Advanced">
         <Slider label="Mouse React" value={store.mouseReact} min={0} max={1} step={0.01} onChange={(v) => store.set({ mouseReact: v })} onCommit={() => store.commitSet()} />
+        <Toggle label="Click Ripple" checked={store.rippleEnabled} onChange={(v) => store.setDiscrete({ rippleEnabled: v })} />
+        <Slider label="Intensity" value={store.rippleIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ rippleIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.rippleEnabled} />
         <Toggle label="Feedback Loop" checked={store.feedbackEnabled} onChange={(v) => store.setDiscrete({ feedbackEnabled: v })} />
         <Slider label="Decay" value={store.feedbackDecay} min={0} max={0.98} step={0.01} onChange={(v) => store.set({ feedbackDecay: v })} onCommit={() => store.commitSet()} disabled={!store.feedbackEnabled} />
       </Section>

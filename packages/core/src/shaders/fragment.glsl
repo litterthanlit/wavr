@@ -103,6 +103,21 @@ uniform sampler2D u_textMaskTexture;
 // Custom GLSL
 uniform bool u_customEnabled;
 
+// Shader quality (Phase 11)
+uniform bool u_oklabEnabled;
+uniform int u_toneMapMode; // 0=none, 1=reinhard, 2=aces
+
+// Phase 11 Week 2: Click ripple, soft glow, caustics
+uniform vec2 u_rippleOrigin;
+uniform float u_rippleTime;
+uniform float u_rippleEnabled;
+uniform float u_rippleIntensity;
+uniform bool u_glowEnabled;
+uniform float u_glowIntensity;
+uniform float u_glowRadius;
+uniform bool u_causticEnabled;
+uniform float u_causticIntensity;
+
 // Parallax depth (Phase 7)
 uniform bool u_parallaxEnabled;
 uniform float u_parallaxStrength;
@@ -158,9 +173,11 @@ float fbm(vec2 p, int octaves) {
   float value = 0.0;
   float amplitude = 0.5;
   float frequency = 1.0;
+  mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
   for (int i = 0; i < 8; i++) {
     if (i >= octaves) break;
     value += amplitude * snoise(p * frequency);
+    p = rot * p;
     frequency *= 2.0;
     amplitude *= 0.5;
   }
@@ -299,6 +316,46 @@ float opSmoothUnion(float d1, float d2, float k) {
 }
 
 // ============================================================
+// Oklab Color Space Conversion
+// ============================================================
+
+vec3 srgbToLinear(vec3 c) {
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+}
+
+vec3 linearToSrgb(vec3 c) {
+  return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
+}
+
+vec3 linearToOklab(vec3 c) {
+  float l = 0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b;
+  float m = 0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b;
+  float s = 0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b;
+  float l_ = pow(l, 1.0 / 3.0);
+  float m_ = pow(m, 1.0 / 3.0);
+  float s_ = pow(s, 1.0 / 3.0);
+  return vec3(
+    0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+    1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+    0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+  );
+}
+
+vec3 oklabToLinear(vec3 c) {
+  float l_ = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
+  float m_ = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
+  float s_ = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
+  float l = l_ * l_ * l_;
+  float m = m_ * m_ * m_;
+  float s = s_ * s_ * s_;
+  return vec3(
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+  );
+}
+
+// ============================================================
 // Color Interpolation
 // ============================================================
 
@@ -311,6 +368,13 @@ vec3 sampleColorAt(float t) {
 
   int nextIdx = idx + 1;
   if (nextIdx >= u_colorCount) nextIdx = u_colorCount - 1;
+
+  if (u_oklabEnabled) {
+    vec3 lab1 = linearToOklab(srgbToLinear(u_colors[idx]));
+    vec3 lab2 = linearToOklab(srgbToLinear(u_colors[nextIdx]));
+    vec3 blended = mix(lab1, lab2, frac);
+    return linearToSrgb(max(oklabToLinear(blended), vec3(0.0)));
+  }
 
   return mix(u_colors[idx], u_colors[nextIdx], frac);
 }
@@ -582,6 +646,11 @@ float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
+float interleavedGradientNoise(vec2 fragCoord) {
+  vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
+  return fract(magic.z * fract(dot(fragCoord, magic.xy)));
+}
+
 // ============================================================
 // Curl Noise (divergence-free 2D flow field)
 // ============================================================
@@ -597,6 +666,36 @@ vec2 curlNoise(vec2 p, float time) {
   float dndx = (n3 - n4) / (2.0 * eps);
   float dndy = (n1 - n2) / (2.0 * eps);
   return vec2(dndy, -dndx);
+}
+
+// ============================================================
+// Tone Mapping
+// ============================================================
+
+vec3 acesToneMap(vec3 x) {
+  float a = 2.51;
+  float b = 0.03;
+  float c = 2.43;
+  float d = 0.59;
+  float e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
+// ============================================================
+// Caustics
+// ============================================================
+
+float caustic(vec2 uv, float time) {
+  float c = 0.0;
+  for (int i = 0; i < 3; i++) {
+    float scale = 4.0 + float(i) * 2.0;
+    float speed = 0.5 + float(i) * 0.2;
+    vec2 p = uv * scale + time * speed;
+    float w1 = sin(p.x + sin(p.y * 1.5 + time));
+    float w2 = sin(p.y + sin(p.x * 1.3 - time * 0.7));
+    c += abs(w1 * w2) * (1.0 / float(i + 1));
+  }
+  return c;
 }
 
 // ============================================================
@@ -1137,11 +1236,65 @@ void main() {
   // Brightness
   color *= u_brightness;
 
-  // Bloom (after color adjustments so highlights match final palette)
+  // Bloom (24-sample radial kernel: 8 angles × 3 radii, weighted by luminance)
   if (u_bloomEnabled) {
-    float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    float bloomMask = smoothstep(0.6, 1.0, luminance);
-    color += color * bloomMask * u_bloomIntensity;
+    vec3 bloomSum = vec3(0.0);
+    float totalWeight = 0.0;
+    float bloomRadius = 0.02 * u_bloomIntensity;
+    vec2 texelSize = 1.0 / u_resolution;
+
+    for (int a = 0; a < 8; a++) {
+      float angle = float(a) * 0.785398; // 2π/8
+      vec2 dir = vec2(cos(angle), sin(angle));
+      for (int r = 1; r <= 3; r++) {
+        float radius = float(r) * bloomRadius;
+        vec2 offset = dir * radius;
+        vec3 s = computeGradient(uv + offset, time);
+        float lum = dot(s, vec3(0.2126, 0.7152, 0.0722));
+        float w = max(lum - 0.5, 0.0) / float(r);
+        bloomSum += s * w;
+        totalWeight += w;
+      }
+    }
+
+    if (totalWeight > 0.0) {
+      bloomSum /= totalWeight;
+      color += bloomSum * u_bloomIntensity;
+    }
+  }
+
+  // Soft glow (distinct from bloom — atmospheric haze via spiral sampling)
+  if (u_glowEnabled) {
+    vec3 glow = vec3(0.0);
+    float total = 0.0;
+    for (int i = 0; i < 16; i++) {
+      float angle = float(i) * 2.399; // golden angle
+      float radius = sqrt(float(i) / 16.0) * u_glowRadius;
+      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+      vec3 s = computeGradient(uv + offset, time);
+      float w = 1.0 - radius / u_glowRadius;
+      glow += s * w;
+      total += w;
+    }
+    glow /= total;
+    color = mix(color, glow, u_glowIntensity * 0.5);
+  }
+
+  // Caustics (water light refraction overlay)
+  if (u_causticEnabled) {
+    float caust = caustic(uv, time) * u_causticIntensity;
+    color += color * caust * 0.3;
+  }
+
+  // Click ripple (expanding ring from click position)
+  if (u_rippleEnabled > 0.5 && u_rippleTime < 2.0) {
+    float dist = distance(uv, u_rippleOrigin);
+    float rippleRadius = u_rippleTime * 0.5;
+    float rippleWidth = 0.05;
+    float ripple = smoothstep(rippleRadius - rippleWidth, rippleRadius, dist)
+                 - smoothstep(rippleRadius, rippleRadius + rippleWidth, dist);
+    ripple *= 1.0 - u_rippleTime * 0.5; // fade out
+    color += ripple * u_rippleIntensity * 0.3;
   }
 
   // Vignette
@@ -1176,14 +1329,18 @@ void main() {
     color = mix(color, max(color, feedback), u_feedbackDecay);
   }
 
-  // Film grain
+  // Film grain (interleaved gradient noise — Valve technique)
   if (u_grain > 0.0) {
-    float grainNoise = hash(uv * u_resolution + fract(u_time * 100.0)) * 2.0 - 1.0;
+    float grainNoise = interleavedGradientNoise(gl_FragCoord.xy + fract(u_time * 100.0) * vec2(47.0, 17.0)) * 2.0 - 1.0;
     color += grainNoise * u_grain * 0.15;
   }
 
-  // Tone mapping (simple reinhard)
-  color = color / (color + 1.0);
+  // Tone mapping
+  if (u_toneMapMode == 1) {
+    color = color / (color + 1.0);
+  } else if (u_toneMapMode == 2) {
+    color = acesToneMap(color);
+  }
 
   // Pixel sorting (glitch art — horizontal streak displacement by brightness)
   if (u_pixelSortEnabled) {

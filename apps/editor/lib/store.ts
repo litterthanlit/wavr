@@ -44,6 +44,17 @@ export interface GradientState {
   feedbackEnabled: boolean;
   feedbackDecay: number;
 
+  // Shader quality (Phase 11)
+  oklabEnabled: boolean;
+  toneMapMode: number;
+  rippleEnabled: boolean;
+  rippleIntensity: number;
+  glowEnabled: boolean;
+  glowIntensity: number;
+  glowRadius: number;
+  causticEnabled: boolean;
+  causticIntensity: number;
+
   // Audio reactivity
   audioEnabled: boolean;
   audioSource: "mic" | "file";
@@ -247,6 +258,15 @@ const DEFAULTS = {
   domainWarp: 0,
   feedbackEnabled: false,
   feedbackDecay: 0.5,
+  oklabEnabled: true,
+  toneMapMode: 1,
+  rippleEnabled: false,
+  rippleIntensity: 0.5,
+  glowEnabled: false,
+  glowIntensity: 0.5,
+  glowRadius: 0.05,
+  causticEnabled: false,
+  causticIntensity: 0.5,
   audioEnabled: false,
   audioSource: "mic" as const,
   audioBassTarget: "distortion",

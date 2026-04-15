@@ -68,6 +68,15 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     engineRef.current.setMouse(x, y);
   }, []);
 
+  const handleClick = useCallback((e: MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !engineRef.current) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = 1.0 - (e.clientY - rect.top) / rect.height;
+    engineRef.current.triggerRipple(x, y);
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -145,6 +154,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     canvas.addEventListener("webglcontextrestored", handleContextRestored);
     window.addEventListener("resize", handleResize);
     window.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("click", handleClick);
 
     let lastTimelineUpdate = performance.now();
     engine.startLoop(() => {
@@ -184,10 +194,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       canvas.removeEventListener("webglcontextrestored", handleContextRestored);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("click", handleClick);
       clearTimeout(resizeTimeout);
       engine.destroy();
     };
-  }, [handleMouseMove, onCanvasReady, onEngineReady]);
+  }, [handleMouseMove, handleClick, onCanvasReady, onEngineReady]);
 
   // Reduced motion: pause by default
   useEffect(() => {

@@ -50,6 +50,11 @@ export interface GradientConfig {
     frequency: number;
     speed: number;
   };
+  oklabEnabled?: boolean;
+  toneMapMode?: number;
+  ripple?: { enabled: boolean; intensity: number };
+  glow?: { enabled: boolean; intensity: number; radius: number };
+  caustic?: { enabled: boolean; intensity: number };
 }
 
 export interface GradientHandle {

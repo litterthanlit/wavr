@@ -52,6 +52,15 @@ export interface EngineState {
   meshDisplacement: number;
   meshFrequency: number;
   meshSpeed: number;
+  oklabEnabled: boolean;
+  toneMapMode: number;
+  rippleEnabled: boolean;
+  rippleIntensity: number;
+  glowEnabled: boolean;
+  glowIntensity: number;
+  glowRadius: number;
+  causticEnabled: boolean;
+  causticIntensity: number;
   playing: boolean;
   customGLSL: string | null;
 }
@@ -73,6 +82,13 @@ export class GradientEngine {
   private mouseVelY = 0;
   private prevSmoothX = 0.5;
   private prevSmoothY = 0.5;
+  // Click ripple state
+  private rippleOriginX = 0;
+  private rippleOriginY = 0;
+  private rippleStartTime = -10;
+  // Spring mouse velocity (separate from smoothed velocity for physics)
+  private springVelX = 0;
+  private springVelY = 0;
   // 3D rotation accumulator
   private rotationAngle = 0;
   private speedMultiplier = 1.0;
@@ -259,6 +275,12 @@ export class GradientEngine {
       "u_3dRotationSpeed", "u_3dRotation", "u_3dZoom", "u_3dLighting",
       // Phase 7: Mesh Distortion
       "u_meshEnabled", "u_meshDisplacement", "u_meshFrequency", "u_meshSpeed", "u_mvp",
+      // Phase 11: Shader Quality
+      "u_oklabEnabled", "u_toneMapMode",
+      // Phase 11 Week 2: Ripple, Glow, Caustics
+      "u_rippleOrigin", "u_rippleTime", "u_rippleEnabled", "u_rippleIntensity",
+      "u_glowEnabled", "u_glowIntensity", "u_glowRadius",
+      "u_causticEnabled", "u_causticIntensity",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -273,6 +295,12 @@ export class GradientEngine {
   setMouse(x: number, y: number) {
     this.mouseX = x;
     this.mouseY = y;
+  }
+
+  triggerRipple(x: number, y: number) {
+    this.rippleOriginX = x;
+    this.rippleOriginY = y;
+    this.rippleStartTime = this.elapsedTime;
   }
 
   setElapsedTime(t: number) {
@@ -656,6 +684,22 @@ export class GradientEngine {
       const elevation = (this.smoothMouseY - 0.5) * 1.5;
       this.set2f("u_3dRotation", azimuth, elevation);
     }
+    // Shader quality
+    this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
+    this.seti("u_toneMapMode", isBaseLayer ? state.toneMapMode : 1);
+    // Ripple
+    const rippleTime = this.elapsedTime - this.rippleStartTime;
+    this.setf("u_rippleEnabled", isBaseLayer && state.rippleEnabled && rippleTime < 2.0 ? 1.0 : 0.0);
+    this.set2f("u_rippleOrigin", this.rippleOriginX, this.rippleOriginY);
+    this.setf("u_rippleTime", rippleTime);
+    this.setf("u_rippleIntensity", state.rippleIntensity);
+    // Soft glow
+    this.seti("u_glowEnabled", isBaseLayer && state.glowEnabled ? 1 : 0);
+    this.setf("u_glowIntensity", state.glowIntensity);
+    this.setf("u_glowRadius", state.glowRadius);
+    // Caustics
+    this.seti("u_causticEnabled", isBaseLayer && state.causticEnabled ? 1 : 0);
+    this.setf("u_causticIntensity", state.causticIntensity);
     // Mesh Distortion
     this.seti("u_meshEnabled", state.meshDistortionEnabled ? 1 : 0);
     this.setf("u_meshDisplacement", state.meshDisplacement);
@@ -797,18 +841,29 @@ export class GradientEngine {
       this.elapsedTime += dt * this.speedMultiplier;
       lastTime = now;
 
-      // Smooth mouse with lerp (exponential decay, frame-rate independent)
-      const lerpFactor = 1.0 - Math.exp(-8.0 * dt);
+      // Spring mouse physics (stiffness=120, damping=12 for overshoot + settle)
+      const springDt = Math.min(dt, 0.033); // cap at ~30fps equivalent
+      const stiffness = 120;
+      const damping = 12;
+
+      const dx = this.mouseX - this.smoothMouseX;
+      const dy = this.mouseY - this.smoothMouseY;
+
+      this.springVelX += (dx * stiffness - this.springVelX * damping) * springDt;
+      this.springVelY += (dy * stiffness - this.springVelY * damping) * springDt;
+
       this.prevSmoothX = this.smoothMouseX;
       this.prevSmoothY = this.smoothMouseY;
-      this.smoothMouseX += (this.mouseX - this.smoothMouseX) * lerpFactor;
-      this.smoothMouseY += (this.mouseY - this.smoothMouseY) * lerpFactor;
+      this.smoothMouseX += this.springVelX * springDt;
+      this.smoothMouseY += this.springVelY * springDt;
 
-      if (dt > 0) {
-        const rawVelX = (this.smoothMouseX - this.prevSmoothX) / dt;
-        const rawVelY = (this.smoothMouseY - this.prevSmoothY) / dt;
-        this.mouseVelX += (rawVelX - this.mouseVelX) * lerpFactor;
-        this.mouseVelY += (rawVelY - this.mouseVelY) * lerpFactor;
+      // Derive mouse velocity for shader (smoothed from spring motion)
+      if (springDt > 0) {
+        const rawVelX = (this.smoothMouseX - this.prevSmoothX) / springDt;
+        const rawVelY = (this.smoothMouseY - this.prevSmoothY) / springDt;
+        const velLerp = 1.0 - Math.exp(-8.0 * springDt);
+        this.mouseVelX += (rawVelX - this.mouseVelX) * velLerp;
+        this.mouseVelY += (rawVelY - this.mouseVelY) * velLerp;
       }
 
       // Accumulate 3D auto-rotation

@@ -67,11 +67,13 @@ Wavr is an interactive animated gradient editor (like Unicorn Studio) built with
 
 ## Tech Stack
 
+- **pnpm monorepo** with Turborepo
 - **Next.js 16** (App Router, TypeScript, Turbopack)
 - **WebGL 2** with raw GLSL shaders (NO Three.js)
-- **Zustand** for state management
+- **Zustand** for state management (editor only)
 - **Tailwind CSS** for styling
 - **LiftKit** (@chainlift/liftkit) for Material Design 3 theme tokens
+- **tsup** for package builds
 - **Vercel** for deployment
 
 ---
@@ -88,55 +90,69 @@ Wavr is an interactive animated gradient editor (like Unicorn Studio) built with
 
 ---
 
-## File Map
+## Project Structure
 
 ```
-app/
-  page.tsx              — Landing page (/)
-  editor/page.tsx       — Editor (/editor), wires Canvas↔Sidebar via engineRef
-  layout.tsx            — Root layout with fonts + OG metadata
-  globals.css           — Tailwind + LiftKit theme tokens (light/dark)
-  sitemap.ts, robots.ts — SEO
+wavr/                         — pnpm monorepo root
+  apps/editor/                — Next.js gradient editor app
+    app/
+      page.tsx                — Landing page (/)
+      editor/page.tsx         — Editor (/editor), wires Canvas↔Sidebar via engineRef
+      layout.tsx              — Root layout with fonts + OG metadata
+      globals.css             — Tailwind + LiftKit theme tokens (light/dark)
+      sitemap.ts, robots.ts   — SEO
+    components/
+      Canvas.tsx              — WebGL canvas, render loop, perf guards, context recovery, text mask rendering
+      TopBar.tsx              — Logo, undo/redo, share, projects, export buttons
+      Sidebar.tsx             — Layer panel + 4 tabbed panels (Gradient/Effects/Presets/Code)
+      LayerPanel.tsx          — Layer stack with visibility/opacity/blend controls
+      GradientPanel.tsx       — Type select (9 types), colors, params, image upload, mask, text mask controls
+      EffectsPanel.tsx        — All effect toggles + sliders
+      PresetsPanel.tsx        — Grouped/collapsible preset panel (32 presets, 7 categories)
+      CustomGLSLPanel.tsx     — Custom GLSL editor textarea, compile status, reset, reference docs
+      Timeline.tsx            — Keyframe timeline bar
+      ExportModal.tsx         — PNG/CSS/WebM/GIF/React/WebComponent/Embed/EmbedWidget export
+      ProjectsModal.tsx       — Save/load projects
+      ShortcutsModal.tsx      — Keyboard shortcuts overlay
+      Onboarding.tsx          — First-time walkthrough
+      MobileDrawer.tsx        — Bottom drawer for mobile
+      ui/                     — Slider, Toggle, ColorInput, Select, Toast
+    lib/
+      store.ts                — Zustand store (all state + actions + undo/redo + customGLSL)
+      audio.ts                — Audio input + FFT analysis
+      export.ts               — PNG/CSS/WebM/GIF/embed/embed-widget export functions
+      presets/                 — Preset definitions (split by category)
+      projects.ts             — localStorage project persistence
+      timeline.ts             — Keyframe interpolation logic
+      types.ts                — Shared types (SidebarTab = gradient | effects | presets | code)
+      url.ts                  — URL state encoding/decoding
+      useTheme.ts             — Theme hook (system detection + manual toggle)
 
-components/
-  Canvas.tsx            — WebGL canvas, render loop, perf guards, context recovery, text mask rendering
-  TopBar.tsx            — Logo, undo/redo, share, projects, export buttons
-  Sidebar.tsx           — Layer panel + 4 tabbed panels (Gradient/Effects/Presets/Code)
-  LayerPanel.tsx        — Layer stack with visibility/opacity/blend controls
-  GradientPanel.tsx     — Type select (9 types), colors, params, image upload, mask, text mask controls
-  EffectsPanel.tsx      — All effect toggles + sliders
-  PresetsPanel.tsx      — Grouped/collapsible preset panel (32 presets, 7 categories)
-  CustomGLSLPanel.tsx   — Custom GLSL editor textarea, compile status, reset, reference docs
-  Timeline.tsx          — Keyframe timeline bar
-  ExportModal.tsx       — PNG/CSS/WebM/GIF/React/WebComponent/Embed/EmbedWidget export
-  ProjectsModal.tsx     — Save/load projects
-  ShortcutsModal.tsx    — Keyboard shortcuts overlay
-  Onboarding.tsx        — First-time walkthrough
-  MobileDrawer.tsx      — Bottom drawer for mobile
-  ui/                   — Slider, Toggle, ColorInput, Select, Toast
+  packages/core/              — @wavr/core (internal, not published)
+    src/
+      engine.ts               — WebGL engine (compile, render, multi-layer, mouse physics, custom shader)
+      layers.ts               — Layer type definitions + factory (9 gradient types, mask params, text mask)
+      config.ts               — GradientConfig ↔ GradientState bridge (resolveConfig, stateToConfig)
+      types.ts                — Public types (GradientConfig, etc.)
+      create.ts               — createGradient() factory for npm package consumers
+      math.ts                 — Minimal mat4 utilities for MVP computation (~80 lines)
+      presets/                 — Preset configs (shared between editor + npm package)
+      shaders/
+        vertex.glsl           — Fullscreen quad + mesh distortion vertex shader
+        fragment.glsl         — Main fragment shader (~1280 lines, 9 modes + effects + masks + 3D + custom GLSL)
 
-lib/
-  store.ts              — Zustand store (all state + actions + undo/redo + customGLSL)
-  engine.ts             — WebGL engine (compile, render, multi-layer, mouse physics, text mask texture, custom shader)
-  layers.ts             — Layer type definitions + factory (9 gradient types, mask params, text mask params)
-  timeline.ts           — Keyframe interpolation logic
-  presets.ts            — 32 preset definitions across 7 categories
-  export.ts             — PNG/CSS/WebM/GIF/embed/embed-widget export functions
-  projects.ts           — localStorage project persistence
-  url.ts                — URL state encoding/decoding
-  audio.ts              — Audio input + FFT analysis
-  useTheme.ts           — Theme hook (system detection + manual toggle)
-  types.ts              — Shared types (SidebarTab = gradient | effects | presets | code)
-  shaders/
-    vertex.glsl         — Fullscreen quad vertex shader
-    fragment.glsl       — Main fragment shader (~1100 lines, 9 modes + effects + masks + custom GLSL)
+  packages/react/             — @wavr/gradient (published npm package)
+    src/
+      WavrGradient.tsx        — React component wrapping the core engine
 ```
 
 ---
 
 ## What's Next — See ROADMAP.md
 
-1. **Phase 10: Community & Distribution** — gallery, npm package, Figma/Framer plugin
+- **Phase 10.1: Community Gallery** — browse/fork/remix public gradients (needs backend)
+- **Phase 10.3: Figma/Framer Plugin** — export gradients as Figma fills or Framer components
+- **Shader quality uplift** — close the visual gap with Unicorn Studio (Oklab color blending, improved noise/flow, better mouse feel, refined post-processing)
 
 ---
 
@@ -150,12 +166,13 @@ Read these docs first:
 - ROADMAP.md — full feature roadmap with priorities
 - .context/HANDOFF.md — what's built, file map, architecture decisions
 
-Start Phase 10: Community & Distribution. The goal is to add a community
-gallery for sharing/remixing gradients, publish an npm package
-(@wavr/gradient), and build Figma/Framer plugins.
+The monorepo structure is:
+  apps/editor/    — Next.js editor app
+  packages/core/  — @wavr/core (engine, shaders, types, presets) — internal
+  packages/react/ — @wavr/gradient (published React component)
 
-Key constraint: This requires a backend for the first time (community
-gallery needs persistence). The editor itself remains client-only.
+Key constraint: Raw WebGL 2 only (no Three.js). Single fragment shader,
+all params via uniforms. Don't recompile shaders on param change.
 ```
 
 ---

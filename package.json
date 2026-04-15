@@ -1,6 +1,7 @@
 {
   "name": "wavr",
   "private": true,
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "turbo dev --filter=editor",
     "build": "turbo build",
