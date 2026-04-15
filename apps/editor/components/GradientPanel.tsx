@@ -17,6 +17,7 @@ const GRADIENT_OPTIONS = [
   { value: "dither", label: "Dither" },
   { value: "scanline", label: "Scanline" },
   { value: "glitch", label: "Glitch" },
+  { value: "voronoi", label: "Voronoi" },
   { value: "image", label: "Image" },
 ];
 

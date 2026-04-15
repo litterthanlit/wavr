@@ -54,6 +54,9 @@ export interface GradientState {
   glowRadius: number;
   causticEnabled: boolean;
   causticIntensity: number;
+  liquifyEnabled: boolean;
+  liquifyIntensity: number;
+  liquifyScale: number;
 
   // Audio reactivity
   audioEnabled: boolean;
@@ -267,6 +270,9 @@ const DEFAULTS = {
   glowRadius: 0.05,
   causticEnabled: false,
   causticIntensity: 0.5,
+  liquifyEnabled: false,
+  liquifyIntensity: 0.3,
+  liquifyScale: 2.0,
   audioEnabled: false,
   audioSource: "mic" as const,
   audioBassTarget: "distortion",
@@ -441,7 +447,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       const hue = (baseHue + i * (360 / count) + (Math.random() - 0.5) * 30) % 360;
       colors.push(hslToRgb(hue, 0.6 + Math.random() * 0.4, 0.4 + Math.random() * 0.3));
     }
-    const types: LayerParams["gradientType"][] = ["mesh", "radial", "linear", "conic", "plasma", "dither", "scanline", "glitch"];
+    const types: LayerParams["gradientType"][] = ["mesh", "radial", "linear", "conic", "plasma", "dither", "scanline", "glitch", "voronoi"];
     const gradientType = types[Math.floor(Math.random() * types.length)];
     const speed = 0.2 + Math.random() * 0.8;
     const complexity = 2 + Math.floor(Math.random() * 4);

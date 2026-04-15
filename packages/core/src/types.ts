@@ -55,6 +55,7 @@ export interface GradientConfig {
   ripple?: { enabled: boolean; intensity: number };
   glow?: { enabled: boolean; intensity: number; radius: number };
   caustic?: { enabled: boolean; intensity: number };
+  liquify?: { enabled: boolean; intensity: number; scale: number };
 }
 
 export interface GradientHandle {

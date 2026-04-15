@@ -61,6 +61,9 @@ export interface EngineState {
   glowRadius: number;
   causticEnabled: boolean;
   causticIntensity: number;
+  liquifyEnabled: boolean;
+  liquifyIntensity: number;
+  liquifyScale: number;
   playing: boolean;
   customGLSL: string | null;
 }
@@ -281,6 +284,7 @@ export class GradientEngine {
       "u_rippleOrigin", "u_rippleTime", "u_rippleEnabled", "u_rippleIntensity",
       "u_glowEnabled", "u_glowIntensity", "u_glowRadius",
       "u_causticEnabled", "u_causticIntensity",
+      "u_liquifyEnabled", "u_liquifyIntensity", "u_liquifyScale",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -526,7 +530,7 @@ export class GradientEngine {
     const gl = this.gl;
     const typeMap: Record<string, number> = {
       mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4,
-      dither: 5, scanline: 6, glitch: 7, image: 8,
+      dither: 5, scanline: 6, glitch: 7, image: 8, voronoi: 9,
     };
     this.seti("u_gradientType", typeMap[layer.gradientType]);
     this.setf("u_speed", layer.speed);
@@ -700,6 +704,10 @@ export class GradientEngine {
     // Caustics
     this.seti("u_causticEnabled", isBaseLayer && state.causticEnabled ? 1 : 0);
     this.setf("u_causticIntensity", state.causticIntensity);
+    // Liquify
+    this.seti("u_liquifyEnabled", isBaseLayer && state.liquifyEnabled ? 1 : 0);
+    this.setf("u_liquifyIntensity", state.liquifyIntensity);
+    this.setf("u_liquifyScale", state.liquifyScale);
     // Mesh Distortion
     this.seti("u_meshEnabled", state.meshDistortionEnabled ? 1 : 0);
     this.setf("u_meshDisplacement", state.meshDisplacement);

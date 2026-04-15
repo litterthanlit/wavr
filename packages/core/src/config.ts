@@ -89,6 +89,9 @@ export function resolveConfig(config: GradientConfig): EngineState {
     glowRadius: config.glow?.radius ?? 0.05,
     causticEnabled: config.caustic?.enabled ?? false,
     causticIntensity: config.caustic?.intensity ?? 0.5,
+    liquifyEnabled: config.liquify?.enabled ?? false,
+    liquifyIntensity: config.liquify?.intensity ?? 0.3,
+    liquifyScale: config.liquify?.scale ?? 2.0,
     playing: true,
     customGLSL: null,
   };

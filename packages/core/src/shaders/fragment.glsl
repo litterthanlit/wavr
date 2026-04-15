@@ -118,6 +118,11 @@ uniform float u_glowRadius;
 uniform bool u_causticEnabled;
 uniform float u_causticIntensity;
 
+// Phase 11 Week 3: Voronoi, Liquify
+uniform bool u_liquifyEnabled;
+uniform float u_liquifyIntensity;
+uniform float u_liquifyScale;
+
 // Parallax depth (Phase 7)
 uniform bool u_parallaxEnabled;
 uniform float u_parallaxStrength;
@@ -669,6 +674,77 @@ vec2 curlNoise(vec2 p, float time) {
 }
 
 // ============================================================
+// Voronoi / Worley Noise
+// ============================================================
+
+vec2 hash22(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.xx + p3.yz) * p3.zy);
+}
+
+vec2 voronoi(vec2 p) {
+  vec2 n = floor(p);
+  vec2 f = fract(p);
+
+  float md = 8.0;
+  vec2 mr;
+
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 o = hash22(n + g);
+      vec2 r = g + o - f;
+      float d = dot(r, r);
+      if (d < md) {
+        md = d;
+        mr = r;
+      }
+    }
+  }
+  return vec2(sqrt(md), dot(mr, normalize(mr)));
+}
+
+vec3 voronoiGradient(vec2 uv, float time) {
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = fluidDisplace(p, u_mouseReact);
+  }
+  p *= u_scale * 4.0;
+
+  // Animate cell positions
+  vec2 v = voronoi(p + time * 0.2);
+  float cellDist = v.x;
+  float cellEdge = v.y;
+
+  // Add fbm warp for organic feel
+  float warp = fbm(p * 0.5 + time * 0.1, int(u_complexity)) * u_distortion;
+  cellDist += warp * 0.3;
+
+  // Map distance to color
+  float colorVal = fract(cellDist + cellEdge * 0.5);
+  return getGradientColor(colorVal);
+}
+
+// ============================================================
+// Liquify Distortion
+// ============================================================
+
+vec2 liquify(vec2 uv, float time, float intensity) {
+  vec2 warp = uv;
+  for (int i = 0; i < 3; i++) {
+    float scale = u_liquifyScale + float(i) * 1.5;
+    float speed = 0.1 + float(i) * 0.05;
+    vec2 offset = vec2(
+      snoise(warp * scale + vec2(time * speed, 0.0)),
+      snoise(warp * scale + vec2(100.0, time * speed + 50.0))
+    );
+    warp += offset * intensity * (0.5 / float(i + 1));
+  }
+  return warp;
+}
+
+// ============================================================
 // Tone Mapping
 // ============================================================
 
@@ -1108,6 +1184,7 @@ vec3 computeGradient(vec2 uv, float time) {
   else if (u_gradientType == 5) return ditherGradient(uv, time);
   else if (u_gradientType == 6) return scanlineGradient(uv, time);
   else if (u_gradientType == 7) return glitchGradient(uv, time);
+  else if (u_gradientType == 9) return voronoiGradient(uv, time);
   else return imageGradient(uv, time);
 }
 
@@ -1136,6 +1213,11 @@ void main() {
   if (u_curlEnabled) {
     vec2 curl = curlNoise(uv * u_curlScale * 3.0, time);
     uv += curl * u_curlIntensity * 0.1;
+  }
+
+  // Liquify distortion (multi-octave organic fluid warping)
+  if (u_liquifyEnabled) {
+    uv = liquify(uv, time, u_liquifyIntensity);
   }
 
   // Kaleidoscope (radial mirror symmetry)

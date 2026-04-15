@@ -35,7 +35,7 @@ export const DEFAULT_MASK: MaskParams = {
 };
 
 export interface LayerParams {
-  gradientType: "mesh" | "radial" | "linear" | "conic" | "plasma" | "dither" | "scanline" | "glitch" | "image";
+  gradientType: "mesh" | "radial" | "linear" | "conic" | "plasma" | "dither" | "scanline" | "glitch" | "image" | "voronoi";
   speed: number;
   complexity: number;
   scale: number;
