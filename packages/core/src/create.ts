@@ -1,6 +1,7 @@
 import { GradientEngine } from "./engine";
-import { GradientConfig, GradientHandle, CreateGradientOptions } from "./types";
+import { GradientConfig, GradientHandle, CreateGradientOptions, AnimateOptions } from "./types";
 import { resolveConfig } from "./config";
+import { TweenManager } from "./animate";
 
 export function createGradient(
   canvas: HTMLCanvasElement,
@@ -12,6 +13,11 @@ export function createGradient(
   let destroyed = false;
 
   const engine = new GradientEngine(canvas);
+  const tweenManager = new TweenManager();
+
+  // Timeline progress support
+  let timelineDuration = 10; // default timeline length in seconds
+  let timelineMode = false;
 
   // Context loss handling
   canvas.addEventListener("webglcontextlost", (e) => {
@@ -24,13 +30,21 @@ export function createGradient(
     engine.initProgram();
   });
 
-  // Start render loop
-  engine.startLoop(() => state);
+  // Start render loop with tween tick
+  engine.startLoop(() => {
+    // Tick active animations
+    const tweenUpdate = tweenManager.tick(currentConfig);
+    if (tweenUpdate) {
+      currentConfig = { ...currentConfig, ...tweenUpdate };
+      if (tweenUpdate.layers) currentConfig.layers = tweenUpdate.layers;
+      state = resolveConfig(currentConfig);
+    }
+    return state;
+  });
 
   const handle: GradientHandle = {
     update(partial: Partial<GradientConfig>) {
       if (destroyed) return;
-      // Merge config — layers replace entirely if provided
       currentConfig = { ...currentConfig, ...partial };
       if (partial.layers) currentConfig.layers = partial.layers;
       state = resolveConfig(currentConfig);
@@ -38,6 +52,7 @@ export function createGradient(
 
     play() {
       if (destroyed) return;
+      timelineMode = false;
       state = { ...state, playing: true };
     },
 
@@ -61,6 +76,18 @@ export function createGradient(
       engine.setSpeedMultiplier(multiplier);
     },
 
+    setTimelineProgress(t: number) {
+      if (destroyed) return;
+      // t is 0-1 normalized, maps to elapsed time
+      const clamped = Math.max(0, Math.min(1, t));
+      engine.setElapsedTime(clamped * timelineDuration);
+    },
+
+    animateTo(targetConfig: Partial<GradientConfig>, animOptions: AnimateOptions) {
+      if (destroyed) return;
+      tweenManager.animateTo(currentConfig, targetConfig, animOptions);
+    },
+
     resize(width: number, height: number) {
       if (destroyed) return;
       engine.resize(width, height);
@@ -69,6 +96,7 @@ export function createGradient(
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      tweenManager.cancel();
       engine.stopLoop();
       engine.destroy();
     },
