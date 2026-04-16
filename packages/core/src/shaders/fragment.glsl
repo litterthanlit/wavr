@@ -1320,10 +1320,23 @@ void main() {
     }
   }
 
-  // Noise overlay
+  // Noise overlay — Photoshop-style: fine grain texture that multiplies over the image
   if (u_noiseEnabled) {
-    float n = snoise(uv * u_noiseScale * 10.0 + time * 0.5) * 0.5 + 0.5;
-    color = mix(color, color * (0.5 + n), u_noiseIntensity);
+    vec2 np = uv * u_noiseScale * 60.0;
+    // 4-octave fBm for natural organic texture
+    float n = snoise(np + time * 0.15) * 0.5;
+    n += snoise(np * 2.17 - time * 0.1) * 0.25;
+    n += snoise(np * 4.31 + time * 0.2) * 0.125;
+    n += snoise(np * 8.53) * 0.0625;
+    n = n * 0.533 + 0.5; // normalize 0-1
+    // Soft light blend (Photoshop formula): preserves color, adds texture
+    vec3 noiseColor = vec3(n);
+    vec3 softLight = mix(
+      2.0 * color * noiseColor + color * color * (1.0 - 2.0 * noiseColor),
+      2.0 * color * (1.0 - noiseColor) + sqrt(color) * (2.0 * noiseColor - 1.0),
+      step(0.5, noiseColor)
+    );
+    color = mix(color, softLight, u_noiseIntensity);
   }
 
   // Reaction-diffusion pattern overlay (Turing-like patterns)
@@ -1346,14 +1359,16 @@ void main() {
     color = mix(color, rdColor, u_reactionDiffIntensity);
   }
 
-  // Chromatic aberration (splits R/B channels of the composed gradient)
+  // Chromatic aberration — lens-style radial fringing, stronger at edges
   if (u_chromaticAberration > 0.001) {
     vec2 center = vec2(0.5);
     vec2 dir = uv - center;
-    float caOffset = u_chromaticAberration * 0.01;
+    float edgeDist = length(dir); // stronger toward edges like a real lens
+    float caOffset = u_chromaticAberration * 0.012 * (0.5 + edgeDist);
     vec3 cR = computeGradient(uv + dir * caOffset, time);
+    vec3 cG = computeGradient(uv + dir * caOffset * 0.5, time);
     vec3 cB = computeGradient(uv - dir * caOffset, time);
-    color = vec3(cR.r, color.g, cB.b);
+    color = vec3(cR.r, cG.g, cB.b);
   }
 
   // Hue shift
@@ -1367,22 +1382,24 @@ void main() {
   // Brightness
   color *= u_brightness;
 
-  // Bloom (24-sample radial kernel: 8 angles × 3 radii, weighted by luminance)
+  // Bloom — multi-radius gaussian-weighted glow on bright areas
   if (u_bloomEnabled) {
     vec3 bloomSum = vec3(0.0);
     float totalWeight = 0.0;
-    float bloomRadius = 0.02 * u_bloomIntensity;
-    vec2 texelSize = 1.0 / u_resolution;
+    // Gaussian weights for 4 radii
+    float weights[4] = float[](0.4, 0.3, 0.2, 0.1);
+    float radii[4] = float[](0.005, 0.012, 0.025, 0.045);
 
     for (int a = 0; a < 8; a++) {
-      float angle = float(a) * 0.785398; // 2π/8
+      float angle = float(a) * 0.785398;
       vec2 dir = vec2(cos(angle), sin(angle));
-      for (int r = 1; r <= 3; r++) {
-        float radius = float(r) * bloomRadius;
-        vec2 offset = dir * radius;
+      for (int r = 0; r < 4; r++) {
+        vec2 offset = dir * radii[r] * u_bloomIntensity;
         vec3 s = computeGradient(uv + offset, time);
         float lum = dot(s, vec3(0.2126, 0.7152, 0.0722));
-        float w = max(lum - 0.5, 0.0) / float(r);
+        // Soft knee threshold — gradual onset instead of hard cutoff
+        float knee = smoothstep(0.35, 0.75, lum);
+        float w = knee * weights[r];
         bloomSum += s * w;
         totalWeight += w;
       }
@@ -1390,25 +1407,30 @@ void main() {
 
     if (totalWeight > 0.0) {
       bloomSum /= totalWeight;
-      color += bloomSum * u_bloomIntensity;
+      // Screen blend (Photoshop): brighter areas glow without clipping
+      color = 1.0 - (1.0 - color) * (1.0 - bloomSum * u_bloomIntensity * 0.8);
     }
   }
 
-  // Soft glow (distinct from bloom — atmospheric haze via spiral sampling)
+  // Soft glow — Orton effect: dreamy highlight diffusion
   if (u_glowEnabled) {
     vec3 glow = vec3(0.0);
     float total = 0.0;
     for (int i = 0; i < 16; i++) {
-      float angle = float(i) * 2.399; // golden angle
-      float radius = sqrt(float(i) / 16.0) * u_glowRadius;
-      vec2 offset = vec2(cos(angle), sin(angle)) * radius;
+      float angle = float(i) * 2.399; // golden angle spiral
+      float r = sqrt(float(i + 1) / 17.0) * u_glowRadius;
+      vec2 offset = vec2(cos(angle), sin(angle)) * r;
       vec3 s = computeGradient(uv + offset, time);
-      float w = 1.0 - radius / u_glowRadius;
+      // Weight by luminance — only bright areas glow
+      float lum = dot(s, vec3(0.2126, 0.7152, 0.0722));
+      float w = lum * (1.0 - r / u_glowRadius);
       glow += s * w;
       total += w;
     }
-    glow /= total;
-    color = mix(color, glow, u_glowIntensity * 0.5);
+    if (total > 0.0) glow /= total;
+    // Screen blend for the glow layer
+    vec3 glowed = 1.0 - (1.0 - color) * (1.0 - glow * u_glowIntensity * 0.6);
+    color = glowed;
   }
 
   // Caustics (water light refraction overlay)
@@ -1434,10 +1456,13 @@ void main() {
     color += ripple * u_rippleIntensity * 0.3;
   }
 
-  // Vignette
+  // Vignette — natural lens falloff with elliptical shape
   if (u_vignette > 0.0) {
-    float vig = length(uv - 0.5) * 1.414;
-    vig = smoothstep(0.5, 1.2, vig);
+    vec2 vigUV = uv - 0.5;
+    vigUV.x *= u_resolution.x / u_resolution.y; // aspect-correct
+    float vig = length(vigUV) * 1.2;
+    vig = vig * vig; // quadratic falloff like real optics
+    vig = smoothstep(0.3, 1.0, vig);
     color *= 1.0 - vig * u_vignette;
   }
 
@@ -1466,10 +1491,22 @@ void main() {
     color = mix(color, max(color, feedback), u_feedbackDecay);
   }
 
-  // Film grain (interleaved gradient noise — Valve technique)
+  // Film grain — photographic: chroma + luma noise, exposure-responsive
   if (u_grain > 0.0) {
-    float grainNoise = interleavedGradientNoise(gl_FragCoord.xy + fract(u_time * 100.0) * vec2(47.0, 17.0)) * 2.0 - 1.0;
-    color += grainNoise * u_grain * 0.15;
+    vec2 grainCoord = gl_FragCoord.xy;
+    vec2 timeJitter = fract(u_time * vec2(43.0, 29.0));
+    // Luma noise (fine grain)
+    float lumaGrain = interleavedGradientNoise(grainCoord + timeJitter * 47.0) * 2.0 - 1.0;
+    // Chroma noise (subtle color shift — like real film)
+    float chromaR = interleavedGradientNoise(grainCoord + timeJitter * 23.0 + vec2(100.0, 0.0)) * 2.0 - 1.0;
+    float chromaB = interleavedGradientNoise(grainCoord + timeJitter * 37.0 + vec2(0.0, 100.0)) * 2.0 - 1.0;
+    // Exposure-dependent: more grain in shadows (like real high-ISO)
+    float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    float shadowGrain = mix(1.2, 0.4, smoothstep(0.0, 0.5, lum));
+    float amount = u_grain * 0.05 * shadowGrain;
+    color.r += (lumaGrain + chromaR * 0.3) * amount;
+    color.g += lumaGrain * amount;
+    color.b += (lumaGrain + chromaB * 0.3) * amount;
   }
 
   // Tone mapping

@@ -147,9 +147,7 @@ function ImageUpload({
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
-      {children}
-    </span>
+    <span className="section-title">{children}</span>
   );
 }
 

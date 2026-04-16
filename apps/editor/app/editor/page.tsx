@@ -99,7 +99,8 @@ export default function EditorPage() {
   }, []);
 
   return (
-    <div className="h-screen w-screen bg-root flex flex-col">
+    <div className="h-screen w-screen bg-root flex items-center justify-center">
+    <div className="h-[90vh] w-[90vw] flex flex-col rounded-xl overflow-hidden border border-border shadow-2xl">
       <TopBar
         onExport={() => setExportOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
@@ -130,6 +131,7 @@ export default function EditorPage() {
       />
       <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
       <Onboarding />
+    </div>
     </div>
   );
 }

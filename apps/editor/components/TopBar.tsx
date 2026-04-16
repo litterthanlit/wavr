@@ -11,13 +11,6 @@ interface TopBarProps {
   onProjects: () => void;
 }
 
-function Divider() {
-  return <div className="w-px h-5 bg-border mx-1" />;
-}
-
-const btn = "px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated border border-border rounded-md transition-all duration-150";
-const btnDisabled = "disabled:opacity-30 disabled:pointer-events-none";
-
 export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBarProps) {
   const store = useGradientStore();
   const { playing, randomize, set, undo, redo } = store;
@@ -27,32 +20,32 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBar
   const themeLabel = theme === "system" ? "Auto" : theme === "light" ? "Light" : "Dark";
 
   return (
-    <header className="h-[52px] shrink-0 border-b border-border bg-base/70 backdrop-blur-[20px] flex items-center justify-between px-4 z-10">
+    <header className="topbar">
       {/* Left: Logo + History */}
       <div className="flex items-center gap-2">
-        <span className="font-mono text-sm font-bold text-text-primary tracking-wider mr-1">WAVR</span>
-        <Divider />
-        <button onClick={undo} disabled={!canUndo()} aria-label="Undo" className={`px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated border border-border rounded-md transition-all duration-150 ${btnDisabled}`}>
+        <span className="font-mono text-[13px] font-bold text-text-primary tracking-[0.15em] mr-1">WAVR</span>
+        <div className="topbar-divider" />
+        <button onClick={undo} disabled={!canUndo()} aria-label="Undo" className="topbar-btn">
           &#8592;
         </button>
-        <button onClick={redo} disabled={!canRedo()} aria-label="Redo" className={`px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface hover:bg-elevated border border-border rounded-md transition-all duration-150 ${btnDisabled}`}>
+        <button onClick={redo} disabled={!canRedo()} aria-label="Redo" className="topbar-btn">
           &#8594;
         </button>
       </div>
 
       {/* Center: Playback + Utils */}
       <div className="flex items-center gap-2">
-        <button onClick={randomize} className={btn}>
+        <button onClick={randomize} className="topbar-btn">
           Randomize
         </button>
-        <button onClick={() => set({ playing: !playing })} className={`${btn} w-16`}>
+        <button onClick={() => set({ playing: !playing })} className="topbar-btn" style={{ minWidth: 56 }}>
           {playing ? "Pause" : "Play"}
         </button>
-        <Divider />
-        <button onClick={onShowShortcuts} aria-label="Keyboard shortcuts" className={`px-2 py-1.5 text-xs text-text-tertiary hover:text-text-primary bg-surface hover:bg-elevated border border-border rounded-md transition-all duration-150`}>
+        <div className="topbar-divider" />
+        <button onClick={onShowShortcuts} aria-label="Keyboard shortcuts" className="topbar-btn">
           ?
         </button>
-        <button onClick={cycleTheme} aria-label={`Theme: ${themeLabel}`} className={btn}>
+        <button onClick={cycleTheme} aria-label={`Theme: ${themeLabel}`} className="topbar-btn">
           {themeLabel}
         </button>
       </div>
@@ -65,18 +58,15 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBar
             setLinkCopied(true);
             setTimeout(() => setLinkCopied(false), 2000);
           }}
-          className={btn}
+          className="topbar-btn"
         >
           {linkCopied ? "Copied!" : "Share"}
         </button>
-        <button onClick={onProjects} className={btn}>
+        <button onClick={onProjects} className="topbar-btn">
           Projects
         </button>
-        <Divider />
-        <button
-          onClick={onExport}
-          className="px-3 py-1.5 text-xs text-white bg-accent hover:bg-accent/80 rounded-md transition-all duration-150"
-        >
+        <div className="topbar-divider" />
+        <button onClick={onExport} className="topbar-btn topbar-btn-accent">
           Export
         </button>
       </div>

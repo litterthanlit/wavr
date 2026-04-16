@@ -42,16 +42,12 @@ export default function MobileDrawer({ activeTab, onTabChange }: MobileDrawerPro
             <div className="w-10 h-1 rounded-full bg-border-active" />
           </div>
 
-          <div className="flex border-b border-border shrink-0">
+          <div className="sidebar-tabs">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex-1 py-2.5 text-xs font-medium transition-colors duration-150 ${
-                  activeTab === tab.id
-                    ? "text-text-primary border-b border-accent"
-                    : "text-text-tertiary hover:text-text-secondary"
-                }`}
+                className={`sidebar-tab ${activeTab === tab.id ? "sidebar-tab-active" : ""}`}
               >
                 {tab.label}
               </button>

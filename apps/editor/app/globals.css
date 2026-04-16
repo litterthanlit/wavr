@@ -17,72 +17,121 @@
   --font-mono: "Geist Mono", monospace;
 }
 
-/* Dark theme (default, matches system dark preference) */
+/* ============================================================
+   Dark theme (default)
+   ============================================================ */
 :root {
-  --color-root-val: #000000;
-  --color-base-val: var(--lk-background, #08090a);
-  --color-surface-val: var(--lk-surfacecontainerlow, #131416);
-  --color-elevated-val: var(--lk-surfacecontainer, #1c1c1f);
+  --color-root-val: #0c0c0e;
+  --color-base-val: #111113;
+  --color-surface-val: #1a1a1e;
+  --color-elevated-val: #232327;
   --color-border-val: rgba(255, 255, 255, 0.06);
   --color-border-active-val: rgba(255, 255, 255, 0.12);
-  --color-text-primary-val: var(--lk-onsurface, #f7f8f8);
-  --color-text-secondary-val: var(--lk-onsurfacevariant, #8a8f98);
-  --color-text-tertiary-val: var(--lk-outline, #555960);
-  --color-accent-val: var(--lk-primary, #635bff);
+  --color-text-primary-val: #e8e8ec;
+  --color-text-secondary-val: #8a8f98;
+  --color-text-tertiary-val: #555960;
+  --color-accent-val: #635bff;
   --color-slider-track-val: rgba(255, 255, 255, 0.08);
+
+  /* Tick-mark slider spectrum: green → teal → blue → purple → orange → red */
+  --color-tick-inactive: rgba(255, 255, 255, 0.08);
+  --color-tick-inactive: #ffffff14;
+  --color-tick-base: #B41E14;
+
+  /* Surface glow for pill controls */
+  --color-pill-bg: #1a1a1e;
+  --color-pill-border: rgba(255, 255, 255, 0.04);
+  --color-pill-shadow: rgba(0, 0, 0, 0.5);
+
   color-scheme: dark;
 }
 
-/* Light theme via system preference */
+/* ============================================================
+   Light theme via system preference
+   ============================================================ */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --color-root-val: #f5f5f7;
-    --color-base-val: var(--lk-background, #fefbff);
-    --color-surface-val: var(--lk-surfacecontainerlow, #f2f3ff);
-    --color-elevated-val: var(--lk-surfacecontainer, #ebedfe);
-    --color-border-val: rgba(0, 0, 0, 0.08);
-    --color-border-active-val: rgba(0, 0, 0, 0.15);
-    --color-text-primary-val: var(--lk-onsurface, #171b27);
-    --color-text-secondary-val: var(--lk-onsurfacevariant, #464747);
-    --color-text-tertiary-val: var(--lk-outline, #777777);
-    --color-accent-val: var(--lk-primary, #0051e0);
-    --color-slider-track-val: rgba(0, 0, 0, 0.08);
+    --color-root-val: #f2f2f5;
+    --color-base-val: #fafafe;
+    --color-surface-val: #f0f0f4;
+    --color-elevated-val: #e6e6ec;
+    --color-border-val: rgba(0, 0, 0, 0.07);
+    --color-border-active-val: rgba(0, 0, 0, 0.14);
+    --color-text-primary-val: #18181b;
+    --color-text-secondary-val: #52525b;
+    --color-text-tertiary-val: #a1a1aa;
+    --color-accent-val: #4f46e5;
+    --color-slider-track-val: rgba(0, 0, 0, 0.06);
+
+    --color-tick-inactive: rgba(0, 0, 0, 0.07);
+    --color-tick-inactive: #00000012;
+    --color-tick-base: #A0190F;
+
+    --color-pill-bg: #eeeef2;
+    --color-pill-border: rgba(0, 0, 0, 0.06);
+    --color-pill-shadow: rgba(0, 0, 0, 0.08);
+
     color-scheme: light;
   }
 }
 
-/* Manual light theme override */
+/* Manual light override */
 [data-theme="light"] {
-  --color-root-val: #f5f5f7;
-  --color-base-val: var(--light__background_lkv, #fefbff);
-  --color-surface-val: var(--light__surfacecontainerlow_lkv, #f2f3ff);
-  --color-elevated-val: var(--light__surfacecontainer_lkv, #ebedfe);
-  --color-border-val: rgba(0, 0, 0, 0.08);
-  --color-border-active-val: rgba(0, 0, 0, 0.15);
-  --color-text-primary-val: var(--light__onsurface_lkv, #171b27);
-  --color-text-secondary-val: var(--light__onsurfacevariant_lkv, #464747);
-  --color-text-tertiary-val: var(--light__outline_lkv, #777777);
-  --color-accent-val: var(--light__primary_lkv, #0051e0);
-  --color-slider-track-val: rgba(0, 0, 0, 0.08);
+  --color-root-val: #f2f2f5;
+  --color-base-val: #fafafe;
+  --color-surface-val: #f0f0f4;
+  --color-elevated-val: #e6e6ec;
+  --color-border-val: rgba(0, 0, 0, 0.07);
+  --color-border-active-val: rgba(0, 0, 0, 0.14);
+  --color-text-primary-val: #18181b;
+  --color-text-secondary-val: #52525b;
+  --color-text-tertiary-val: #a1a1aa;
+  --color-accent-val: #4f46e5;
+  --color-slider-track-val: rgba(0, 0, 0, 0.06);
+
+  --color-tick-inactive: rgba(0, 0, 0, 0.07);
+  --color-tick-green: #16a34a;
+  --color-tick-teal: #0d9488;
+  --color-tick-blue: #2563eb;
+  --color-tick-purple: #7c3aed;
+  --color-tick-orange: #d97706;
+  --color-tick-red: #dc2626;
+
+  --color-pill-bg: #eeeef2;
+  --color-pill-border: rgba(0, 0, 0, 0.06);
+  --color-pill-shadow: rgba(0, 0, 0, 0.08);
+
   color-scheme: light;
 }
 
-/* Manual dark theme override */
+/* Manual dark override */
 [data-theme="dark"] {
-  --color-root-val: #000000;
-  --color-base-val: var(--dark__background_lkv, #08090a);
-  --color-surface-val: var(--dark__surfacecontainerlow_lkv, #131416);
-  --color-elevated-val: var(--dark__surfacecontainer_lkv, #1c1c1f);
+  --color-root-val: #0c0c0e;
+  --color-base-val: #111113;
+  --color-surface-val: #1a1a1e;
+  --color-elevated-val: #232327;
   --color-border-val: rgba(255, 255, 255, 0.06);
   --color-border-active-val: rgba(255, 255, 255, 0.12);
-  --color-text-primary-val: var(--dark__onsurface_lkv, #f7f8f8);
-  --color-text-secondary-val: var(--dark__onsurfacevariant_lkv, #8a8f98);
-  --color-text-tertiary-val: var(--dark__outline_lkv, #555960);
-  --color-accent-val: var(--dark__primary_lkv, #635bff);
+  --color-text-primary-val: #e8e8ec;
+  --color-text-secondary-val: #8a8f98;
+  --color-text-tertiary-val: #555960;
+  --color-accent-val: #635bff;
   --color-slider-track-val: rgba(255, 255, 255, 0.08);
+
+  --color-tick-inactive: rgba(255, 255, 255, 0.08);
+  --color-tick-inactive: #ffffff14;
+  --color-tick-base: #B41E14;
+
+  --color-pill-bg: #1a1a1e;
+  --color-pill-border: rgba(255, 255, 255, 0.04);
+  --color-pill-shadow: rgba(0, 0, 0, 0.5);
+
   color-scheme: dark;
 }
 
+/* ============================================================
+   Base
+   ============================================================ */
 body {
   background: var(--color-root);
   color: var(--color-text-primary);
@@ -90,32 +139,521 @@ body {
   transition: background-color 0.2s, color 0.2s;
 }
 
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-border-active);
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-tertiary);
-}
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-active); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
 
-/* Focus rings */
+/* ============================================================
+   Focus
+   ============================================================ */
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
   border-radius: 4px;
 }
 
-/* Reduced motion */
+/* ============================================================
+   Reduced motion
+   ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ============================================================
+   TICK-MARK SLIDER — signature pill control
+   ============================================================ */
+.slider-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--color-pill-bg);
+  border: 1px solid var(--color-pill-border);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 2px 8px var(--color-pill-shadow);
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  position: relative;
+  min-height: 36px;
+  transition: background 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+.slider-track-hover {
+  background: var(--color-elevated);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 4px 16px var(--color-pill-shadow);
+}
+
+.slider-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 52px;
+  transition: color 0.2s;
+}
+
+.slider-track-hover .slider-label {
+  color: var(--color-text-primary);
+}
+
+.slider-ticks {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  height: 22px;
+  position: relative;
+}
+
+.slider-tick {
+  width: 2px;
+  border-radius: 1px;
+  flex-shrink: 0;
+  transition: height 0.15s ease-out, background-color 0.15s ease-out;
+}
+
+/* Thumb cursor — positioned inside .slider-ticks */
+.slider-thumb {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: 1px;
+  background: var(--color-text-primary);
+  opacity: 0;
+  transform: translateX(-50%) scaleY(0);
+  pointer-events: none;
+  transition: opacity 0.15s ease-out,
+              transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+              left 0.05s linear,
+              background-color 0.15s ease-out;
+}
+
+.slider-thumb-visible {
+  opacity: 0.8;
+  transform: translateX(-50%) scaleY(1);
+}
+
+.slider-thumb-active {
+  opacity: 1;
+  background: #F51853;
+  box-shadow: 0 0 6px #F5185366;
+}
+
+.slider-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   TOGGLE — pill switch
+   ============================================================ */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.toggle-row:hover .toggle-label {
+  color: var(--color-text-primary);
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  transition: color 0.15s;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-on {
+  background-color: var(--color-accent);
+}
+
+.toggle-off {
+  background-color: var(--color-elevated);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   SELECT — pill dropdown
+   ============================================================ */
+.select-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.select-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.select-input {
+  background: var(--color-pill-bg);
+  border: 1px solid var(--color-pill-border);
+  border-radius: 999px;
+  padding: 8px 32px 8px 14px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  appearance: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 2px 8px var(--color-pill-shadow);
+  background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%238a8f98%22%20d%3D%22M3%204.5l3%203%203-3%22%2F%3E%3C%2Fsvg%3E');
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.select-input:hover {
+  background-color: var(--color-elevated);
+}
+
+.select-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* ============================================================
+   SECTION — collapsible panel sections
+   ============================================================ */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+
+.section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-tertiary);
+  transition: color 0.15s;
+}
+
+.section-header:hover .section-title {
+  color: var(--color-text-secondary);
+}
+
+/* ============================================================
+   SIDEBAR — refined panel
+   ============================================================ */
+.sidebar {
+  width: 340px;
+  flex-shrink: 0;
+  background: var(--color-base);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
+.sidebar-tab {
+  flex: 1;
+  padding: 12px 0 10px;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  cursor: pointer;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+.sidebar-tab:hover {
+  color: var(--color-text-secondary);
+}
+
+.sidebar-tab-active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-accent);
+}
+
+/* ============================================================
+   COLOR INPUT — Figma-style swatch + hex
+   ============================================================ */
+.color-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  background: var(--color-pill-bg);
+  border: 1px solid var(--color-pill-border);
+  border-radius: 999px;
+  transition: background 0.15s ease-out;
+}
+
+.color-input-row:hover {
+  background: var(--color-elevated);
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #ffffff18;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+.color-swatch:hover {
+  transform: scale(1.08);
+  border-color: #ffffff33;
+}
+
+.color-hex-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  letter-spacing: 0.04em;
+  outline: none;
+  min-width: 0;
+}
+
+.color-remove {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease-out, color 0.15s ease-out;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.color-input-row:hover .color-remove {
+  opacity: 1;
+}
+
+.color-remove:hover {
+  color: var(--color-text-primary);
+}
+
+/* ============================================================
+   COLOR PICKER — Figma-style popup
+   ============================================================ */
+.picker-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  margin-top: 6px;
+  width: 240px;
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px #00000040;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.picker-sv {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.picker-sv-white {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #FFFFFF, transparent);
+}
+
+.picker-sv-black {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent, #000000);
+}
+
+.picker-sv-cursor {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 0 1px #00000033, 0 2px 4px #00000033;
+  pointer-events: none;
+}
+
+.picker-hue {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(to right,
+    #FF0000, #FFFF00, #00FF00, #00FFFF, #0000FF, #FF00FF, #FF0000
+  );
+  cursor: pointer;
+  touch-action: none;
+}
+
+.picker-hue-cursor {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 0 1px #00000033, 0 2px 4px #00000033;
+  pointer-events: none;
+}
+
+.picker-hex-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.picker-hex-input {
+  flex: 1;
+  background: var(--color-pill-bg);
+  border: 1px solid var(--color-pill-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  letter-spacing: 0.04em;
+  outline: none;
+  transition: border-color 0.15s ease-out;
+}
+
+.picker-hex-input:focus {
+  border-color: var(--color-accent);
+}
+
+.picker-hex-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   TOPBAR — frosted glass header
+   ============================================================ */
+.topbar {
+  height: 48px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-base);
+  backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 10;
+}
+
+.topbar-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-pill-bg);
+  border: 1px solid var(--color-pill-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.topbar-btn:hover {
+  background: var(--color-elevated);
+  color: var(--color-text-primary);
+}
+
+.topbar-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.topbar-btn-accent {
+  color: white;
+  background: var(--color-accent);
+  border-color: transparent;
+}
+
+.topbar-btn-accent:hover {
+  opacity: 0.85;
+  background: var(--color-accent);
+}
+
+.topbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 4px;
 }

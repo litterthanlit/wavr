@@ -24,11 +24,9 @@ function Section({ title, defaultOpen = false, children }: { title: string; defa
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-between w-full py-1.5 group"
+        className="section-header w-full"
       >
-        <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary group-hover:text-text-secondary transition-colors">
-          {title}
-        </span>
+        <span className="section-title">{title}</span>
         <svg
           className={`w-3 h-3 text-text-tertiary transition-transform duration-150 ${open ? "rotate-0" : "-rotate-90"}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -36,7 +34,7 @@ function Section({ title, defaultOpen = false, children }: { title: string; defa
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {open && <div className="flex flex-col gap-3 pt-2 pb-1">{children}</div>}
+      {open && <div className="flex flex-col gap-2.5 pt-2 pb-1">{children}</div>}
     </div>
   );
 }
