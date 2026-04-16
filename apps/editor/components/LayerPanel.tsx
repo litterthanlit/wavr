@@ -4,12 +4,61 @@ import { useGradientStore, GradientState } from "@/lib/store";
 import { MAX_LAYERS, BlendMode, LayerParams } from "@wavr/core";
 import Slider from "@/components/ui/Slider";
 
-const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
-  { value: "normal", label: "Normal" },
-  { value: "add", label: "Add" },
-  { value: "multiply", label: "Multiply" },
-  { value: "screen", label: "Screen" },
-  { value: "overlay", label: "Overlay" },
+const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[] }[] = [
+  {
+    group: "Normal",
+    modes: [{ value: "normal", label: "Normal" }],
+  },
+  {
+    group: "Darken",
+    modes: [
+      { value: "darken", label: "Darken" },
+      { value: "multiply", label: "Multiply" },
+      { value: "colorBurn", label: "Color Burn" },
+      { value: "linearBurn", label: "Linear Burn" },
+      { value: "darkerColor", label: "Darker Color" },
+    ],
+  },
+  {
+    group: "Lighten",
+    modes: [
+      { value: "lighten", label: "Lighten" },
+      { value: "screen", label: "Screen" },
+      { value: "colorDodge", label: "Color Dodge" },
+      { value: "add", label: "Linear Dodge (Add)" },
+      { value: "lighterColor", label: "Lighter Color" },
+    ],
+  },
+  {
+    group: "Contrast",
+    modes: [
+      { value: "overlay", label: "Overlay" },
+      { value: "softLight", label: "Soft Light" },
+      { value: "hardLight", label: "Hard Light" },
+      { value: "vividLight", label: "Vivid Light" },
+      { value: "linearLight", label: "Linear Light" },
+      { value: "pinLight", label: "Pin Light" },
+      { value: "hardMix", label: "Hard Mix" },
+    ],
+  },
+  {
+    group: "Inversion",
+    modes: [
+      { value: "difference", label: "Difference" },
+      { value: "exclusion", label: "Exclusion" },
+      { value: "subtract", label: "Subtract" },
+      { value: "divide", label: "Divide" },
+    ],
+  },
+  {
+    group: "Component",
+    modes: [
+      { value: "hue", label: "Hue" },
+      { value: "saturation", label: "Saturation" },
+      { value: "color", label: "Color" },
+      { value: "luminosity", label: "Luminosity" },
+    ],
+  },
 ];
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -131,10 +180,14 @@ export default function LayerPanel() {
                 className="bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs text-text-primary
                   appearance-none cursor-pointer focus:outline-none focus:border-border-active transition-colors duration-150"
               >
-                {BLEND_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                {BLEND_GROUPS.map((group) => (
+                  <optgroup key={group.group} label={group.group}>
+                    {group.modes.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>

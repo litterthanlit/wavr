@@ -1,4 +1,10 @@
-export type BlendMode = "normal" | "multiply" | "screen" | "overlay" | "add";
+export type BlendMode =
+  | "normal"
+  | "darken" | "multiply" | "colorBurn" | "linearBurn" | "darkerColor"
+  | "lighten" | "screen" | "colorDodge" | "add" | "lighterColor"
+  | "overlay" | "softLight" | "hardLight" | "vividLight" | "linearLight" | "pinLight" | "hardMix"
+  | "difference" | "exclusion" | "subtract" | "divide"
+  | "hue" | "saturation" | "color" | "luminosity";
 
 export type ImageBlendMode = "replace" | "normal" | "multiply" | "screen" | "overlay";
 

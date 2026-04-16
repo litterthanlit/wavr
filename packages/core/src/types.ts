@@ -1,3 +1,5 @@
+import type { BlendMode } from "./layers";
+
 /** RGB color as normalized floats [0-1, 0-1, 0-1] */
 export type RGBColor = [number, number, number];
 
@@ -10,7 +12,7 @@ export interface LayerConfig {
   scale?: number;
   distortion?: number;
   opacity?: number;
-  blendMode?: "normal" | "multiply" | "screen" | "overlay" | "add";
+  blendMode?: BlendMode;
   depth?: number;
 }
 
@@ -67,8 +69,16 @@ export interface GradientHandle {
   setMouse(x: number, y: number): void;
   setTime(t: number): void;
   setSpeed(multiplier: number): void;
+  setTimelineProgress(t: number): void;
+  animateTo(config: Partial<GradientConfig>, options: AnimateOptions): void;
   resize(width: number, height: number): void;
   destroy(): void;
+}
+
+export interface AnimateOptions {
+  duration: number;
+  easing: "linear" | "ease" | "ease-in" | "ease-out" | "ease-in-out" | "spring";
+  onComplete?: () => void;
 }
 
 export interface CreateGradientOptions {

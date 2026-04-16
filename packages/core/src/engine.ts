@@ -1,9 +1,17 @@
 import vertexSource from "./shaders/vertex.glsl";
-import fragmentSource from "./shaders/fragment.glsl";
+import _fragmentSource from "./shaders/fragment.glsl";
+import hslSource from "./shaders/hsl.glsl";
+import blendModesSource from "./shaders/blend-modes.glsl";
 import trailFragSource from "./shaders/trail.glsl";
 import bloomExtractSource from "./shaders/bloom-extract.glsl";
 import blurSource from "./shaders/blur.glsl";
 import { BlendMode, LayerParams } from "./layers";
+
+// Assemble full fragment source with blend mode includes
+const fragmentSource = _fragmentSource.replace(
+  'precision highp float;',
+  'precision highp float;\n\n' + hslSource + '\n' + blendModesSource
+);
 import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply } from "./math";
 
 export interface EngineState {
@@ -138,6 +146,12 @@ export class GradientEngine {
   private textureCache: Map<string, WebGLTexture> = new Map();
   private pendingLoads: Set<string> = new Set();
   private textMaskTexture: WebGLTexture | null = null;
+
+  // Layer compositing FBOs (Phase 12)
+  private compositeFBOs: [WebGLFramebuffer, WebGLFramebuffer] | null = null;
+  private compositeTextures: [WebGLTexture, WebGLTexture] | null = null;
+  private compositeWidth = 0;
+  private compositeHeight = 0;
 
   // Grid mesh for mesh distortion (Phase 7)
   private quadVAO!: WebGLVertexArrayObject;
@@ -303,6 +317,8 @@ export class GradientEngine {
       "u_textMaskEnabled", "u_textMaskTexture",
       // Custom GLSL
       "u_customEnabled",
+      // Layer compositing (Phase 12)
+      "u_blendMode", "u_compositeEnabled", "u_compositePrev",
       // Phase 7: Parallax
       "u_parallaxEnabled", "u_parallaxStrength", "u_layerDepth",
       // Phase 7: 3D Shape Projection
@@ -594,6 +610,66 @@ void main() {
     if (this.bloomTex_A) { gl.deleteTexture(this.bloomTex_A); this.bloomTex_A = null; }
     if (this.bloomFBO_B) { gl.deleteFramebuffer(this.bloomFBO_B); this.bloomFBO_B = null; }
     if (this.bloomTex_B) { gl.deleteTexture(this.bloomTex_B); this.bloomTex_B = null; }
+  }
+
+  private static readonly BLEND_MODE_MAP: Record<BlendMode, number> = {
+    normal: 0, multiply: 1, screen: 2, overlay: 3, add: 4,
+    darken: 5, colorBurn: 6, linearBurn: 7, darkerColor: 8,
+    lighten: 9, colorDodge: 10, lighterColor: 11,
+    softLight: 12, hardLight: 13, vividLight: 14, linearLight: 15, pinLight: 16, hardMix: 17,
+    difference: 18, exclusion: 19, subtract: 20, divide: 21,
+    hue: 22, saturation: 23, color: 24, luminosity: 25,
+  };
+
+  private ensureCompositeFBOs() {
+    const gl = this.gl;
+    const width = gl.canvas.width;
+    const height = gl.canvas.height;
+    if (this.compositeFBOs && this.compositeWidth === width && this.compositeHeight === height) {
+      return;
+    }
+    this.destroyCompositeFBOs();
+
+    const textures: WebGLTexture[] = [];
+    const fbos: WebGLFramebuffer[] = [];
+
+    for (let i = 0; i < 2; i++) {
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      textures.push(tex);
+
+      const fbo = gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      fbos.push(fbo);
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    this.compositeFBOs = [fbos[0], fbos[1]];
+    this.compositeTextures = [textures[0], textures[1]];
+    this.compositeWidth = width;
+    this.compositeHeight = height;
+  }
+
+  private destroyCompositeFBOs() {
+    const gl = this.gl;
+    if (this.compositeFBOs) {
+      gl.deleteFramebuffer(this.compositeFBOs[0]);
+      gl.deleteFramebuffer(this.compositeFBOs[1]);
+    }
+    if (this.compositeTextures) {
+      gl.deleteTexture(this.compositeTextures[0]);
+      gl.deleteTexture(this.compositeTextures[1]);
+    }
+    this.compositeFBOs = null;
+    this.compositeTextures = null;
   }
 
   private renderBloomPass(state: EngineState) {
@@ -1106,29 +1182,6 @@ void main() {
     }
   }
 
-  private applyBlendMode(mode: BlendMode) {
-    const gl = this.gl;
-    gl.enable(gl.BLEND);
-    switch (mode) {
-      case "normal":
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        break;
-      case "add":
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-        break;
-      case "multiply":
-        gl.blendFunc(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA);
-        break;
-      case "screen":
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
-        break;
-      case "overlay":
-        // Approximation: use additive for bright, multiply for dark
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-        break;
-    }
-  }
-
   render(state: EngineState) {
     const gl = this.gl;
 
@@ -1149,45 +1202,71 @@ void main() {
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.feedbackTextures![prevIdx]);
       this.seti("u_prevFrame", 0);
-      // Render to current FBO
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.feedbackFBOs![this.feedbackIndex]);
-      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     }
+
+    // Final render target: feedback FBO or screen
+    const finalTarget = feedbackActive ? this.feedbackFBOs![this.feedbackIndex] : null;
 
     const visibleLayers = state.layers.filter((l) => l.visible);
 
     if (visibleLayers.length === 0) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
     } else if (visibleLayers.length === 1) {
-      // Single layer: render directly (no blending overhead)
+      // Single layer: render directly (no compositing overhead)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       gl.disable(gl.BLEND);
       const layer = visibleLayers[0];
       this.setGlobalUniforms(state, true);
       this.setLayerUniforms(layer);
+      this.seti("u_compositeEnabled", 0);
       this.drawGeometry(state.meshDistortionEnabled);
     } else {
-      // Multi-layer: render base, then composite overlays
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
+      // Multi-layer: shader-based compositing via FBO ping-pong
+      this.ensureCompositeFBOs();
 
+      let compIdx = 0;
       for (let i = 0; i < visibleLayers.length; i++) {
         const layer = visibleLayers[i];
+        const isFirst = i === 0;
         const isLast = i === visibleLayers.length - 1;
 
-        if (i === 0) {
+        if (isFirst) {
+          // First layer: render to composite FBO, no blending
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.compositeFBOs![compIdx]);
+          gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
           gl.disable(gl.BLEND);
+          this.seti("u_compositeEnabled", 0);
         } else {
-          this.applyBlendMode(layer.blendMode);
+          // Subsequent layers: read previous composite, apply blend mode
+          const readIdx = 1 - compIdx;
+          gl.activeTexture(gl.TEXTURE5);
+          gl.bindTexture(gl.TEXTURE_2D, this.compositeTextures![readIdx]);
+          this.seti("u_compositePrev", 5);
+          this.seti("u_compositeEnabled", 1);
+          this.seti("u_blendMode", GradientEngine.BLEND_MODE_MAP[layer.blendMode]);
+
+          if (isLast) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
+          } else {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.compositeFBOs![compIdx]);
+          }
+          gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+          gl.disable(gl.BLEND);
         }
 
         // Apply global effects only on the last layer
         this.setGlobalUniforms(state, isLast);
         this.setLayerUniforms(layer);
         this.drawGeometry(state.meshDistortionEnabled);
-      }
 
-      gl.disable(gl.BLEND);
+        if (!isLast) {
+          compIdx = 1 - compIdx;
+        }
+      }
     }
 
     // Restore quad VAO as default
@@ -1295,6 +1374,7 @@ void main() {
     this.destroyFeedbackFBOs();
     this.destroyTrailFBOs();
     this.destroyBloomFBOs();
+    this.destroyCompositeFBOs();
     if (this.trailProgram) {
       this.gl.deleteProgram(this.trailProgram);
       this.trailProgram = null;

@@ -103,6 +103,11 @@ uniform sampler2D u_textMaskTexture;
 // Custom GLSL
 uniform bool u_customEnabled;
 
+// Layer compositing (Phase 12)
+uniform int u_blendMode;
+uniform bool u_compositeEnabled;
+uniform sampler2D u_compositePrev;
+
 // Shader quality (Phase 11)
 uniform bool u_oklabEnabled;
 uniform int u_toneMapMode; // 0=none, 1=reinhard, 2=aces
@@ -1608,5 +1613,14 @@ void main() {
     mask = texture(u_textMaskTexture, v_uv).r;
   }
 
-  fragColor = vec4(clamp(color, 0.0, 1.0), u_layerOpacity * mask);
+  vec3 layerColor = clamp(color, 0.0, 1.0);
+  float layerAlpha = u_layerOpacity * mask;
+
+  if (u_compositeEnabled) {
+    vec3 base = texture(u_compositePrev, v_uv).rgb;
+    vec3 blended = dispatchBlend(base, layerColor, u_blendMode);
+    fragColor = vec4(mix(base, blended, layerAlpha), 1.0);
+  } else {
+    fragColor = vec4(layerColor, layerAlpha);
+  }
 }
