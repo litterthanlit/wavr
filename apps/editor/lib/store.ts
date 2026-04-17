@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
+// Coupling note: url-sync.ts subscribes to this store and reads the
+// `markPushPoint` signal below to decide between pushState vs replaceState on
+// the next debounced URL write. Per spec 0003 §3.3, discrete/committed actions
+// should produce a back-history entry, continuous `set` should not.
+import { markPushPoint } from "./url-sync";
 
 export interface GradientState {
   // Layers
@@ -372,10 +377,12 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   },
 
   commitSet: () => {
+    markPushPoint();
     flushPending();
   },
 
   setDiscrete: (partial) => {
+    markPushPoint();
     flushPending();
     const current = useGradientStore.getState();
     pushHistory(takeSnapshot(current));
@@ -401,6 +408,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     const current = useGradientStore.getState();
     const layer = getActiveLayer(current);
     if (layer.colors.length >= 8) return;
+    markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
     const newColors = [...layer.colors.map(c => [...c] as [number, number, number]), randomHue()];
@@ -414,6 +422,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     const current = useGradientStore.getState();
     const layer = getActiveLayer(current);
     if (layer.colors.length <= 2) return;
+    markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
     const newColors = layer.colors.filter((_, i) => i !== index);
@@ -424,6 +433,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   },
 
   loadPreset: (preset) => {
+    markPushPoint();
     flushPending();
     const current = useGradientStore.getState();
     pushHistory(takeSnapshot(current));
@@ -477,6 +487,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   },
 
   undo: () => {
+    markPushPoint();
     flushPending();
     if (past.length === 0) return;
     const current = useGradientStore.getState();
@@ -492,6 +503,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   },
 
   redo: () => {
+    markPushPoint();
     flushPending();
     if (future.length === 0) return;
     const current = useGradientStore.getState();
@@ -510,6 +522,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   addLayer: () => {
     const current = useGradientStore.getState();
     if (current.layers.length >= MAX_LAYERS) return;
+    markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
     const newLayer = createLayer({
@@ -528,6 +541,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   removeLayer: (index) => {
     const current = useGradientStore.getState();
     if (current.layers.length <= 1) return;
+    markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
     const newLayers = current.layers.filter((_, i) => i !== index);
@@ -573,6 +587,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   },
 
   setLayerBlendMode: (index, mode) => {
+    markPushPoint();
     flushPending();
     const current = useGradientStore.getState();
     pushHistory(takeSnapshot(current));
@@ -583,6 +598,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   },
 
   toggleLayerVisibility: (index) => {
+    markPushPoint();
     flushPending();
     const current = useGradientStore.getState();
     pushHistory(takeSnapshot(current));
@@ -595,6 +611,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   moveLayer: (from, to) => {
     const current = useGradientStore.getState();
     if (from === to) return;
+    markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
     const newLayers = [...current.layers];
@@ -633,11 +650,13 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
 
   // Timeline
   toggleTimeline: () => {
+    markPushPoint();
     const current = useGradientStore.getState();
     rawSet({ timelineEnabled: !current.timelineEnabled });
   },
 
   addKeyframe: () => {
+    markPushPoint();
     const current = useGradientStore.getState();
     flushPending();
     pushHistory(takeSnapshot(current));
@@ -663,6 +682,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   },
 
   removeKeyframe: (index) => {
+    markPushPoint();
     const current = useGradientStore.getState();
     flushPending();
     pushHistory(takeSnapshot(current));

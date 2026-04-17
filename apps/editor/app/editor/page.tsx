@@ -11,7 +11,7 @@ import Timeline from "@/components/Timeline";
 import ProjectsModal from "@/components/ProjectsModal";
 import Onboarding from "@/components/Onboarding";
 import { useGradientStore } from "@/lib/store";
-import { decodeState } from "@/lib/url";
+import { applyHashToStore, initializeUrlSync } from "@/lib/url-sync";
 import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
 
@@ -87,15 +87,12 @@ export default function EditorPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // Load state from URL hash on mount
+  // URL-state bridge: apply any incoming hash to the store, then install the
+  // subscriber + popstate + beforeunload listeners. See apps/editor/lib/url-sync.ts.
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.startsWith("#s=")) {
-      const state = decodeState(hash);
-      if (state) {
-        useGradientStore.getState().loadPreset(state);
-      }
-    }
+    applyHashToStore();
+    const dispose = initializeUrlSync();
+    return dispose;
   }, []);
 
   return (
