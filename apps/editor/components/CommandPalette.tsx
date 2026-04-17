@@ -9,7 +9,7 @@
  * "(on)/(off)" suffixes always reflect the live store.
  */
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { Command as CmdkCommand } from "cmdk";
 import {
   getCommands,
@@ -46,11 +46,27 @@ export default function CommandPalette({ open, onOpenChange, ui }: CommandPalett
       .map((g) => ({ name: g, items: byGroup.get(g)! }));
   }, [commands]);
 
+  // Local ⌘K handler — belt-and-suspenders with the global handler in
+  // page.tsx. Window keydown listeners should fire regardless of focus, but
+  // a dialog that stops propagation on the input (defensive default in some
+  // dialog primitives) would break the toggle. Handle ⌘K here too so
+  // closing from inside the cmdk input is guaranteed.
+  const onDialogKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        onOpenChange(false);
+      }
+    },
+    [onOpenChange],
+  );
+
   return (
     <CmdkCommand.Dialog
       open={open}
       onOpenChange={onOpenChange}
       label="Command palette"
+      onKeyDown={onDialogKeyDown}
       overlayClassName="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
       contentClassName="fixed left-1/2 top-[20vh] z-50 w-[520px] max-w-[90vw] -translate-x-1/2 bg-base border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
     >
