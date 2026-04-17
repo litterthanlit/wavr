@@ -89,6 +89,11 @@ const EFFECT_LABELS: Record<EffectFlag, string> = {
   debandEnabled: "deband",
 };
 
+// Dev-only: tracks EFFECT_FLAGS entries we've already warned about, so each
+// missing flag produces exactly one console.warn per session — not one per
+// palette open. Cleared on module load; intentionally module-scoped.
+const warnedMissingFlags = new Set<EffectFlag>();
+
 // Tabs (keep local — the ordering matters for labels).
 const TABS: { id: SidebarTab; label: string; shortcut: string }[] = [
   { id: "gradient", label: "Gradient", shortcut: "1" },
@@ -213,9 +218,24 @@ export function getCommands(ui: UiActions): Command[] {
   }
 
   // ── Effects (one toggle per effect flag present on the store) ──────────
+  const stateRecord = state as unknown as Record<string, unknown>;
   for (const flag of EFFECT_FLAGS) {
-    // Guard: skip flags the current store build doesn't have yet.
-    if (typeof (state as unknown as Record<string, unknown>)[flag] === "undefined") continue;
+    // Guard: skip flags the current store build doesn't have yet. In dev,
+    // warn once so a typo in EFFECT_FLAGS (e.g. "noizeEnabled") surfaces
+    // instead of being silently dropped by the typeof check. Gated on
+    // process.env.NODE_ENV so production builds don't pay the string cost.
+    if (typeof stateRecord[flag] === "undefined") {
+      if (process.env.NODE_ENV !== "production" && !warnedMissingFlags.has(flag)) {
+        warnedMissingFlags.add(flag);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[commands] EFFECT_FLAGS entry "${flag}" is not present on the store. ` +
+          `Typo? Or did an effect's enabled field get renamed? ` +
+          `The palette row for this effect will be skipped until it's fixed.`,
+        );
+      }
+      continue;
+    }
     const name = EFFECT_LABELS[flag];
     commands.push({
       id: `effect.${flag}`,
