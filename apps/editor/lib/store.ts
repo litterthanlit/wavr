@@ -66,6 +66,8 @@ export interface GradientState {
   trailLength: number;
   trailWidth: number;
   realBloomEnabled: boolean;
+  debandEnabled: boolean;
+  debandStrength: number;
 
   // Audio reactivity
   audioEnabled: boolean;
@@ -286,6 +288,8 @@ const DEFAULTS = {
   trailLength: 0.96,
   trailWidth: 0.05,
   realBloomEnabled: false,
+  debandEnabled: true,
+  debandStrength: 1.0,
   audioEnabled: false,
   audioSource: "mic" as const,
   audioBassTarget: "distortion",

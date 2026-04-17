@@ -76,6 +76,11 @@ function buildRealisticState(): GradientState {
     threeDRotationSpeed: 0.6,
     threeDZoom: 1.2,
     threeDLighting: 0.8,
+
+    // Deband (spec 0004): flip enabled off + bump strength so round-trip
+    // can't accidentally pass by matching the store defaults.
+    debandEnabled: false,
+    debandStrength: 1.5,
   };
 }
 
@@ -125,6 +130,10 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(patch.threeDRotationSpeed).toBeCloseTo(0.6);
     expect(patch.threeDZoom).toBeCloseTo(1.2);
     expect(patch.threeDLighting).toBeCloseTo(0.8);
+
+    // Deband (spec 0004): round-trips enabled flag + strength.
+    expect(patch.debandEnabled).toBe(false);
+    expect(patch.debandStrength).toBeCloseTo(1.5);
 
     // Layers: both layers' 9 schema-owned fields round-trip.
     expect(patch.layers).toBeDefined();

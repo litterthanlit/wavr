@@ -132,6 +132,10 @@ uniform bool u_liquifyEnabled;
 uniform float u_liquifyIntensity;
 uniform float u_liquifyScale;
 
+// Spec 0004: Deband (blue-noise anti-banding, on by default)
+uniform bool u_debandEnabled;
+uniform float u_debandStrength;
+
 // Parallax depth (Phase 7)
 uniform bool u_parallaxEnabled;
 uniform float u_parallaxStrength;
@@ -1615,6 +1619,14 @@ void main() {
 
   vec3 layerColor = clamp(color, 0.0, 1.0);
   float layerAlpha = u_layerOpacity * mask;
+
+  // Spec 0004: Deband — add ±0.5 LSB of noise per channel to smooth 8-bit banding.
+  // Interleaved Gradient Noise (Jiménez) spreads error across high frequencies,
+  // so the eye averages it against the gradient signal and banding disappears.
+  if (u_debandEnabled) {
+    float n = interleavedGradientNoise(gl_FragCoord.xy) - 0.5;
+    layerColor += vec3(n) * (u_debandStrength / 255.0);
+  }
 
   if (u_compositeEnabled) {
     vec3 base = texture(u_compositePrev, v_uv).rgb;

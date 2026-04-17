@@ -96,6 +96,8 @@ export function resolveConfig(config: GradientConfig): EngineState {
     trailLength: config.trail?.length ?? 0.96,
     trailWidth: config.trail?.width ?? 0.05,
     realBloomEnabled: config.realBloomEnabled ?? false,
+    debandEnabled: config.deband?.enabled ?? true,
+    debandStrength: config.deband?.strength ?? 1,
     playing: true,
     customGLSL: null,
   };
@@ -152,6 +154,9 @@ export function stateToConfig(state: EngineState): GradientConfig {
     frequency: state.meshFrequency,
     speed: state.meshSpeed,
   };
+  // Deband: always emit so the engine's default-on behavior round-trips
+  // correctly when the user explicitly disables it.
+  config.deband = { enabled: state.debandEnabled, strength: state.debandStrength };
 
   return config;
 }

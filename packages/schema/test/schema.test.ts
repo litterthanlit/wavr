@@ -250,6 +250,7 @@ describe("accepts effect groups", () => {
       liquify: { enabled: true, intensity: 0.3, scale: 2 },
       trail: { enabled: true, length: 0.96, width: 0.05 },
       realBloom: { enabled: true },
+      deband: { enabled: true, strength: 1 },
     };
     expect(() => GradientConfig.parse(full)).not.toThrow();
   });

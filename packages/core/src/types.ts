@@ -60,6 +60,7 @@ export interface GradientConfig {
   liquify?: { enabled: boolean; intensity: number; scale: number };
   trail?: { enabled: boolean; length: number; width: number };
   realBloomEnabled?: boolean;
+  deband?: { enabled: boolean; strength: number };
 }
 
 export interface GradientHandle {
