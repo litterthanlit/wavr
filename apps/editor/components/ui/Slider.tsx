@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useRef, useCallback, useState, useEffect, useMemo } from "react";
+import { createKeyCommitTimer, type KeyCommitTimer } from "./keyCommitTimer";
 
 interface SliderProps {
   label: string;
@@ -31,11 +32,9 @@ export default function Slider({ label, value, min, max, step, onChange, onCommi
   const [hovered, setHovered] = useState(false);
   const [active, setActive] = useState(false);
 
-  // Keyboard-scrub debounced commit. Timer id holds the pending setTimeout so
-  // rapid keypresses coalesce into a single trailing-edge commit. latestValueRef
-  // lets the timeout body read the most recent value rather than the value at
-  // the time the timer was scheduled.
-  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keyboard-scrub commit — timer state machine lives in keyCommitTimer.ts
+  // (pure module, unit-tested with fake timers). Refs let the stable timer
+  // callbacks read the latest value + onCommit without being reconstructed.
   const latestValueRef = useRef(value);
   const onCommitRef = useRef(onCommit);
 
@@ -47,30 +46,18 @@ export default function Slider({ label, value, min, max, step, onChange, onCommi
     onCommitRef.current = onCommit;
   }, [onCommit]);
 
-  const clearCommitTimer = useCallback(() => {
-    if (commitTimerRef.current !== null) {
-      clearTimeout(commitTimerRef.current);
-      commitTimerRef.current = null;
-    }
-  }, []);
+  const keyTimer = useMemo<KeyCommitTimer>(
+    () =>
+      createKeyCommitTimer({
+        onCommit: () => onCommitRef.current?.(latestValueRef.current),
+        onActiveChange: (a) => setActive(a),
+        delayMs: KEYBOARD_COMMIT_DELAY_MS,
+      }),
+    [],
+  );
 
-  const flushCommit = useCallback(() => {
-    if (commitTimerRef.current !== null) {
-      clearTimeout(commitTimerRef.current);
-      commitTimerRef.current = null;
-      onCommitRef.current?.(latestValueRef.current);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Clear any pending timer on unmount so callbacks never fire after unmount.
-    return () => {
-      if (commitTimerRef.current !== null) {
-        clearTimeout(commitTimerRef.current);
-        commitTimerRef.current = null;
-      }
-    };
-  }, []);
+  // Clear any pending timer on unmount so callbacks never fire after unmount.
+  useEffect(() => () => keyTimer.clear(), [keyTimer]);
 
   const clampToStep = useCallback((raw: number) => {
     const clamped = Math.min(max, Math.max(min, raw));
@@ -143,33 +130,25 @@ export default function Slider({ label, value, min, max, step, onChange, onCommi
     setActive(true);
 
     if (clamped === value) {
-      // No-op change (e.g. Alt on a coarse step). Still refresh the active
-      // timer so the visual state clears eventually.
-      clearCommitTimer();
-      commitTimerRef.current = setTimeout(() => {
-        commitTimerRef.current = null;
-        setActive(false);
-      }, KEYBOARD_COMMIT_DELAY_MS);
+      // No-op press (boundary, or Alt on a coarse step). DO NOT disturb any
+      // in-flight real commit — scheduleVisualOnlyIfIdle is a no-op when the
+      // timer is pending, so a pending commit stays armed and fires normally.
+      keyTimer.scheduleVisualOnlyIfIdle();
       return;
     }
 
     onChange(clamped);
 
-    // Debounced trailing-edge commit. Each keypress restarts the timer so
-    // rapid scrubbing produces one undo entry; paced presses produce one each.
-    clearCommitTimer();
-    commitTimerRef.current = setTimeout(() => {
-      commitTimerRef.current = null;
-      setActive(false);
-      onCommitRef.current?.(latestValueRef.current);
-    }, KEYBOARD_COMMIT_DELAY_MS);
-  }, [disabled, step, value, min, max, clampToStep, onChange, clearCommitTimer]);
+    // Debounced trailing-edge real commit. Each keypress restarts the timer
+    // so rapid scrubbing collapses into one undo, paced presses commit each.
+    keyTimer.scheduleReal();
+  }, [disabled, step, value, min, max, clampToStep, onChange, keyTimer]);
 
   const onBlur = useCallback(() => {
     // Flush any in-flight keyboard edit so focus loss doesn't drop it.
-    flushCommit();
+    keyTimer.flush();
     setActive(false);
-  }, [flushCommit]);
+  }, [keyTimer]);
 
   const displayPercent = Math.round(percent);
   const showThumb = hovered || active;
