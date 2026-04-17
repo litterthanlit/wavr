@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "layers": [
+    {
+      "type": "linear",
+      "colors": [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42]],
+      "speed": 0,
+      "complexity": 1,
+      "distortion": 0
+    }
+  ]
+}

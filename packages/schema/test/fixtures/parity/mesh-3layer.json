@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "layers": [
+    {
+      "type": "mesh",
+      "colors": [[0.0, 0.9, 0.8], [0.2, 0.8, 0.3], [0.3, 0.2, 0.7]],
+      "speed": 0,
+      "complexity": 4,
+      "scale": 1.2,
+      "distortion": 0.35,
+      "blendMode": "normal"
+    },
+    {
+      "type": "mesh",
+      "colors": [[1.0, 0.5, 0.31], [0.94, 0.33, 0.48]],
+      "speed": 0,
+      "complexity": 3,
+      "scale": 0.8,
+      "distortion": 0.3,
+      "opacity": 0.7,
+      "blendMode": "screen"
+    },
+    {
+      "type": "mesh",
+      "colors": [[0.29, 0.0, 0.51], [0.0, 0.1, 0.4]],
+      "speed": 0,
+      "complexity": 3,
+      "scale": 1.0,
+      "distortion": 0.25,
+      "opacity": 0.5,
+      "blendMode": "multiply"
+    }
+  ]
+}

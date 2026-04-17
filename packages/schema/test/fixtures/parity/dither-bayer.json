@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "layers": [
+    {
+      "type": "radial",
+      "colors": [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]],
+      "speed": 0,
+      "complexity": 1,
+      "scale": 1.0,
+      "distortion": 0
+    }
+  ],
+  "dither": { "enabled": true, "size": 4 }
+}
