@@ -17,3 +17,4 @@ export * from "./caustic";
 export * from "./liquify";
 export * from "./trail";
 export * from "./realBloom";
+export * from "./deband";

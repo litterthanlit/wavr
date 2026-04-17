@@ -79,6 +79,8 @@ export interface EngineState {
   trailLength: number;
   trailWidth: number;
   realBloomEnabled: boolean;
+  debandEnabled: boolean;
+  debandStrength: number;
   playing: boolean;
   customGLSL: string | null;
 }
@@ -334,6 +336,8 @@ export class GradientEngine {
       "u_causticEnabled", "u_causticIntensity",
       "u_liquifyEnabled", "u_liquifyIntensity", "u_liquifyScale",
       "u_trailEnabled", "u_trailTexture",
+      // Spec 0004: Deband (blue-noise anti-banding, on by default)
+      "u_debandEnabled", "u_debandStrength",
     ];
     for (const name of names) {
       const loc = gl.getUniformLocation(this.program, name);
@@ -1160,6 +1164,9 @@ void main() {
     this.seti("u_liquifyEnabled", isBaseLayer && state.liquifyEnabled ? 1 : 0);
     this.setf("u_liquifyIntensity", state.liquifyIntensity);
     this.setf("u_liquifyScale", state.liquifyScale);
+    // Deband (blue-noise anti-banding) — only on the final composited output
+    this.seti("u_debandEnabled", isBaseLayer && state.debandEnabled ? 1 : 0);
+    this.setf("u_debandStrength", state.debandStrength);
     // Mesh Distortion
     this.seti("u_meshEnabled", state.meshDistortionEnabled ? 1 : 0);
     this.setf("u_meshDisplacement", state.meshDisplacement);

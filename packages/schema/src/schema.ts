@@ -22,6 +22,7 @@ import {
   LiquifyEffect,
   TrailEffect,
   RealBloomEffect,
+  DebandEffect,
 } from "./effects";
 
 export const GradientConfig = d(
@@ -62,6 +63,7 @@ export const GradientConfig = d(
     liquify: LiquifyEffect.optional(),
     trail: TrailEffect.optional(),
     realBloom: RealBloomEffect.optional(),
+    deband: DebandEffect.optional(),
   }).strict()
 );
 export type GradientConfig = z.infer<typeof GradientConfig>;

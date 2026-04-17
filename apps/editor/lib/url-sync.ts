@@ -210,6 +210,10 @@ export function storeToConfig(state: GradientState): GradientConfig {
     realBloom: {
       enabled: state.realBloomEnabled,
     },
+    deband: {
+      enabled: state.debandEnabled,
+      strength: state.debandStrength,
+    },
   };
 
   return config;
@@ -349,6 +353,10 @@ export function configToStorePatch(config: GradientConfig): Partial<GradientStat
   }
   if (config.realBloom) {
     patch.realBloomEnabled = config.realBloom.enabled;
+  }
+  if (config.deband) {
+    patch.debandEnabled = config.deband.enabled;
+    patch.debandStrength = config.deband.strength;
   }
 
   return patch;

@@ -44,6 +44,33 @@ export default function EffectsPanel() {
 
   return (
     <div className="flex flex-col gap-1 p-4">
+      {/* Output quality (spec 0004) — on by default, grouped separately so users
+          don't confuse it with creative effects. Leave on unless exporting a
+          posterized look. */}
+      <Section
+        title="Output quality"
+      >
+        <div title="Adds sub-pixel noise to hide 8-bit color banding. Leave on unless you're exporting a posterized look.">
+          <Toggle
+            label="Anti-banding"
+            checked={store.debandEnabled}
+            onChange={(v) => store.setDiscrete({ debandEnabled: v })}
+          />
+        </div>
+        <Slider
+          label="Strength"
+          value={store.debandStrength}
+          min={0}
+          max={2}
+          step={0.1}
+          onChange={(v) => store.set({ debandStrength: v })}
+          onCommit={() => store.commitSet()}
+          disabled={!store.debandEnabled}
+        />
+      </Section>
+
+      <div className="border-t border-border my-1" />
+
       {/* Texture */}
       <Section title="Texture" defaultOpen>
         <Toggle label="Noise Overlay" checked={store.noiseEnabled} onChange={(v) => store.setDiscrete({ noiseEnabled: v })} />

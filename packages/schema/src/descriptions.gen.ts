@@ -130,6 +130,10 @@ export const DESCRIPTIONS = {
 
   "RealBloomEffect": "Physically-correct bloom pass. Was top-level `realBloomEnabled` in V1.",
   "RealBloomEffect.enabled": "Whether real-bloom runs.",
+
+  "DebandEffect": "Blue-noise anti-banding pass applied before final output. Adds sub-pixel noise to hide 8-bit color banding. On by default.",
+  "DebandEffect.enabled": "Whether the deband pass runs. On by default — turn off only for pixel-perfect posterized output.",
+  "DebandEffect.strength": "Dither amplitude, in output LSBs. 1 = baseline anti-banding.",
 } as const;
 
 export type DescriptionKey = keyof typeof DESCRIPTIONS;
