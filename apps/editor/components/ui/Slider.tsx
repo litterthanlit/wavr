@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 
 interface SliderProps {
   label: string;
@@ -14,6 +14,7 @@ interface SliderProps {
 }
 
 const TICK_COUNT = 32;
+const KEYBOARD_COMMIT_DELAY_MS = 300;
 
 function getTickColor(tickPercent: number, valuePercent: number): string {
   if (tickPercent > valuePercent) return "var(--color-tick-inactive)";
@@ -29,6 +30,47 @@ export default function Slider({ label, value, min, max, step, onChange, onCommi
   const dragging = useRef(false);
   const [hovered, setHovered] = useState(false);
   const [active, setActive] = useState(false);
+
+  // Keyboard-scrub debounced commit. Timer id holds the pending setTimeout so
+  // rapid keypresses coalesce into a single trailing-edge commit. latestValueRef
+  // lets the timeout body read the most recent value rather than the value at
+  // the time the timer was scheduled.
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestValueRef = useRef(value);
+  const onCommitRef = useRef(onCommit);
+
+  useEffect(() => {
+    latestValueRef.current = value;
+  }, [value]);
+
+  useEffect(() => {
+    onCommitRef.current = onCommit;
+  }, [onCommit]);
+
+  const clearCommitTimer = useCallback(() => {
+    if (commitTimerRef.current !== null) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+  }, []);
+
+  const flushCommit = useCallback(() => {
+    if (commitTimerRef.current !== null) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+      onCommitRef.current?.(latestValueRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Clear any pending timer on unmount so callbacks never fire after unmount.
+    return () => {
+      if (commitTimerRef.current !== null) {
+        clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const clampToStep = useCallback((raw: number) => {
     const clamped = Math.min(max, Math.max(min, raw));
@@ -67,6 +109,68 @@ export default function Slider({ label, value, min, max, step, onChange, onCommi
     }
   }, [onCommit, value]);
 
+  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+
+    // Alt wins over Shift per Figma convention.
+    const multiplier = e.altKey ? 0.1 : e.shiftKey ? 10 : 1;
+    const delta = step * multiplier;
+
+    let next = value;
+    switch (e.key) {
+      case "ArrowUp":
+      case "ArrowRight":
+        next = value + delta;
+        break;
+      case "ArrowDown":
+      case "ArrowLeft":
+        next = value - delta;
+        break;
+      case "Home":
+        next = min;
+        break;
+      case "End":
+        next = max;
+        break;
+      default:
+        return;
+    }
+
+    e.preventDefault();
+    const clamped = clampToStep(next);
+
+    // Keyboard-active visual state: same feedback as drag.
+    setActive(true);
+
+    if (clamped === value) {
+      // No-op change (e.g. Alt on a coarse step). Still refresh the active
+      // timer so the visual state clears eventually.
+      clearCommitTimer();
+      commitTimerRef.current = setTimeout(() => {
+        commitTimerRef.current = null;
+        setActive(false);
+      }, KEYBOARD_COMMIT_DELAY_MS);
+      return;
+    }
+
+    onChange(clamped);
+
+    // Debounced trailing-edge commit. Each keypress restarts the timer so
+    // rapid scrubbing produces one undo entry; paced presses produce one each.
+    clearCommitTimer();
+    commitTimerRef.current = setTimeout(() => {
+      commitTimerRef.current = null;
+      setActive(false);
+      onCommitRef.current?.(latestValueRef.current);
+    }, KEYBOARD_COMMIT_DELAY_MS);
+  }, [disabled, step, value, min, max, clampToStep, onChange, clearCommitTimer]);
+
+  const onBlur = useCallback(() => {
+    // Flush any in-flight keyboard edit so focus loss doesn't drop it.
+    flushCommit();
+    setActive(false);
+  }, [flushCommit]);
+
   const displayPercent = Math.round(percent);
   const showThumb = hovered || active;
 
@@ -78,11 +182,21 @@ export default function Slider({ label, value, min, max, step, onChange, onCommi
       <div
         ref={trackRef}
         className={`slider-track ${showThumb ? "slider-track-hover" : ""}`}
+        tabIndex={disabled ? -1 : 0}
+        role="slider"
+        aria-label={label}
+        aria-valuenow={value}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-orientation="horizontal"
+        aria-disabled={disabled || undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerEnter={() => setHovered(true)}
         onPointerLeave={() => { setHovered(false); if (!dragging.current) setActive(false); }}
+        onKeyDown={onKeyDown}
+        onBlur={onBlur}
       >
         <span className="slider-label">{label}</span>
         <div className="slider-ticks">
