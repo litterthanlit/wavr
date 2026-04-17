@@ -1,0 +1,2 @@
+# Parity goldens live here. Populated by the `parity-generate` GitHub Actions
+# workflow (workflow_dispatch). Never commit developer-machine goldens.
