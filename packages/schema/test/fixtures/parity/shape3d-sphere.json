@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "layers": [
+    {
+      "type": "mesh",
+      "colors": [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42], [0.251, 0.878, 0.816]],
+      "speed": 0,
+      "complexity": 3,
+      "scale": 1.0,
+      "distortion": 0.3
+    }
+  ],
+  "shape3d": {
+    "enabled": true,
+    "shape": "sphere",
+    "perspective": 1.5,
+    "rotationSpeed": 0,
+    "zoom": 1.0,
+    "lighting": 0.5
+  }
+}

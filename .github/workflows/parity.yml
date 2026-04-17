@@ -1,0 +1,35 @@
+name: parity
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium (with SwiftShader)
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run parity tests (compare mode)
+        run: pnpm test:parity
+
+      - name: Upload failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-failure
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14

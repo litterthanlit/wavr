@@ -1,0 +1,35 @@
+{
+  "name": "@wavr/schema",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Versioned Zod schema, migrate, URL codec, and MCP agent contracts for Wavr GradientConfig",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./migrate": "./src/migrate.ts",
+    "./url": "./src/url.ts",
+    "./parity": "./src/parity.ts",
+    "./effects": "./src/effects/index.ts"
+  },
+  "files": ["dist", "src", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "gen": "tsx scripts/gen-descriptions.ts"
+  },
+  "dependencies": {
+    "lz-string": "^1.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5",
+    "vitest": "^1.6.0"
+  }
+}

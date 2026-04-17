@@ -5,9 +5,22 @@
   "scripts": {
     "dev": "turbo dev --filter=editor",
     "build": "turbo build",
-    "lint": "turbo lint"
+    "lint": "turbo lint",
+    "build:parity-runner": "tsup --config tests/parity/tsup.config.ts",
+    "test:parity": "pnpm build:parity-runner && playwright test --config tests/parity/playwright.config.ts",
+    "parity:generate": "PARITY_WRITE=1 pnpm test:parity"
   },
   "devDependencies": {
-    "turbo": "^2.4.0"
+    "@playwright/test": "^1.47.0",
+    "@types/node": "^20.11.0",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
+    "@wavr/core": "workspace:*",
+    "@wavr/schema": "workspace:*",
+    "pixelmatch": "^5.3.0",
+    "pngjs": "^7.0.0",
+    "tsup": "^8.0.0",
+    "turbo": "^2.4.0",
+    "typescript": "^5"
   }
 }

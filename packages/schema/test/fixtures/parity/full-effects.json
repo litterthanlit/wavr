@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "layers": [
+    {
+      "type": "mesh",
+      "colors": [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42], [0.251, 0.878, 0.816]],
+      "speed": 0,
+      "complexity": 3,
+      "scale": 1.0,
+      "distortion": 0.3
+    }
+  ],
+  "brightness": 1.1,
+  "saturation": 1.2,
+  "grain": 0.1,
+  "vignette": 0.3,
+  "chromaticAberration": 0.05,
+  "hueShift": 15,
+  "domainWarp": 0.2,
+  "radialBlur": 0.1,
+  "noise": { "enabled": true, "intensity": 0.3, "scale": 1 },
+  "bloom": { "enabled": true, "intensity": 0.5 },
+  "blur": { "enabled": true, "amount": 0.1 },
+  "curl": { "enabled": true, "intensity": 0.3, "scale": 1 },
+  "kaleidoscope": { "enabled": true, "segments": 6, "rotation": 0 },
+  "reactionDiffusion": { "enabled": true, "intensity": 0.3, "scale": 1 },
+  "pixelSort": { "enabled": true, "intensity": 0.3, "threshold": 0.5 },
+  "feedback": { "enabled": true, "decay": 0.5 },
+  "ascii": { "enabled": false, "size": 8 },
+  "dither": { "enabled": true, "size": 4 },
+  "parallax": { "enabled": true, "strength": 0.5 },
+  "meshDistortion": { "enabled": true, "displacement": 0.3, "frequency": 2, "speed": 0 },
+  "ripple": { "enabled": true, "intensity": 0.3 },
+  "glow": { "enabled": true, "intensity": 0.3, "radius": 0.05 },
+  "caustic": { "enabled": true, "intensity": 0.3 },
+  "liquify": { "enabled": true, "intensity": 0.3, "scale": 2 },
+  "trail": { "enabled": true, "length": 0.96, "width": 0.05 },
+  "realBloom": { "enabled": true }
+}
