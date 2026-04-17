@@ -8,6 +8,7 @@ interface ShortcutsModalProps {
 }
 
 const SHORTCUTS = [
+  { key: "\u2318/Ctrl + K", action: "Open command palette" },
   { key: "Space", action: "Play / Pause" },
   { key: "R", action: "Randomize" },
   { key: "E", action: "Export" },

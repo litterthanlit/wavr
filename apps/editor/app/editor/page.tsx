@@ -10,6 +10,7 @@ import MobileDrawer from "@/components/MobileDrawer";
 import Timeline from "@/components/Timeline";
 import ProjectsModal from "@/components/ProjectsModal";
 import Onboarding from "@/components/Onboarding";
+import CommandPalette from "@/components/CommandPalette";
 import { useGradientStore } from "@/lib/store";
 import { applyHashToStore, initializeUrlSync } from "@/lib/url-sync";
 import { GradientEngine } from "@wavr/core";
@@ -19,16 +20,25 @@ export default function EditorPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("gradient");
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GradientEngine | null>(null);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      const isMeta = e.metaKey || e.ctrlKey;
+
+      // ⌘K / Ctrl-K — open palette. Must come *before* the INPUT/SELECT/TEXTAREA
+      // early-return so the palette works from inside text fields too (spec §3.5).
+      if (isMeta && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((prev) => !prev);
+        return;
+      }
+
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-
-      const isMeta = e.metaKey || e.ctrlKey;
 
       if (isMeta && e.shiftKey && e.key === "z") {
         e.preventDefault();
@@ -125,6 +135,16 @@ export default function EditorPage() {
       <ProjectsModal
         open={projectsOpen}
         onClose={() => setProjectsOpen(false)}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        ui={{
+          openExport: () => setExportOpen(true),
+          openProjects: () => setProjectsOpen(true),
+          openShortcuts: () => setShortcutsOpen(true),
+          setTab: setActiveTab,
+        }}
       />
       <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
       <Onboarding />
