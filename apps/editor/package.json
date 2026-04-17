@@ -19,6 +19,7 @@
     "@material/material-color-utilities": "^0.4.0",
     "@wavr/core": "workspace:*",
     "@wavr/schema": "workspace:*",
+    "cmdk": "^1.1.1",
     "lucide-react": "^1.7.0",
     "next": "16.2.1",
     "react": "19.2.4",
