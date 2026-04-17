@@ -100,7 +100,7 @@ After `moveLayer(from, to)`:
 
 ### 5.3 Undo/redo
 
-`moveLayer` calls `pushHistory(takeSnapshot(...))`. Undo walks back one reorder at a time. ⌘Z after a drag restores the previous layer order + previous `activeLayerIndex`. Free via existing store machinery.
+**Confirmed:** layer drag triggers an undo history commit. `moveLayer` in `apps/editor/lib/store.ts` (line 615) calls `markPushPoint()` + `flushPending()` + `pushHistory(takeSnapshot(current))` before mutating state. That matches every other discrete store action. ⌘Z after a drag restores the previous layer order and `activeLayerIndex`; ⌘⇧Z replays the reorder. Zero new wiring — drag-end just calls the existing action.
 
 ### 5.4 URL sync
 
