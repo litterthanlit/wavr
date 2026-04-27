@@ -100,6 +100,7 @@ function ImageUpload({
   if (imageData) {
     return (
       <div className="relative group">
+        {/* eslint-disable-next-line @next/next/no-img-element -- previews are local data URLs from user uploads */}
         <img
           src={imageData}
           alt={label}
