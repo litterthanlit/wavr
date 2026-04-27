@@ -9,6 +9,7 @@ export default defineConfig({
   format: ["esm", "cjs"],
   dts: true,
   external: ["react", "react-dom"],
+  noExternal: ["@wavr/core"],
   loader: { ".glsl": "text" },
   clean: true,
   treeshake: true,

@@ -245,7 +245,7 @@ export default function LandingPage() {
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
-          {FEATURES.map((f, i) => (
+          {FEATURES.map((f) => (
             <div
               key={f.label}
               className="bg-root p-8 group cursor-default transition-colors hover:bg-surface/50"

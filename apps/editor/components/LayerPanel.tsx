@@ -1,6 +1,6 @@
 "use client";
 
-import { useGradientStore, GradientState } from "@/lib/store";
+import { useGradientStore } from "@/lib/store";
 import { MAX_LAYERS, BlendMode, LayerParams } from "@wavr/core";
 import Slider from "@/components/ui/Slider";
 

@@ -2,7 +2,10 @@ import { GradientConfig, LayerConfig } from "./types";
 import { EngineState } from "./engine";
 import { LayerParams, createLayer } from "./layers";
 
-const LAYER_DEFAULTS: Required<Omit<LayerConfig, "type" | "colors">> = {
+const LAYER_DEFAULTS: Required<Pick<
+  LayerConfig,
+  "speed" | "complexity" | "scale" | "distortion" | "opacity" | "blendMode" | "depth"
+>> = {
   speed: 0.4,
   complexity: 3,
   scale: 1.0,
@@ -23,6 +26,26 @@ function resolveLayer(layer: LayerConfig): LayerParams {
     opacity: layer.opacity ?? LAYER_DEFAULTS.opacity,
     blendMode: layer.blendMode ?? LAYER_DEFAULTS.blendMode,
     depth: layer.depth ?? LAYER_DEFAULTS.depth,
+    visible: layer.visible,
+    imageData: layer.imageData,
+    imageScale: layer.imageScale,
+    imageOffset: layer.imageOffset,
+    distortionMapData: layer.distortionMapData,
+    distortionMapEnabled: layer.distortionMapEnabled,
+    distortionMapIntensity: layer.distortionMapIntensity,
+    imageBlendMode: layer.imageBlendMode,
+    imageBlendOpacity: layer.imageBlendOpacity,
+    maskEnabled: layer.maskEnabled,
+    mask1: layer.mask1,
+    mask2: layer.mask2,
+    maskBlendMode: layer.maskBlendMode,
+    maskSmoothness: layer.maskSmoothness,
+    textMaskEnabled: layer.textMaskEnabled,
+    textMaskContent: layer.textMaskContent,
+    textMaskFontSize: layer.textMaskFontSize,
+    textMaskFontWeight: layer.textMaskFontWeight,
+    textMaskLetterSpacing: layer.textMaskLetterSpacing,
+    textMaskAlign: layer.textMaskAlign,
   });
 }
 

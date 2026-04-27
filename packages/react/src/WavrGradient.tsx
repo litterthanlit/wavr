@@ -2,8 +2,7 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import { createGradient } from "@wavr/core";
-import type { GradientConfig, GradientHandle } from "@wavr/core";
-import type { EventTriggers } from "./types";
+import type { EventTriggers, GradientConfig, GradientHandle } from "./types";
 
 export interface WavrGradientProps {
   config: GradientConfig;

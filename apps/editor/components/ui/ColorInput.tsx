@@ -110,12 +110,22 @@ function ColorPicker({ color, onChange, onCommit, onClose }: {
   }, [onChange]);
 
   // SV area drag
-  const svDrag = useDrag(useCallback((x: number, y: number) => {
+  const {
+    ref: svRef,
+    onPointerDown: onSvPointerDown,
+    onPointerMove: onSvPointerMove,
+    onPointerUp: onSvPointerUp,
+  } = useDrag(useCallback((x: number, y: number) => {
     updateFromHsv(hsv[0], x, 1 - y);
   }, [hsv, updateFromHsv]));
 
   // Hue bar drag
-  const hueDrag = useDrag(useCallback((x: number) => {
+  const {
+    ref: hueRef,
+    onPointerDown: onHuePointerDown,
+    onPointerMove: onHuePointerMove,
+    onPointerUp: onHuePointerUp,
+  } = useDrag(useCallback((x: number) => {
     updateFromHsv(x, hsv[1], hsv[2]);
   }, [hsv, updateFromHsv]));
 
@@ -135,12 +145,12 @@ function ColorPicker({ color, onChange, onCommit, onClose }: {
     <div ref={popupRef} className="picker-popup">
       {/* SV area */}
       <div
-        ref={svDrag.ref}
+        ref={svRef}
         className="picker-sv"
         style={{ backgroundColor: hueToRgbHex(hsv[0]) }}
-        onPointerDown={svDrag.onPointerDown}
-        onPointerMove={svDrag.onPointerMove}
-        onPointerUp={svDrag.onPointerUp}
+        onPointerDown={onSvPointerDown}
+        onPointerMove={onSvPointerMove}
+        onPointerUp={onSvPointerUp}
       >
         <div className="picker-sv-white" />
         <div className="picker-sv-black" />
@@ -152,11 +162,11 @@ function ColorPicker({ color, onChange, onCommit, onClose }: {
 
       {/* Hue bar */}
       <div
-        ref={hueDrag.ref}
+        ref={hueRef}
         className="picker-hue"
-        onPointerDown={hueDrag.onPointerDown}
-        onPointerMove={hueDrag.onPointerMove}
-        onPointerUp={hueDrag.onPointerUp}
+        onPointerDown={onHuePointerDown}
+        onPointerMove={onHuePointerMove}
+        onPointerUp={onHuePointerUp}
       >
         <div
           className="picker-hue-cursor"

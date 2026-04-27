@@ -116,14 +116,13 @@ importers:
         version: 5.9.3
 
   packages/react:
-    dependencies:
-      '@wavr/core':
-        specifier: workspace:*
-        version: link:../core
     devDependencies:
       '@types/react':
         specifier: ^19
         version: 19.2.14
+      '@wavr/core':
+        specifier: workspace:*
+        version: link:../core
       react:
         specifier: ^19.0.0
         version: 19.2.4

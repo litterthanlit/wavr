@@ -38,7 +38,7 @@ export default function Onboarding() {
   useEffect(() => {
     const seen = localStorage.getItem(STORAGE_KEY);
     if (!seen) {
-      setVisible(true);
+      requestAnimationFrame(() => setVisible(true));
     }
   }, []);
 

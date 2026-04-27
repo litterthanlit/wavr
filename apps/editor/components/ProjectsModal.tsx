@@ -16,7 +16,9 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
   const store = useGradientStore();
 
   useEffect(() => {
-    if (open) setProjects(loadProjects());
+    if (!open) return;
+    const frame = requestAnimationFrame(() => setProjects(loadProjects()));
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   if (!open) return null;
