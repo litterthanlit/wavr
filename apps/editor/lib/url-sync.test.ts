@@ -14,11 +14,12 @@ import { useGradientStore, type GradientState } from "./store";
 function buildRealisticState(): GradientState {
   const base = useGradientStore.getState();
   const layerA = createLayer({
-    gradientType: "plasma",
+    gradientType: "silk",
     speed: 0.8,
     complexity: 5,
     scale: 1.4,
     distortion: 0.6,
+    softness: 0.72,
     opacity: 0.9,
     blendMode: "screen",
     depth: 0.25,
@@ -34,6 +35,7 @@ function buildRealisticState(): GradientState {
     complexity: 2,
     scale: 0.9,
     distortion: 0.1,
+    softness: 0.2,
     opacity: 0.5,
     blendMode: "multiply",
     depth: -0.1,
@@ -139,17 +141,19 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(patch.layers).toBeDefined();
     const outLayers = patch.layers!;
     expect(outLayers.length).toBe(2);
-    expect(outLayers[0].gradientType).toBe("plasma");
+    expect(outLayers[0].gradientType).toBe("silk");
     expect(outLayers[0].speed).toBeCloseTo(0.8);
     expect(outLayers[0].complexity).toBe(5);
     expect(outLayers[0].scale).toBeCloseTo(1.4);
     expect(outLayers[0].distortion).toBeCloseTo(0.6);
+    expect(outLayers[0].softness).toBeCloseTo(0.72);
     expect(outLayers[0].opacity).toBeCloseTo(0.9);
     expect(outLayers[0].blendMode).toBe("screen");
     expect(outLayers[0].depth).toBeCloseTo(0.25);
     expect(outLayers[0].colors.length).toBe(3);
 
     expect(outLayers[1].gradientType).toBe("conic");
+    expect(outLayers[1].softness).toBeCloseTo(0.2);
     expect(outLayers[1].blendMode).toBe("multiply");
     expect(outLayers[1].opacity).toBeCloseTo(0.5);
     expect(outLayers[1].colors.length).toBe(2);

@@ -187,7 +187,7 @@ function stripLayerDefaults(layer: GC["layers"][number]): Record<string, unknown
   // Layer default values sourced from the Zod schema defaults (see src/layer.ts).
   const layerDefaults = LayerConfig.parse({ type: layer.type, colors: layer.colors });
   const scalarKeys: Array<keyof typeof layer> = [
-    "speed", "complexity", "scale", "distortion", "opacity", "blendMode", "depth",
+    "speed", "complexity", "scale", "distortion", "softness", "opacity", "blendMode", "depth",
   ];
   for (const k of scalarKeys) {
     if (layer[k] !== layerDefaults[k]) out[k as string] = layer[k];

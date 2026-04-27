@@ -22,7 +22,11 @@ function mulberry32(seed: number) {
 }
 
 function randomConfig(rand: () => number): GC {
-  const GRADIENT_TYPES = ["mesh", "radial", "linear", "conic", "plasma", "dither", "scanline", "glitch", "voronoi"] as const;
+  const GRADIENT_TYPES = [
+    "mesh", "radial", "linear", "conic", "plasma",
+    "dither", "scanline", "glitch", "voronoi",
+    "silk", "aurora", "liquid", "softCells", "grainflow",
+  ] as const;
   const BLEND_MODES = ["normal", "multiply", "screen", "overlay", "difference", "colorDodge"] as const;
 
   const numLayers = 1 + Math.floor(rand() * 3); // 1..3
@@ -36,6 +40,7 @@ function randomConfig(rand: () => number): GC {
       complexity: 1 + Math.floor(rand() * 8),
       scale: 0.2 + rand() * 3.8,
       distortion: rand(),
+      softness: rand(),
       opacity: rand(),
       blendMode: BLEND_MODES[Math.floor(rand() * BLEND_MODES.length)]!,
       depth: rand() * 2 - 1,
@@ -109,6 +114,7 @@ describe("size budget (gate 2)", () => {
           complexity: 3,
           scale: 1.2,
           distortion: 0.4,
+          softness: 0.35,
           opacity: 1,
           blendMode: "normal",
           depth: 0,
@@ -120,6 +126,7 @@ describe("size budget (gate 2)", () => {
           complexity: 4,
           scale: 1,
           distortion: 0.2,
+          softness: 0.2,
           opacity: 0.7,
           blendMode: "screen",
           depth: 0.3,

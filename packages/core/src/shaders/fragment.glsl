@@ -10,11 +10,12 @@ uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 uniform vec2 u_mouseSmooth;
 uniform vec2 u_mouseVelocity;
-uniform int u_gradientType; // 0=mesh, 1=radial, 2=linear, 3=conic, 4=plasma, 5=dither, 6=scanline, 7=glitch
+uniform int u_gradientType; // 0-9 legacy, 10=silk, 11=aurora, 12=liquid, 13=softCells, 14=grainflow
 uniform float u_speed;
 uniform float u_complexity;
 uniform float u_scale;
 uniform float u_distortion;
+uniform float u_softness;
 uniform float u_brightness;
 uniform float u_saturation;
 uniform vec3 u_colors[8];
@@ -564,13 +565,14 @@ vec4 raymarched3D(vec2 screenUV) {
 }
 
 vec3 getGradientColor(float t) {
-  if (u_colorBlend < 0.01) {
+  float blend = max(u_colorBlend, u_softness * 0.85);
+  if (blend < 0.01) {
     return sampleColorAt(t);
   }
 
   // Blend: sample multiple nearby positions and average for smooth transitions
   // Higher blend = wider sampling = colors melt into each other
-  float spread = u_colorBlend * 0.15;
+  float spread = blend * 0.15;
   vec3 color = sampleColorAt(t) * 0.4;
   color += sampleColorAt(t - spread) * 0.15;
   color += sampleColorAt(t + spread) * 0.15;
@@ -578,6 +580,31 @@ vec3 getGradientColor(float t) {
   color += sampleColorAt(t + spread * 2.0) * 0.1;
   color += sampleColorAt(t - spread * 0.5) * 0.05;
   color += sampleColorAt(t + spread * 0.5) * 0.05;
+  return color;
+}
+
+float soft01(float v) {
+  return smoothstep(0.02, 0.98, clamp(v, 0.0, 1.0));
+}
+
+float signedTo01(float v) {
+  return clamp(v * 0.5 + 0.5, 0.0, 1.0);
+}
+
+vec2 softDomainWarp(vec2 p, float time, float amount) {
+  vec2 q = vec2(
+    sin(p.y * 2.4 + time * 0.38) + 0.45 * sin((p.x + p.y) * 1.6 - time * 0.22),
+    cos(p.x * 2.0 - time * 0.31) + 0.4 * sin((p.x - p.y) * 2.2 + time * 0.18)
+  );
+  q *= 0.18;
+  return p + q * amount;
+}
+
+vec3 finishSoftGradient(float field, float lift) {
+  float t = soft01(field);
+  vec3 color = getGradientColor(t);
+  float sheen = smoothstep(0.55, 0.98, t) * lift * (0.2 + u_softness * 0.5);
+  color += sheen;
   return color;
 }
 
@@ -702,7 +729,9 @@ vec3 plasmaGradient(vec2 uv, float time) {
 
   float colorVal = v * 0.25 + 0.5;
   colorVal += fbm(p * 0.5 + time * 0.1, int(min(u_complexity, 4.0))) * u_distortion * 0.3;
-  return getGradientColor(fract(colorVal));
+  float hardWrap = fract(colorVal);
+  float softWave = 0.5 + 0.5 * sin(colorVal * 6.28318);
+  return getGradientColor(mix(hardWrap, softWave, u_softness));
 }
 
 float hash(vec2 p) {
@@ -784,6 +813,113 @@ vec3 voronoiGradient(vec2 uv, float time) {
   // Map distance to color
   float colorVal = fract(cellDist + cellEdge * 0.5);
   return getGradientColor(colorVal);
+}
+
+// ============================================================
+// Soft Premium Shader Nodes
+// ============================================================
+
+vec3 silkGradient(vec2 uv, float time) {
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = fluidDisplace(p, u_mouseReact * 0.55);
+  }
+  p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0) + 0.5;
+  p *= u_scale * 1.35;
+
+  float warpAmount = 0.35 + u_distortion * 1.6 + u_softness * 0.45;
+  p = softDomainWarp(p, time, warpAmount);
+
+  float flow = 0.5 + 0.5 * sin(p.x * 1.7 + p.y * 2.2 + time * 0.22);
+  flow += snoise(p * 1.35 + vec2(time * 0.06, -time * 0.04)) * 0.18;
+  float ribbonA = 0.5 + 0.5 * sin((p.y * 2.1 + p.x * 0.55 + flow * 1.65 + time * 0.22) * 3.14159);
+  float ribbonB = 0.5 + 0.5 * sin((p.y * 3.0 - p.x * 0.75 - flow * 1.35 - time * 0.16) * 3.14159);
+  float field = mix(ribbonA, ribbonB, 0.28 + u_softness * 0.2);
+  field = mix(field, clamp(flow, 0.0, 1.0), 0.18 + u_distortion * 0.15);
+
+  return finishSoftGradient(field, ribbonA * 0.65);
+}
+
+vec3 auroraGradient(vec2 uv, float time) {
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = gravityDisplace(p, u_mouseReact * 0.35);
+  }
+  p *= u_scale;
+  float drift = time * 0.13;
+
+  float curtain = 0.5 + 0.5 * sin(p.x * 2.4 + drift);
+  curtain += snoise(vec2(p.x * 1.1 + drift, p.y * 0.6)) * 0.22;
+  float wave = sin((p.x * 2.2 + curtain * 2.8 + drift) * 3.14159) * 0.5 + 0.5;
+  float vertical = smoothstep(-0.15, 0.92, 1.0 - p.y + curtain * 0.35);
+  float field = mix(wave, vertical, 0.46);
+
+  vec3 color = finishSoftGradient(field, vertical);
+  float veil = pow(max(0.0, wave * vertical), 2.0) * (0.18 + u_softness * 0.24);
+  return color + veil;
+}
+
+vec3 liquidGradient(vec2 uv, float time) {
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = fluidDisplace(p, u_mouseReact * 0.7);
+  }
+  p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0) + 0.5;
+  p *= u_scale * 1.35;
+  p = softDomainWarp(p, time, u_distortion * 1.15 + u_softness * 0.35);
+
+  float field = 0.0;
+  for (int i = 0; i < 5; i++) {
+    float fi = float(i);
+    vec2 center = vec2(
+      0.5 + 0.45 * sin(time * (0.12 + fi * 0.015) + fi * 2.31),
+      0.5 + 0.42 * cos(time * (0.10 + fi * 0.02) + fi * 1.73)
+    );
+    center *= u_scale * 1.15;
+    float radius = 0.12 + hash(vec2(fi, 2.0)) * 0.22 + u_softness * 0.08;
+    float d = length(p - center);
+    field += radius * radius / (d * d + 0.035 + u_softness * 0.08);
+  }
+
+  field = 1.0 - exp(-field * (0.42 + u_distortion * 0.25));
+  float flow = signedTo01(snoise(p * 1.25 + time * 0.08));
+  field = mix(field, flow, 0.16);
+  return finishSoftGradient(field, field);
+}
+
+vec3 softCellsGradient(vec2 uv, float time) {
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = gravityDisplace(p, u_mouseReact * 0.45);
+    p = fluidDisplace(p, u_mouseReact * 0.15);
+  }
+  p *= u_scale * 3.2;
+  p = softDomainWarp(p, time, u_distortion * 1.35 + u_softness * 0.45);
+
+  vec2 v = voronoi(p + time * 0.12);
+  float cell = smoothstep(0.05, 0.82 + u_softness * 0.28, v.x);
+  float wash = signedTo01(snoise(p * 0.42 + vec2(time * 0.04, -time * 0.03)));
+  float field = mix(cell, wash, 0.35 + u_softness * 0.2);
+  return finishSoftGradient(field, 1.0 - cell);
+}
+
+vec3 grainflowGradient(vec2 uv, float time) {
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = magnetDisplace(p, u_mouseReact * 0.35);
+  }
+  p *= u_scale * 1.7;
+  p = softDomainWarp(p, time, u_distortion * 1.4 + u_softness * 0.25);
+
+  float flow = signedTo01(snoise(p + vec2(time * 0.18, time * 0.08)));
+  float streak = 0.5 + 0.5 * sin((p.x * 1.5 + p.y * 0.35 + flow * 2.2 + time * 0.12) * 6.28318);
+  float field = mix(flow, streak, 0.22);
+  vec3 color = finishSoftGradient(field, streak * 0.4);
+
+  float grain = interleavedGradientNoise(gl_FragCoord.xy + vec2(time * 31.0, -time * 17.0)) - 0.5;
+  float paper = hash(floor(gl_FragCoord.xy / max(2.0, 7.0 - u_complexity * 0.5))) - 0.5;
+  color += (grain * 0.045 + paper * 0.035) * (0.45 + u_softness);
+  return clamp(color, 0.0, 1.2);
 }
 
 // ============================================================
@@ -925,7 +1061,10 @@ vec3 ditherGradient(vec2 uv, float time) {
   // Colors: colors[0] = dot color, colors[1] = background
   vec3 dotColor = u_colors[0];
   vec3 bgColor = u_colorCount > 1 ? u_colors[1] : vec3(1.0);
-  return mix(bgColor, dotColor, dot);
+  vec3 crisp = mix(bgColor, dotColor, dot);
+  vec3 softBase = getGradientColor(cellLum);
+  vec3 softened = mix(softBase, dotColor, dot * 0.45);
+  return mix(crisp, softened, u_softness * 0.85);
 }
 
 // ============================================================
@@ -1243,6 +1382,11 @@ vec3 computeGradient(vec2 uv, float time) {
   else if (u_gradientType == 6) return scanlineGradient(uv, time);
   else if (u_gradientType == 7) return glitchGradient(uv, time);
   else if (u_gradientType == 9) return voronoiGradient(uv, time);
+  else if (u_gradientType == 10) return silkGradient(uv, time);
+  else if (u_gradientType == 11) return auroraGradient(uv, time);
+  else if (u_gradientType == 12) return liquidGradient(uv, time);
+  else if (u_gradientType == 13) return softCellsGradient(uv, time);
+  else if (u_gradientType == 14) return grainflowGradient(uv, time);
   else return imageGradient(uv, time);
 }
 

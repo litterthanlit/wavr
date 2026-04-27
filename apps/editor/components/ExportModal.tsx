@@ -62,6 +62,7 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
     complexity: store.complexity as number,
     scale: store.scale as number,
     distortion: store.distortion as number,
+    softness: store.softness as number,
     brightness: store.brightness,
     saturation: store.saturation,
   };

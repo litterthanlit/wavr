@@ -31,7 +31,7 @@ import {
   type GradientType,
   type BlendMode as SchemaBlendMode,
 } from "@wavr/schema";
-import type { LayerParams, BlendMode as CoreBlendMode } from "@wavr/core";
+import { createLayer, type LayerParams, type BlendMode as CoreBlendMode } from "@wavr/core";
 import { useGradientStore, type GradientState } from "./store";
 
 // ---------- module-scope state -------------------------------------------
@@ -221,7 +221,7 @@ export function storeToConfig(state: GradientState): GradientConfig {
 
 function layerParamsToConfig(l: LayerParams): GradientConfig["layers"][number] {
   // Schema LayerConfig has exactly: type, colors, speed, complexity, scale,
-  // distortion, opacity, blendMode, depth. Skip: visible, imageData,
+  // distortion, softness, opacity, blendMode, depth. Skip: visible, imageData,
   // imageScale, imageOffset, distortionMap*, imageBlendMode, imageBlendOpacity,
   // mask*, textMask* — all layer-extension fields (editor-only).
   return {
@@ -231,6 +231,7 @@ function layerParamsToConfig(l: LayerParams): GradientConfig["layers"][number] {
     complexity: l.complexity,
     scale: l.scale,
     distortion: l.distortion,
+    softness: l.softness,
     opacity: l.opacity,
     blendMode: l.blendMode as SchemaBlendMode,
     depth: l.depth,
@@ -363,64 +364,18 @@ export function configToStorePatch(config: GradientConfig): Partial<GradientStat
 }
 
 function layerConfigToParams(l: GradientConfig["layers"][number]): LayerParams {
-  // Fill the layer with defaults from createLayer (indirectly via a tiny
-  // literal) for the layer-extension fields the URL doesn't carry. We don't
-  // import `createLayer` here to keep this module pure of side-effectful
-  // imports, but the defaults come straight from core/src/layers.ts.
-  return {
+  return createLayer({
     gradientType: l.type as LayerParams["gradientType"],
     speed: l.speed,
     complexity: l.complexity,
     scale: l.scale,
     distortion: l.distortion,
+    softness: l.softness,
     colors: l.colors.map((c) => [...c] as [number, number, number]),
     opacity: l.opacity,
     blendMode: l.blendMode as CoreBlendMode,
     depth: l.depth,
-    // Layer-extension defaults (spec 0002 territory).
-    visible: true,
-    imageData: null,
-    imageScale: 1.0,
-    imageOffset: [0, 0],
-    distortionMapData: null,
-    distortionMapEnabled: false,
-    distortionMapIntensity: 0.3,
-    imageBlendMode: "replace",
-    imageBlendOpacity: 1.0,
-    maskEnabled: false,
-    mask1: {
-      shape: "none",
-      position: [0, 0],
-      scale: [1, 1],
-      rotation: 0,
-      feather: 0.01,
-      invert: false,
-      cornerRadius: 0.1,
-      sides: 6,
-      starInnerRadius: 0.4,
-      noiseDistortion: 0,
-    },
-    mask2: {
-      shape: "none",
-      position: [0, 0],
-      scale: [1, 1],
-      rotation: 0,
-      feather: 0.01,
-      invert: false,
-      cornerRadius: 0.1,
-      sides: 6,
-      starInnerRadius: 0.4,
-      noiseDistortion: 0,
-    },
-    maskBlendMode: "union",
-    maskSmoothness: 0.1,
-    textMaskEnabled: false,
-    textMaskContent: "",
-    textMaskFontSize: 80,
-    textMaskFontWeight: 700,
-    textMaskLetterSpacing: 0,
-    textMaskAlign: "center",
-  };
+  });
 }
 
 // ---------- share-URL helper ---------------------------------------------

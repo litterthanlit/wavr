@@ -7,6 +7,7 @@ export type {
   EasingFunction,
   EventTriggers,
   GradientConfig,
+  GradientType,
   HoverTrigger,
   ImageBlendMode,
   InViewTrigger,

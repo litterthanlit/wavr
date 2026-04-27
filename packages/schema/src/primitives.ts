@@ -24,6 +24,7 @@ export const GradientType = d(
   z.enum([
     "mesh", "radial", "linear", "conic", "plasma",
     "dither", "scanline", "glitch", "voronoi", "image",
+    "silk", "aurora", "liquid", "softCells", "grainflow",
   ])
 );
 export type GradientType = z.infer<typeof GradientType>;

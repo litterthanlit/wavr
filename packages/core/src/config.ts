@@ -4,12 +4,13 @@ import { LayerParams, createLayer } from "./layers";
 
 const LAYER_DEFAULTS: Required<Pick<
   LayerConfig,
-  "speed" | "complexity" | "scale" | "distortion" | "opacity" | "blendMode" | "depth"
+  "speed" | "complexity" | "scale" | "distortion" | "softness" | "opacity" | "blendMode" | "depth"
 >> = {
   speed: 0.4,
   complexity: 3,
   scale: 1.0,
   distortion: 0.3,
+  softness: 0,
   opacity: 1.0,
   blendMode: "normal",
   depth: 0,
@@ -23,6 +24,7 @@ function resolveLayer(layer: LayerConfig): LayerParams {
     complexity: layer.complexity ?? LAYER_DEFAULTS.complexity,
     scale: layer.scale ?? LAYER_DEFAULTS.scale,
     distortion: layer.distortion ?? LAYER_DEFAULTS.distortion,
+    softness: layer.softness ?? undefined,
     opacity: layer.opacity ?? LAYER_DEFAULTS.opacity,
     blendMode: layer.blendMode ?? LAYER_DEFAULTS.blendMode,
     depth: layer.depth ?? LAYER_DEFAULTS.depth,
@@ -137,6 +139,7 @@ export function stateToConfig(state: EngineState): GradientConfig {
       complexity: l.complexity,
       scale: l.scale,
       distortion: l.distortion,
+      softness: l.softness,
       opacity: l.opacity,
       blendMode: l.blendMode,
       depth: l.depth,

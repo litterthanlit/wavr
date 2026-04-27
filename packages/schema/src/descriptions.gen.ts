@@ -20,6 +20,7 @@ export const DESCRIPTIONS = {
   "LayerConfig.complexity": "Shape detail / fBm octaves.",
   "LayerConfig.scale": "Pattern zoom. <1 = larger features.",
   "LayerConfig.distortion": "Noise displacement of UVs.",
+  "LayerConfig.softness": "Per-layer color-field melting for naturally blurred, blended premium gradients.",
   "LayerConfig.opacity": "Layer opacity when composited.",
   "LayerConfig.blendMode": "How this layer composites onto the layer beneath.",
   "LayerConfig.depth": "Parallax depth. Negative = behind.",

@@ -6,6 +6,7 @@ import { GLITCH_PRESETS } from "./glitch";
 import { CINEMATIC_PRESETS } from "./cinematic";
 import { NATURE_PRESETS } from "./nature";
 import { ABSTRACT_PRESETS } from "./abstract";
+import { SOFT_PRESETS } from "./soft";
 
 type PresetData = Partial<Omit<GradientState, "set" | "setColor" | "addColor" | "removeColor" | "loadPreset" | "randomize">>;
 
@@ -15,9 +16,10 @@ export interface Preset {
   data: PresetData;
 }
 
-export type PresetCategory = "classic" | "dither" | "scanline" | "glitch" | "cinematic" | "nature" | "abstract";
+export type PresetCategory = "soft" | "classic" | "dither" | "scanline" | "glitch" | "cinematic" | "nature" | "abstract";
 
 export const CATEGORY_LABELS: Record<PresetCategory, string> = {
+  soft: "Soft",
   classic: "Classic",
   dither: "Dither",
   scanline: "Scanline",
@@ -28,10 +30,11 @@ export const CATEGORY_LABELS: Record<PresetCategory, string> = {
 };
 
 export const CATEGORY_ORDER: PresetCategory[] = [
-  "classic", "dither", "scanline", "glitch", "cinematic", "nature", "abstract",
+  "soft", "classic", "dither", "scanline", "glitch", "cinematic", "nature", "abstract",
 ];
 
 export const PRESETS: Preset[] = [
+  ...SOFT_PRESETS,
   ...CLASSIC_PRESETS,
   ...DITHER_PRESETS,
   ...SCANLINE_PRESETS,

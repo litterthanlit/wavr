@@ -17,6 +17,7 @@ export const DEFAULT_CONFIG: GradientConfig = {
       complexity: 3,
       scale: 1,
       distortion: 0.3,
+      softness: 0,
       opacity: 1,
       blendMode: "normal",
       depth: 0,

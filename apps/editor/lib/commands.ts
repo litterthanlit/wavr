@@ -14,6 +14,7 @@ import { PRESETS } from "./presets";
 import { MAX_LAYERS } from "@wavr/core";
 import type { LayerParams } from "@wavr/core";
 import type { SidebarTab } from "./types";
+import { COMMAND_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
 
 export type CommandGroup =
   | "Playback"
@@ -47,10 +48,7 @@ export interface UiActions {
 // ── Gradient types (exclude "image", see spec §3.3) ────────────────────────
 // Keep in sync with LayerParams["gradientType"]. Image requires a file-upload
 // payload the palette can't provide; stays reachable via the Gradient panel.
-const GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = [
-  "mesh", "radial", "linear", "conic", "plasma",
-  "dither", "scanline", "glitch", "voronoi",
-];
+const GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = COMMAND_GRADIENT_TYPES;
 
 // ── Effect flags on the store root. Hand-listed per spec; any missing field
 // (e.g. `debandEnabled` before that PR merges) is skipped at runtime via the
@@ -208,7 +206,10 @@ export function getCommands(ui: UiActions): Command[] {
       label: `Set gradient: ${titleCase(type)}`,
       group: "Gradient",
       keywords: ["gradient", "type", type],
-      run: () => useGradientStore.getState().setLayerParam({ gradientType: type }),
+      run: () => useGradientStore.getState().setLayerParam({
+        gradientType: type,
+        softness: defaultSoftnessForType(type),
+      }),
     });
   }
 

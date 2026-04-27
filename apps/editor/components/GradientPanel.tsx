@@ -7,19 +7,7 @@ import Slider from "@/components/ui/Slider";
 import ColorInput from "@/components/ui/ColorInput";
 import Toggle from "@/components/ui/Toggle";
 import { LayerParams, MaskParams, TextMaskAlign } from "@wavr/core";
-
-const GRADIENT_OPTIONS = [
-  { value: "mesh", label: "Mesh" },
-  { value: "radial", label: "Radial" },
-  { value: "linear", label: "Linear" },
-  { value: "conic", label: "Conic" },
-  { value: "plasma", label: "Plasma" },
-  { value: "dither", label: "Dither" },
-  { value: "scanline", label: "Scanline" },
-  { value: "glitch", label: "Glitch" },
-  { value: "voronoi", label: "Voronoi" },
-  { value: "image", label: "Image" },
-];
+import { GRADIENT_OPTIONS, defaultSoftnessForType } from "@/lib/gradient-types";
 
 const MASK_SHAPE_OPTIONS = [
   { value: "none", label: "None" },
@@ -251,7 +239,13 @@ export default function GradientPanel() {
           label="Gradient Type"
           value={store.gradientType}
           options={GRADIENT_OPTIONS}
-          onChange={(v) => store.setDiscrete({ gradientType: v as typeof store.gradientType })}
+          onChange={(v) => {
+            const gradientType = v as typeof store.gradientType;
+            store.setDiscrete({
+              gradientType,
+              softness: defaultSoftnessForType(gradientType),
+            });
+          }}
         />
       </div>
 
@@ -488,7 +482,8 @@ export default function GradientPanel() {
         <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} onCommit={() => store.commitSet()} />
         <Slider label="Scale" value={store.scale} min={0.2} max={4} step={0.01} onChange={(v) => store.set({ scale: v })} onCommit={() => store.commitSet()} />
         <Slider label="Distortion" value={store.distortion} min={0} max={1} step={0.01} onChange={(v) => store.set({ distortion: v })} onCommit={() => store.commitSet()} />
-        {store.gradientType === "mesh" && (
+        <Slider label="Softness" value={store.softness} min={0} max={1} step={0.01} onChange={(v) => store.set({ softness: v })} onCommit={() => store.commitSet()} />
+        {(store.gradientType === "mesh" || store.gradientType === "silk" || store.gradientType === "aurora") && (
           <Slider label="Domain Warp" value={store.domainWarp} min={0} max={1} step={0.01} onChange={(v) => store.set({ domainWarp: v })} onCommit={() => store.commitSet()} />
         )}
       </div>

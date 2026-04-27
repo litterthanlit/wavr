@@ -285,6 +285,7 @@ export class GradientEngine {
     const names = [
       "u_time", "u_resolution", "u_mouse", "u_gradientType",
       "u_speed", "u_complexity", "u_scale", "u_distortion",
+      "u_softness",
       "u_brightness", "u_saturation", "u_colorCount",
       "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
       "u_mouseReact",
@@ -978,12 +979,14 @@ void main() {
     const typeMap: Record<string, number> = {
       mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4,
       dither: 5, scanline: 6, glitch: 7, image: 8, voronoi: 9,
+      silk: 10, aurora: 11, liquid: 12, softCells: 13, grainflow: 14,
     };
     this.seti("u_gradientType", typeMap[layer.gradientType]);
     this.setf("u_speed", layer.speed);
     this.setf("u_complexity", layer.complexity);
     this.setf("u_scale", layer.scale);
     this.setf("u_distortion", layer.distortion);
+    this.setf("u_softness", layer.softness);
     this.seti("u_colorCount", layer.colors.length);
     for (let i = 0; i < 8; i++) {
       const key = `u_colors[${i}]`;

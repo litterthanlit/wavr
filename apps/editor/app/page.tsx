@@ -83,8 +83,8 @@ function DitherCanvas() {
 const FEATURES = [
   {
     label: "Gradient Engine",
-    title: "Five modes, one shader",
-    desc: "Mesh, radial, linear, conic, and plasma gradients — all GPU-rendered in a single WebGL 2 fragment shader at 60fps.",
+    title: "Premium modes, one shader",
+    desc: "Silk, aurora, liquid, soft cells, grainflow, mesh, plasma, and dither — all GPU-rendered in a single WebGL 2 fragment shader.",
     ascii: "█▓▒░",
   },
   {
@@ -296,7 +296,7 @@ export default function LandingPage() {
             {
               step: "01",
               title: "Pick a gradient mode",
-              desc: "Choose mesh, radial, linear, conic, or plasma. Adjust colors, speed, complexity, and scale with real-time preview.",
+              desc: "Start from soft premium modes like silk, aurora, liquid, soft cells, and grainflow. Tune colors, motion, scale, and softness live.",
               glyph: "░░▒▒▓▓██",
             },
             {

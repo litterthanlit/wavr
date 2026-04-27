@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
+import { RANDOM_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
 // Coupling note: url-sync.ts subscribes to this store and reads the
 // `markPushPoint` signal below to decide between pushState vs replaceState on
 // the next debounced URL write. Per spec 0003 §3.3, discrete/committed actions
@@ -113,6 +114,7 @@ export interface GradientState {
   complexity: number;
   scale: number;
   distortion: number;
+  softness: number;
   colors: [number, number, number][];
 
   // Actions
@@ -160,7 +162,7 @@ const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "toggleTimeline", "addKeyframe", "removeKeyframe", "setTimelinePosition",
   "setTimelineDuration", "setTimelinePlaybackMode",
   // Derived fields
-  "gradientType", "speed", "complexity", "scale", "distortion", "colors",
+  "gradientType", "speed", "complexity", "scale", "distortion", "softness", "colors",
   "customGLSL",
 ];
 
@@ -227,6 +229,7 @@ function deriveActiveLayerFields(layers: LayerParams[], activeLayerIndex: number
     complexity: layer.complexity,
     scale: layer.scale,
     distortion: layer.distortion,
+    softness: layer.softness,
     colors: layer.colors,
   };
 }
@@ -338,7 +341,7 @@ function flushPending() {
 
 // Map layer param keys to top-level state keys for backward compatibility
 const LAYER_PARAM_KEYS: (keyof LayerParams)[] = [
-  "gradientType", "speed", "complexity", "scale", "distortion", "colors",
+  "gradientType", "speed", "complexity", "scale", "distortion", "softness", "colors",
 ];
 
 function applyToActiveLayer(
@@ -360,6 +363,9 @@ function applyToActiveLayer(
   }
 
   if (hasLayerUpdates) {
+    if (layerUpdates.gradientType && layerUpdates.softness === undefined) {
+      layerUpdates.softness = defaultSoftnessForType(layerUpdates.gradientType);
+    }
     const newLayers = state.layers.map((l, i) =>
       i === state.activeLayerIndex ? { ...l, ...layerUpdates } : l
     );
@@ -441,6 +447,24 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     flushPending();
     const current = useGradientStore.getState();
     pushHistory(takeSnapshot(current));
+    if (Array.isArray(preset.layers)) {
+      const nextLayers = preset.layers.map((layer) => createLayer(layer));
+      const nextIndex = Math.min(
+        Math.max(0, preset.activeLayerIndex ?? current.activeLayerIndex),
+        nextLayers.length - 1,
+      );
+      const rest = { ...preset };
+      delete rest.layers;
+      delete rest.activeLayerIndex;
+      rawSet({
+        ...rest,
+        layers: nextLayers,
+        activeLayerIndex: nextIndex,
+        ...deriveActiveLayerFields(nextLayers, nextIndex),
+      } as Partial<GradientState>);
+      return;
+    }
+
     // Presets apply to the active layer's gradient params + global effects
     const layerUpdates: Partial<LayerParams> = {};
     const globalUpdates: Partial<GradientState> = {};
@@ -450,6 +474,9 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       } else {
         (globalUpdates as Record<string, unknown>)[key] = value;
       }
+    }
+    if (layerUpdates.gradientType && layerUpdates.softness === undefined) {
+      layerUpdates.softness = defaultSoftnessForType(layerUpdates.gradientType);
     }
     const newLayers = current.layers.map((l, i) =>
       i === current.activeLayerIndex ? { ...l, ...layerUpdates } : l
@@ -469,19 +496,22 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       const hue = (baseHue + i * (360 / count) + (Math.random() - 0.5) * 30) % 360;
       colors.push(hslToRgb(hue, 0.6 + Math.random() * 0.4, 0.4 + Math.random() * 0.3));
     }
-    const types: LayerParams["gradientType"][] = ["mesh", "radial", "linear", "conic", "plasma", "dither", "scanline", "glitch", "voronoi"];
+    const types: LayerParams["gradientType"][] = RANDOM_GRADIENT_TYPES;
     const gradientType = types[Math.floor(Math.random() * types.length)];
     const speed = 0.2 + Math.random() * 0.8;
     const complexity = 2 + Math.floor(Math.random() * 4);
     const scale = 0.5 + Math.random() * 2;
     const distortion = Math.random() * 0.6;
+    const softness = gradientType === "mesh" || gradientType === "plasma" || gradientType === "dither"
+      ? 0.25 + Math.random() * 0.35
+      : 0.5 + Math.random() * 0.35;
 
     flushPending();
     const current = useGradientStore.getState();
     pushHistory(takeSnapshot(current));
     const newLayers = current.layers.map((l, i) =>
       i === current.activeLayerIndex
-        ? { ...l, colors, gradientType, speed, complexity, scale, distortion }
+        ? { ...l, colors, gradientType, speed, complexity, scale, distortion, softness }
         : l
     );
     rawSet({

@@ -14,6 +14,28 @@ export type MaskBlendMode = "union" | "subtract" | "intersect" | "smoothUnion";
 
 export type TextMaskAlign = "left" | "center" | "right";
 
+export type GradientType =
+  | "mesh" | "radial" | "linear" | "conic" | "plasma"
+  | "dither" | "scanline" | "glitch" | "image" | "voronoi"
+  | "silk" | "aurora" | "liquid" | "softCells" | "grainflow";
+
+export function defaultSoftnessForGradientType(type: GradientType): number {
+  switch (type) {
+    case "silk":
+      return 0.72;
+    case "aurora":
+      return 0.68;
+    case "liquid":
+      return 0.62;
+    case "softCells":
+      return 0.76;
+    case "grainflow":
+      return 0.48;
+    default:
+      return 0;
+  }
+}
+
 export interface MaskParams {
   shape: MaskShape;
   position: [number, number];
@@ -41,11 +63,12 @@ export const DEFAULT_MASK: MaskParams = {
 };
 
 export interface LayerParams {
-  gradientType: "mesh" | "radial" | "linear" | "conic" | "plasma" | "dither" | "scanline" | "glitch" | "image" | "voronoi";
+  gradientType: GradientType;
   speed: number;
   complexity: number;
   scale: number;
   distortion: number;
+  softness: number;
   colors: [number, number, number][];
   opacity: number;
   blendMode: BlendMode;
@@ -82,6 +105,7 @@ export const DEFAULT_LAYER: LayerParams = {
   complexity: 3,
   scale: 1.0,
   distortion: 0.3,
+  softness: 0,
   colors: [
     [0.388, 0.357, 1.0],
     [1.0, 0.42, 0.42],
@@ -116,6 +140,9 @@ export const DEFAULT_LAYER: LayerParams = {
 export function createLayer(overrides?: Partial<LayerParams>): LayerParams {
   return {
     ...DEFAULT_LAYER,
+    ...(overrides?.gradientType && overrides.softness === undefined
+      ? { softness: defaultSoftnessForGradientType(overrides.gradientType) }
+      : {}),
     colors: DEFAULT_LAYER.colors.map((c) => [...c] as [number, number, number]),
     mask1: { ...DEFAULT_MASK },
     mask2: { ...DEFAULT_MASK },

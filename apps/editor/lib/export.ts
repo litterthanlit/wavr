@@ -70,6 +70,7 @@ interface EmbedConfig {
   complexity: number;
   scale: number;
   distortion: number;
+  softness?: number;
   brightness?: number;
   saturation?: number;
   hueShift?: number;
@@ -98,7 +99,8 @@ export function generateEmbedConfig(state: ExportableState & {
 }): EmbedConfig {
   const typeMap: Record<string, number> = {
     mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4,
-    dither: 5, scanline: 6, glitch: 7, image: 8,
+    dither: 5, scanline: 6, glitch: 7, image: 8, voronoi: 9,
+    silk: 10, aurora: 11, liquid: 12, softCells: 13, grainflow: 14,
   };
 
   const config: EmbedConfig = {
@@ -127,6 +129,7 @@ export function generateEmbedConfig(state: ExportableState & {
   if (state.vignette) config.vignette = +state.vignette.toFixed(2);
   if (state.chromaticAberration) config.chromaticAberration = +state.chromaticAberration.toFixed(3);
   if (state.domainWarp) config.domainWarp = +state.domainWarp.toFixed(2);
+  if (state.softness) config.softness = +state.softness.toFixed(2);
 
   return config;
 }
@@ -188,6 +191,7 @@ interface ExportableState {
   complexity: number;
   scale: number;
   distortion: number;
+  softness?: number;
   brightness: number;
   saturation: number;
 }

@@ -12,6 +12,10 @@ export type ImageBlendMode = "replace" | "normal" | "multiply" | "screen" | "ove
 export type MaskShape = "none" | "circle" | "roundedRect" | "ellipse" | "polygon" | "star" | "blob";
 export type MaskBlendMode = "union" | "subtract" | "intersect" | "smoothUnion";
 export type TextMaskAlign = "left" | "center" | "right";
+export type GradientType =
+  | "mesh" | "radial" | "linear" | "conic" | "plasma"
+  | "dither" | "scanline" | "glitch" | "image" | "voronoi"
+  | "silk" | "aurora" | "liquid" | "softCells" | "grainflow";
 
 export interface MaskParams {
   shape: MaskShape;
@@ -27,13 +31,13 @@ export interface MaskParams {
 }
 
 export interface LayerConfig {
-  type: "mesh" | "radial" | "linear" | "conic" | "plasma"
-      | "dither" | "scanline" | "glitch" | "image" | "voronoi";
+  type: GradientType;
   colors: RGBColor[];
   speed?: number;
   complexity?: number;
   scale?: number;
   distortion?: number;
+  softness?: number;
   opacity?: number;
   blendMode?: BlendMode;
   depth?: number;

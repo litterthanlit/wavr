@@ -1,16 +1,16 @@
-import type { BlendMode, ImageBlendMode, MaskBlendMode, MaskParams, TextMaskAlign } from "./layers";
+import type { BlendMode, GradientType, ImageBlendMode, MaskBlendMode, MaskParams, TextMaskAlign } from "./layers";
 
 /** RGB color as normalized floats [0-1, 0-1, 0-1] */
 export type RGBColor = [number, number, number];
 
 export interface LayerConfig {
-  type: "mesh" | "radial" | "linear" | "conic" | "plasma"
-      | "dither" | "scanline" | "glitch" | "image" | "voronoi";
+  type: GradientType;
   colors: RGBColor[];
   speed?: number;
   complexity?: number;
   scale?: number;
   distortion?: number;
+  softness?: number;
   opacity?: number;
   blendMode?: BlendMode;
   depth?: number;
