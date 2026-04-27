@@ -9,6 +9,7 @@ import ShortcutsModal from "@/components/ShortcutsModal";
 import MobileDrawer from "@/components/MobileDrawer";
 import Timeline from "@/components/Timeline";
 import ProjectsModal from "@/components/ProjectsModal";
+import SceneGalleryModal from "@/components/SceneGalleryModal";
 import Onboarding from "@/components/Onboarding";
 import CommandPalette from "@/components/CommandPalette";
 import { useGradientStore } from "@/lib/store";
@@ -20,6 +21,7 @@ export default function EditorPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [scenesOpen, setScenesOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("gradient");
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
@@ -71,6 +73,7 @@ export default function EditorPage() {
           setExportOpen(false);
           setShortcutsOpen(false);
           setProjectsOpen(false);
+          setScenesOpen(false);
           break;
         case "1":
           setActiveTab("gradient");
@@ -109,6 +112,7 @@ export default function EditorPage() {
     <div className="h-screen w-screen bg-root flex items-center justify-center">
     <div className="h-[90vh] w-[90vw] flex flex-col rounded-xl overflow-hidden border border-border shadow-2xl">
       <TopBar
+        onScenes={() => setScenesOpen(true)}
         onExport={() => setExportOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
         onProjects={() => setProjectsOpen(true)}
@@ -135,6 +139,10 @@ export default function EditorPage() {
       <ProjectsModal
         open={projectsOpen}
         onClose={() => setProjectsOpen(false)}
+      />
+      <SceneGalleryModal
+        open={scenesOpen}
+        onClose={() => setScenesOpen(false)}
       />
       <CommandPalette
         open={paletteOpen}

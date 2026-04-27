@@ -1,6 +1,6 @@
 export function generateEmbedCode(stateHash: string, width = 800, height = 600): string {
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://wavr.app";
-  return `<iframe src="${baseUrl}/#s=${stateHash}" width="${width}" height="${height}" frameborder="0" style="border:0;border-radius:8px;" allow="autoplay"></iframe>`;
+  return `<iframe src="${baseUrl}/editor#${stateHash}" width="${width}" height="${height}" frameborder="0" style="border:0;border-radius:8px;" allow="autoplay"></iframe>`;
 }
 
 export function exportPNG(canvas: HTMLCanvasElement, filename = "wavr-gradient.png") {

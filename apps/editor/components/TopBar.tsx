@@ -6,12 +6,13 @@ import { useTheme } from "@/lib/useTheme";
 import { copyShareUrl } from "@/lib/url";
 
 interface TopBarProps {
+  onScenes: () => void;
   onExport: () => void;
   onShowShortcuts: () => void;
   onProjects: () => void;
 }
 
-export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBarProps) {
+export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects }: TopBarProps) {
   const store = useGradientStore();
   const { playing, randomize, set, undo, redo } = store;
   const { theme, cycleTheme } = useTheme();
@@ -35,6 +36,9 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBar
 
       {/* Center: Playback + Utils */}
       <div className="flex items-center gap-2">
+        <button onClick={onScenes} className="topbar-btn topbar-btn-accent">
+          Scenes
+        </button>
         <button onClick={randomize} className="topbar-btn">
           Randomize
         </button>
@@ -66,7 +70,7 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBar
           Projects
         </button>
         <div className="topbar-divider" />
-        <button onClick={onExport} className="topbar-btn topbar-btn-accent">
+        <button onClick={onExport} className="topbar-btn">
           Export
         </button>
       </div>

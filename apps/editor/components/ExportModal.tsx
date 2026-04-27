@@ -49,7 +49,7 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
   const [gifRecording, setGifRecording] = useState(false);
   const [progress, setProgress] = useState(0);
   const [gifProgress, setGifProgress] = useState(0);
-  const [tab, setTab] = useState<"image" | "code" | "embed">("image");
+  const [tab, setTab] = useState<"ship" | "image" | "code" | "embed">("ship");
   const store = useGradientStore();
   const colors = store.colors as [number, number, number][];
 
@@ -66,7 +66,42 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
     saturation: store.saturation,
   };
 
+  const stateHash = encodeState(store);
+  const embedCode = generateEmbedCode(stateHash, 1200, 700);
+  const shareUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/editor#${stateHash}`
+    : `https://wavr.app/editor#${stateHash}`;
+  const framerSnippet = `<div style="width:100%;height:100%;min-height:560px;overflow:hidden;border-radius:16px;">
+  ${embedCode}
+</div>`;
+  const webflowSnippet = `<section class="wavr-hero">
+  ${embedCode}
+</section>
+
+<style>
+.wavr-hero {
+  width: 100%;
+  min-height: 640px;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.wavr-hero iframe {
+  width: 100%;
+  height: 640px;
+}
+</style>`;
+  const nextSnippet = `import WavrGradient from "@wavr/gradient";
+
+export function HeroVisual() {
+  return (
+    <div className="absolute inset-0 -z-10">
+      <WavrGradient className="h-full w-full" />
+    </div>
+  );
+}`;
+
   const tabs = [
+    { key: "ship" as const, label: "Ship" },
     { key: "image" as const, label: "Image / Video" },
     { key: "code" as const, label: "Code" },
     { key: "embed" as const, label: "Embed" },
@@ -106,6 +141,41 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
         </div>
 
         <div className="flex flex-col gap-3">
+          {tab === "ship" && (
+            <>
+              <div className="grid grid-cols-2 gap-2 mb-1">
+                <div className="bg-surface border border-border rounded-lg p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-text-tertiary">Target</div>
+                  <div className="text-xs text-text-primary mt-1">Hero / embed</div>
+                </div>
+                <div className="bg-surface border border-border rounded-lg p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-text-tertiary">Fallback</div>
+                  <div className="text-xs text-text-primary mt-1">PNG / WebM</div>
+                </div>
+              </div>
+              <ExportButton
+                title="Share Remix Link"
+                desc="Copy an editable URL for review, remixing, or handoff"
+                action={async () => { await copyToClipboard(shareUrl); }}
+              />
+              <ExportButton
+                title="Framer Embed"
+                desc="Paste into an Embed component or custom code block"
+                action={async () => { await copyToClipboard(framerSnippet); }}
+              />
+              <ExportButton
+                title="Webflow Embed"
+                desc="Drop into an Embed element with responsive hero sizing"
+                action={async () => { await copyToClipboard(webflowSnippet); }}
+              />
+              <ExportButton
+                title="Next.js Starter"
+                desc="Copy a React wrapper for app-router hero backgrounds"
+                action={async () => { await copyToClipboard(nextSnippet); }}
+              />
+            </>
+          )}
+
           {tab === "image" && (
             <>
               <ExportButton
@@ -201,8 +271,7 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
                 title="Embed Code"
                 desc="Shareable iframe for landing pages and docs"
                 action={async () => {
-                  const hash = encodeState(store);
-                  await copyToClipboard(generateEmbedCode(hash));
+                  await copyToClipboard(embedCode);
                 }}
               />
               <ExportButton
