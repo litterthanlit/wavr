@@ -13,8 +13,8 @@
   --color-text-tertiary: var(--color-text-tertiary-val);
   --color-accent: var(--color-accent-val);
   --color-slider-track: var(--color-slider-track-val);
-  --font-sans: "Geist", sans-serif;
-  --font-mono: "Geist Mono", monospace;
+  --font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
 }
 
 /* ============================================================
