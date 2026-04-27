@@ -13,7 +13,7 @@ const TABS: { id: SidebarTab; label: string }[] = [
   { id: "gradient", label: "Gradient" },
   { id: "effects", label: "Effects" },
   { id: "presets", label: "Presets" },
-  { id: "code", label: "Code" },
+  { id: "code", label: "Lab" },
 ];
 
 interface SidebarProps {
@@ -44,7 +44,7 @@ export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarPr
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
         {activeTab === "gradient" && <GradientPanel />}
         {activeTab === "effects" && <EffectsPanel />}
         {activeTab === "presets" && <PresetsPanel />}

@@ -46,9 +46,12 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label="Projects" className="relative bg-base border border-border rounded-xl p-6 w-[400px] max-h-[80vh] flex flex-col shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Projects" className="relative bg-base border border-border rounded-xl p-6 w-[calc(100vw-32px)] max-w-[520px] max-h-[80vh] flex flex-col shadow-2xl">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-sm font-medium text-text-primary">Projects</h2>
+          <div>
+            <h2 className="text-sm font-medium text-text-primary">Projects</h2>
+            <p className="text-[11px] text-text-tertiary mt-1">Save named versions locally, then load or remix them later.</p>
+          </div>
           <button onClick={onClose} aria-label="Close" className="text-text-tertiary hover:text-text-primary text-lg transition-colors">
             x
           </button>
@@ -78,9 +81,12 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
         {/* Projects list */}
         <div className="flex-1 overflow-y-auto">
           {projects.length === 0 ? (
-            <p className="text-xs text-text-tertiary text-center py-8">
-              No saved projects yet
-            </p>
+            <div className="text-center py-8 px-6 border border-dashed border-border rounded-lg bg-surface/40">
+              <p className="text-xs text-text-secondary">No saved projects yet</p>
+              <p className="text-[11px] text-text-tertiary mt-1">
+                Name this scene to keep a thumbnail-free version checkpoint in this browser.
+              </p>
+            </div>
           ) : (
             <div className="flex flex-col gap-1.5">
               {projects.map((project) => (

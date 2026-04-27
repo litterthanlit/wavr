@@ -1306,6 +1306,7 @@ void main() {
     let lastFpsUpdate = performance.now();
     let frameCount = 0;
     let lastTime = performance.now() / 1000;
+    let lastPausedState: EngineState | null = null;
 
     const loop = () => {
       this.animationId = requestAnimationFrame(loop);
@@ -1314,8 +1315,13 @@ void main() {
 
       if (!state.playing) {
         lastTime = now;
+        if (state !== lastPausedState) {
+          this.render(state);
+          lastPausedState = state;
+        }
         return;
       }
+      lastPausedState = null;
 
       const dt = now - lastTime;
       this.elapsedTime += dt * this.speedMultiplier;

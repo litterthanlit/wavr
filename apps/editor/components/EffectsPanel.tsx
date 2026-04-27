@@ -88,7 +88,7 @@ export default function EffectsPanel() {
       <Section title="Lighting" defaultOpen>
         <Toggle label="Bloom" checked={store.bloomEnabled} onChange={(v) => store.setDiscrete({ bloomEnabled: v })} />
         <Slider label="Intensity" value={store.bloomIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ bloomIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.bloomEnabled} />
-        <Toggle label="Real Bloom (GPU)" checked={store.realBloomEnabled} onChange={(v) => store.setDiscrete({ realBloomEnabled: v })} />
+        <Toggle label="Cinematic Bloom" checked={store.realBloomEnabled} onChange={(v) => store.setDiscrete({ realBloomEnabled: v })} />
         <Toggle label="Soft Glow" checked={store.glowEnabled} onChange={(v) => store.setDiscrete({ glowEnabled: v })} />
         <Slider label="Intensity" value={store.glowIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ glowIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.glowEnabled} />
         <Slider label="Radius" value={store.glowRadius} min={0.01} max={0.1} step={0.005} onChange={(v) => store.set({ glowRadius: v })} onCommit={() => store.commitSet()} disabled={!store.glowEnabled} />
@@ -167,7 +167,7 @@ export default function EffectsPanel() {
       <div className="border-t border-border my-1" />
 
       {/* Advanced */}
-      <Section title="Advanced">
+      <Section title="Interaction">
         <Slider label="Mouse React" value={store.mouseReact} min={0} max={1} step={0.01} onChange={(v) => store.set({ mouseReact: v })} onCommit={() => store.commitSet()} />
         <Toggle label="Mouse Trail" checked={store.trailEnabled} onChange={(v) => store.setDiscrete({ trailEnabled: v })} />
         <Slider label="Trail Length" value={store.trailLength} min={0.9} max={0.99} step={0.01} onChange={(v) => store.set({ trailLength: v })} onCommit={() => store.commitSet()} disabled={!store.trailEnabled} />

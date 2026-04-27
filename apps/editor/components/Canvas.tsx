@@ -298,7 +298,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
           <p className="text-text-secondary text-sm">Recovering WebGL context...</p>
         </div>
       )}
-      <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded hidden sm:block">
+      <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded hidden lg:block">
         {fps} FPS
       </div>
       <Toast

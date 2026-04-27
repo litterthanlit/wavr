@@ -71,7 +71,7 @@ export default function CustomGLSLPanel({ engineRef }: CustomGLSLPanelProps) {
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
-          Custom GLSL
+          Shader Lab
         </span>
         <button
           onClick={handleReset}

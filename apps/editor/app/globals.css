@@ -387,13 +387,15 @@ body {
    SIDEBAR — refined panel
    ============================================================ */
 .sidebar {
-  width: 340px;
+  width: clamp(320px, 32vw, 420px);
+  min-width: 0;
   flex-shrink: 0;
   background: var(--color-base);
   border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 
 .sidebar-tabs {
@@ -656,4 +658,35 @@ body {
   height: 20px;
   background: var(--color-border);
   margin: 0 4px;
+}
+
+.mobile-controls-button,
+.mobile-controls-drawer {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    display: none;
+  }
+
+  .mobile-controls-button {
+    display: flex;
+  }
+
+  .mobile-controls-drawer {
+    display: block;
+  }
+
+  .topbar {
+    padding: 0 10px;
+  }
+
+  .topbar-btn {
+    padding: 6px 9px;
+  }
+
+  .topbar-divider {
+    display: none;
+  }
 }

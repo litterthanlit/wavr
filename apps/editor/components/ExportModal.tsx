@@ -75,9 +75,12 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label="Export options" className="relative bg-base border border-border rounded-xl p-6 w-[420px] shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Export options" className="relative bg-base border border-border rounded-xl p-6 w-[calc(100vw-32px)] max-w-[520px] shadow-2xl">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-sm font-medium text-text-primary">Export</h2>
+          <div>
+            <h2 className="text-sm font-medium text-text-primary">Export</h2>
+            <p className="text-[11px] text-text-tertiary mt-1">Ship the current scene as media, code, or an embed.</p>
+          </div>
           <button onClick={onClose} aria-label="Close" className="text-text-tertiary hover:text-text-primary transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -181,12 +184,12 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
               />
               <ExportButton
                 title="React Component"
-                desc="Self-contained WebGL component"
+                desc="Production-ready component for app backgrounds"
                 action={async () => { await copyToClipboard(exportReactComponent(stateForExport)); }}
               />
               <ExportButton
                 title="Web Component"
-                desc="Framework-agnostic <wavr-gradient>"
+                desc="Framework-agnostic <wavr-gradient> element"
                 action={async () => { await copyToClipboard(exportWebComponent(stateForExport)); }}
               />
             </>
@@ -196,7 +199,7 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
             <>
               <ExportButton
                 title="Embed Code"
-                desc="iframe snippet for your website"
+                desc="Shareable iframe for landing pages and docs"
                 action={async () => {
                   const hash = encodeState(store);
                   await copyToClipboard(generateEmbedCode(hash));
@@ -208,8 +211,8 @@ export default function ExportModal({ open, onClose, canvasRef }: ExportModalPro
                 action={async () => { await copyToClipboard(exportStandalonePlayer(stateForExport)); }}
               />
               <ExportButton
-                title="Embed Widget"
-                desc="Config-driven Web Component — all gradient modes"
+                title="Config Widget"
+                desc="Portable Web Component with effect settings"
                 action={async () => {
                   const embedState = {
                     ...stateForExport,

@@ -25,15 +25,15 @@ export default function MobileDrawer({ activeTab, onTabChange }: MobileDrawerPro
       <button
         onClick={() => setOpen(!open)}
         aria-label={open ? "Close controls" : "Open controls"}
-        className="fixed bottom-4 right-4 z-40 w-10 h-10 rounded-full bg-accent text-white
-          flex items-center justify-center shadow-lg md:hidden transition-transform duration-150
+        className="mobile-controls-button fixed bottom-4 right-4 z-40 w-10 h-10 rounded-full bg-accent text-white
+          items-center justify-center shadow-lg transition-transform duration-150
           hover:scale-105 active:scale-95"
       >
         {open ? "\u2715" : "\u2699"}
       </button>
 
       <div
-        className={`fixed inset-x-0 bottom-0 z-30 md:hidden transition-transform duration-300 ease-out ${
+        className={`mobile-controls-drawer fixed inset-x-0 bottom-0 z-30 transition-transform duration-300 ease-out ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
       >

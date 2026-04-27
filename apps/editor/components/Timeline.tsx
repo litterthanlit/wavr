@@ -14,12 +14,12 @@ export default function Timeline() {
 
   if (!store.timelineEnabled) {
     return (
-      <div className="h-8 border-t border-border bg-base flex items-center justify-center">
+      <div className="h-9 border-t border-border bg-base flex items-center justify-center">
         <button
           onClick={store.toggleTimeline}
           className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
         >
-          Enable Timeline
+          Add motion timeline
         </button>
       </div>
     );
@@ -35,6 +35,7 @@ export default function Timeline() {
     <div className="border-t border-border bg-base shrink-0">
       {/* Controls row */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
+        <span className="text-[10px] font-medium text-text-secondary mr-1">Timeline</span>
         <button
           onClick={store.toggleTimeline}
           className="text-[10px] text-text-tertiary hover:text-text-primary transition-colors"
@@ -46,7 +47,7 @@ export default function Timeline() {
           onClick={store.addKeyframe}
           className="text-[10px] text-accent hover:text-accent/80 transition-colors"
         >
-          + Key
+          + Keyframe
         </button>
         <span className="font-mono text-[10px] text-text-tertiary tabular-nums">
           {timelinePosition.toFixed(1)}s / {timelineDuration}s
