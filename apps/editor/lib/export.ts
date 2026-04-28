@@ -196,22 +196,60 @@ interface ExportableState {
   saturation: number;
 }
 
-export function exportReactComponent(state: ExportableState): string {
-  const colorsStr = state.colors.map(c => `[${c.map(v => v.toFixed(3)).join(", ")}]`).join(",\n      ");
+const EXPORT_TYPE_MAP: Record<string, number> = {
+  mesh: 0,
+  radial: 1,
+  linear: 2,
+  conic: 3,
+  plasma: 4,
+  dither: 5,
+  scanline: 6,
+  glitch: 7,
+  image: 8,
+  voronoi: 9,
+  silk: 10,
+  aurora: 11,
+  liquid: 12,
+  softCells: 13,
+  grainflow: 14,
+};
 
-  return `"use client";
-import { useEffect, useRef } from "react";
-
-const VERTEX = \`#version 300 es
+const PORTABLE_VERTEX_SHADER = `#version 300 es
 precision highp float;
 in vec2 a_position;
 out vec2 v_uv;
 void main() {
   v_uv = a_position * 0.5 + 0.5;
   gl_Position = vec4(a_position, 0.0, 1.0);
-}\`;
+}`;
 
-const FRAGMENT = \`#version 300 es
+function exportTypeId(type: string): number {
+  return EXPORT_TYPE_MAP[type] ?? EXPORT_TYPE_MAP.mesh;
+}
+
+function exportNumber(value: number | undefined, fallback: number, digits = 2): string {
+  const n = Number.isFinite(value) ? value : fallback;
+  return (n ?? fallback).toFixed(digits);
+}
+
+function templateLiteral(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
+}
+
+function exportColorsLiteral(colors: [number, number, number][]): string {
+  return colors.map(c => `[${c.map(v => v.toFixed(3)).join(", ")}]`).join(",\n      ");
+}
+
+function exportColorsJson(colors: [number, number, number][]): string {
+  return JSON.stringify(colors.map(c => c.map(v => +v.toFixed(3))));
+}
+
+function portableFragmentShader(state: ExportableState): string {
+  const type = exportTypeId(state.gradientType);
+  const complexity = Math.max(1, Math.min(8, Math.round(state.complexity)));
+  const softness = state.softness ?? 0;
+
+  return `#version 300 es
 precision highp float;
 in vec2 v_uv;
 out vec4 fragColor;
@@ -219,6 +257,15 @@ uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec3 u_colors[8];
 uniform int u_colorCount;
+
+const int TYPE = ${type};
+const float SPEED = ${exportNumber(state.speed, 0.4)};
+const int OCTAVES = ${complexity};
+const float SCALE = ${exportNumber(state.scale, 1)};
+const float DISTORTION = ${exportNumber(state.distortion, 0.3)};
+const float SOFTNESS = ${exportNumber(softness, 0)};
+const float BRIGHTNESS = ${exportNumber(state.brightness, 1)};
+const float SATURATION = ${exportNumber(state.saturation, 1)};
 
 vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
 vec2 mod289(vec2 x){return x-floor(x*(1./289.))*289.;}
@@ -237,10 +284,56 @@ float snoise(vec2 v){
   vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;
   return 130.*dot(m,g);
 }
-float fbm(vec2 p,int oct){
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
+vec2 hash22(vec2 p){return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453);}
+float fbm(vec2 p){
   float v=0.,a=.5,f=1.;
-  for(int i=0;i<8;i++){if(i>=oct)break;v+=a*snoise(p*f);f*=2.;a*=.5;}
+  for(int i=0;i<8;i++){if(i>=OCTAVES)break;v+=a*snoise(p*f);f*=2.;a*=.5;}
   return v;
+}
+float cells(vec2 p){
+  vec2 i=floor(p),f=fract(p);float m=8.;
+  for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
+    vec2 g=vec2(float(x),float(y));
+    vec2 o=hash22(i+g);
+    m=min(m,length(g+o-f));
+  }
+  return m;
+}
+float liquid(vec2 p,float t){
+  float v=0.;
+  for(int i=0;i<5;i++){
+    float fi=float(i);
+    vec2 c=.5+.28*vec2(sin(t*.28+fi*1.7),cos(t*.22+fi*2.1));
+    v+=.055/(length(p-c)+.045);
+  }
+  return smoothstep(.3,1.25,v);
+}
+float fieldFor(vec2 uv,float t){
+  vec2 p=(uv-.5)*SCALE+.5;
+  vec2 warp=vec2(fbm(p*1.7+t*.08),fbm(p*1.7-t*.07));
+  vec2 q=p+(warp-.5)*DISTORTION;
+  if(TYPE==1)return smoothstep(.05,1.05,length(q-.5)*1.45);
+  if(TYPE==2)return fract(q.x*.75+q.y*.35+t*.05+fbm(q)*.2);
+  if(TYPE==3)return fract(atan(q.y-.5,q.x-.5)/6.28318+length(q-.5)*.55+t*.04);
+  if(TYPE==4)return .5+.5*sin((q.x+q.y)*6.0+fbm(q*2.2)*4.0+t);
+  if(TYPE==5)return floor((fbm(q*3.0+t*.1)*.5+.5)*9.0)/8.0;
+  if(TYPE==6)return fract(q.y*18.0+t*.2+fbm(q*2.0)*.18);
+  if(TYPE==7)return fract(q.x+floor(q.y*16.0)*.13+step(.7,hash(vec2(floor(q.y*16.0),floor(t*6.0))))*.18);
+  if(TYPE==9)return smoothstep(.08,.72,cells(q*4.5+t*.08));
+  if(TYPE==10){
+    float r=sin((q.x+fbm(q*1.4+t*.05)*DISTORTION)*7.0+q.y*2.0+t*.45);
+    return smoothstep(-.85,.85,r);
+  }
+  if(TYPE==11){
+    float curtain=sin(q.x*7.0+fbm(vec2(q.x*1.5,q.y*.8)+t*.06)*5.0+t*.35);
+    float lift=smoothstep(.08,.9,q.y);
+    return mix(.12,.95,smoothstep(-.65,.9,curtain)*lift);
+  }
+  if(TYPE==12)return liquid(q,t);
+  if(TYPE==13)return smoothstep(.0,1.0,1.0-cells(q*3.4+(warp-.5)*.8));
+  if(TYPE==14)return fbm(q*2.7+vec2(t*.12,fbm(q+t*.05))*1.6)*.5+.5;
+  return fbm(q*2.0+vec2(t*.12,-t*.08))*.5+.5;
 }
 vec3 getColor(float t){
   t=clamp(t,0.,1.);float s=t*float(u_colorCount-1);
@@ -248,19 +341,47 @@ vec3 getColor(float t){
   int next=min(idx+1,u_colorCount-1);
   return mix(u_colors[idx],u_colors[next],f);
 }
+vec3 softColor(float t){
+  float spread=.02+SOFTNESS*.12;
+  vec3 c=getColor(t)*.46;
+  c+=getColor(t-spread)*.18+getColor(t+spread)*.18;
+  c+=getColor(t-spread*2.)*.09+getColor(t+spread*2.)*.09;
+  return c;
+}
 void main(){
-  vec2 uv=v_uv;float time=u_time*${state.speed.toFixed(2)};
-  vec2 p=uv*${state.scale.toFixed(2)};int oct=int(${state.complexity.toFixed(1)});
-  float n1=fbm(p+vec2(time*.3,time*.2),oct);
-  float n2=fbm(p+vec2(n1*${state.distortion.toFixed(2)}+time*.1,n1*${state.distortion.toFixed(2)}-time*.15),oct);
-  float n3=fbm(p+vec2(n2*${(state.distortion * 0.8).toFixed(2)},n2*${(state.distortion * 0.8).toFixed(2)}+time*.05),oct);
-  vec3 color=getColor(n3*.5+.5);
-  color*=${state.brightness.toFixed(2)};
+  vec2 aspect=vec2(u_resolution.x/max(u_resolution.y,1.0),1.0);
+  vec2 uv=(v_uv-.5)*aspect+.5;
+  float time=u_time*SPEED;
+  float field=fieldFor(uv,time);
+  field=mix(field,smoothstep(.08,.92,field),clamp(SOFTNESS,0.,1.));
+  vec3 color=softColor(field);
+  if(TYPE==5){
+    float dotMask=step(.48,fract((gl_FragCoord.x+gl_FragCoord.y)*.5));
+    color*=mix(.88,1.08,dotMask);
+  }
+  if(TYPE==14){
+    float grain=hash(gl_FragCoord.xy+time*60.)-.5;
+    color+=grain*(.035+SOFTNESS*.025);
+  }
+  color*=BRIGHTNESS;
   float grey=dot(color,vec3(.2126,.7152,.0722));
-  color=mix(vec3(grey),color,${state.saturation.toFixed(2)});
+  color=mix(vec3(grey),color,SATURATION);
   color=color/(color+1.);
   fragColor=vec4(clamp(color,0.,1.),1.);
-}\`;
+}`;
+}
+
+export function exportReactComponent(state: ExportableState): string {
+  const colorsStr = exportColorsLiteral(state.colors);
+  const fragment = templateLiteral(portableFragmentShader(state));
+  const vertex = templateLiteral(PORTABLE_VERTEX_SHADER);
+
+  return `"use client";
+import { useEffect, useRef } from "react";
+
+const VERTEX = \`${vertex}\`;
+
+const FRAGMENT = \`${fragment}\`;
 
 interface WavrGradientProps {
   className?: string;
@@ -348,7 +469,9 @@ export default function WavrGradient({ className = "", scrollLinked = false }: W
 }
 
 export function exportWebComponent(state: ExportableState): string {
-  const colorsArr = JSON.stringify(state.colors.map(c => c.map(v => +v.toFixed(3))));
+  const colorsArr = exportColorsJson(state.colors);
+  const vertex = JSON.stringify(PORTABLE_VERTEX_SHADER);
+  const fragment = JSON.stringify(portableFragmentShader(state));
 
   return `<!-- Wavr Gradient Web Component -->
 <script>
@@ -362,44 +485,8 @@ class WavrGradient extends HTMLElement {
     const gl = canvas.getContext("webgl2", { alpha: false, antialias: false });
     if (!gl) { this.textContent = "WebGL 2 not supported"; return; }
 
-    const VS = \`#version 300 es
-    precision highp float;
-    in vec2 a_position; out vec2 v_uv;
-    void main(){ v_uv=a_position*.5+.5; gl_Position=vec4(a_position,0,1); }\`;
-
-    const FS = \`#version 300 es
-    precision highp float;
-    in vec2 v_uv; out vec4 fragColor;
-    uniform float u_time; uniform vec2 u_resolution;
-    uniform vec3 u_colors[8]; uniform int u_colorCount;
-    vec3 mod289(vec3 x){return x-floor(x/289.)*289.;}
-    vec2 mod289(vec2 x){return x-floor(x/289.)*289.;}
-    vec3 permute(vec3 x){return mod289(((x*34.)+1.)*x);}
-    float snoise(vec2 v){
-      const vec4 C=vec4(.211324865,.366025403,-.577350269,.024390243);
-      vec2 i=floor(v+dot(v,C.yy)),x0=v-i+dot(i,C.xx);
-      vec2 i1=x0.x>x0.y?vec2(1,0):vec2(0,1);
-      vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod289(i);
-      vec3 p=permute(permute(i.y+vec3(0,i1.y,1))+i.x+vec3(0,i1.x,1));
-      vec3 m=max(.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
-      m=m*m*m*m;
-      vec3 x=2.*fract(p*C.www)-1.,h=abs(x)-.5,ox=floor(x+.5),a0=x-ox;
-      m*=1.79284291-.85373472*(a0*a0+h*h);
-      vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;
-      return 130.*dot(m,g);
-    }
-    float fbm(vec2 p,int o){float v=0.,a=.5,f=1.;for(int i=0;i<8;i++){if(i>=o)break;v+=a*snoise(p*f);f*=2.;a*=.5;}return v;}
-    vec3 getColor(float t){t=clamp(t,0.,1.);float s=t*float(u_colorCount-1);int i=int(floor(s));float f=fract(s);f=f*f*(3.-2.*f);return mix(u_colors[i],u_colors[min(i+1,u_colorCount-1)],f);}
-    void main(){
-      vec2 p=v_uv*${state.scale.toFixed(1)};float time=u_time*${state.speed.toFixed(1)};int oct=${Math.round(state.complexity)};
-      float n1=fbm(p+vec2(time*.3,time*.2),oct);
-      float n2=fbm(p+vec2(n1*${state.distortion.toFixed(2)}+time*.1,n1*${state.distortion.toFixed(2)}-time*.15),oct);
-      float n3=fbm(p+vec2(n2*${(state.distortion * 0.8).toFixed(2)},n2*${(state.distortion * 0.8).toFixed(2)}+time*.05),oct);
-      vec3 c=getColor(n3*.5+.5)*${state.brightness.toFixed(2)};
-      float g=dot(c,vec3(.2126,.7152,.0722));
-      c=mix(vec3(g),c,${state.saturation.toFixed(2)});
-      fragColor=vec4(c/(c+1.),1.);
-    }\`;
+    const VS = ${vertex};
+    const FS = ${fragment};
 
     function compile(type, src) {
       const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s;
@@ -460,15 +547,16 @@ customElements.define("wavr-gradient", WavrGradient);
 }
 
 export function exportStandalonePlayer(state: ExportableState): string {
-  const colorsArr = JSON.stringify(state.colors.map(c => c.map(v => +v.toFixed(3))));
-  return `<!-- Wavr Standalone Player — drop this script anywhere -->
-<script src="data:text/javascript;charset=utf-8,${encodeURIComponent(`(function(){
-const VS="#version 300 es\\nprecision highp float;\\nin vec2 a_position;out vec2 v_uv;\\nvoid main(){v_uv=a_position*.5+.5;gl_Position=vec4(a_position,0,1);}";
-const FS="#version 300 es\\nprecision highp float;\\nin vec2 v_uv;out vec4 fragColor;\\nuniform float u_time;uniform vec2 u_resolution;uniform vec3 u_colors[8];uniform int u_colorCount;\\nvec3 mod289(vec3 x){return x-floor(x/289.)*289.;}vec2 mod289(vec2 x){return x-floor(x/289.)*289.;}vec3 permute(vec3 x){return mod289(((x*34.)+1.)*x);}float snoise(vec2 v){const vec4 C=vec4(.211324865,.366025403,-.577350269,.024390243);vec2 i=floor(v+dot(v,C.yy)),x0=v-i+dot(i,C.xx);vec2 i1=x0.x>x0.y?vec2(1,0):vec2(0,1);vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod289(i);vec3 p=permute(permute(i.y+vec3(0,i1.y,1))+i.x+vec3(0,i1.x,1));vec3 m=max(.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);m=m*m*m*m;vec3 x=2.*fract(p*C.www)-1.,h=abs(x)-.5,ox=floor(x+.5),a0=x-ox;m*=1.79284291-.85373472*(a0*a0+h*h);vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;return 130.*dot(m,g);}float fbm(vec2 p,int o){float v=0.,a=.5,f=1.;for(int i=0;i<8;i++){if(i>=o)break;v+=a*snoise(p*f);f*=2.;a*=.5;}return v;}vec3 getColor(float t){t=clamp(t,0.,1.);float s=t*float(u_colorCount-1);int i=int(floor(s));float f=fract(s);f=f*f*(3.-2.*f);return mix(u_colors[i],u_colors[min(i+1,u_colorCount-1)],f);}void main(){vec2 p=v_uv*${state.scale.toFixed(1)};float time=u_time*${state.speed.toFixed(1)};int oct=${Math.round(state.complexity)};float n1=fbm(p+vec2(time*.3,time*.2),oct);float n2=fbm(p+vec2(n1*${state.distortion.toFixed(2)}+time*.1,n1*${state.distortion.toFixed(2)}-time*.15),oct);float n3=fbm(p+vec2(n2*${(state.distortion * 0.8).toFixed(2)},n2*${(state.distortion * 0.8).toFixed(2)}+time*.05),oct);vec3 c=getColor(n3*.5+.5)*${state.brightness.toFixed(2)};float g=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(g),c,${state.saturation.toFixed(2)});fragColor=vec4(c/(c+1.),1.);}";
+  const colorsArr = exportColorsJson(state.colors);
+  const playerSource = `(function(){
+const VS=${JSON.stringify(PORTABLE_VERTEX_SHADER)};
+const FS=${JSON.stringify(portableFragmentShader(state))};
 const COLORS=${colorsArr};
-class WavrGradient extends HTMLElement{connectedCallback(){const s=this.attachShadow({mode:"open"});const c=document.createElement("canvas");c.style.cssText="display:block;width:100%;height:100%";s.appendChild(c);const g=c.getContext("webgl2",{alpha:false});if(!g)return;function mk(t,src){const sh=g.createShader(t);g.shaderSource(sh,src);g.compileShader(sh);return sh;}const pr=g.createProgram();g.attachShader(pr,mk(g.VERTEX_SHADER,VS));g.attachShader(pr,mk(g.FRAGMENT_SHADER,FS));g.linkProgram(pr);g.useProgram(pr);const va=g.createVertexArray();g.bindVertexArray(va);const bf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,bf);g.bufferData(g.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),g.STATIC_DRAW);const po=g.getAttribLocation(pr,"a_position");g.enableVertexAttribArray(po);g.vertexAttribPointer(po,2,g.FLOAT,false,0,0);const uT=g.getUniformLocation(pr,"u_time"),uR=g.getUniformLocation(pr,"u_resolution");g.uniform1i(g.getUniformLocation(pr,"u_colorCount"),COLORS.length);COLORS.forEach((cl,i)=>{const l=g.getUniformLocation(pr,"u_colors["+i+"]");if(l)g.uniform3fv(l,cl);});const scr=this.getAttribute("mode")==="scroll";let t=0,la=performance.now()/1000;new ResizeObserver(()=>{const d=devicePixelRatio||1;c.width=c.clientWidth*d;c.height=c.clientHeight*d;g.viewport(0,0,c.width,c.height);}).observe(c);(function lp(){requestAnimationFrame(lp);if(scr){const dH=document.documentElement.scrollHeight-window.innerHeight;t=dH>0?(window.scrollY/dH)*10:0;}else{const n=performance.now()/1000;t+=n-la;la=n;}g.uniform1f(uT,t);g.uniform2f(uR,c.width,c.height);g.drawArrays(g.TRIANGLE_STRIP,0,4);})();}}
+class WavrGradient extends HTMLElement{connectedCallback(){const s=this.attachShadow({mode:"open"});const c=document.createElement("canvas");c.style.cssText="display:block;width:100%;height:100%";s.appendChild(c);const g=c.getContext("webgl2",{alpha:false});if(!g)return;function mk(t,src){const sh=g.createShader(t);g.shaderSource(sh,src);g.compileShader(sh);return sh;}const pr=g.createProgram();g.attachShader(pr,mk(g.VERTEX_SHADER,VS));g.attachShader(pr,mk(g.FRAGMENT_SHADER,FS));g.linkProgram(pr);g.useProgram(pr);const va=g.createVertexArray();g.bindVertexArray(va);const bf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,bf);g.bufferData(g.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),g.STATIC_DRAW);const po=g.getAttribLocation(pr,"a_position");g.enableVertexAttribArray(po);g.vertexAttribPointer(po,2,g.FLOAT,false,0,0);const uT=g.getUniformLocation(pr,"u_time"),uR=g.getUniformLocation(pr,"u_resolution");g.uniform1i(g.getUniformLocation(pr,"u_colorCount"),COLORS.length);COLORS.forEach((cl,i)=>{const l=g.getUniformLocation(pr,"u_colors["+i+"]");if(l)g.uniform3fv(l,cl);});const scr=this.getAttribute("mode")==="scroll";let t=0,la=performance.now()/1000;const ro=new ResizeObserver(()=>{const d=devicePixelRatio||1;c.width=c.clientWidth*d;c.height=c.clientHeight*d;g.viewport(0,0,c.width,c.height);});ro.observe(c);(function lp(){requestAnimationFrame(lp);if(scr){const dH=document.documentElement.scrollHeight-window.innerHeight;t=dH>0?(window.scrollY/dH)*10:0;}else{const n=performance.now()/1000;t+=n-la;la=n;}g.uniform1f(uT,t);g.uniform2f(uR,c.width,c.height);g.drawArrays(g.TRIANGLE_STRIP,0,4);})();}}
 customElements.define("wavr-gradient",WavrGradient);
-})();`)}"></script>
+})();`;
+  return `<!-- Wavr Standalone Player — drop this script anywhere -->
+<script src="data:text/javascript;charset=utf-8,${encodeURIComponent(playerSource)}"></script>
 
 <!-- Usage: -->
 <wavr-gradient style="width:100%;height:400px;display:block"></wavr-gradient>

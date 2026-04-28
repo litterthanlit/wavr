@@ -5,7 +5,7 @@ import blendModesSource from "./shaders/blend-modes.glsl";
 import trailFragSource from "./shaders/trail.glsl";
 import bloomExtractSource from "./shaders/bloom-extract.glsl";
 import blurSource from "./shaders/blur.glsl";
-import { BlendMode, LayerParams } from "./layers";
+import { BlendMode, ImageBlendMode, LayerParams, MaskBlendMode, MaskShape } from "./layers";
 
 // Assemble full fragment source with blend mode includes
 const fragmentSource = _fragmentSource.replace(
@@ -86,6 +86,49 @@ export interface EngineState {
 }
 
 type UniformMap = Record<string, WebGLUniformLocation>;
+
+const GRADIENT_TYPE_MAP: Record<LayerParams["gradientType"], number> = {
+  mesh: 0,
+  radial: 1,
+  linear: 2,
+  conic: 3,
+  plasma: 4,
+  dither: 5,
+  scanline: 6,
+  glitch: 7,
+  image: 8,
+  voronoi: 9,
+  silk: 10,
+  aurora: 11,
+  liquid: 12,
+  softCells: 13,
+  grainflow: 14,
+};
+
+const IMAGE_BLEND_MODE_MAP: Record<ImageBlendMode, number> = {
+  replace: 0,
+  normal: 1,
+  multiply: 2,
+  screen: 3,
+  overlay: 4,
+};
+
+const MASK_SHAPE_MAP: Record<MaskShape, number> = {
+  none: 0,
+  circle: 1,
+  roundedRect: 2,
+  ellipse: 3,
+  polygon: 4,
+  star: 5,
+  blob: 6,
+};
+
+const MASK_BLEND_MODE_MAP: Record<MaskBlendMode, number> = {
+  union: 0,
+  subtract: 1,
+  intersect: 2,
+  smoothUnion: 3,
+};
 
 export class GradientEngine {
   private gl: WebGL2RenderingContext;
@@ -976,12 +1019,7 @@ void main() {
 
   private setLayerUniforms(layer: LayerParams) {
     const gl = this.gl;
-    const typeMap: Record<string, number> = {
-      mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4,
-      dither: 5, scanline: 6, glitch: 7, image: 8, voronoi: 9,
-      silk: 10, aurora: 11, liquid: 12, softCells: 13, grainflow: 14,
-    };
-    this.seti("u_gradientType", typeMap[layer.gradientType]);
+    this.seti("u_gradientType", GRADIENT_TYPE_MAP[layer.gradientType] ?? 0);
     this.setf("u_speed", layer.speed);
     this.setf("u_complexity", layer.complexity);
     this.setf("u_scale", layer.scale);
@@ -1027,24 +1065,13 @@ void main() {
     this.set2f("u_imageOffset", layer.imageOffset[0], layer.imageOffset[1]);
     this.setf("u_distortionMapIntensity", layer.distortionMapIntensity);
 
-    // Blend mode: replace=0, normal=1, multiply=2, screen=3, overlay=4
-    const blendModeMap: Record<string, number> = {
-      replace: 0, normal: 1, multiply: 2, screen: 3, overlay: 4,
-    };
-    this.seti("u_imageBlendMode", blendModeMap[layer.imageBlendMode]);
+    this.seti("u_imageBlendMode", IMAGE_BLEND_MODE_MAP[layer.imageBlendMode] ?? 0);
     this.setf("u_imageBlendOpacity", layer.imageBlendOpacity);
 
     // Mask uniforms
-    const maskShapeMap: Record<string, number> = {
-      none: 0, circle: 1, roundedRect: 2, ellipse: 3, polygon: 4, star: 5, blob: 6,
-    };
-    const maskBlendMap: Record<string, number> = {
-      union: 0, subtract: 1, intersect: 2, smoothUnion: 3,
-    };
-
     this.seti("u_maskEnabled", layer.maskEnabled ? 1 : 0);
 
-    this.seti("u_mask1Type", maskShapeMap[layer.mask1.shape]);
+    this.seti("u_mask1Type", MASK_SHAPE_MAP[layer.mask1.shape] ?? 0);
     this.set2f("u_mask1Position", layer.mask1.position[0], layer.mask1.position[1]);
     this.set2f("u_mask1Scale", layer.mask1.scale[0], layer.mask1.scale[1]);
     this.setf("u_mask1Rotation", layer.mask1.rotation);
@@ -1055,7 +1082,7 @@ void main() {
     this.setf("u_mask1StarInner", layer.mask1.starInnerRadius);
     this.setf("u_mask1NoiseDist", layer.mask1.noiseDistortion);
 
-    this.seti("u_mask2Type", maskShapeMap[layer.mask2.shape]);
+    this.seti("u_mask2Type", MASK_SHAPE_MAP[layer.mask2.shape] ?? 0);
     this.set2f("u_mask2Position", layer.mask2.position[0], layer.mask2.position[1]);
     this.set2f("u_mask2Scale", layer.mask2.scale[0], layer.mask2.scale[1]);
     this.setf("u_mask2Rotation", layer.mask2.rotation);
@@ -1066,7 +1093,7 @@ void main() {
     this.setf("u_mask2StarInner", layer.mask2.starInnerRadius);
     this.setf("u_mask2NoiseDist", layer.mask2.noiseDistortion);
 
-    this.seti("u_maskBlendMode", maskBlendMap[layer.maskBlendMode]);
+    this.seti("u_maskBlendMode", MASK_BLEND_MODE_MAP[layer.maskBlendMode] ?? 0);
     this.setf("u_maskSmoothness", layer.maskSmoothness);
 
     // Text mask

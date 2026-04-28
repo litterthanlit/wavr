@@ -77,6 +77,74 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     engineRef.current.triggerRipple(x, y);
   }, []);
 
+  const syncTextMaskTexture = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    const state = useGradientStore.getState();
+    const layer = state.layers[state.activeLayerIndex];
+    const mainCanvas = canvasRef.current;
+    if (!layer || !mainCanvas) return;
+
+    // Build a key from text params to detect changes, including texture size.
+    const paramKey = JSON.stringify({
+      width: mainCanvas.width,
+      height: mainCanvas.height,
+      enabled: layer.textMaskEnabled,
+      content: layer.textMaskContent,
+      fontSize: layer.textMaskFontSize,
+      fontWeight: layer.textMaskFontWeight,
+      letterSpacing: layer.textMaskLetterSpacing,
+      align: layer.textMaskAlign,
+    });
+
+    if (paramKey === lastTextParamsRef.current) return;
+    lastTextParamsRef.current = paramKey;
+
+    // Create offscreen canvas on first use
+    if (!textCanvasRef.current) {
+      textCanvasRef.current = document.createElement("canvas");
+    }
+    const tc = textCanvasRef.current;
+
+    tc.width = mainCanvas.width;
+    tc.height = mainCanvas.height;
+
+    const ctx = tc.getContext("2d");
+    if (!ctx) return;
+
+    // Black background (mask = 0)
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, tc.width, tc.height);
+
+    if (!layer.textMaskEnabled || !layer.textMaskContent) {
+      engine.updateTextMaskTexture(tc);
+      return;
+    }
+
+    // White text (mask = 1)
+    const fontSize = layer.textMaskFontSize * (window.devicePixelRatio || 1);
+    ctx.font = `${layer.textMaskFontWeight} ${fontSize}px system-ui, sans-serif`;
+    ctx.fillStyle = "white";
+    ctx.textBaseline = "middle";
+
+    let x: number;
+    if (layer.textMaskAlign === "left") {
+      ctx.textAlign = "left";
+      x = fontSize * 0.5;
+    } else if (layer.textMaskAlign === "right") {
+      ctx.textAlign = "right";
+      x = tc.width - fontSize * 0.5;
+    } else {
+      ctx.textAlign = "center";
+      x = tc.width / 2;
+    }
+
+    ctx.fillText(layer.textMaskContent, x, tc.height / 2);
+
+    engine.updateTextMaskTexture(tc);
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -100,6 +168,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       engine.resize(parent.clientWidth, parent.clientHeight);
       canvas.style.width = parent.clientWidth + "px";
       canvas.style.height = parent.clientHeight + "px";
+      syncTextMaskTexture();
     };
 
     resize();
@@ -156,6 +225,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     window.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("click", handleClick);
 
+    const unsubscribeTextMask = useGradientStore.subscribe(syncTextMaskTexture);
+
     let lastTimelineUpdate = performance.now();
     engine.startLoop(() => {
       const state = useGradientStore.getState();
@@ -195,10 +266,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("click", handleClick);
+      unsubscribeTextMask();
       clearTimeout(resizeTimeout);
       engine.destroy();
     };
-  }, [handleMouseMove, handleClick, onCanvasReady, onEngineReady]);
+  }, [handleMouseMove, handleClick, onCanvasReady, onEngineReady, syncTextMaskTexture]);
 
   // Reduced motion: pause by default
   useEffect(() => {
@@ -207,71 +279,6 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       useGradientStore.getState().set({ playing: false });
     }
   }, []);
-
-  // Text mask: render text to offscreen canvas and upload as texture
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine) return;
-
-    const state = useGradientStore.getState();
-    const layer = state.layers[state.activeLayerIndex];
-    if (!layer) return;
-
-    // Build a key from text params to detect changes
-    const paramKey = JSON.stringify({
-      enabled: layer.textMaskEnabled,
-      content: layer.textMaskContent,
-      fontSize: layer.textMaskFontSize,
-      fontWeight: layer.textMaskFontWeight,
-      letterSpacing: layer.textMaskLetterSpacing,
-      align: layer.textMaskAlign,
-    });
-
-    if (paramKey === lastTextParamsRef.current) return;
-    lastTextParamsRef.current = paramKey;
-
-    if (!layer.textMaskEnabled || !layer.textMaskContent) return;
-
-    // Create offscreen canvas on first use
-    if (!textCanvasRef.current) {
-      textCanvasRef.current = document.createElement("canvas");
-    }
-    const tc = textCanvasRef.current;
-    const mainCanvas = canvasRef.current;
-    if (!mainCanvas) return;
-
-    tc.width = mainCanvas.width;
-    tc.height = mainCanvas.height;
-
-    const ctx = tc.getContext("2d");
-    if (!ctx) return;
-
-    // Black background (mask = 0)
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, tc.width, tc.height);
-
-    // White text (mask = 1)
-    const fontSize = layer.textMaskFontSize * (window.devicePixelRatio || 1);
-    ctx.font = `${layer.textMaskFontWeight} ${fontSize}px system-ui, sans-serif`;
-    ctx.fillStyle = "white";
-    ctx.textBaseline = "middle";
-
-    let x: number;
-    if (layer.textMaskAlign === "left") {
-      ctx.textAlign = "left";
-      x = fontSize * 0.5;
-    } else if (layer.textMaskAlign === "right") {
-      ctx.textAlign = "right";
-      x = tc.width - fontSize * 0.5;
-    } else {
-      ctx.textAlign = "center";
-      x = tc.width / 2;
-    }
-
-    ctx.fillText(layer.textMaskContent, x, tc.height / 2);
-
-    engine.updateTextMaskTexture(tc);
-  });
 
   if (error) {
     return (

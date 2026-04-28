@@ -62,6 +62,9 @@ export interface ProjectState {
   trailLength: number;
   trailWidth: number;
   realBloomEnabled: boolean;
+  debandEnabled: boolean;
+  debandStrength: number;
+  customGLSL: string | null;
   audioEnabled: boolean;
   audioSource: "mic" | "file";
   audioBassTarget: string;
@@ -147,6 +150,9 @@ export function exportProjectState(state: GradientState): ProjectState {
     trailLength: state.trailLength as number,
     trailWidth: state.trailWidth as number,
     realBloomEnabled: state.realBloomEnabled as boolean,
+    debandEnabled: state.debandEnabled as boolean,
+    debandStrength: state.debandStrength as number,
+    customGLSL: state.customGLSL as string | null,
     audioEnabled: state.audioEnabled as boolean,
     audioSource: state.audioSource as "mic" | "file",
     audioBassTarget: state.audioBassTarget as string,
