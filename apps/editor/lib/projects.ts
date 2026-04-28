@@ -1,6 +1,7 @@
 import { GradientState } from "./store";
 import { LayerParams } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
+import { cloneScene3D, type Scene3DState } from "./scene3d";
 
 export interface SavedProject {
   name: string;
@@ -88,6 +89,8 @@ export interface ProjectState {
   meshDisplacement: number;
   meshFrequency: number;
   meshSpeed: number;
+  scene3DEnabled: boolean;
+  scene3D: Scene3DState;
 }
 
 const STORAGE_KEY = "wavr-projects";
@@ -176,6 +179,8 @@ export function exportProjectState(state: GradientState): ProjectState {
     meshDisplacement: state.meshDisplacement as number,
     meshFrequency: state.meshFrequency as number,
     meshSpeed: state.meshSpeed as number,
+    scene3DEnabled: state.scene3DEnabled as boolean,
+    scene3D: cloneScene3D(state.scene3D as Scene3DState),
   };
 }
 

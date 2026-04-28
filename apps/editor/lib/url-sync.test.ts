@@ -7,6 +7,7 @@ import {
   __resetUrlSyncForTests,
 } from "./url-sync";
 import { useGradientStore, type GradientState } from "./store";
+import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 
 // Build a realistic store state on top of the live store defaults. We mutate
 // values that round-tripping should preserve: 2 layers, three effect groups
@@ -206,6 +207,29 @@ describe("storeToConfig / configToStorePatch", () => {
       const patch = configToStorePatch(config);
       expect(patch.threeDShape).toBe(i);
     }
+  });
+
+  it("omits editor-only Three scene state from URL config", () => {
+    const scene3D = cloneScene3D(DEFAULT_SCENE_3D_STATE);
+    scene3D.camera.fov = 55;
+    scene3D.objects = scene3D.objects.map((object) => ({
+      ...object,
+      kind: "torus",
+    }));
+
+    const config = storeToConfig({
+      ...buildRealisticState(),
+      scene3DEnabled: true,
+      scene3D,
+    });
+    const rawConfig = config as Record<string, unknown>;
+
+    expect(rawConfig.scene3DEnabled).toBeUndefined();
+    expect(rawConfig.scene3D).toBeUndefined();
+
+    const patch = configToStorePatch(config);
+    expect(patch.scene3DEnabled).toBeUndefined();
+    expect(patch.scene3D).toBeUndefined();
   });
 });
 

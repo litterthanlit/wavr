@@ -162,6 +162,40 @@ export default function EffectsPanel() {
         <Slider label="Displacement" value={store.meshDisplacement} min={0} max={1} step={0.01} onChange={(v) => store.set({ meshDisplacement: v })} onCommit={() => store.commitSet()} disabled={!store.meshDistortionEnabled} />
         <Slider label="Frequency" value={store.meshFrequency} min={0.5} max={5} step={0.1} onChange={(v) => store.set({ meshFrequency: v })} onCommit={() => store.commitSet()} disabled={!store.meshDistortionEnabled} />
         <Slider label="Speed" value={store.meshSpeed} min={0} max={2} step={0.01} onChange={(v) => store.set({ meshSpeed: v })} onCommit={() => store.commitSet()} disabled={!store.meshDistortionEnabled} />
+        <div className="pt-2">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-text-tertiary mb-2">Legacy 3D Projection</p>
+          <Toggle
+            label="Shader Shape Projection"
+            checked={store.threeDEnabled}
+            onChange={(v) => {
+              if (v && store.meshDistortionEnabled) {
+                store.setDiscrete({ threeDEnabled: v, meshDistortionEnabled: false });
+              } else {
+                store.setDiscrete({ threeDEnabled: v });
+              }
+            }}
+          />
+        </div>
+        {store.threeDEnabled && (
+          <>
+            <Select
+              label="Legacy Shape"
+              value={String(store.threeDShape)}
+              options={[
+                { value: "0", label: "Sphere" },
+                { value: "1", label: "Torus" },
+                { value: "2", label: "Plane" },
+                { value: "3", label: "Cylinder" },
+                { value: "4", label: "Cube" },
+              ]}
+              onChange={(v) => store.setDiscrete({ threeDShape: Number(v) })}
+            />
+            <Slider label="Perspective" value={store.threeDPerspective} min={0.5} max={3} step={0.1} onChange={(v) => store.set({ threeDPerspective: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Rotation Speed" value={store.threeDRotationSpeed} min={0} max={2} step={0.01} onChange={(v) => store.set({ threeDRotationSpeed: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Zoom" value={store.threeDZoom} min={0.5} max={2} step={0.01} onChange={(v) => store.set({ threeDZoom: v })} onCommit={() => store.commitSet()} />
+            <Slider label="Lighting" value={store.threeDLighting} min={0} max={1} step={0.01} onChange={(v) => store.set({ threeDLighting: v })} onCommit={() => store.commitSet()} />
+          </>
+        )}
       </Section>
 
       <div className="border-t border-border my-1" />

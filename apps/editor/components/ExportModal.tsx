@@ -13,6 +13,7 @@ interface ExportModalProps {
   open: boolean;
   onClose: () => void;
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  sceneCanvasRef?: RefObject<HTMLCanvasElement | null>;
 }
 
 function ExportButton({
@@ -44,7 +45,7 @@ function ExportButton({
   );
 }
 
-export default function ExportModal({ open, onClose, canvasRef }: ExportModalProps) {
+export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }: ExportModalProps) {
   const [recording, setRecording] = useState(false);
   const [gifRecording, setGifRecording] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -142,6 +143,12 @@ export function HeroVisual() {
         </div>
 
         <div className="flex flex-col gap-3">
+          {store.scene3DEnabled && (
+            <div className="rounded-lg border border-border bg-surface px-3 py-2 text-[11px] leading-4 text-text-tertiary">
+              3D scene is included in image/video exports; code embeds are gradient-only in this version.
+            </div>
+          )}
+
           {tab === "ship" && (
             <>
               <div className="grid grid-cols-2 gap-2 mb-1">
@@ -183,13 +190,13 @@ export function HeroVisual() {
                 title="PNG Image"
                 desc="Full resolution screenshot"
                 actionLabel="Download"
-                action={() => { if (canvasRef.current) exportPNG(canvasRef.current); }}
+                action={() => { if (canvasRef.current) exportPNG(canvasRef.current, "wavr-gradient.png", sceneCanvasRef?.current); }}
               />
               <button
                 onClick={async () => {
                   if (!canvasRef.current || recording) return;
                   setRecording(true); setProgress(0);
-                  await exportWebM(canvasRef.current, 5000, "wavr-gradient.webm", setProgress);
+                  await exportWebM(canvasRef.current, 5000, "wavr-gradient.webm", setProgress, sceneCanvasRef?.current);
                   setRecording(false);
                 }}
                 disabled={recording}
@@ -210,7 +217,7 @@ export function HeroVisual() {
                 onClick={async () => {
                   if (!canvasRef.current || gifRecording) return;
                   setGifRecording(true); setGifProgress(0);
-                  await exportGIF(canvasRef.current, 3000, 12, setGifProgress);
+                  await exportGIF(canvasRef.current, 3000, 12, setGifProgress, sceneCanvasRef?.current);
                   setGifRecording(false);
                 }}
                 disabled={gifRecording}

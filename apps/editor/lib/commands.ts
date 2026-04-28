@@ -56,7 +56,7 @@ const GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = COMMAND_
 const EFFECT_FLAGS = [
   "noiseEnabled", "bloomEnabled", "blurEnabled", "curlEnabled",
   "kaleidoscopeEnabled", "reactionDiffEnabled", "pixelSortEnabled",
-  "feedbackEnabled", "asciiEnabled", "ditherEnabled", "parallaxEnabled",
+  "feedbackEnabled", "asciiEnabled", "ditherEnabled", "scene3DEnabled", "parallaxEnabled",
   "threeDEnabled", "meshDistortionEnabled", "rippleEnabled", "glowEnabled",
   "causticEnabled", "liquifyEnabled", "trailEnabled", "realBloomEnabled",
   "debandEnabled",
@@ -75,6 +75,7 @@ const EFFECT_LABELS: Record<EffectFlag, string> = {
   feedbackEnabled: "feedback",
   asciiEnabled: "ASCII",
   ditherEnabled: "dither",
+  scene3DEnabled: "scene 3D",
   parallaxEnabled: "parallax",
   threeDEnabled: "3D",
   meshDistortionEnabled: "mesh distortion",
@@ -90,9 +91,10 @@ const EFFECT_LABELS: Record<EffectFlag, string> = {
 // Tabs (keep local — the ordering matters for labels).
 const TABS: { id: SidebarTab; label: string; shortcut: string }[] = [
   { id: "gradient", label: "Gradient", shortcut: "1" },
-  { id: "effects", label: "Effects", shortcut: "2" },
-  { id: "presets", label: "Presets", shortcut: "3" },
-  { id: "code", label: "Code", shortcut: "4" },
+  { id: "scene", label: "Scene", shortcut: "2" },
+  { id: "effects", label: "Effects", shortcut: "3" },
+  { id: "presets", label: "Presets", shortcut: "4" },
+  { id: "code", label: "Code", shortcut: "5" },
 ];
 
 // camelCase → [lower tokens]: "sunsetBloom" → ["sunset", "bloom"].

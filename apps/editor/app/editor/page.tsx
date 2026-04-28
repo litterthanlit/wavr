@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Canvas from "@/components/Canvas";
+import Scene3DCanvas from "@/components/Scene3DCanvas";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import ExportModal from "@/components/ExportModal";
@@ -25,6 +26,7 @@ export default function EditorPage() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("gradient");
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
+  const sceneCanvasElRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GradientEngine | null>(null);
 
   const handleKeyDown = useCallback(
@@ -79,12 +81,15 @@ export default function EditorPage() {
           setActiveTab("gradient");
           break;
         case "2":
-          setActiveTab("effects");
+          setActiveTab("scene");
           break;
         case "3":
-          setActiveTab("presets");
+          setActiveTab("effects");
           break;
         case "4":
+          setActiveTab("presets");
+          break;
+        case "5":
           setActiveTab("code");
           break;
         case "?":
@@ -119,10 +124,13 @@ export default function EditorPage() {
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
-          <Canvas
-            onCanvasReady={(el) => { canvasElRef.current = el; }}
-            onEngineReady={(eng) => { engineRef.current = eng; }}
-          />
+          <div className="relative flex flex-1 min-h-0 overflow-hidden">
+            <Canvas
+              onCanvasReady={(el) => { canvasElRef.current = el; }}
+              onEngineReady={(eng) => { engineRef.current = eng; }}
+            />
+            <Scene3DCanvas onCanvasReady={(el) => { sceneCanvasElRef.current = el; }} />
+          </div>
           <Timeline />
         </div>
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
@@ -131,6 +139,7 @@ export default function EditorPage() {
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         canvasRef={canvasElRef}
+        sceneCanvasRef={sceneCanvasElRef}
       />
       <ShortcutsModal
         open={shortcutsOpen}

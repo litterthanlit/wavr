@@ -3,8 +3,31 @@ export function generateEmbedCode(stateHash: string, width = 800, height = 600):
   return `<iframe src="${baseUrl}/editor#${stateHash}" width="${width}" height="${height}" frameborder="0" style="border:0;border-radius:8px;" allow="autoplay"></iframe>`;
 }
 
-export function exportPNG(canvas: HTMLCanvasElement, filename = "wavr-gradient.png") {
-  canvas.toBlob((blob) => {
+function drawCompositeFrame(
+  target: HTMLCanvasElement,
+  gradientCanvas: HTMLCanvasElement,
+  sceneCanvas?: HTMLCanvasElement | null,
+) {
+  if (target.width !== gradientCanvas.width) target.width = gradientCanvas.width;
+  if (target.height !== gradientCanvas.height) target.height = gradientCanvas.height;
+  const ctx = target.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, target.width, target.height);
+  ctx.drawImage(gradientCanvas, 0, 0, target.width, target.height);
+  if (sceneCanvas) {
+    ctx.drawImage(sceneCanvas, 0, 0, target.width, target.height);
+  }
+}
+
+function getExportCanvas(canvas: HTMLCanvasElement, sceneCanvas?: HTMLCanvasElement | null): HTMLCanvasElement {
+  if (!sceneCanvas) return canvas;
+  const composite = document.createElement("canvas");
+  drawCompositeFrame(composite, canvas, sceneCanvas);
+  return composite;
+}
+
+export function exportPNG(canvas: HTMLCanvasElement, filename = "wavr-gradient.png", sceneCanvas?: HTMLCanvasElement | null) {
+  getExportCanvas(canvas, sceneCanvas).toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -577,7 +600,8 @@ export function exportGIF(
   canvas: HTMLCanvasElement,
   duration = 3000,
   fps = 15,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  sceneCanvas?: HTMLCanvasElement | null
 ): Promise<void> {
   return new Promise((resolve) => {
     const totalFrames = Math.round((duration / 1000) * fps);
@@ -597,6 +621,9 @@ export function exportGIF(
 
     const captureInterval = setInterval(() => {
       ctx.drawImage(canvas, 0, 0, width, height);
+      if (sceneCanvas) {
+        ctx.drawImage(sceneCanvas, 0, 0, width, height);
+      }
       frames.push(ctx.getImageData(0, 0, width, height));
       framesCaptured++;
       onProgress?.(framesCaptured / totalFrames * 0.5);
@@ -756,10 +783,25 @@ export function exportWebM(
   canvas: HTMLCanvasElement,
   duration = 5000,
   filename = "wavr-gradient.webm",
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  sceneCanvas?: HTMLCanvasElement | null
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const stream = canvas.captureStream(30);
+    const recordingCanvas = sceneCanvas ? document.createElement("canvas") : canvas;
+    let raf = 0;
+    let lastFrame = 0;
+    if (sceneCanvas) {
+      drawCompositeFrame(recordingCanvas, canvas, sceneCanvas);
+      const drawLoop = (now: number) => {
+        raf = requestAnimationFrame(drawLoop);
+        if (now - lastFrame < 1000 / 30) return;
+        lastFrame = now;
+        drawCompositeFrame(recordingCanvas, canvas, sceneCanvas);
+      };
+      raf = requestAnimationFrame(drawLoop);
+    }
+
+    const stream = recordingCanvas.captureStream(30);
     const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
       ? "video/webm;codecs=vp9"
       : "video/webm";
@@ -772,6 +814,7 @@ export function exportWebM(
     };
 
     recorder.onstop = () => {
+      if (raf) cancelAnimationFrame(raf);
       const blob = new Blob(chunks, { type: mimeType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -782,7 +825,10 @@ export function exportWebM(
       resolve();
     };
 
-    recorder.onerror = () => reject(new Error("Recording failed"));
+    recorder.onerror = () => {
+      if (raf) cancelAnimationFrame(raf);
+      reject(new Error("Recording failed"));
+    };
 
     recorder.start();
 

@@ -2,6 +2,7 @@
 
 import React from "react";
 import GradientPanel from "@/components/GradientPanel";
+import ScenePanel from "@/components/ScenePanel";
 import EffectsPanel from "@/components/EffectsPanel";
 import PresetsPanel from "@/components/PresetsPanel";
 import LayerPanel from "@/components/LayerPanel";
@@ -11,6 +12,7 @@ import type { SidebarTab } from "@/lib/types";
 
 const TABS: { id: SidebarTab; label: string }[] = [
   { id: "gradient", label: "Gradient" },
+  { id: "scene", label: "Scene" },
   { id: "effects", label: "Effects" },
   { id: "presets", label: "Presets" },
   { id: "code", label: "Lab" },
@@ -46,6 +48,7 @@ export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarPr
       {/* Tab content */}
       <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
         {activeTab === "gradient" && <GradientPanel />}
+        {activeTab === "scene" && <ScenePanel />}
         {activeTab === "effects" && <EffectsPanel />}
         {activeTab === "presets" && <PresetsPanel />}
         {activeTab === "code" && <CustomGLSLPanel engineRef={engineRef} />}

@@ -1,1 +1,1 @@
-export type SidebarTab = "gradient" | "effects" | "presets" | "code";
+export type SidebarTab = "gradient" | "scene" | "effects" | "presets" | "code";

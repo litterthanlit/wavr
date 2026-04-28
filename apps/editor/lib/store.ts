@@ -2,6 +2,16 @@ import { create } from "zustand";
 import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
 import { RANDOM_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
+import {
+  DEFAULT_SCENE_3D_STATE,
+  cloneScene3D,
+  createParticleField,
+  createSceneObject,
+  type ParticleField,
+  type Scene3DState,
+  type SceneObject3D,
+  type SceneObjectKind,
+} from "./scene3d";
 // Coupling note: url-sync.ts subscribes to this store and reads the
 // `markPushPoint` signal below to decide between pushState vs replaceState on
 // the next debounced URL write. Per spec 0003 §3.3, discrete/committed actions
@@ -108,6 +118,10 @@ export interface GradientState {
   meshFrequency: number;
   meshSpeed: number;
 
+  // Real Three/R3F scene overlay (editor-only)
+  scene3DEnabled: boolean;
+  scene3D: Scene3DState;
+
   // Convenience getters for active layer (derived)
   gradientType: LayerParams["gradientType"];
   speed: number;
@@ -143,6 +157,16 @@ export interface GradientState {
   setLayerImage: (layerIndex: number, dataURL: string | null) => void;
   setLayerDistortionMap: (layerIndex: number, dataURL: string | null) => void;
 
+  // Scene actions
+  setScene3D: (partial: Partial<Scene3DState>) => void;
+  addSceneObject: (kind: SceneObjectKind) => void;
+  updateSceneObject: (id: string, partial: Partial<SceneObject3D>) => void;
+  removeSceneObject: (id: string) => void;
+  selectSceneObject: (id: string | null) => void;
+  addParticleField: () => void;
+  updateParticleField: (id: string, partial: Partial<ParticleField>) => void;
+  removeParticleField: (id: string) => void;
+
   // Timeline actions
   toggleTimeline: () => void;
   addKeyframe: () => void;
@@ -159,6 +183,8 @@ const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "addLayer", "removeLayer", "selectLayer", "setLayerParam", "setLayerOpacity",
   "setLayerBlendMode", "toggleLayerVisibility", "moveLayer",
   "setLayerImage", "setLayerDistortionMap",
+  "setScene3D", "addSceneObject", "updateSceneObject", "removeSceneObject",
+  "selectSceneObject", "addParticleField", "updateParticleField", "removeParticleField",
   "toggleTimeline", "addKeyframe", "removeKeyframe", "setTimelinePosition",
   "setTimelineDuration", "setTimelinePlaybackMode",
   // Derived fields
@@ -184,6 +210,8 @@ function takeSnapshot(state: GradientState): Snapshot {
     const val = state[key];
     if (key === "layers") {
       snap[key] = deepCopyLayers(val as LayerParams[]);
+    } else if (key === "scene3D") {
+      snap[key] = cloneScene3D(val as Scene3DState);
     } else if (Array.isArray(val)) {
       snap[key] = val.map((item: unknown) =>
         Array.isArray(item) ? [...item] : item
@@ -319,6 +347,8 @@ const DEFAULTS = {
   meshDisplacement: 0.3,
   meshFrequency: 2.0,
   meshSpeed: 0.5,
+  scene3DEnabled: false,
+  scene3D: cloneScene3D(DEFAULT_SCENE_3D_STATE),
 };
 
 const MAX_HISTORY = 50;
@@ -456,6 +486,9 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       const rest = { ...preset };
       delete rest.layers;
       delete rest.activeLayerIndex;
+      if (rest.scene3D) {
+        rest.scene3D = cloneScene3D(rest.scene3D);
+      }
       rawSet({
         ...rest,
         layers: nextLayers,
@@ -474,6 +507,9 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       } else {
         (globalUpdates as Record<string, unknown>)[key] = value;
       }
+    }
+    if (globalUpdates.scene3D) {
+      globalUpdates.scene3D = cloneScene3D(globalUpdates.scene3D);
     }
     if (layerUpdates.gradientType && layerUpdates.softness === undefined) {
       layerUpdates.softness = defaultSoftnessForType(layerUpdates.gradientType);
@@ -680,6 +716,93 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       i === layerIndex ? { ...l, distortionMapData: dataURL } : l
     );
     rawSet({ layers: newLayers });
+  },
+
+  setScene3D: (partial) => {
+    if (pendingSnapshot === null) {
+      pendingSnapshot = takeSnapshot(useGradientStore.getState());
+    }
+    const current = useGradientStore.getState();
+    rawSet({
+      scene3D: {
+        ...cloneScene3D(current.scene3D),
+        ...partial,
+      },
+    });
+  },
+
+  addSceneObject: (kind) => {
+    markPushPoint();
+    flushPending();
+    const current = useGradientStore.getState();
+    pushHistory(takeSnapshot(current));
+    const scene = cloneScene3D(current.scene3D);
+    const object = createSceneObject(kind, scene.objects.length);
+    scene.objects = [...scene.objects, object];
+    scene.selectedObjectId = object.id;
+    rawSet({ scene3DEnabled: true, scene3D: scene });
+  },
+
+  updateSceneObject: (id, partial) => {
+    if (pendingSnapshot === null) {
+      pendingSnapshot = takeSnapshot(useGradientStore.getState());
+    }
+    const current = useGradientStore.getState();
+    const scene = cloneScene3D(current.scene3D);
+    scene.objects = scene.objects.map((object) =>
+      object.id === id ? { ...object, ...partial } : object
+    );
+    rawSet({ scene3D: scene });
+  },
+
+  removeSceneObject: (id) => {
+    markPushPoint();
+    flushPending();
+    const current = useGradientStore.getState();
+    pushHistory(takeSnapshot(current));
+    const scene = cloneScene3D(current.scene3D);
+    scene.objects = scene.objects.filter((object) => object.id !== id);
+    if (scene.selectedObjectId === id) {
+      scene.selectedObjectId = scene.objects[0]?.id ?? null;
+    }
+    rawSet({ scene3D: scene });
+  },
+
+  selectSceneObject: (id) => {
+    const current = useGradientStore.getState();
+    rawSet({ scene3D: { ...cloneScene3D(current.scene3D), selectedObjectId: id } });
+  },
+
+  addParticleField: () => {
+    markPushPoint();
+    flushPending();
+    const current = useGradientStore.getState();
+    pushHistory(takeSnapshot(current));
+    const scene = cloneScene3D(current.scene3D);
+    scene.particles = [...scene.particles, createParticleField(scene.particles.length)];
+    rawSet({ scene3DEnabled: true, scene3D: scene });
+  },
+
+  updateParticleField: (id, partial) => {
+    if (pendingSnapshot === null) {
+      pendingSnapshot = takeSnapshot(useGradientStore.getState());
+    }
+    const current = useGradientStore.getState();
+    const scene = cloneScene3D(current.scene3D);
+    scene.particles = scene.particles.map((field) =>
+      field.id === id ? { ...field, ...partial } : field
+    );
+    rawSet({ scene3D: scene });
+  },
+
+  removeParticleField: (id) => {
+    markPushPoint();
+    flushPending();
+    const current = useGradientStore.getState();
+    pushHistory(takeSnapshot(current));
+    const scene = cloneScene3D(current.scene3D);
+    scene.particles = scene.particles.filter((field) => field.id !== id);
+    rawSet({ scene3D: scene });
   },
 
   // Timeline

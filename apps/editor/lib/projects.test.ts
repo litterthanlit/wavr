@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLayer } from "@wavr/core";
 import { exportProjectState } from "./projects";
+import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 import type { GradientState } from "./store";
 
 function minimalState(overrides: Partial<GradientState> = {}): GradientState {
@@ -85,6 +86,8 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     meshDisplacement: 0,
     meshFrequency: 1,
     meshSpeed: 0,
+    scene3DEnabled: false,
+    scene3D: cloneScene3D(DEFAULT_SCENE_3D_STATE),
     gradientType: "mesh",
     speed: 0.4,
     complexity: 3,
@@ -114,6 +117,14 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     removeKeyframe: () => {},
     setTimelinePosition: () => {},
     applyKeyframeAtPosition: () => {},
+    setScene3D: () => {},
+    addSceneObject: () => {},
+    updateSceneObject: () => {},
+    removeSceneObject: () => {},
+    selectSceneObject: () => {},
+    addParticleField: () => {},
+    updateParticleField: () => {},
+    removeParticleField: () => {},
     ...overrides,
   } as unknown as GradientState;
 }
@@ -129,5 +140,27 @@ describe("project export", () => {
     expect(exported.debandEnabled).toBe(false);
     expect(exported.debandStrength).toBe(0.37);
     expect(exported.customGLSL).toBe("void main(){ fragColor = vec4(1.0); }");
+  });
+
+  it("preserves editor-only Three scene state", () => {
+    const scene3D = cloneScene3D(DEFAULT_SCENE_3D_STATE);
+    const baseObject = scene3D.objects[0];
+    if (!baseObject) throw new Error("Expected default scene object");
+    scene3D.objects[0] = {
+      ...baseObject,
+      kind: "torus",
+      color: "#38bdf8",
+      position: [1, 2, 3],
+    };
+
+    const exported = exportProjectState(minimalState({
+      scene3DEnabled: true,
+      scene3D,
+    }));
+
+    expect(exported.scene3DEnabled).toBe(true);
+    expect(exported.scene3D.objects[0]?.kind).toBe("torus");
+    expect(exported.scene3D.objects[0]?.position).toEqual([1, 2, 3]);
+    expect(exported.scene3D).not.toBe(scene3D);
   });
 });
