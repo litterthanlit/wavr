@@ -430,10 +430,11 @@ export default function WavrGradient({ className = "", scrollLinked = false }: W
     }
 
     let t = 0, raf = 0, last = performance.now() / 1000;
+    let lastRender = 0;
     const obs = new ResizeObserver(() => {
-      const dpr = devicePixelRatio || 1;
-      canvas.width = canvas.clientWidth * dpr;
-      canvas.height = canvas.clientHeight * dpr;
+      const dpr = Math.min(devicePixelRatio || 1, 1.5);
+      canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+      canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
       gl.viewport(0, 0, canvas.width, canvas.height);
     });
     obs.observe(canvas);
@@ -445,10 +446,13 @@ export default function WavrGradient({ className = "", scrollLinked = false }: W
 
     function render() {
       raf = requestAnimationFrame(render);
+      const nowMs = performance.now();
+      if (document.hidden || nowMs - lastRender < 1000 / 45) return;
+      lastRender = nowMs;
       if (scrollLinked) {
         t = getScrollProgress() * 10;
       } else {
-        const now = performance.now() / 1000;
+        const now = nowMs / 1000;
         t += now - last; last = now;
       }
       gl!.uniform1f(uTime, t);
@@ -512,22 +516,26 @@ class WavrGradient extends HTMLElement {
     });
 
     let t = 0, last = performance.now() / 1000;
+    let lastRender = 0;
     const scrollMode = this.getAttribute("mode") === "scroll";
     const resize = () => {
-      const dpr = devicePixelRatio || 1;
-      canvas.width = canvas.clientWidth * dpr;
-      canvas.height = canvas.clientHeight * dpr;
+      const dpr = Math.min(devicePixelRatio || 1, 1.5);
+      canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+      canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
     new ResizeObserver(resize).observe(canvas); resize();
 
     const loop = () => {
       requestAnimationFrame(loop);
+      const nowMs = performance.now();
+      if (document.hidden || nowMs - lastRender < 1000 / 45) return;
+      lastRender = nowMs;
       if (scrollMode) {
         const docH = document.documentElement.scrollHeight - window.innerHeight;
         t = docH > 0 ? (window.scrollY / docH) * 10 : 0;
       } else {
-        const now = performance.now() / 1000; t += now - last; last = now;
+        const now = nowMs / 1000; t += now - last; last = now;
       }
       gl.uniform1f(uTime, t);
       gl.uniform2f(uRes, canvas.width, canvas.height);
@@ -552,7 +560,7 @@ export function exportStandalonePlayer(state: ExportableState): string {
 const VS=${JSON.stringify(PORTABLE_VERTEX_SHADER)};
 const FS=${JSON.stringify(portableFragmentShader(state))};
 const COLORS=${colorsArr};
-class WavrGradient extends HTMLElement{connectedCallback(){const s=this.attachShadow({mode:"open"});const c=document.createElement("canvas");c.style.cssText="display:block;width:100%;height:100%";s.appendChild(c);const g=c.getContext("webgl2",{alpha:false});if(!g)return;function mk(t,src){const sh=g.createShader(t);g.shaderSource(sh,src);g.compileShader(sh);return sh;}const pr=g.createProgram();g.attachShader(pr,mk(g.VERTEX_SHADER,VS));g.attachShader(pr,mk(g.FRAGMENT_SHADER,FS));g.linkProgram(pr);g.useProgram(pr);const va=g.createVertexArray();g.bindVertexArray(va);const bf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,bf);g.bufferData(g.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),g.STATIC_DRAW);const po=g.getAttribLocation(pr,"a_position");g.enableVertexAttribArray(po);g.vertexAttribPointer(po,2,g.FLOAT,false,0,0);const uT=g.getUniformLocation(pr,"u_time"),uR=g.getUniformLocation(pr,"u_resolution");g.uniform1i(g.getUniformLocation(pr,"u_colorCount"),COLORS.length);COLORS.forEach((cl,i)=>{const l=g.getUniformLocation(pr,"u_colors["+i+"]");if(l)g.uniform3fv(l,cl);});const scr=this.getAttribute("mode")==="scroll";let t=0,la=performance.now()/1000;const ro=new ResizeObserver(()=>{const d=devicePixelRatio||1;c.width=c.clientWidth*d;c.height=c.clientHeight*d;g.viewport(0,0,c.width,c.height);});ro.observe(c);(function lp(){requestAnimationFrame(lp);if(scr){const dH=document.documentElement.scrollHeight-window.innerHeight;t=dH>0?(window.scrollY/dH)*10:0;}else{const n=performance.now()/1000;t+=n-la;la=n;}g.uniform1f(uT,t);g.uniform2f(uR,c.width,c.height);g.drawArrays(g.TRIANGLE_STRIP,0,4);})();}}
+class WavrGradient extends HTMLElement{connectedCallback(){const s=this.attachShadow({mode:"open"});const c=document.createElement("canvas");c.style.cssText="display:block;width:100%;height:100%";s.appendChild(c);const g=c.getContext("webgl2",{alpha:false});if(!g)return;function mk(t,src){const sh=g.createShader(t);g.shaderSource(sh,src);g.compileShader(sh);return sh;}const pr=g.createProgram();g.attachShader(pr,mk(g.VERTEX_SHADER,VS));g.attachShader(pr,mk(g.FRAGMENT_SHADER,FS));g.linkProgram(pr);g.useProgram(pr);const va=g.createVertexArray();g.bindVertexArray(va);const bf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,bf);g.bufferData(g.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),g.STATIC_DRAW);const po=g.getAttribLocation(pr,"a_position");g.enableVertexAttribArray(po);g.vertexAttribPointer(po,2,g.FLOAT,false,0,0);const uT=g.getUniformLocation(pr,"u_time"),uR=g.getUniformLocation(pr,"u_resolution");g.uniform1i(g.getUniformLocation(pr,"u_colorCount"),COLORS.length);COLORS.forEach((cl,i)=>{const l=g.getUniformLocation(pr,"u_colors["+i+"]");if(l)g.uniform3fv(l,cl);});const scr=this.getAttribute("mode")==="scroll";let t=0,la=performance.now()/1000,lr=0;const ro=new ResizeObserver(()=>{const d=Math.min(devicePixelRatio||1,1.5);c.width=Math.max(1,Math.floor(c.clientWidth*d));c.height=Math.max(1,Math.floor(c.clientHeight*d));g.viewport(0,0,c.width,c.height);});ro.observe(c);(function lp(){requestAnimationFrame(lp);const ms=performance.now();if(document.hidden||ms-lr<1000/45)return;lr=ms;if(scr){const dH=document.documentElement.scrollHeight-window.innerHeight;t=dH>0?(window.scrollY/dH)*10:0;}else{const n=ms/1000;t+=n-la;la=n;}g.uniform1f(uT,t);g.uniform2f(uR,c.width,c.height);g.drawArrays(g.TRIANGLE_STRIP,0,4);})();}}
 customElements.define("wavr-gradient",WavrGradient);
 })();`;
   return `<!-- Wavr Standalone Player — drop this script anywhere -->

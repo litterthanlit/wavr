@@ -41,6 +41,9 @@ function applyAudioBands(state: GradientState, bands: AudioBands): Partial<Gradi
   return mods;
 }
 
+const EDITOR_MAX_PIXEL_RATIO = 1.5;
+const EDITOR_MAX_FRAME_RATE = 45;
+
 interface CanvasProps {
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
   onEngineReady?: (engine: GradientEngine) => void;
@@ -123,7 +126,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     }
 
     // White text (mask = 1)
-    const fontSize = layer.textMaskFontSize * (window.devicePixelRatio || 1);
+    const pixelRatio = mainCanvas.clientWidth > 0 ? mainCanvas.width / mainCanvas.clientWidth : 1;
+    const fontSize = layer.textMaskFontSize * pixelRatio;
     ctx.font = `${layer.textMaskFontWeight} ${fontSize}px system-ui, sans-serif`;
     ctx.fillStyle = "white";
     ctx.textBaseline = "middle";
@@ -159,6 +163,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       return;
     }
     engineRef.current = engine;
+    engine.setMaxPixelRatio(EDITOR_MAX_PIXEL_RATIO);
+    engine.setMaxFrameRate(EDITOR_MAX_FRAME_RATE);
     onCanvasReady?.(canvas);
     onEngineReady?.(engine);
 
@@ -189,7 +195,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       try {
         engine.initProgram();
         resize();
-        engine.startLoop(() => useGradientStore.getState(), handleFps);
+        startEngineLoop();
         setContextLost(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to restore WebGL context");
@@ -219,16 +225,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       }
     };
 
-    canvas.addEventListener("webglcontextlost", handleContextLost);
-    canvas.addEventListener("webglcontextrestored", handleContextRestored);
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("click", handleClick);
-
-    const unsubscribeTextMask = useGradientStore.subscribe(syncTextMaskTexture);
-
     let lastTimelineUpdate = performance.now();
-    engine.startLoop(() => {
+    const getFrameState = () => {
       const state = useGradientStore.getState();
 
       // Advance timeline position and apply interpolated params
@@ -258,13 +256,40 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       }
 
       return state;
-    }, handleFps);
+    };
+
+    const startEngineLoop = () => {
+      lastTimelineUpdate = performance.now();
+      engine.startLoop(getFrameState, handleFps);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        engine.stopLoop();
+        return;
+      }
+      startEngineLoop();
+    };
+
+    canvas.addEventListener("webglcontextlost", handleContextLost);
+    canvas.addEventListener("webglcontextrestored", handleContextRestored);
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    canvas.addEventListener("click", handleClick);
+
+    const unsubscribeTextMask = useGradientStore.subscribe(syncTextMaskTexture);
+
+    if (document.visibilityState === "visible") {
+      startEngineLoop();
+    }
 
     return () => {
       canvas.removeEventListener("webglcontextlost", handleContextLost);
       canvas.removeEventListener("webglcontextrestored", handleContextRestored);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       canvas.removeEventListener("click", handleClick);
       unsubscribeTextMask();
       clearTimeout(resizeTimeout);

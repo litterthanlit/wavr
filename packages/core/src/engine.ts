@@ -136,6 +136,8 @@ export class GradientEngine {
   private uniforms: UniformMap = {};
   private elapsedTime = 0;
   private animationId: number | null = null;
+  private maxPixelRatio = 1.5;
+  private minFrameIntervalMs = 1000 / 60;
   private mouseX = 0.5;
   private mouseY = 0.5;
   // Smoothed mouse for physics
@@ -412,11 +414,22 @@ export class GradientEngine {
     this.speedMultiplier = multiplier;
   }
 
+  setMaxPixelRatio(ratio: number) {
+    this.maxPixelRatio = Math.max(1, Math.min(3, ratio));
+    const canvas = this.gl.canvas as HTMLCanvasElement;
+    this.resize(canvas.clientWidth || canvas.width, canvas.clientHeight || canvas.height);
+  }
+
+  setMaxFrameRate(fps: number) {
+    const clamped = Math.max(24, Math.min(120, fps));
+    this.minFrameIntervalMs = 1000 / clamped;
+  }
+
   resize(width: number, height: number) {
     const gl = this.gl;
-    const dpr = window.devicePixelRatio || 1;
-    gl.canvas.width = width * dpr;
-    gl.canvas.height = height * dpr;
+    const dpr = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
+    gl.canvas.width = Math.max(1, Math.floor(width * dpr));
+    gl.canvas.height = Math.max(1, Math.floor(height * dpr));
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   }
 
@@ -1333,15 +1346,24 @@ void main() {
   }
 
   startLoop(getState: () => EngineState, onFrame?: (fps: number) => void) {
+    this.stopLoop();
     let lastFpsUpdate = performance.now();
     let frameCount = 0;
     let lastTime = performance.now() / 1000;
+    let lastRenderMs = 0;
     let lastPausedState: EngineState | null = null;
 
     const loop = () => {
       this.animationId = requestAnimationFrame(loop);
       const state = getState();
-      const now = performance.now() / 1000;
+      const nowMs = performance.now();
+
+      if (nowMs - lastRenderMs < this.minFrameIntervalMs) {
+        return;
+      }
+
+      lastRenderMs = nowMs;
+      const now = nowMs / 1000;
 
       if (!state.playing) {
         lastTime = now;
@@ -1390,7 +1412,6 @@ void main() {
       this.render(state);
 
       frameCount++;
-      const nowMs = now * 1000;
       if (nowMs - lastFpsUpdate >= 500) {
         const fps = Math.round((frameCount / (nowMs - lastFpsUpdate)) * 1000);
         onFrame?.(fps);
