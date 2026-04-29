@@ -103,6 +103,8 @@ const GRADIENT_TYPE_MAP: Record<LayerParams["gradientType"], number> = {
   liquid: 12,
   softCells: 13,
   grainflow: 14,
+  prismGlass: 15,
+  neonTunnel: 16,
 };
 
 const IMAGE_BLEND_MODE_MAP: Record<ImageBlendMode, number> = {

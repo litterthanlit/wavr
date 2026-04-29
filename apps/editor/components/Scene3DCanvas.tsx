@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { Canvas as R3FCanvas, useFrame, useThree } from "@react-three/fiber";
-import { PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { useGradientStore } from "@/lib/store";
 import type { ParticleField, Scene3DState, SceneObject3D } from "@/lib/scene3d";
@@ -35,28 +34,6 @@ function SceneRenderLoop({ enabled, playing, maxFps }: { enabled: boolean; playi
   }, [enabled, invalidate, maxFps, playing]);
 
   return null;
-}
-
-function CameraRig({ scene }: { scene: Scene3DState }) {
-  const cameraRef = useRef<THREE.PerspectiveCamera>(null);
-  const invalidate = useThree((state) => state.invalidate);
-
-  useEffect(() => {
-    const camera = cameraRef.current;
-    if (!camera) return;
-    camera.lookAt(0, 0, 0);
-    camera.updateProjectionMatrix();
-    invalidate();
-  }, [invalidate, scene.camera.fov, scene.camera.position]);
-
-  return (
-    <PerspectiveCamera
-      ref={cameraRef}
-      makeDefault
-      position={scene.camera.position}
-      fov={scene.camera.fov}
-    />
-  );
 }
 
 function SceneInvalidator({ enabled, scene }: { enabled: boolean; scene: Scene3DState }) {
@@ -163,7 +140,6 @@ function ParticleFieldView({
 function SceneContents({ scene, pointerRef }: { scene: Scene3DState; pointerRef: MutableRefObject<ScenePointer> }) {
   return (
     <>
-      <CameraRig scene={scene} />
       <ambientLight intensity={scene.lights.ambient} />
       <directionalLight position={[3, 4, 5]} intensity={scene.lights.directional} />
       <group>
@@ -214,10 +190,11 @@ export default function Scene3DCanvas({ onCanvasReady }: Scene3DCanvasProps) {
       <R3FCanvas
         frameloop="demand"
         dpr={[1, Math.min(1.5, scene.quality.dpr)]}
+        camera={{ position: scene.camera.position, fov: scene.camera.fov }}
         gl={{
           alpha: true,
-          antialias: true,
-          powerPreference: "high-performance",
+          antialias: false,
+          powerPreference: "low-power",
           preserveDrawingBuffer: true,
         }}
         onCreated={({ gl }) => {

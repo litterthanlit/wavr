@@ -25,7 +25,7 @@ function randomConfig(rand: () => number): GC {
   const GRADIENT_TYPES = [
     "mesh", "radial", "linear", "conic", "plasma",
     "dither", "scanline", "glitch", "voronoi",
-    "silk", "aurora", "liquid", "softCells", "grainflow",
+    "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
   ] as const;
   const BLEND_MODES = ["normal", "multiply", "screen", "overlay", "difference", "colorDodge"] as const;
 

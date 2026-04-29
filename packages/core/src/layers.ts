@@ -17,7 +17,8 @@ export type TextMaskAlign = "left" | "center" | "right";
 export type GradientType =
   | "mesh" | "radial" | "linear" | "conic" | "plasma"
   | "dither" | "scanline" | "glitch" | "image" | "voronoi"
-  | "silk" | "aurora" | "liquid" | "softCells" | "grainflow";
+  | "silk" | "aurora" | "liquid" | "softCells" | "grainflow"
+  | "prismGlass" | "neonTunnel";
 
 export function defaultSoftnessForGradientType(type: GradientType): number {
   switch (type) {
@@ -31,6 +32,10 @@ export function defaultSoftnessForGradientType(type: GradientType): number {
       return 0.76;
     case "grainflow":
       return 0.48;
+    case "prismGlass":
+      return 0.7;
+    case "neonTunnel":
+      return 0.56;
     default:
       return 0;
   }

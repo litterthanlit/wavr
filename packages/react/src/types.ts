@@ -15,7 +15,8 @@ export type TextMaskAlign = "left" | "center" | "right";
 export type GradientType =
   | "mesh" | "radial" | "linear" | "conic" | "plasma"
   | "dither" | "scanline" | "glitch" | "image" | "voronoi"
-  | "silk" | "aurora" | "liquid" | "softCells" | "grainflow";
+  | "silk" | "aurora" | "liquid" | "softCells" | "grainflow"
+  | "prismGlass" | "neonTunnel";
 
 export interface MaskParams {
   shape: MaskShape;

@@ -50,4 +50,15 @@ describe("export helpers", () => {
     expect(script).toContain("const int TYPE = 13;");
     expect(script).toContain("const float SOFTNESS = 0.76;");
   });
+
+  it("maps the new curated shader types into portable exports", () => {
+    expect(generateEmbedConfig({ ...state, gradientType: "prismGlass", softness: 0.7 })).toMatchObject({
+      type: 15,
+      softness: 0.7,
+    });
+
+    const code = exportReactComponent({ ...state, gradientType: "neonTunnel", softness: 0.56 });
+    expect(code).toContain("const int TYPE = 16;");
+    expect(code).toContain("const float SOFTNESS = 0.56;");
+  });
 });

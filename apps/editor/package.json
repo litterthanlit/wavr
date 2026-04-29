@@ -17,7 +17,6 @@
   "dependencies": {
     "@csstools/normalize.css": "^12.1.1",
     "@material/material-color-utilities": "^0.4.0",
-    "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
     "@wavr/core": "workspace:*",
     "@wavr/schema": "workspace:*",

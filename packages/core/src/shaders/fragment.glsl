@@ -10,7 +10,7 @@ uniform vec2 u_resolution;
 uniform vec2 u_mouse;
 uniform vec2 u_mouseSmooth;
 uniform vec2 u_mouseVelocity;
-uniform int u_gradientType; // 0-9 legacy, 10=silk, 11=aurora, 12=liquid, 13=softCells, 14=grainflow
+uniform int u_gradientType; // 0-9 legacy, 10=silk, 11=aurora, 12=liquid, 13=softCells, 14=grainflow, 15=prismGlass, 16=neonTunnel
 uniform float u_speed;
 uniform float u_complexity;
 uniform float u_scale;
@@ -908,18 +908,66 @@ vec3 grainflowGradient(vec2 uv, float time) {
   if (u_mouseReact > 0.0) {
     p = magnetDisplace(p, u_mouseReact * 0.35);
   }
-  p *= u_scale * 1.7;
-  p = softDomainWarp(p, time, u_distortion * 1.4 + u_softness * 0.25);
+  p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0) + 0.5;
+  p *= u_scale * 1.55;
+  p = softDomainWarp(p, time, u_distortion * 1.15 + u_softness * 0.42);
 
-  float flow = signedTo01(snoise(p + vec2(time * 0.18, time * 0.08)));
-  float streak = 0.5 + 0.5 * sin((p.x * 1.5 + p.y * 0.35 + flow * 2.2 + time * 0.12) * 6.28318);
-  float field = mix(flow, streak, 0.22);
-  vec3 color = finishSoftGradient(field, streak * 0.4);
+  float cloth = signedTo01(snoise(p * 1.05 + vec2(time * 0.12, time * 0.04)));
+  float warp = snoise(p * 1.8 + cloth + vec2(-time * 0.06, time * 0.09));
+  float bandA = 0.5 + 0.5 * sin((p.x * 1.2 + p.y * 0.38 + warp * 1.9 + time * 0.11) * 6.28318);
+  float bandB = 0.5 + 0.5 * sin((p.x * -0.42 + p.y * 1.65 + cloth * 1.5 - time * 0.08) * 6.28318);
+  float field = mix(cloth, mix(bandA, bandB, 0.38), 0.34);
+  field = mix(field, smoothstep(0.12, 0.95, field), u_softness * 0.55);
+  vec3 color = finishSoftGradient(field, max(bandA, bandB) * 0.35);
 
   float grain = interleavedGradientNoise(gl_FragCoord.xy + vec2(time * 31.0, -time * 17.0)) - 0.5;
   float paper = hash(floor(gl_FragCoord.xy / max(2.0, 7.0 - u_complexity * 0.5))) - 0.5;
-  color += (grain * 0.045 + paper * 0.035) * (0.45 + u_softness);
+  float weave = sin(gl_FragCoord.x * 1.7) * sin(gl_FragCoord.y * 1.15) * 0.5;
+  color += (grain * 0.035 + paper * 0.026 + weave * 0.012) * (0.45 + u_softness);
   return clamp(color, 0.0, 1.2);
+}
+
+vec3 prismGlassGradient(vec2 uv, float time) {
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = gravityDisplace(p, u_mouseReact * 0.42);
+  }
+  p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0);
+  p *= u_scale * 1.25;
+  p = softDomainWarp(p + 0.5, time, u_distortion * 1.25 + u_softness * 0.35) - 0.5;
+
+  float angle = atan(p.y, p.x);
+  float radius = length(p);
+  float sheet = 0.5 + 0.5 * sin((p.x * 1.8 - p.y * 1.15 + snoise(p * 1.6 + time * 0.08) * 1.7 + time * 0.16) * 6.28318);
+  float fold = 1.0 - smoothstep(0.02, 0.5 + u_softness * 0.22, abs(sin(angle * 2.0 + radius * 5.2 - time * 0.2)));
+  float caustic = pow(1.0 - smoothstep(0.0, 0.34, abs(sheet - 0.62)), 2.1);
+  float field = mix(signedTo01(snoise(p * 1.15 + time * 0.05)), sheet, 0.5);
+  vec3 color = finishSoftGradient(field, caustic + fold * 0.35);
+  color += vec3(0.06, 0.12, 0.18) * caustic * (0.55 + u_softness);
+  color += vec3(0.35, 0.18, 0.08) * fold * 0.16;
+  return clamp(color, 0.0, 1.35);
+}
+
+vec3 neonTunnelGradient(vec2 uv, float time) {
+  vec2 p = uv;
+  if (u_mouseReact > 0.0) {
+    p = vortexDisplace(p, u_mouseReact * 0.48);
+  }
+  p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0);
+  p *= u_scale;
+  p = softDomainWarp(p + 0.5, time, u_distortion * 0.8 + u_softness * 0.22) - 0.5;
+
+  float radius = length(p);
+  float angle = atan(p.y, p.x);
+  float depth = 1.0 / (0.18 + radius * 1.55);
+  float spiral = angle * 1.85 + radius * (9.0 + u_complexity * 0.85) - time * 0.42;
+  float contour = 1.0 - smoothstep(0.015, 0.22 + u_softness * 0.22, abs(fract(spiral / 6.28318) - 0.5));
+  float haze = smoothstep(1.0, 0.12, radius);
+  float field = mix(fract(depth * 0.42 + angle / 6.28318 + time * 0.05), contour, 0.55);
+  vec3 color = finishSoftGradient(field, contour * haze);
+  color += getGradientColor(fract(field + 0.22)) * contour * haze * (0.45 + u_softness * 0.35);
+  color *= 0.62 + depth * 0.18;
+  return clamp(color, 0.0, 1.4);
 }
 
 // ============================================================
@@ -1387,6 +1435,8 @@ vec3 computeGradient(vec2 uv, float time) {
   else if (u_gradientType == 12) return liquidGradient(uv, time);
   else if (u_gradientType == 13) return softCellsGradient(uv, time);
   else if (u_gradientType == 14) return grainflowGradient(uv, time);
+  else if (u_gradientType == 15) return prismGlassGradient(uv, time);
+  else if (u_gradientType == 16) return neonTunnelGradient(uv, time);
   else return imageGradient(uv, time);
 }
 

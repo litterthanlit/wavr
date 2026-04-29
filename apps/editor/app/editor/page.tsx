@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Canvas from "@/components/Canvas";
-import Scene3DCanvas from "@/components/Scene3DCanvas";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import ExportModal from "@/components/ExportModal";
@@ -18,6 +18,11 @@ import { applyHashToStore, initializeUrlSync } from "@/lib/url-sync";
 import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
 
+const Scene3DCanvas = dynamic(() => import("@/components/Scene3DCanvas"), {
+  ssr: false,
+  loading: () => null,
+});
+
 export default function EditorPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -28,6 +33,7 @@ export default function EditorPage() {
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const sceneCanvasElRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<GradientEngine | null>(null);
+  const scene3DEnabled = useGradientStore((state) => state.scene3DEnabled);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -113,6 +119,12 @@ export default function EditorPage() {
     return dispose;
   }, []);
 
+  useEffect(() => {
+    if (!scene3DEnabled) {
+      sceneCanvasElRef.current = null;
+    }
+  }, [scene3DEnabled]);
+
   return (
     <div className="h-screen w-screen bg-root flex items-center justify-center">
     <div className="h-[90vh] w-[90vw] flex flex-col rounded-xl overflow-hidden border border-border shadow-2xl">
@@ -129,7 +141,9 @@ export default function EditorPage() {
               onCanvasReady={(el) => { canvasElRef.current = el; }}
               onEngineReady={(eng) => { engineRef.current = eng; }}
             />
-            <Scene3DCanvas onCanvasReady={(el) => { sceneCanvasElRef.current = el; }} />
+            {scene3DEnabled && (
+              <Scene3DCanvas onCanvasReady={(el) => { sceneCanvasElRef.current = el; }} />
+            )}
           </div>
           <Timeline />
         </div>

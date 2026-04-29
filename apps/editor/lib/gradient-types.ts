@@ -16,10 +16,14 @@ export const PREMIUM_GRADIENT_TYPES: GradientType[] = [
   "liquid",
   "softCells",
   "grainflow",
+  "prismGlass",
+  "neonTunnel",
 ];
 
 export const RANDOM_GRADIENT_TYPES: LayerParams["gradientType"][] = [
   "mesh",
+  "prismGlass",
+  "neonTunnel",
   "silk",
   "aurora",
   "liquid",
@@ -35,6 +39,8 @@ export const COMMAND_GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image
   "liquid",
   "softCells",
   "grainflow",
+  "prismGlass",
+  "neonTunnel",
   "mesh",
   "plasma",
   "dither",
@@ -52,6 +58,8 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
   { value: "liquid", label: "Liquid", group: "Premium" },
   { value: "softCells", label: "Soft Cells", group: "Premium" },
   { value: "grainflow", label: "Grainflow", group: "Premium" },
+  { value: "prismGlass", label: "Prism Glass", group: "Premium" },
+  { value: "neonTunnel", label: "Neon Tunnel", group: "Premium" },
   { value: "mesh", label: "Mesh", group: "Core" },
   { value: "plasma", label: "Plasma", group: "Core" },
   { value: "dither", label: "Dither", group: "Core" },

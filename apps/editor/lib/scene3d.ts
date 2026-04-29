@@ -122,7 +122,7 @@ export const DEFAULT_SCENE_3D_STATE: Scene3DState = {
     },
   ],
   quality: {
-    dpr: 1.5,
+    dpr: 1.25,
     maxFps: 45,
   },
   interaction: {

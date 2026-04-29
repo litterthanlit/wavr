@@ -124,6 +124,7 @@ export function generateEmbedConfig(state: ExportableState & {
     mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4,
     dither: 5, scanline: 6, glitch: 7, image: 8, voronoi: 9,
     silk: 10, aurora: 11, liquid: 12, softCells: 13, grainflow: 14,
+    prismGlass: 15, neonTunnel: 16,
   };
 
   const config: EmbedConfig = {
@@ -235,6 +236,8 @@ const EXPORT_TYPE_MAP: Record<string, number> = {
   liquid: 12,
   softCells: 13,
   grainflow: 14,
+  prismGlass: 15,
+  neonTunnel: 16,
 };
 
 const PORTABLE_VERTEX_SHADER = `#version 300 es
@@ -355,7 +358,30 @@ float fieldFor(vec2 uv,float t){
   }
   if(TYPE==12)return liquid(q,t);
   if(TYPE==13)return smoothstep(.0,1.0,1.0-cells(q*3.4+(warp-.5)*.8));
-  if(TYPE==14)return fbm(q*2.7+vec2(t*.12,fbm(q+t*.05))*1.6)*.5+.5;
+  if(TYPE==14){
+    float cloth=fbm(q*1.2+vec2(t*.08,t*.03));
+    float warp=fbm(q*1.9+cloth+t*.05);
+    float a=.5+.5*sin((q.x*1.25+q.y*.4+warp*1.9+t*.1)*6.28318);
+    float b=.5+.5*sin((-q.x*.45+q.y*1.6+cloth*1.5-t*.08)*6.28318);
+    return mix(cloth,mix(a,b,.38),.34);
+  }
+  if(TYPE==15){
+    vec2 r=q-.5;
+    float a=atan(r.y,r.x);
+    float d=length(r);
+    float sheet=.5+.5*sin((r.x*1.8-r.y*1.15+fbm(r*1.6+t*.06)*1.7+t*.16)*6.28318);
+    float fold=1.-smoothstep(.02,.56,abs(sin(a*2.+d*5.2-t*.2)));
+    return clamp(mix(fbm(r*1.15+t*.05),sheet,.52)+fold*.18,0.,1.);
+  }
+  if(TYPE==16){
+    vec2 r=q-.5;
+    float d=length(r);
+    float a=atan(r.y,r.x);
+    float spiral=a*1.85+d*(9.+COMPLEXITY*.85)-t*.42;
+    float contour=1.-smoothstep(.015,.26,abs(fract(spiral/6.28318)-.5));
+    float depth=1./(.18+d*1.55);
+    return mix(fract(depth*.42+a/6.28318+t*.05),contour,.55);
+  }
   return fbm(q*2.0+vec2(t*.12,-t*.08))*.5+.5;
 }
 vec3 getColor(float t){
@@ -382,9 +408,15 @@ void main(){
     float dotMask=step(.48,fract((gl_FragCoord.x+gl_FragCoord.y)*.5));
     color*=mix(.88,1.08,dotMask);
   }
-  if(TYPE==14){
+  if(TYPE==14 || TYPE==15 || TYPE==16){
     float grain=hash(gl_FragCoord.xy+time*60.)-.5;
     color+=grain*(.035+SOFTNESS*.025);
+  }
+  if(TYPE==15){
+    color+=getColor(fract(field+.18))*.16*smoothstep(.55,1.,field);
+  }
+  if(TYPE==16){
+    color+=getColor(fract(field+.32))*.22*smoothstep(.48,1.,field);
   }
   color*=BRIGHTNESS;
   float grey=dot(color,vec3(.2126,.7152,.0722));
