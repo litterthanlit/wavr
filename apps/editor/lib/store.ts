@@ -18,6 +18,54 @@ import {
 // should produce a back-history entry, continuous `set` should not.
 import { markPushPoint } from "./url-sync";
 
+export type PerformanceMode = "auto" | "quality" | "battery";
+
+export interface EditorPerformanceSettings {
+  maxPixelRatio: number;
+  maxFrameRate: number;
+  sceneDprCap: number;
+  sceneMaxFps: number;
+  realBloom: "preserve" | "off";
+  particleScale: number;
+  powerPreference: WebGLPowerPreference;
+}
+
+export function getEditorPerformanceSettings(mode: PerformanceMode): EditorPerformanceSettings {
+  switch (mode) {
+    case "quality":
+      return {
+        maxPixelRatio: 2,
+        maxFrameRate: 60,
+        sceneDprCap: 2,
+        sceneMaxFps: 60,
+        realBloom: "preserve",
+        particleScale: 1,
+        powerPreference: "high-performance",
+      };
+    case "battery":
+      return {
+        maxPixelRatio: 1,
+        maxFrameRate: 30,
+        sceneDprCap: 1,
+        sceneMaxFps: 30,
+        realBloom: "off",
+        particleScale: 0.45,
+        powerPreference: "low-power",
+      };
+    case "auto":
+    default:
+      return {
+        maxPixelRatio: 1.5,
+        maxFrameRate: 45,
+        sceneDprCap: 1.5,
+        sceneMaxFps: 45,
+        realBloom: "preserve",
+        particleScale: 1,
+        powerPreference: "low-power",
+      };
+  }
+}
+
 export interface GradientState {
   // Layers
   layers: LayerParams[];
@@ -90,6 +138,7 @@ export interface GradientState {
 
   // Playback
   playing: boolean;
+  performanceMode: PerformanceMode;
 
   // Timeline
   timelineEnabled: boolean;
@@ -328,6 +377,7 @@ const DEFAULTS = {
   audioEnergyTarget: "scale",
   audioSensitivity: 0.5,
   playing: true,
+  performanceMode: "auto" as PerformanceMode,
   timelineEnabled: false,
   timelineDuration: 10,
   timelinePlaybackMode: "loop" as PlaybackMode,

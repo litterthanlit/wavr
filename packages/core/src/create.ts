@@ -13,6 +13,12 @@ export function createGradient(
   let destroyed = false;
 
   const engine = new GradientEngine(canvas);
+  if (options?.maxPixelRatio !== undefined) {
+    engine.setMaxPixelRatio(options.maxPixelRatio);
+  }
+  if (options?.maxFrameRate !== undefined) {
+    engine.setMaxFrameRate(options.maxFrameRate);
+  }
   const tweenManager = new TweenManager();
 
   // Timeline progress support

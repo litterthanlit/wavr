@@ -18,13 +18,40 @@ type SceneData = Partial<Omit<GradientState,
   | "randomize"
 >>;
 
+export type SceneThumbnailMotif =
+  | "prism"
+  | "tunnel"
+  | "terrain"
+  | "flare"
+  | "orb"
+  | "product"
+  | "particles"
+  | "liquid"
+  | "aurora"
+  | "signal"
+  | "caustic"
+  | "poster"
+  | "space";
+
+export interface SceneThumbnail {
+  background: string;
+  accent: string;
+  motif: SceneThumbnailMotif;
+}
+
 export interface Scene {
   name: string;
   tagline: string;
   useCase: string;
   mood: string;
   colors: string[];
+  thumbnail: SceneThumbnail;
+  featured?: boolean;
   data: SceneData;
+}
+
+function thumbnail(background: string, accent: string, motif: SceneThumbnailMotif): SceneThumbnail {
+  return { background, accent, motif };
 }
 
 function orbitalAuroraScene(): Scene3DState {
@@ -127,6 +154,8 @@ export const SCENES: Scene[] = [
     useCase: "Luxury hero",
     mood: "Refractive",
     colors: ["#e0f2fe", "#22d3ee", "#f97316", "#020617"],
+    thumbnail: thumbnail("linear-gradient(135deg, #e0f2fe 0%, #22d3ee 34%, #f97316 66%, #020617 100%)", "#22d3ee", "prism"),
+    featured: true,
     data: {
       gradientType: "prismGlass",
       speed: 0.26,
@@ -155,6 +184,8 @@ export const SCENES: Scene[] = [
     useCase: "Campaign hero",
     mood: "Kinetic",
     colors: ["#f43f5e", "#f97316", "#22d3ee", "#020617"],
+    thumbnail: thumbnail("radial-gradient(circle at 50% 46%, #22d3ee 0 8%, #f97316 9% 18%, #f43f5e 19% 30%, #020617 58%)", "#f97316", "tunnel"),
+    featured: true,
     data: {
       gradientType: "neonTunnel",
       speed: 0.38,
@@ -182,6 +213,8 @@ export const SCENES: Scene[] = [
     useCase: "Spatial hero",
     mood: "Topographic",
     colors: ["#0f172a", "#22d3ee", "#bef264", "#0ea5e9"],
+    thumbnail: thumbnail("linear-gradient(180deg, #0f172a 0%, #0ea5e9 52%, #bef264 100%)", "#bef264", "terrain"),
+    featured: true,
     data: {
       gradientType: "aurora",
       speed: 0.2,
@@ -209,6 +242,8 @@ export const SCENES: Scene[] = [
     useCase: "Motion card",
     mood: "Cinematic",
     colors: ["#020617", "#38bdf8", "#f97316", "#ffffff"],
+    thumbnail: thumbnail("linear-gradient(105deg, #020617 0%, #38bdf8 35%, #ffffff 50%, #f97316 62%, #020617 100%)", "#f97316", "flare"),
+    featured: true,
     data: {
       gradientType: "prismGlass",
       speed: 0.18,
@@ -239,6 +274,8 @@ export const SCENES: Scene[] = [
     useCase: "Immersive hero",
     mood: "Spatial",
     colors: ["#22c55e", "#14b8a6", "#4f46e5", "#020617"],
+    thumbnail: thumbnail("radial-gradient(circle at 52% 52%, #dbeafe 0 16%, #14b8a6 17% 34%, #4f46e5 58%, #020617 100%)", "#14b8a6", "orb"),
+    featured: true,
     data: {
       gradientType: "aurora",
       speed: 0.2,
@@ -263,6 +300,8 @@ export const SCENES: Scene[] = [
     useCase: "Product reveal",
     mood: "Premium",
     colors: ["#f8fafc", "#94a3b8", "#111827", "#60a5fa"],
+    thumbnail: thumbnail("linear-gradient(145deg, #f8fafc 0%, #94a3b8 30%, #111827 68%, #60a5fa 100%)", "#60a5fa", "product"),
+    featured: true,
     data: {
       gradientType: "liquid",
       speed: 0.28,
@@ -286,6 +325,8 @@ export const SCENES: Scene[] = [
     useCase: "AI product",
     mood: "Electric",
     colors: ["#22d3ee", "#2563eb", "#a855f7", "#020617"],
+    thumbnail: thumbnail("radial-gradient(circle at 45% 45%, #a855f7 0 10%, #2563eb 34%, #22d3ee 58%, #020617 100%)", "#a855f7", "particles"),
+    featured: true,
     data: {
       gradientType: "grainflow",
       speed: 0.42,
@@ -310,6 +351,7 @@ export const SCENES: Scene[] = [
     useCase: "SaaS hero",
     mood: "Metallic",
     colors: ["#f3f4f6", "#9ca3af", "#111827", "#60a5fa"],
+    thumbnail: thumbnail("linear-gradient(135deg, #f3f4f6 0%, #9ca3af 40%, #111827 72%, #60a5fa 100%)", "#9ca3af", "liquid"),
     data: {
       gradientType: "liquid",
       speed: 0.32,
@@ -337,6 +379,7 @@ export const SCENES: Scene[] = [
     useCase: "Landing page",
     mood: "Luminous",
     colors: ["#22c55e", "#14b8a6", "#4f46e5", "#020617"],
+    thumbnail: thumbnail("linear-gradient(145deg, #22c55e 0%, #14b8a6 32%, #4f46e5 68%, #020617 100%)", "#22c55e", "aurora"),
     data: {
       gradientType: "aurora",
       speed: 0.22,
@@ -362,6 +405,7 @@ export const SCENES: Scene[] = [
     useCase: "AI product",
     mood: "Electric",
     colors: ["#22d3ee", "#2563eb", "#a855f7", "#020617"],
+    thumbnail: thumbnail("linear-gradient(135deg, #22d3ee 0%, #2563eb 36%, #a855f7 70%, #020617 100%)", "#22d3ee", "signal"),
     data: {
       gradientType: "grainflow",
       speed: 0.48,
@@ -387,6 +431,7 @@ export const SCENES: Scene[] = [
     useCase: "Portfolio",
     mood: "Fluid",
     colors: ["#67e8f9", "#0f766e", "#334155", "#f8fafc"],
+    thumbnail: thumbnail("linear-gradient(135deg, #67e8f9 0%, #0f766e 38%, #334155 74%, #f8fafc 100%)", "#67e8f9", "caustic"),
     data: {
       gradientType: "silk",
       speed: 0.26,
@@ -413,6 +458,7 @@ export const SCENES: Scene[] = [
     useCase: "Campaign",
     mood: "Graphic",
     colors: ["#ef4444", "#facc15", "#111827", "#f8fafc"],
+    thumbnail: thumbnail("linear-gradient(135deg, #ef4444 0%, #facc15 42%, #111827 68%, #f8fafc 100%)", "#facc15", "poster"),
     data: {
       gradientType: "grainflow",
       speed: 0.36,
@@ -437,6 +483,7 @@ export const SCENES: Scene[] = [
     useCase: "Immersive hero",
     mood: "Spatial",
     colors: ["#020617", "#1d4ed8", "#7c3aed", "#fb7185"],
+    thumbnail: thumbnail("radial-gradient(circle at 32% 28%, #fb7185 0 8%, #7c3aed 30%, #1d4ed8 58%, #020617 100%)", "#fb7185", "space"),
     data: {
       gradientType: "softCells",
       speed: 0.18,

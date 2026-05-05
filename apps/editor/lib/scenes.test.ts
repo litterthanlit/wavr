@@ -24,4 +24,26 @@ describe("scene gallery", () => {
     expect(SCENES[0]?.data.gradientType).toBe("prismGlass");
     expect(SCENES[1]?.data.gradientType).toBe("neonTunnel");
   });
+
+  it("ships lightweight thumbnail metadata for every scene", () => {
+    for (const scene of SCENES) {
+      expect(scene.thumbnail.background).toContain("gradient");
+      expect(scene.thumbnail.accent).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(scene.thumbnail.motif).toMatch(/^(prism|tunnel|terrain|flare|orb|product|particles|liquid|aurora|signal|caustic|poster|space)$/);
+      expect(scene.thumbnail.background).not.toContain("data:");
+      expect(scene.thumbnail.background).not.toContain("url(");
+    }
+  });
+
+  it("keeps curated scenes visually prioritized", () => {
+    expect(SCENES.slice(0, 7).map((scene) => scene.featured)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
 });

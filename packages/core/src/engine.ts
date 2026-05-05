@@ -195,6 +195,9 @@ export class GradientEngine {
   private textureCache: Map<string, WebGLTexture> = new Map();
   private pendingLoads: Set<string> = new Set();
   private textMaskTexture: WebGLTexture | null = null;
+  private lastTextureRefs: (string | null)[] = [];
+  private lastTextureCleanupMs = 0;
+  private static readonly TEXTURE_CLEANUP_INTERVAL_MS = 5000;
 
   // Layer compositing FBOs (Phase 12)
   private compositeFBOs: [WebGLFramebuffer, WebGLFramebuffer] | null = null;
@@ -1012,6 +1015,32 @@ void main() {
     }
   }
 
+  private shouldCleanupTextures(layers: LayerParams[], nowMs: number) {
+    const refs: (string | null)[] = [];
+    for (const layer of layers) {
+      refs.push(layer.imageData ?? null, layer.distortionMapData ?? null);
+    }
+
+    let refsChanged = refs.length !== this.lastTextureRefs.length;
+    if (!refsChanged) {
+      for (let i = 0; i < refs.length; i++) {
+        if (refs[i] !== this.lastTextureRefs[i]) {
+          refsChanged = true;
+          break;
+        }
+      }
+    }
+
+    const intervalElapsed =
+      nowMs - this.lastTextureCleanupMs >= GradientEngine.TEXTURE_CLEANUP_INTERVAL_MS;
+
+    if (!refsChanged && !intervalElapsed) return false;
+
+    this.lastTextureRefs = refs;
+    this.lastTextureCleanupMs = nowMs;
+    return true;
+  }
+
   private setf(name: string, val: number) {
     const loc = this.uniforms[name];
     if (loc !== undefined) this.gl.uniform1f(loc, val);
@@ -1330,8 +1359,9 @@ void main() {
       this.renderBloomPass(state);
     }
 
-    // Clean up unused cached textures
-    this.cleanupTextures(state.layers);
+    if (this.shouldCleanupTextures(state.layers, performance.now())) {
+      this.cleanupTextures(state.layers);
+    }
 
     // Blit FBO to screen and swap buffers
     if (feedbackActive && this.feedbackFBOs) {

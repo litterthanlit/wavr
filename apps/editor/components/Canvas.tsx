@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { GradientEngine } from "@wavr/core";
-import { useGradientStore, GradientState, getInterpolatedParams } from "@/lib/store";
+import {
+  useGradientStore,
+  GradientState,
+  getEditorPerformanceSettings,
+  getInterpolatedParams,
+} from "@/lib/store";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
 import Toast from "@/components/ui/Toast";
 
@@ -41,9 +46,6 @@ function applyAudioBands(state: GradientState, bands: AudioBands): Partial<Gradi
   return mods;
 }
 
-const EDITOR_MAX_PIXEL_RATIO = 1.5;
-const EDITOR_MAX_FRAME_RATE = 45;
-
 interface CanvasProps {
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
   onEngineReady?: (engine: GradientEngine) => void;
@@ -61,6 +63,20 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const lastTextParamsRef = useRef<string>("");
   const lowFpsStartRef = useRef<number | null>(null);
   const initErrorRef = useRef<string | null>(null);
+  const textMaskParamsKey = useGradientStore((state) => {
+    const layer = state.layers[state.activeLayerIndex];
+    if (!layer) return `${state.activeLayerIndex}:missing`;
+
+    return JSON.stringify({
+      activeLayerIndex: state.activeLayerIndex,
+      enabled: layer.textMaskEnabled,
+      content: layer.textMaskContent,
+      fontSize: layer.textMaskFontSize,
+      fontWeight: layer.textMaskFontWeight,
+      letterSpacing: layer.textMaskLetterSpacing,
+      align: layer.textMaskAlign,
+    });
+  });
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     const canvas = canvasRef.current;
@@ -150,6 +166,10 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   }, []);
 
   useEffect(() => {
+    syncTextMaskTexture();
+  }, [textMaskParamsKey, syncTextMaskTexture]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -163,8 +183,12 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       return;
     }
     engineRef.current = engine;
-    engine.setMaxPixelRatio(EDITOR_MAX_PIXEL_RATIO);
-    engine.setMaxFrameRate(EDITOR_MAX_FRAME_RATE);
+    const applyPerformanceMode = () => {
+      const settings = getEditorPerformanceSettings(useGradientStore.getState().performanceMode);
+      engine.setMaxPixelRatio(settings.maxPixelRatio);
+      engine.setMaxFrameRate(settings.maxFrameRate);
+    };
+    applyPerformanceMode();
     onCanvasReady?.(canvas);
     onEngineReady?.(engine);
 
@@ -228,6 +252,13 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     let lastTimelineUpdate = performance.now();
     const getFrameState = () => {
       const state = useGradientStore.getState();
+      const withPerformanceMode = (nextState: GradientState): GradientState => {
+        const settings = getEditorPerformanceSettings(nextState.performanceMode);
+        if (settings.realBloom === "off" && nextState.realBloomEnabled) {
+          return { ...nextState, realBloomEnabled: false };
+        }
+        return nextState;
+      };
 
       // Advance timeline position and apply interpolated params
       if (state.timelineEnabled && state.playing && state.keyframes.length > 0) {
@@ -239,7 +270,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
         const interpolated = getInterpolatedParams();
         if (interpolated) {
-          return { ...state, ...interpolated };
+          return withPerformanceMode({ ...state, ...interpolated });
         }
       } else {
         lastTimelineUpdate = performance.now();
@@ -251,11 +282,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
         if (analyzer.active) {
           const bands = analyzer.getBands();
           const mods = applyAudioBands(state, bands);
-          return { ...state, ...mods };
+          return withPerformanceMode({ ...state, ...mods });
         }
       }
 
-      return state;
+      return withPerformanceMode(state);
     };
 
     const startEngineLoop = () => {
@@ -278,7 +309,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     canvas.addEventListener("click", handleClick);
 
-    const unsubscribeTextMask = useGradientStore.subscribe(syncTextMaskTexture);
+    const unsubscribePerformance = useGradientStore.subscribe((state, prev) => {
+      if (state.performanceMode !== prev.performanceMode) {
+        applyPerformanceMode();
+      }
+    });
 
     if (document.visibilityState === "visible") {
       startEngineLoop();
@@ -291,7 +326,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       window.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       canvas.removeEventListener("click", handleClick);
-      unsubscribeTextMask();
+      unsubscribePerformance();
       clearTimeout(resizeTimeout);
       engine.destroy();
     };

@@ -106,4 +106,11 @@ export interface CreateGradientOptions {
   onError?: (error: Error) => void;
   onContextLost?: () => void;
   onContextRestored?: () => void;
+  /**
+   * Caps the backing canvas pixel ratio. Lower values reduce GPU memory and
+   * fragment shader cost on high-DPI displays.
+   */
+  maxPixelRatio?: number;
+  /** Caps the render loop frame rate. */
+  maxFrameRate?: number;
 }

@@ -3,6 +3,7 @@ import {
   exportReactComponent,
   exportStandalonePlayer,
   exportWebComponent,
+  generateEmbedCode,
   generateEmbedConfig,
 } from "./export";
 
@@ -23,6 +24,15 @@ const state = {
 };
 
 describe("export helpers", () => {
+  it("generates iframe embed code for the viewer-only embed route", () => {
+    const code = generateEmbedCode("s2.example", 320, 180);
+
+    expect(code).toContain('src="https://wavr.app/embed#s2.example"');
+    expect(code).toContain('width="320"');
+    expect(code).toContain('height="180"');
+    expect(code).not.toContain("/editor#");
+  });
+
   it("includes gradient type and softness in the embed config", () => {
     expect(generateEmbedConfig(state)).toMatchObject({
       type: 11,

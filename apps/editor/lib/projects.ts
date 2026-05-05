@@ -1,4 +1,4 @@
-import { GradientState } from "./store";
+import { GradientState, type PerformanceMode } from "./store";
 import { LayerParams } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
 import { cloneScene3D, type Scene3DState } from "./scene3d";
@@ -72,6 +72,7 @@ export interface ProjectState {
   audioTrebleTarget: string;
   audioEnergyTarget: string;
   audioSensitivity: number;
+  performanceMode: PerformanceMode;
   timelineEnabled: boolean;
   timelineDuration: number;
   timelinePlaybackMode: PlaybackMode;
@@ -162,6 +163,7 @@ export function exportProjectState(state: GradientState): ProjectState {
     audioTrebleTarget: state.audioTrebleTarget as string,
     audioEnergyTarget: state.audioEnergyTarget as string,
     audioSensitivity: state.audioSensitivity as number,
+    performanceMode: (state.performanceMode ?? "auto") as PerformanceMode,
     timelineEnabled: state.timelineEnabled as boolean,
     timelineDuration: state.timelineDuration as number,
     timelinePlaybackMode: state.timelinePlaybackMode as PlaybackMode,

@@ -108,6 +108,7 @@ export interface GradientConfig {
   liquify?: { enabled: boolean; intensity: number; scale: number };
   trail?: { enabled: boolean; length: number; width: number };
   realBloomEnabled?: boolean;
+  deband?: { enabled: boolean; strength: number };
 }
 
 export type EasingFunction = "linear" | "ease" | "ease-in" | "ease-out" | "ease-in-out" | "spring";
@@ -129,6 +130,14 @@ export interface GradientHandle {
   animateTo(config: Partial<GradientConfig>, options: AnimateOptions): void;
   resize(width: number, height: number): void;
   destroy(): void;
+}
+
+export interface CreateGradientOptions {
+  onError?: (error: Error) => void;
+  onContextLost?: () => void;
+  onContextRestored?: () => void;
+  maxPixelRatio?: number;
+  maxFrameRate?: number;
 }
 
 export interface HoverTrigger {

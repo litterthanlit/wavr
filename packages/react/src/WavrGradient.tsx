@@ -13,6 +13,8 @@ export interface WavrGradientProps {
   scrollLinked?: boolean;
   scrollDuration?: number;
   speed?: number;
+  maxPixelRatio?: number;
+  maxFrameRate?: number;
   events?: EventTriggers;
   onError?: (error: Error) => void;
 }
@@ -35,6 +37,8 @@ export function WavrGradient({
   scrollLinked = false,
   scrollDuration = 10,
   speed = 1.0,
+  maxPixelRatio = 1.5,
+  maxFrameRate = 60,
   events,
   onError,
 }: WavrGradientProps) {
@@ -51,7 +55,7 @@ export function WavrGradient({
 
     const canvas = document.createElement("canvas");
     const { width, height } = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, maxPixelRatio);
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     canvas.style.width = "100%";
@@ -59,7 +63,11 @@ export function WavrGradient({
     canvas.style.display = "block";
     container.appendChild(canvas);
 
-    const handle = createGradient(canvas, configRef.current, { onError });
+    const handle = createGradient(canvas, configRef.current, {
+      onError,
+      maxPixelRatio,
+      maxFrameRate,
+    });
     handleRef.current = handle;
 
     const ro = new ResizeObserver(([entry]) => {
@@ -73,7 +81,7 @@ export function WavrGradient({
       handleRef.current = null;
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
     };
-  }, []);
+  }, [maxFrameRate, maxPixelRatio, onError]);
 
   useEffect(() => {
     handleRef.current?.update(config);

@@ -5,6 +5,7 @@ import Slider from "@/components/ui/Slider";
 import Select from "@/components/ui/Select";
 import Toggle from "@/components/ui/Toggle";
 import { useGradientStore } from "@/lib/store";
+import type { PerformanceMode } from "@/lib/store";
 import type { ParticleField, SceneObject3D, SceneObjectKind, Vec3 } from "@/lib/scene3d";
 
 const OBJECT_OPTIONS: { value: SceneObjectKind; label: string }[] = [
@@ -13,6 +14,12 @@ const OBJECT_OPTIONS: { value: SceneObjectKind; label: string }[] = [
   { value: "plane", label: "Plane" },
   { value: "box", label: "Box" },
   { value: "cylinder", label: "Cylinder" },
+];
+
+const PERFORMANCE_OPTIONS: { value: PerformanceMode; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "quality", label: "Quality" },
+  { value: "battery", label: "Battery" },
 ];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -195,6 +202,12 @@ export default function ScenePanel() {
       <div className="border-t border-border" />
 
       <Section title="Quality">
+        <Select
+          label="Performance"
+          value={store.performanceMode}
+          options={PERFORMANCE_OPTIONS}
+          onChange={(value) => store.setDiscrete({ performanceMode: value as PerformanceMode })}
+        />
         <Slider label="DPR Cap" value={scene.quality.dpr} min={1} max={2} step={0.1} onChange={(v) => store.setScene3D({ quality: { ...scene.quality, dpr: v } })} onCommit={() => store.commitSet()} />
         <Slider label="Max FPS" value={scene.quality.maxFps} min={24} max={60} step={1} onChange={(v) => store.setScene3D({ quality: { ...scene.quality, maxFps: v } })} onCommit={() => store.commitSet()} />
       </Section>

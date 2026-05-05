@@ -67,6 +67,7 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     audioTrebleTarget: "brightness",
     audioEnergyTarget: "scale",
     audioSensitivity: 0.5,
+    performanceMode: "auto",
     playing: true,
     timelineEnabled: false,
     timelineDuration: 10,
@@ -162,5 +163,13 @@ describe("project export", () => {
     expect(exported.scene3D.objects[0]?.kind).toBe("torus");
     expect(exported.scene3D.objects[0]?.position).toEqual([1, 2, 3]);
     expect(exported.scene3D).not.toBe(scene3D);
+  });
+
+  it("preserves editor performance mode", () => {
+    const exported = exportProjectState(minimalState({
+      performanceMode: "battery",
+    }));
+
+    expect(exported.performanceMode).toBe("battery");
   });
 });

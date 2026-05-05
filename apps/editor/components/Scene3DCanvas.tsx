@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { Canvas as R3FCanvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useGradientStore } from "@/lib/store";
+import { getEditorPerformanceSettings, useGradientStore } from "@/lib/store";
 import type { ParticleField, Scene3DState, SceneObject3D } from "@/lib/scene3d";
 
 interface Scene3DCanvasProps {
@@ -92,14 +92,17 @@ function ScenePrimitive({
 function ParticleFieldView({
   field,
   pointerRef,
+  particleScale,
 }: {
   field: ParticleField;
   pointerRef: MutableRefObject<ScenePointer>;
+  particleScale: number;
 }) {
   const pointsRef = useRef<THREE.Points>(null);
+  const count = Math.max(40, Math.round(field.count * particleScale));
   const positions = useMemo(() => {
-    const values = new Float32Array(field.count * 3);
-    for (let i = 0; i < field.count; i++) {
+    const values = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
       const ix = i * 3;
       const r = Math.sqrt((i * 16807) % 997 / 997);
       const theta = (i * 2.399963 + field.depth) % (Math.PI * 2);
@@ -108,7 +111,7 @@ function ParticleFieldView({
       values[ix + 2] = ((i % 41) / 40 - 0.5) * field.depth * 2;
     }
     return values;
-  }, [field.count, field.depth, field.spread]);
+  }, [count, field.depth, field.spread]);
 
   useFrame(({ clock }) => {
     const points = pointsRef.current;
@@ -137,7 +140,15 @@ function ParticleFieldView({
   );
 }
 
-function SceneContents({ scene, pointerRef }: { scene: Scene3DState; pointerRef: MutableRefObject<ScenePointer> }) {
+function SceneContents({
+  scene,
+  pointerRef,
+  particleScale,
+}: {
+  scene: Scene3DState;
+  pointerRef: MutableRefObject<ScenePointer>;
+  particleScale: number;
+}) {
   return (
     <>
       <ambientLight intensity={scene.lights.ambient} />
@@ -147,7 +158,7 @@ function SceneContents({ scene, pointerRef }: { scene: Scene3DState; pointerRef:
           <ScenePrimitive key={object.id} object={object} mouseReact={scene.interaction.mouseReact} pointerRef={pointerRef} />
         ))}
         {scene.particles.map((field) => (
-          <ParticleFieldView key={field.id} field={field} pointerRef={pointerRef} />
+          <ParticleFieldView key={field.id} field={field} pointerRef={pointerRef} particleScale={particleScale} />
         ))}
       </group>
     </>
@@ -158,6 +169,14 @@ export default function Scene3DCanvas({ onCanvasReady }: Scene3DCanvasProps) {
   const enabled = useGradientStore((state) => state.scene3DEnabled);
   const scene = useGradientStore((state) => state.scene3D);
   const playing = useGradientStore((state) => state.playing);
+  const performanceMode = useGradientStore((state) => state.performanceMode);
+  const performance = getEditorPerformanceSettings(performanceMode);
+  const effectiveDpr = performanceMode === "quality"
+    ? performance.sceneDprCap
+    : Math.min(performance.sceneDprCap, scene.quality.dpr);
+  const effectiveMaxFps = performanceMode === "quality"
+    ? performance.sceneMaxFps
+    : Math.min(performance.sceneMaxFps, scene.quality.maxFps);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef<ScenePointer>({ x: 0, y: 0 });
 
@@ -189,12 +208,12 @@ export default function Scene3DCanvas({ onCanvasReady }: Scene3DCanvasProps) {
     <div ref={wrapperRef} className="absolute inset-0 pointer-events-none" aria-hidden="true" data-scene3d-overlay>
       <R3FCanvas
         frameloop="demand"
-        dpr={[1, Math.min(1.5, scene.quality.dpr)]}
+        dpr={[1, effectiveDpr]}
         camera={{ position: scene.camera.position, fov: scene.camera.fov }}
         gl={{
           alpha: true,
           antialias: false,
-          powerPreference: "low-power",
+          powerPreference: performance.powerPreference,
           preserveDrawingBuffer: true,
         }}
         onCreated={({ gl }) => {
@@ -203,8 +222,8 @@ export default function Scene3DCanvas({ onCanvasReady }: Scene3DCanvasProps) {
         }}
       >
         <SceneInvalidator enabled={enabled} scene={scene} />
-        <SceneRenderLoop enabled={enabled} playing={playing} maxFps={scene.quality.maxFps} />
-        <SceneContents scene={scene} pointerRef={pointerRef} />
+        <SceneRenderLoop enabled={enabled} playing={playing} maxFps={effectiveMaxFps} />
+        <SceneContents scene={scene} pointerRef={pointerRef} particleScale={performance.particleScale} />
       </R3FCanvas>
     </div>
   );
