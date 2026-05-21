@@ -6,6 +6,12 @@ import trailFragSource from "./shaders/trail.glsl";
 import bloomExtractSource from "./shaders/bloom-extract.glsl";
 import blurSource from "./shaders/blur.glsl";
 import { BlendMode, ImageBlendMode, LayerParams, MaskBlendMode, MaskShape } from "./layers";
+import {
+  createEmptyEngineMetrics,
+  summarizeGpuResources,
+  type EngineMetrics,
+  type GpuResourceSample,
+} from "./instrumentation";
 
 // Assemble full fragment source with blend mode includes
 const fragmentSource = _fragmentSource.replace(
@@ -83,6 +89,11 @@ export interface EngineState {
   debandStrength: number;
   playing: boolean;
   customGLSL: string | null;
+}
+
+export interface GradientEngineOptions {
+  preserveDrawingBuffer?: boolean;
+  powerPreference?: WebGLPowerPreference;
 }
 
 type UniformMap = Record<string, WebGLUniformLocation>;
@@ -193,6 +204,7 @@ export class GradientEngine {
 
   // Image texture cache
   private textureCache: Map<string, WebGLTexture> = new Map();
+  private textureSizes: Map<string, { width: number; height: number }> = new Map();
   private pendingLoads: Set<string> = new Set();
   private textMaskTexture: WebGLTexture | null = null;
   private lastTextureRefs: (string | null)[] = [];
@@ -209,13 +221,15 @@ export class GradientEngine {
   private quadVAO!: WebGLVertexArrayObject;
   private gridVAO: WebGLVertexArrayObject | null = null;
   private gridIndexCount = 0;
+  private metrics = createEmptyEngineMetrics();
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, options: GradientEngineOptions = {}) {
     const gl = canvas.getContext("webgl2", {
       alpha: true,
       antialias: false,
-      preserveDrawingBuffer: true,
+      preserveDrawingBuffer: options.preserveDrawingBuffer ?? false,
       premultipliedAlpha: false,
+      powerPreference: options.powerPreference ?? "high-performance",
     });
     if (!gl) throw new Error("WebGL 2 not supported");
     this.gl = gl;
@@ -235,7 +249,9 @@ export class GradientEngine {
     const program = gl.createProgram()!;
     gl.attachShader(program, vertShader);
     gl.attachShader(program, fragShader);
+    const linkStart = performance.now();
     gl.linkProgram(program);
+    this.recordShaderTiming(performance.now() - linkStart);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       const log = gl.getProgramInfoLog(program);
@@ -321,13 +337,35 @@ export class GradientEngine {
     const gl = this.gl;
     const shader = gl.createShader(type)!;
     gl.shaderSource(shader, source);
+    const start = performance.now();
     gl.compileShader(shader);
+    this.recordShaderTiming(performance.now() - start);
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
       const log = gl.getShaderInfoLog(shader);
       gl.deleteShader(shader);
       throw new Error(`Shader compile failed: ${log}`);
     }
     return shader;
+  }
+
+  private recordShaderTiming(ms: number) {
+    this.metrics.lastShaderCompileMs = ms;
+    this.metrics.totalShaderCompileMs += ms;
+  }
+
+  private recordFrameTiming(ms: number) {
+    this.metrics.lastCpuFrameMs = ms;
+    this.metrics.avgCpuFrameMs = this.metrics.avgCpuFrameMs === 0
+      ? ms
+      : this.metrics.avgCpuFrameMs * 0.9 + ms * 0.1;
+  }
+
+  private assertFramebufferComplete(label: string) {
+    const gl = this.gl;
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      throw new Error(`${label} framebuffer incomplete: 0x${status.toString(16)}`);
+    }
   }
 
   private cacheUniforms() {
@@ -460,6 +498,7 @@ export class GradientEngine {
       const fbo = gl.createFramebuffer()!;
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      this.assertFramebufferComplete(`feedback-${i}`);
       fbos.push(fbo);
     }
 
@@ -504,7 +543,9 @@ void main() {
     const program = gl.createProgram()!;
     gl.attachShader(program, vertShader);
     gl.attachShader(program, fragShader);
+    const linkStart = performance.now();
     gl.linkProgram(program);
+    this.recordShaderTiming(performance.now() - linkStart);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       const log = gl.getProgramInfoLog(program);
@@ -543,6 +584,7 @@ void main() {
       const fbo = gl.createFramebuffer()!;
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      this.assertFramebufferComplete(`trail-${i}`);
       fbos.push(fbo);
     }
 
@@ -587,7 +629,9 @@ void main() {
     const extractProg = gl.createProgram()!;
     gl.attachShader(extractProg, extractVert);
     gl.attachShader(extractProg, extractFrag);
+    let linkStart = performance.now();
     gl.linkProgram(extractProg);
+    this.recordShaderTiming(performance.now() - linkStart);
     if (!gl.getProgramParameter(extractProg, gl.LINK_STATUS)) {
       throw new Error(`Bloom extract link failed: ${gl.getProgramInfoLog(extractProg)}`);
     }
@@ -604,7 +648,9 @@ void main() {
     const blurProg = gl.createProgram()!;
     gl.attachShader(blurProg, blurVert);
     gl.attachShader(blurProg, blurFrag);
+    linkStart = performance.now();
     gl.linkProgram(blurProg);
+    this.recordShaderTiming(performance.now() - linkStart);
     if (!gl.getProgramParameter(blurProg, gl.LINK_STATUS)) {
       throw new Error(`Bloom blur link failed: ${gl.getProgramInfoLog(blurProg)}`);
     }
@@ -636,6 +682,7 @@ void main() {
     this.bloomSceneFBO = gl.createFramebuffer()!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomSceneFBO);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.bloomSceneTex, 0);
+    this.assertFramebufferComplete("bloom-scene");
 
     // Bloom ping-pong FBOs (1/4 res)
     const makeFBO = () => {
@@ -649,6 +696,7 @@ void main() {
       const fbo = gl.createFramebuffer()!;
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      this.assertFramebufferComplete("bloom");
       return { fbo, tex };
     };
 
@@ -712,6 +760,7 @@ void main() {
       const fbo = gl.createFramebuffer()!;
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      this.assertFramebufferComplete(`composite-${i}`);
       fbos.push(fbo);
     }
 
@@ -894,6 +943,8 @@ void main() {
       this.pendingLoads.delete(dataURL);
       const gl = this.gl;
       let source: TexImageSource = img;
+      let uploadWidth = img.width;
+      let uploadHeight = img.height;
       if (img.width > 2048 || img.height > 2048) {
         const canvas = document.createElement("canvas");
         const ratio = Math.min(2048 / img.width, 2048 / img.height);
@@ -902,6 +953,8 @@ void main() {
         const ctx = canvas.getContext("2d")!;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         source = canvas;
+        uploadWidth = canvas.width;
+        uploadHeight = canvas.height;
       }
       const tex = gl.createTexture()!;
       gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -914,6 +967,7 @@ void main() {
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.bindTexture(gl.TEXTURE_2D, null);
       this.textureCache.set(dataURL, tex);
+      this.textureSizes.set(dataURL, { width: uploadWidth, height: uploadHeight });
     };
     img.src = dataURL;
     return null;
@@ -965,7 +1019,9 @@ void main() {
       const newProgram = gl.createProgram()!;
       gl.attachShader(newProgram, vertShader);
       gl.attachShader(newProgram, fragShader);
+      const linkStart = performance.now();
       gl.linkProgram(newProgram);
+      this.recordShaderTiming(performance.now() - linkStart);
 
       if (!gl.getProgramParameter(newProgram, gl.LINK_STATUS)) {
         const log = gl.getProgramInfoLog(newProgram);
@@ -1011,8 +1067,52 @@ void main() {
       if (!referenced.has(key)) {
         this.gl.deleteTexture(tex);
         this.textureCache.delete(key);
+        this.textureSizes.delete(key);
       }
     }
+  }
+
+  getMetrics(): EngineMetrics {
+    const canvas = this.gl.canvas as HTMLCanvasElement;
+    const resources: GpuResourceSample[] = [];
+
+    if (this.feedbackFBOs) {
+      resources.push({ kind: "framebuffer", count: 2 });
+      resources.push({ kind: "texture", width: this.feedbackWidth, height: this.feedbackHeight, count: 2 });
+    }
+    if (this.trailFBOs) {
+      resources.push({ kind: "framebuffer", count: 2 });
+      resources.push({ kind: "texture", width: this.trailWidth, height: this.trailHeight, count: 2 });
+    }
+    if (this.bloomSceneFBO) {
+      resources.push({ kind: "framebuffer", count: 1 });
+      resources.push({ kind: "texture", width: this.bloomSceneWidth, height: this.bloomSceneHeight, count: 1 });
+    }
+    if (this.bloomFBO_A && this.bloomFBO_B) {
+      resources.push({ kind: "framebuffer", count: 2 });
+      resources.push({ kind: "texture", width: this.bloomWidth, height: this.bloomHeight, count: 2 });
+    }
+    if (this.compositeFBOs) {
+      resources.push({ kind: "framebuffer", count: 2 });
+      resources.push({ kind: "texture", width: this.compositeWidth, height: this.compositeHeight, count: 2 });
+    }
+    if (this.textMaskTexture) {
+      resources.push({ kind: "texture", width: canvas.width, height: canvas.height, count: 1 });
+    }
+    for (const size of this.textureSizes.values()) {
+      resources.push({ kind: "texture", width: size.width, height: size.height, count: 1 });
+    }
+
+    const summary = summarizeGpuResources(resources);
+
+    return {
+      ...this.metrics,
+      ...summary,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      maxPixelRatio: this.maxPixelRatio,
+      frameRateCap: Math.round(1000 / this.minFrameIntervalMs),
+    };
   }
 
   private shouldCleanupTextures(layers: LayerParams[], nowMs: number) {
@@ -1400,7 +1500,9 @@ void main() {
       if (!state.playing) {
         lastTime = now;
         if (state !== lastPausedState) {
+          const renderStart = performance.now();
           this.render(state);
+          this.recordFrameTiming(performance.now() - renderStart);
           lastPausedState = state;
         }
         return;
@@ -1441,7 +1543,9 @@ void main() {
         this.rotationAngle += state.threeDRotationSpeed * dt;
       }
 
+      const renderStart = performance.now();
       this.render(state);
+      this.recordFrameTiming(performance.now() - renderStart);
 
       frameCount++;
       if (nowMs - lastFpsUpdate >= 500) {
@@ -1487,6 +1591,7 @@ void main() {
       this.gl.deleteTexture(tex);
     }
     this.textureCache.clear();
+    this.textureSizes.clear();
     if (this.textMaskTexture) {
       this.gl.deleteTexture(this.textMaskTexture);
       this.textMaskTexture = null;

@@ -12,7 +12,10 @@ export function createGradient(
   let state = resolveConfig(currentConfig);
   let destroyed = false;
 
-  const engine = new GradientEngine(canvas);
+  const engine = new GradientEngine(canvas, {
+    preserveDrawingBuffer: options?.preserveDrawingBuffer,
+    powerPreference: options?.powerPreference,
+  });
   if (options?.maxPixelRatio !== undefined) {
     engine.setMaxPixelRatio(options.maxPixelRatio);
   }

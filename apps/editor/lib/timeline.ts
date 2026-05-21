@@ -28,6 +28,26 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+export function normalizeTimelineTime(
+  time: number,
+  duration: number,
+  mode: PlaybackMode
+): number {
+  const safeDuration = Math.max(1, duration);
+  const safeTime = Math.max(0, time);
+
+  if (mode === "loop") {
+    return safeTime % safeDuration;
+  }
+
+  if (mode === "bounce") {
+    const cycle = safeTime % (safeDuration * 2);
+    return cycle > safeDuration ? safeDuration * 2 - cycle : cycle;
+  }
+
+  return Math.min(safeTime, safeDuration);
+}
+
 export function interpolateKeyframes(
   keyframes: Keyframe[],
   time: number,
@@ -37,16 +57,7 @@ export function interpolateKeyframes(
   if (keyframes.length === 0) return null;
   if (keyframes.length === 1) return { ...keyframes[0].params };
 
-  // Apply playback mode
-  let t = time;
-  if (mode === "loop") {
-    t = t % duration;
-  } else if (mode === "bounce") {
-    const cycle = t % (duration * 2);
-    t = cycle > duration ? duration * 2 - cycle : cycle;
-  } else {
-    t = Math.min(t, duration);
-  }
+  const t = normalizeTimelineTime(time, duration, mode);
 
   // Find surrounding keyframes
   const sorted = [...keyframes].sort((a, b) => a.time - b.time);

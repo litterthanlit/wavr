@@ -214,7 +214,7 @@ export default function Scene3DCanvas({ onCanvasReady }: Scene3DCanvasProps) {
           alpha: true,
           antialias: false,
           powerPreference: performance.powerPreference,
-          preserveDrawingBuffer: true,
+          preserveDrawingBuffer: false,
         }}
         onCreated={({ gl }) => {
           gl.setClearColor(0x000000, 0);

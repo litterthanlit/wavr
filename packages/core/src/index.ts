@@ -8,3 +8,9 @@ export type { GradientConfig, LayerConfig, RGBColor, GradientHandle, CreateGradi
 export { resolveConfig, stateToConfig } from "./config";
 export { TweenManager } from "./animate";
 export type { EasingFunction } from "./animate";
+export {
+  createEmptyEngineMetrics,
+  estimateTextureBytes,
+  summarizeGpuResources,
+} from "./instrumentation";
+export type { EngineMetrics, GpuResourceSample, GpuResourceSummary } from "./instrumentation";

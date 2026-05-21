@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { GradientEngine } from "@wavr/core";
+import { GradientEngine, type EngineMetrics } from "@wavr/core";
 import {
   useGradientStore,
   GradientState,
   getEditorPerformanceSettings,
-  getInterpolatedParams,
 } from "@/lib/store";
+import { interpolateKeyframes, normalizeTimelineTime, type Keyframe, type PlaybackMode } from "@/lib/timeline";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
 import Toast from "@/components/ui/Toast";
 
@@ -16,6 +16,11 @@ let sharedAnalyzer: AudioAnalyzer | null = null;
 export function getAudioAnalyzer(): AudioAnalyzer {
   if (!sharedAnalyzer) sharedAnalyzer = new AudioAnalyzer();
   return sharedAnalyzer;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function applyAudioBands(state: GradientState, bands: AudioBands): Partial<GradientState> {
@@ -55,6 +60,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GradientEngine | null>(null);
   const [fps, setFps] = useState(0);
+  const [metrics, setMetrics] = useState<EngineMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [contextLost, setContextLost] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -175,7 +181,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     let engine: GradientEngine;
     try {
-      engine = new GradientEngine(canvas);
+      engine = new GradientEngine(canvas, { preserveDrawingBuffer: false });
     } catch (e) {
       initErrorRef.current = e instanceof Error ? e.message : "Failed to initialize WebGL";
       // Defer state update to avoid sync setState in effect
@@ -203,11 +209,10 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     resize();
 
-    let resizeTimeout: ReturnType<typeof setTimeout>;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(resize, 100);
-    };
+    const resizeObserver = new ResizeObserver(resize);
+    if (canvas.parentElement) {
+      resizeObserver.observe(canvas.parentElement);
+    }
 
     const handleContextLost = (e: Event) => {
       e.preventDefault();
@@ -228,6 +233,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     const handleFps = (newFps: number) => {
       setFps(newFps);
+      setMetrics(engine.getMetrics());
 
       if (degradedRef.current) return;
 
@@ -250,6 +256,9 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     };
 
     let lastTimelineUpdate = performance.now();
+    let timelineSampleTime = useGradientStore.getState().timelinePosition;
+    let lastSyncedTimelinePosition = timelineSampleTime;
+    let lastTimelineCursorSync = 0;
     const getFrameState = () => {
       const state = useGradientStore.getState();
       const withPerformanceMode = (nextState: GradientState): GradientState => {
@@ -265,15 +274,37 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
         const now = performance.now();
         const dt = (now - lastTimelineUpdate) / 1000;
         lastTimelineUpdate = now;
-        const newPos = state.timelinePosition + dt;
-        state.setTimelinePosition(newPos);
 
-        const interpolated = getInterpolatedParams();
+        if (Math.abs(state.timelinePosition - lastSyncedTimelinePosition) > 0.05) {
+          timelineSampleTime = state.timelinePosition;
+        }
+
+        timelineSampleTime += dt;
+        const visibleTimelinePosition = normalizeTimelineTime(
+          timelineSampleTime,
+          state.timelineDuration,
+          state.timelinePlaybackMode as PlaybackMode,
+        );
+
+        if (now - lastTimelineCursorSync >= 1000 / 15) {
+          state.setTimelinePosition(visibleTimelinePosition);
+          lastSyncedTimelinePosition = visibleTimelinePosition;
+          lastTimelineCursorSync = now;
+        }
+
+        const interpolated = interpolateKeyframes(
+          state.keyframes as Keyframe[],
+          timelineSampleTime,
+          state.timelineDuration,
+          state.timelinePlaybackMode as PlaybackMode,
+        );
         if (interpolated) {
           return withPerformanceMode({ ...state, ...interpolated });
         }
       } else {
         lastTimelineUpdate = performance.now();
+        timelineSampleTime = state.timelinePosition;
+        lastSyncedTimelinePosition = state.timelinePosition;
       }
 
       // Audio reactivity: modulate params from frequency bands
@@ -304,7 +335,6 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     canvas.addEventListener("webglcontextlost", handleContextLost);
     canvas.addEventListener("webglcontextrestored", handleContextRestored);
-    window.addEventListener("resize", handleResize);
     window.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     canvas.addEventListener("click", handleClick);
@@ -322,12 +352,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     return () => {
       canvas.removeEventListener("webglcontextlost", handleContextLost);
       canvas.removeEventListener("webglcontextrestored", handleContextRestored);
-      window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
       window.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       canvas.removeEventListener("click", handleClick);
       unsubscribePerformance();
-      clearTimeout(resizeTimeout);
       engine.destroy();
     };
   }, [handleMouseMove, handleClick, onCanvasReady, onEngineReady, syncTextMaskTexture]);
@@ -367,6 +396,9 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       )}
       <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded hidden lg:block">
         {fps} FPS
+        {metrics && (
+          <> · {metrics.lastCpuFrameMs.toFixed(1)}ms CPU · {metrics.framebufferCount} FBO · {formatBytes(metrics.estimatedBytes)}</>
+        )}
       </div>
       <Toast
         message={toastMsg ?? ""}

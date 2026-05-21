@@ -113,4 +113,7 @@ export interface CreateGradientOptions {
   maxPixelRatio?: number;
   /** Caps the render loop frame rate. */
   maxFrameRate?: number;
+  /** Enable only for explicit capture paths; normal preview/runtime should keep this false. */
+  preserveDrawingBuffer?: boolean;
+  powerPreference?: WebGLPowerPreference;
 }

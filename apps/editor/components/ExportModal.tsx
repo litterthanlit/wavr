@@ -5,7 +5,7 @@ import { useGradientStore } from "@/lib/store";
 import {
   exportPNG, exportCSS, exportTailwindCSS, exportReactComponent,
   exportWebComponent, exportStandalonePlayer, exportGIF, copyToClipboard, exportWebM, generateEmbedCode,
-  generateEmbedConfig, generateEmbedSnippet
+  generateEmbedConfig, generateEmbedSnippet, getPortableExportWarnings
 } from "@/lib/export";
 import { encodeState } from "@/lib/url";
 
@@ -70,6 +70,14 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }
 
   const stateHash = encodeState(store);
   const embedCode = generateEmbedCode(stateHash, 1200, 700);
+  const portableWarnings = getPortableExportWarnings({
+    layers: store.layers,
+    scene3DEnabled: store.scene3DEnabled,
+    timelineEnabled: store.timelineEnabled,
+    keyframeCount: store.keyframes.length,
+    audioEnabled: store.audioEnabled,
+    customGLSL: store.customGLSL,
+  });
   const shareUrl = typeof window !== "undefined"
     ? `${window.location.origin}/editor#${stateHash}`
     : `https://wavr.app/editor#${stateHash}`;
@@ -92,12 +100,14 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }
   height: 640px;
 }
 </style>`;
-  const nextSnippet = `import WavrGradient from "@wavr/gradient";
-
-export function HeroVisual() {
+  const nextSnippet = `export function HeroVisual() {
   return (
     <div className="absolute inset-0 -z-10">
-      <WavrGradient className="h-full w-full" />
+      <iframe
+        src="${typeof window !== "undefined" ? window.location.origin : "https://wavr.app"}/embed#${stateHash}"
+        className="h-full w-full border-0"
+        allow="autoplay"
+      />
     </div>
   );
 }`;
@@ -149,6 +159,16 @@ export function HeroVisual() {
             </div>
           )}
 
+          {(tab === "code" || tab === "embed") && portableWarnings.length > 0 && (
+            <div className="rounded-lg border border-border bg-surface px-3 py-2 text-[11px] leading-4 text-text-tertiary">
+              <div className="font-medium text-text-secondary">Simplified export</div>
+              <div>{portableWarnings[0]}</div>
+              {portableWarnings.length > 1 && (
+                <div>{portableWarnings.length - 1} more scene feature{portableWarnings.length === 2 ? "" : "s"} omitted.</div>
+              )}
+            </div>
+          )}
+
           {tab === "ship" && (
             <>
               <div className="grid grid-cols-2 gap-2 mb-1">
@@ -178,7 +198,7 @@ export function HeroVisual() {
               />
               <ExportButton
                 title="Next.js Starter"
-                desc="Copy a React wrapper for app-router hero backgrounds"
+                desc="Copy an iframe wrapper for this exact scene hash"
                 action={async () => { await copyToClipboard(nextSnippet); }}
               />
             </>
@@ -262,12 +282,12 @@ export function HeroVisual() {
               />
               <ExportButton
                 title="React Component"
-                desc="Production-ready component for app backgrounds"
+                desc="Simplified portable shader component"
                 action={async () => { await copyToClipboard(exportReactComponent(stateForExport)); }}
               />
               <ExportButton
                 title="Web Component"
-                desc="Framework-agnostic <wavr-gradient> element"
+                desc="Simplified framework-agnostic <wavr-gradient> element"
                 action={async () => { await copyToClipboard(exportWebComponent(stateForExport)); }}
               />
             </>
@@ -284,12 +304,12 @@ export function HeroVisual() {
               />
               <ExportButton
                 title="Standalone Player"
-                desc="Single script tag — no dependencies, scroll-linkable"
+                desc="Single simplified script tag, scroll-linkable"
                 action={async () => { await copyToClipboard(exportStandalonePlayer(stateForExport)); }}
               />
               <ExportButton
                 title="Config Widget"
-                desc="Portable Web Component with effect settings"
+                desc="Portable widget for supported gradient settings"
                 action={async () => {
                   const embedState = {
                     ...stateForExport,

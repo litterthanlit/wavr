@@ -3,6 +3,58 @@ export function generateEmbedCode(stateHash: string, width = 800, height = 600):
   return `<iframe src="${baseUrl}/embed#${stateHash}" width="${width}" height="${height}" frameborder="0" style="border:0;border-radius:8px;" allow="autoplay"></iframe>`;
 }
 
+export interface PortableExportLayerInput {
+  visible?: boolean;
+  imageData?: string | null;
+  distortionMapData?: string | null;
+  maskEnabled?: boolean;
+  textMaskEnabled?: boolean;
+}
+
+export interface PortableExportFidelityInput {
+  layers?: PortableExportLayerInput[];
+  scene3DEnabled?: boolean;
+  timelineEnabled?: boolean;
+  keyframeCount?: number;
+  audioEnabled?: boolean;
+  customGLSL?: string | null;
+}
+
+export function getPortableExportWarnings(input: PortableExportFidelityInput): string[] {
+  const warnings: string[] = [];
+  const visibleLayers = (input.layers ?? []).filter((layer) => layer.visible !== false);
+
+  if (visibleLayers.length > 1) {
+    warnings.push("Portable code exports include one simplified gradient layer, not the full layer stack.");
+  }
+
+  if (visibleLayers.some((layer) => layer.imageData || layer.distortionMapData)) {
+    warnings.push("Image and distortion-map textures are not included in portable code exports.");
+  }
+
+  if (visibleLayers.some((layer) => layer.maskEnabled || layer.textMaskEnabled)) {
+    warnings.push("Masks and text masks are not included in portable code exports.");
+  }
+
+  if (input.scene3DEnabled) {
+    warnings.push("3D scene overlays are included in image/video exports only.");
+  }
+
+  if (input.timelineEnabled && (input.keyframeCount ?? 0) > 0) {
+    warnings.push("Timeline keyframes are not included in portable code exports.");
+  }
+
+  if (input.audioEnabled) {
+    warnings.push("Audio reactivity is not included in portable code exports.");
+  }
+
+  if (input.customGLSL?.trim()) {
+    warnings.push("Custom GLSL is not included in portable code exports.");
+  }
+
+  return warnings;
+}
+
 function drawCompositeFrame(
   target: HTMLCanvasElement,
   gradientCanvas: HTMLCanvasElement,
