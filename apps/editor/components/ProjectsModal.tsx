@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useGradientStore } from "@/lib/store";
-import { loadProjects, saveProject, deleteProject, SavedProject } from "@/lib/projects";
+import { loadProjects, saveProject, deleteProject, projectStateForLoad, SavedProject } from "@/lib/projects";
 
 interface ProjectsModalProps {
   open: boolean;
@@ -34,7 +34,7 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
   };
 
   const handleLoad = (project: SavedProject) => {
-    store.loadPreset(project.state as Partial<typeof store>);
+    store.loadPreset(projectStateForLoad(project) as Partial<typeof store>);
     onClose();
   };
 

@@ -2,11 +2,14 @@ import { GradientState, type PerformanceMode } from "./store";
 import { LayerParams } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
 import { cloneScene3D, type Scene3DState } from "./scene3d";
+import { sceneDocumentToStorePatch, storeToSceneDocument } from "./scene-document";
+import type { WavrSceneDocumentValue } from "@wavr/schema";
 
 export interface SavedProject {
   name: string;
   timestamp: number;
-  state: ProjectState;
+  state?: ProjectState;
+  sceneDocument?: WavrSceneDocumentValue;
 }
 
 export interface ProjectState {
@@ -209,10 +212,18 @@ export function loadProjects(): SavedProject[] {
 export function saveProject(name: string, state: GradientState): void {
   const projects = loadProjects();
   const existing = projects.findIndex((p) => p.name === name);
+  const timestamp = Date.now();
+  const isoTimestamp = new Date(timestamp).toISOString();
+  const previous = existing >= 0 ? projects[existing] : undefined;
   const entry: SavedProject = {
     name,
-    timestamp: Date.now(),
+    timestamp,
     state: exportProjectState(state),
+    sceneDocument: storeToSceneDocument(state, {
+      name,
+      createdAt: previous?.sceneDocument?.meta.createdAt ?? isoTimestamp,
+      updatedAt: isoTimestamp,
+    }),
   };
   if (existing >= 0) {
     projects[existing] = entry;
@@ -227,6 +238,12 @@ export function saveProject(name: string, state: GradientState): void {
     }
     throw e;
   }
+}
+
+export function projectStateForLoad(project: SavedProject): Partial<GradientState> {
+  if (project.state) return project.state as Partial<GradientState>;
+  if (project.sceneDocument) return sceneDocumentToStorePatch(project.sceneDocument);
+  return {};
 }
 
 export function deleteProject(name: string): void {

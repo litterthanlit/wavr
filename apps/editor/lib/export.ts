@@ -219,6 +219,20 @@ export function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text);
 }
 
+export function downloadTextFile(
+  contents: string,
+  filename: string,
+  mimeType = "text/plain;charset=utf-8",
+) {
+  const blob = new Blob([contents], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;

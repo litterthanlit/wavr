@@ -5,9 +5,10 @@ import { useGradientStore } from "@/lib/store";
 import {
   exportPNG, exportCSS, exportTailwindCSS, exportReactComponent,
   exportWebComponent, exportStandalonePlayer, exportGIF, copyToClipboard, exportWebM, generateEmbedCode,
-  generateEmbedConfig, generateEmbedSnippet, getPortableExportWarnings
+  generateEmbedConfig, generateEmbedSnippet, getPortableExportWarnings, downloadTextFile
 } from "@/lib/export";
 import { encodeState } from "@/lib/url";
+import { sceneDocumentToJson, storeToSceneDocument } from "@/lib/scene-document";
 
 interface ExportModalProps {
   open: boolean;
@@ -111,6 +112,18 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }
     </div>
   );
 }`;
+  const exportSceneDocument = () => {
+    const canvas = canvasRef.current;
+    const canvasSize = canvas && canvas.width > 0 && canvas.height > 0
+      ? { width: canvas.width, height: canvas.height }
+      : undefined;
+    const document = storeToSceneDocument(store, {
+      name: "Wavr scene",
+      canvas: canvasSize,
+      updatedAt: new Date().toISOString(),
+    });
+    downloadTextFile(sceneDocumentToJson(document), "wavr-scene.json", "application/json;charset=utf-8");
+  };
 
   const tabs = [
     { key: "ship" as const, label: "Ship" },
@@ -185,6 +198,12 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }
                 title="Share Remix Link"
                 desc="Copy an editable URL for review, remixing, or handoff"
                 action={async () => { await copyToClipboard(shareUrl); }}
+              />
+              <ExportButton
+                title="Scene Document JSON"
+                desc="Canonical scene, effects, and timeline data"
+                actionLabel="Download"
+                action={exportSceneDocument}
               />
               <ExportButton
                 title="Framer Embed"

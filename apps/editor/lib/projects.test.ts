@@ -1,8 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createLayer } from "@wavr/core";
-import { exportProjectState } from "./projects";
+import { exportProjectState, projectStateForLoad, saveProject } from "./projects";
 import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 import type { GradientState } from "./store";
+
+function installLocalStorage() {
+  const entries = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => entries.get(key) ?? null,
+    setItem: (key: string, value: string) => entries.set(key, value),
+    removeItem: (key: string) => entries.delete(key),
+    clear: () => entries.clear(),
+  });
+}
 
 function minimalState(overrides: Partial<GradientState> = {}): GradientState {
   return {
@@ -131,6 +141,10 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
 }
 
 describe("project export", () => {
+  beforeEach(() => {
+    installLocalStorage();
+  });
+
   it("preserves debanding and custom shader state", () => {
     const exported = exportProjectState(minimalState({
       debandEnabled: false,
@@ -171,5 +185,45 @@ describe("project export", () => {
     }));
 
     expect(exported.performanceMode).toBe("battery");
+  });
+
+  it("saves a scene document next to the legacy project state", () => {
+    localStorage.clear();
+
+    saveProject("Scene doc", minimalState({
+      brightness: 1.25,
+      performanceMode: "quality",
+    }));
+
+    const raw = localStorage.getItem("wavr-projects");
+    const projects = JSON.parse(raw ?? "[]");
+    expect(projects[0].sceneDocument).toMatchObject({
+      version: "wavr.scene.v1",
+      meta: { name: "Scene doc" },
+      globals: { brightness: 1.25 },
+      performanceProfile: "quality",
+    });
+  });
+
+  it("can load from scene-document-only saved projects", () => {
+    const state = minimalState({
+      layers: [createLayer({ gradientType: "plasma", speed: 0.7 })],
+      brightness: 1.3,
+    });
+    saveProject("Future scene", state);
+    const saved = JSON.parse(localStorage.getItem("wavr-projects") ?? "[]")[0];
+    delete saved.state;
+
+    const patch = projectStateForLoad(saved);
+
+    expect(patch).toMatchObject({
+      brightness: 1.3,
+      layers: [
+        expect.objectContaining({
+          gradientType: "plasma",
+          speed: 0.7,
+        }),
+      ],
+    });
   });
 });
