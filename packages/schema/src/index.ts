@@ -11,6 +11,63 @@ export {
   Shape3DKind,
 } from "./primitives";
 export * as effects from "./effects";
+export {
+  EFFECT_DEFINITIONS,
+  EFFECT_REGISTRY,
+  getEffectDefinition,
+  defaultParamsForEffect,
+  listAnimatableEffectPaths,
+  effectNodesFromGradientConfig,
+  applyEffectNodesToGradientConfig,
+  type EffectId,
+  type EffectCategory,
+  type EffectPassType,
+  type EffectNode,
+  type EffectDefinition,
+} from "./effect-registry";
+export {
+  WavrAsset,
+  WavrEffectNode,
+  WavrTransform,
+  WavrLayerSource,
+  WavrLayerNode,
+  WavrTimelineKeyframe,
+  WavrTimelineTrack,
+  WavrTimeline,
+  WavrInteractionDriver,
+  WavrExportProfile,
+  WavrSceneGlobals,
+  WavrSceneDocument,
+  sceneDocumentFromGradientConfig,
+  gradientConfigFromSceneDocument,
+  type SceneDocumentFromConfigOptions,
+  type WavrAsset as WavrAssetValue,
+  type WavrEffectNode as WavrEffectNodeValue,
+  type WavrTransform as WavrTransformValue,
+  type WavrLayerSource as WavrLayerSourceValue,
+  type WavrLayerNode as WavrLayerNodeValue,
+  type WavrTimelineKeyframe as WavrTimelineKeyframeValue,
+  type WavrTimelineTrack as WavrTimelineTrackValue,
+  type WavrTimeline as WavrTimelineValue,
+  type WavrInteractionDriver as WavrInteractionDriverValue,
+  type WavrExportProfile as WavrExportProfileValue,
+  type WavrSceneGlobals as WavrSceneGlobalsValue,
+  type WavrSceneDocument as WavrSceneDocumentValue,
+} from "./scene-document";
+export {
+  compileRenderPlan,
+  type RenderPassKind,
+  type RenderResource,
+  type RenderPass,
+  type SceneCost,
+  type CompatibilityWarning,
+  type RenderPlan,
+} from "./render-plan";
+export type {
+  PropertyValueType,
+  PropertyCostHint,
+  PropertySchema,
+} from "./property-schema";
 export { DEFAULT_CONFIG } from "./defaults";
 export { SCHEMA_VERSION, type SchemaVersion } from "./version";
 

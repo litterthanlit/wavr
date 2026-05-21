@@ -11,7 +11,10 @@
     "./migrate": "./src/migrate.ts",
     "./url": "./src/url.ts",
     "./parity": "./src/parity.ts",
-    "./effects": "./src/effects/index.ts"
+    "./effects": "./src/effects/index.ts",
+    "./effect-registry": "./src/effect-registry.ts",
+    "./scene-document": "./src/scene-document.ts",
+    "./render-plan": "./src/render-plan.ts"
   },
   "files": ["dist", "src", "README.md"],
   "sideEffects": false,
