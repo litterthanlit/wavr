@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { createLayer } from "@wavr/core";
 import { WavrSceneDocument } from "@wavr/schema";
 import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
-import { sceneDocumentToJson, sceneDocumentToStorePatch, storeToSceneDocument } from "./scene-document";
+import {
+  getRuntimeEmbedFidelityReport,
+  sceneDocumentToJson,
+  sceneDocumentToStorePatch,
+  storeToSceneDocument,
+} from "./scene-document";
 import type { GradientState } from "./store";
 
 function minimalState(overrides: Partial<GradientState> = {}): GradientState {
@@ -266,5 +271,45 @@ describe("editor scene document adapter", () => {
         { time: 4, params: { speed: 0.8, brightness: 1.4, noiseIntensity: 0.65 } },
       ],
     });
+  });
+
+  it("summarizes render-plan fidelity for runtime embeds", () => {
+    const report = getRuntimeEmbedFidelityReport(minimalState({
+      debandEnabled: false,
+    }));
+
+    expect(report).toMatchObject({
+      passCount: 2,
+      resourceCount: 1,
+      activeEffects: [],
+      compatibilityWarnings: [],
+      estimatedCost: {
+        drawPasses: 2,
+        resourceCount: 1,
+        fullResolutionPasses: 2,
+        activeEffects: 0,
+      },
+    });
+  });
+
+  it("surfaces render-plan compatibility warnings for real bloom with feedback", () => {
+    const report = getRuntimeEmbedFidelityReport(minimalState({
+      feedbackEnabled: true,
+      realBloomEnabled: true,
+      debandEnabled: false,
+    }));
+
+    expect(report.activeEffects).toEqual([
+      { id: "feedback", label: "Feedback" },
+      { id: "realBloom", label: "Real Bloom" },
+    ]);
+    expect(report.compatibilityWarnings).toEqual([
+      expect.objectContaining({
+        code: "real-bloom-feedback-disabled",
+        severity: "warning",
+        message: "Real bloom is skipped while feedback is active in the current renderer.",
+        effectId: "realBloom",
+      }),
+    ]);
   });
 });

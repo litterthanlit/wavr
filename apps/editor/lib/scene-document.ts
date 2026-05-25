@@ -1,9 +1,14 @@
 import {
+  compileRenderPlan,
   GradientConfig,
+  getEffectDefinition,
   WavrSceneDocument,
   gradientConfigFromSceneDocument,
   sceneDocumentFromGradientConfig,
+  type CompatibilityWarning,
+  type EffectId,
   type SceneDocumentFromConfigOptions,
+  type SceneCost,
   type WavrSceneDocumentValue,
 } from "@wavr/schema";
 import type { GradientState } from "./store";
@@ -13,6 +18,19 @@ import { configToStorePatch, storeToConfig } from "./url-sync";
 export type StoreToSceneDocumentOptions = Omit<SceneDocumentFromConfigOptions, "performanceProfile"> & {
   performanceProfile?: SceneDocumentFromConfigOptions["performanceProfile"];
 };
+
+export interface RuntimeEmbedActiveEffect {
+  id: EffectId;
+  label: string;
+}
+
+export interface RuntimeEmbedFidelityReport {
+  passCount: number;
+  resourceCount: number;
+  activeEffects: RuntimeEmbedActiveEffect[];
+  estimatedCost: SceneCost;
+  compatibilityWarnings: CompatibilityWarning[];
+}
 
 const GLOBAL_TIMELINE_PATHS: Partial<Record<keyof KeyframeParams, string>> = {
   brightness: "globals.brightness",
@@ -155,4 +173,32 @@ export function sceneDocumentToStorePatch(document: WavrSceneDocumentValue): Par
 
 export function sceneDocumentToJson(document: WavrSceneDocumentValue): string {
   return `${JSON.stringify(WavrSceneDocument.parse(document), null, 2)}\n`;
+}
+
+function activeEffectsForReport(document: WavrSceneDocumentValue): RuntimeEmbedActiveEffect[] {
+  return document.postEffects.flatMap((effect) => {
+    if (!effect.enabled) return [];
+    try {
+      const definition = getEffectDefinition(effect.type as EffectId);
+      return [{ id: definition.id, label: definition.label }];
+    } catch {
+      return [];
+    }
+  });
+}
+
+export function getRuntimeEmbedFidelityReport(
+  state: GradientState,
+  options: StoreToSceneDocumentOptions = {},
+): RuntimeEmbedFidelityReport {
+  const document = storeToSceneDocument(state, options);
+  const renderPlan = compileRenderPlan(document);
+
+  return {
+    passCount: renderPlan.passes.length,
+    resourceCount: renderPlan.resources.length,
+    activeEffects: activeEffectsForReport(document),
+    estimatedCost: renderPlan.estimatedCost,
+    compatibilityWarnings: renderPlan.compatibilityWarnings,
+  };
 }

@@ -8,7 +8,12 @@ import {
   generateEmbedConfig, generateEmbedSnippet, getPortableExportWarnings, downloadTextFile
 } from "@/lib/export";
 import { encodeState } from "@/lib/url";
-import { sceneDocumentToJson, storeToSceneDocument } from "@/lib/scene-document";
+import {
+  getRuntimeEmbedFidelityReport,
+  sceneDocumentToJson,
+  storeToSceneDocument,
+  type RuntimeEmbedFidelityReport,
+} from "@/lib/scene-document";
 
 interface ExportModalProps {
   open: boolean;
@@ -46,6 +51,69 @@ function ExportButton({
   );
 }
 
+function plural(count: number, singular: string): string {
+  return count === 1 ? singular : `${singular}s`;
+}
+
+function RuntimeFidelityReport({ report }: { report: RuntimeEmbedFidelityReport }) {
+  const warningCount = report.compatibilityWarnings.length;
+  const hasWarnings = warningCount > 0;
+  const activeEffects = report.activeEffects.length > 0
+    ? report.activeEffects.map((effect) => effect.label).join(", ")
+    : "None";
+
+  return (
+    <div className={`rounded-lg border px-3 py-3 text-[11px] leading-4 ${
+      hasWarnings
+        ? "border-amber-500/40 bg-amber-500/10"
+        : "border-border bg-surface"
+    }`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-medium text-text-primary">Runtime Embed Fidelity Report</div>
+          <div className="text-text-tertiary mt-0.5">
+            {hasWarnings ? "Compatibility warnings need review." : "Ready for supported runtime embed."}
+          </div>
+        </div>
+        <div className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-medium ${
+          hasWarnings ? "bg-amber-500/20 text-amber-200" : "bg-elevated text-text-secondary"
+        }`}>
+          {hasWarnings ? `${warningCount} ${plural(warningCount, "warning")}` : "Ready"}
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <div>
+          <div className="text-text-tertiary">Passes</div>
+          <div className="text-text-primary">{report.passCount}</div>
+        </div>
+        <div>
+          <div className="text-text-tertiary">Resources</div>
+          <div className="text-text-primary">{report.resourceCount}</div>
+        </div>
+        <div>
+          <div className="text-text-tertiary">Full-res</div>
+          <div className="text-text-primary">{report.estimatedCost.fullResolutionPasses}</div>
+        </div>
+      </div>
+
+      <div className="mt-2 text-text-tertiary break-words">
+        Active effects: <span className="text-text-secondary">{activeEffects}</span>
+      </div>
+
+      {hasWarnings && (
+        <div className="mt-2 space-y-1">
+          {report.compatibilityWarnings.map((warning) => (
+            <div key={warning.code} className="text-amber-100">
+              {warning.message}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }: ExportModalProps) {
   const [recording, setRecording] = useState(false);
   const [gifRecording, setGifRecording] = useState(false);
@@ -79,6 +147,7 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }
     audioEnabled: store.audioEnabled,
     customGLSL: store.customGLSL,
   });
+  const runtimeReport = getRuntimeEmbedFidelityReport(store);
   const shareUrl = typeof window !== "undefined"
     ? `${window.location.origin}/editor#${stateHash}`
     : `https://wavr.app/editor#${stateHash}`;
@@ -135,7 +204,7 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label="Export options" className="relative bg-base border border-border rounded-xl p-6 w-[calc(100vw-32px)] max-w-[520px] shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Export options" className="relative bg-base border border-border rounded-xl p-6 w-[calc(100vw-32px)] max-w-[520px] max-h-[calc(100vh-32px)] overflow-y-auto shadow-2xl">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-sm font-medium text-text-primary">Export</h2>
@@ -180,6 +249,10 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }
                 <div>{portableWarnings.length - 1} more scene feature{portableWarnings.length === 2 ? "" : "s"} omitted.</div>
               )}
             </div>
+          )}
+
+          {(tab === "ship" || tab === "embed") && (
+            <RuntimeFidelityReport report={runtimeReport} />
           )}
 
           {tab === "ship" && (
