@@ -32,6 +32,25 @@ export interface RuntimeEmbedFidelityReport {
   compatibilityWarnings: CompatibilityWarning[];
 }
 
+export type SceneDocumentImportErrorCode = "invalid-json" | "invalid-schema";
+
+export class SceneDocumentImportError extends Error {
+  code: SceneDocumentImportErrorCode;
+  issues: string[];
+
+  constructor(code: SceneDocumentImportErrorCode, message: string, issues: string[] = []) {
+    super(message);
+    this.name = "SceneDocumentImportError";
+    this.code = code;
+    this.issues = issues;
+  }
+}
+
+export interface SceneDocumentImportResult {
+  document: WavrSceneDocumentValue;
+  patch: Partial<GradientState>;
+}
+
 const GLOBAL_TIMELINE_PATHS: Partial<Record<keyof KeyframeParams, string>> = {
   brightness: "globals.brightness",
   saturation: "globals.saturation",
@@ -173,6 +192,55 @@ export function sceneDocumentToStorePatch(document: WavrSceneDocumentValue): Par
 
 export function sceneDocumentToJson(document: WavrSceneDocumentValue): string {
   return `${JSON.stringify(WavrSceneDocument.parse(document), null, 2)}\n`;
+}
+
+function formatSchemaIssues(error: unknown): string[] {
+  if (
+    typeof error === "object"
+    && error !== null
+    && "issues" in error
+    && Array.isArray((error as { issues: unknown }).issues)
+  ) {
+    return (error as { issues: Array<{ path?: unknown[]; message?: unknown }> }).issues.map((issue) => {
+      const path = Array.isArray(issue.path) && issue.path.length > 0
+        ? issue.path.join(".")
+        : "document";
+      const message = typeof issue.message === "string" ? issue.message : "Invalid value";
+      return `${path}: ${message}`;
+    });
+  }
+
+  if (error instanceof Error) return [error.message];
+  return ["Unknown schema validation error"];
+}
+
+export function importSceneDocumentJson(json: string): SceneDocumentImportResult {
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(json);
+  } catch {
+    throw new SceneDocumentImportError(
+      "invalid-json",
+      "Scene document JSON is invalid.",
+    );
+  }
+
+  let document: WavrSceneDocumentValue;
+  try {
+    document = WavrSceneDocument.parse(parsedJson);
+  } catch (error) {
+    const issues = formatSchemaIssues(error);
+    throw new SceneDocumentImportError(
+      "invalid-schema",
+      `Scene document schema is invalid: ${issues[0] ?? "Unknown validation error"}`,
+      issues,
+    );
+  }
+
+  return {
+    document,
+    patch: sceneDocumentToStorePatch(document),
+  };
 }
 
 function activeEffectsForReport(document: WavrSceneDocumentValue): RuntimeEmbedActiveEffect[] {

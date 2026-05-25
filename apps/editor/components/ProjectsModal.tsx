@@ -1,18 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
 import { useGradientStore } from "@/lib/store";
 import { loadProjects, saveProject, deleteProject, projectStateForLoad, SavedProject } from "@/lib/projects";
+import { importSceneDocumentJson, SceneDocumentImportError } from "@/lib/scene-document";
 
 interface ProjectsModalProps {
   open: boolean;
   onClose: () => void;
 }
 
+function importErrorMessage(error: unknown): string {
+  if (error instanceof SceneDocumentImportError) {
+    if (error.code === "invalid-json") return "That file is not valid JSON.";
+    return error.issues[0]
+      ? `Scene document is invalid: ${error.issues[0]}`
+      : "Scene document does not match the Wavr schema.";
+  }
+  return "Could not import that scene document.";
+}
+
 export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
   const [projects, setProjects] = useState<SavedProject[]>([]);
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const store = useGradientStore();
 
   useEffect(() => {
@@ -43,6 +57,24 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
     setProjects(loadProjects());
   };
 
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+
+    setImporting(true);
+    setImportError(null);
+    try {
+      const imported = importSceneDocumentJson(await file.text());
+      store.loadPreset(imported.patch);
+      onClose();
+    } catch (error) {
+      setImportError(importErrorMessage(error));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -55,6 +87,36 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
           <button onClick={onClose} aria-label="Close" className="text-text-tertiary hover:text-text-primary text-lg transition-colors">
             x
           </button>
+        </div>
+
+        {/* Import section */}
+        <div className="mb-4 rounded-lg border border-border bg-surface/50 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-medium text-text-primary">Scene document</div>
+              <div className="text-[11px] text-text-tertiary mt-0.5">Load a WavrSceneDocument JSON file.</div>
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="shrink-0 px-3 py-1.5 text-xs text-text-primary bg-elevated hover:bg-border
+                rounded-md transition-all duration-150 disabled:opacity-40"
+            >
+              {importing ? "Loading..." : "Import JSON"}
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleImport}
+            className="hidden"
+          />
+          {importError && (
+            <div className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-4 text-amber-100">
+              {importError}
+            </div>
+          )}
         </div>
 
         {/* Save section */}

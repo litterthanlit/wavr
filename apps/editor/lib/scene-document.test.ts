@@ -4,6 +4,8 @@ import { WavrSceneDocument } from "@wavr/schema";
 import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 import {
   getRuntimeEmbedFidelityReport,
+  importSceneDocumentJson,
+  SceneDocumentImportError,
   sceneDocumentToJson,
   sceneDocumentToStorePatch,
   storeToSceneDocument,
@@ -269,6 +271,81 @@ describe("editor scene document adapter", () => {
       keyframes: [
         { time: 0, params: { speed: 0.2, brightness: 1 } },
         { time: 4, params: { speed: 0.8, brightness: 1.4, noiseIntensity: 0.65 } },
+      ],
+    });
+  });
+
+  it("imports valid scene document JSON into a store patch", () => {
+    const document = storeToSceneDocument(minimalState({
+      layers: [createLayer({ gradientType: "plasma", speed: 0.7 })],
+      gradientType: "plasma",
+      speed: 0.7,
+      brightness: 1.3,
+      performanceMode: "quality",
+    }), {
+      name: "Imported scene",
+    });
+
+    const imported = importSceneDocumentJson(sceneDocumentToJson(document));
+
+    expect(imported.document.meta.name).toBe("Imported scene");
+    expect(imported.patch).toMatchObject({
+      brightness: 1.3,
+      performanceMode: "quality",
+      layers: [
+        expect.objectContaining({
+          gradientType: "plasma",
+          speed: 0.7,
+        }),
+      ],
+    });
+  });
+
+  it("reports invalid JSON during scene document import", () => {
+    expect.assertions(2);
+
+    try {
+      importSceneDocumentJson("{not-json");
+    } catch (error) {
+      expect(error).toBeInstanceOf(SceneDocumentImportError);
+      expect((error as SceneDocumentImportError).code).toBe("invalid-json");
+    }
+  });
+
+  it("reports schema errors during scene document import", () => {
+    expect.assertions(3);
+
+    try {
+      importSceneDocumentJson(JSON.stringify({ version: "wavr.scene.v1" }));
+    } catch (error) {
+      expect(error).toBeInstanceOf(SceneDocumentImportError);
+      expect((error as SceneDocumentImportError).code).toBe("invalid-schema");
+      expect((error as SceneDocumentImportError).issues[0]).toContain("meta");
+    }
+  });
+
+  it("restores imported timeline tracks through the scene document import path", () => {
+    const document = storeToSceneDocument(minimalState({
+      activeLayerIndex: 0,
+      timelineEnabled: true,
+      timelineDuration: 14,
+      timelinePlaybackMode: "once",
+      keyframes: [
+        { time: 1, params: { distortion: 0.15, hueShift: 12 } },
+        { time: 6, params: { distortion: 0.55, hueShift: -20 } },
+      ],
+    }));
+
+    const imported = importSceneDocumentJson(sceneDocumentToJson(document));
+
+    expect(imported.patch).toMatchObject({
+      activeLayerIndex: 0,
+      timelineEnabled: true,
+      timelineDuration: 14,
+      timelinePlaybackMode: "once",
+      keyframes: [
+        { time: 1, params: { distortion: 0.15, hueShift: 12 } },
+        { time: 6, params: { distortion: 0.55, hueShift: -20 } },
       ],
     });
   });
