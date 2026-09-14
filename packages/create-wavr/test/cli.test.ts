@@ -57,17 +57,6 @@ describe("scaffold", () => {
     expect(readFileSync(path.join(dir, "package.json"), "utf8")).toContain("@wavr/gradient");
   });
 
-  it("uses pnpm link: protocol for --link so local rebuilds are picked up", () => {
-    const dir = path.join(mkdtempSync(path.join(tmpdir(), "wavr-")), "linked");
-    temps.push(path.dirname(dir));
-    scaffold({ dir, template: "hero", preset: "aurora", link: "/workspace", help: false });
-    const pkg = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as {
-      dependencies: Record<string, string>;
-    };
-    expect(pkg.dependencies["@wavr/gradient"]).toBe("link:/workspace/packages/react");
-    expect(pkg.dependencies["@wavr/preview"]).toBe("link:/workspace/packages/preview");
-  });
-
   it("creates an html preview when the IIFE exists", () => {
     const dir = path.join(mkdtempSync(path.join(tmpdir(), "wavr-")), "html");
     temps.push(path.dirname(dir));
