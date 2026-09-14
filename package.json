@@ -9,6 +9,8 @@
     "dev": "turbo dev --filter=editor",
     "build": "turbo build",
     "lint": "turbo lint",
+    "test": "turbo test",
+    "create-wavr": "pnpm --filter create-wavr start",
     "build:parity-runner": "tsup --config tests/parity/tsup.config.ts",
     "test:parity": "pnpm build:parity-runner && playwright test --config tests/parity/playwright.config.ts",
     "parity:generate": "PARITY_WRITE=1 pnpm test:parity"

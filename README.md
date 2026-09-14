@@ -7,7 +7,10 @@ Wavr is a WebGL shader editor and runtime for creating animated gradient scenes,
 - `apps/editor`: Next.js editor with canvas preview, controls, timeline, presets, export modal, and optional 3D overlay.
 - `packages/core`: WebGL2 rendering engine, shaders, layers, runtime config, animation, and instrumentation.
 - `packages/schema`: versioned config schema, URL codec, migrations, and parity helpers.
-- `packages/react`: React wrapper around the runtime.
+- `packages/react`: React wrapper around the runtime (`@wavr/gradient`), including `@wavr/gradient/editor`.
+- `packages/preview`: compact vanilla preview editor overlay (`@wavr/preview`).
+- `packages/create-wavr`: `npx create-wavr` landing-page scaffolder.
+- `skills/wavr`: Agent skill for Cursor, Claude Code, and Codex.
 - `tests/parity`: Playwright framebuffer parity harness.
 
 ## Current Direction
@@ -30,6 +33,12 @@ pnpm dev
 ```
 
 Open `http://localhost:3000/editor`.
+
+Scaffold a shader landing page (compact editor in the preview):
+
+```bash
+pnpm --filter create-wavr start -- my-site --template hero --preset aurora
+```
 
 ## Validate
 

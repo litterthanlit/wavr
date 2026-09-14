@@ -1,8 +1,21 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useState } from "react";
 import { createGradient } from "@wavr/core";
 import type { EventTriggers, GradientConfig, GradientHandle } from "./types";
+
+type OverlayHandle = {
+  update(config: GradientConfig): void;
+  destroy(): void;
+};
+
+function queryEditorFlag(): boolean | undefined {
+  if (typeof window === "undefined") return undefined;
+  const query = new URLSearchParams(window.location.search).get("editor");
+  if (query === "1" || query === "true") return true;
+  if (query === "0" || query === "false") return false;
+  return undefined;
+}
 
 export interface WavrGradientProps {
   config: GradientConfig;
@@ -17,6 +30,10 @@ export interface WavrGradientProps {
   maxFrameRate?: number;
   events?: EventTriggers;
   onError?: (error: Error) => void;
+  /** Compact overlay for Cursor / Claude Code / Codex previews. Keep false in production. */
+  editor?: boolean;
+  onConfigChange?: (config: GradientConfig) => void;
+  onApply?: (config: GradientConfig) => Promise<void> | void;
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -41,13 +58,27 @@ export function WavrGradient({
   maxFrameRate = 60,
   events,
   onError,
+  editor = false,
+  onConfigChange,
+  onApply,
 }: WavrGradientProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<GradientHandle | null>(null);
-  const configRef = useRef(config);
-  configRef.current = config;
+  const editorRef = useRef<OverlayHandle | null>(null);
+  const [liveConfig, setLiveConfig] = useState(config);
+  const configRef = useRef(liveConfig);
+  configRef.current = liveConfig;
   const eventsRef = useRef(events);
   eventsRef.current = events;
+  const onConfigChangeRef = useRef(onConfigChange);
+  const onApplyRef = useRef(onApply);
+  onConfigChangeRef.current = onConfigChange;
+  onApplyRef.current = onApply;
+
+  useEffect(() => {
+    setLiveConfig(config);
+    editorRef.current?.update(config);
+  }, [config]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -61,6 +92,8 @@ export function WavrGradient({
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     canvas.style.display = "block";
+    canvas.style.position = "absolute";
+    canvas.style.inset = "0";
     container.appendChild(canvas);
 
     const handle = createGradient(canvas, configRef.current, {
@@ -84,8 +117,37 @@ export function WavrGradient({
   }, [maxFrameRate, maxPixelRatio, onError]);
 
   useEffect(() => {
-    handleRef.current?.update(config);
-  }, [config]);
+    handleRef.current?.update(liveConfig);
+  }, [liveConfig]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const enabled = queryEditorFlag() ?? editor;
+    if (!container || !enabled) return;
+    let cancelled = false;
+
+    void import("@wavr/preview").then(({ mountWavrEditor }) => {
+      if (cancelled || !container) return;
+      const overlay = mountWavrEditor(container, {
+        config: configRef.current,
+        visible: true,
+        onChange(next) {
+          setLiveConfig(next);
+          onConfigChangeRef.current?.(next);
+        },
+        onApply(next) {
+          return onApplyRef.current?.(next);
+        },
+      });
+      editorRef.current = overlay;
+    });
+
+    return () => {
+      cancelled = true;
+      editorRef.current?.destroy();
+      editorRef.current = null;
+    };
+  }, [editor]);
 
   useEffect(() => {
     if (paused) {
@@ -276,5 +338,11 @@ export function WavrGradient({
     return () => observer.disconnect();
   }, [events?.onInView]);
 
-  return <div ref={containerRef} className={className} style={style} />;
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      style={{ position: style?.position ?? "relative", ...style }}
+    />
+  );
 }

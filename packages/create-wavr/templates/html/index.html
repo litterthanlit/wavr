@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wavr</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="hero"></div>
+    <main>
+      <p class="kicker">Wavr</p>
+      <h1>Shader, then copy.</h1>
+      <p class="lede">
+        Zero-framework landing page. The compact editor is on by default.
+        Press E to hide it. Copy JSON or download the config when you like it.
+      </p>
+    </main>
+    <script src="./wavr-preview.js"></script>
+    <script>
+      const wavr = window.Wavr && window.Wavr.default ? window.Wavr.default : window.Wavr;
+      const root = document.getElementById("hero");
+      const preset = wavr.presets.__PRESET__;
+      wavr.mountWavrPreview(root, {
+        config: structuredClone(preset),
+        editor: true,
+      });
+    </script>
+  </body>
+</html>

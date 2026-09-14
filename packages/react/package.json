@@ -20,6 +20,11 @@
       "types": "./dist/presets-all.d.ts",
       "import": "./dist/presets-all.mjs",
       "require": "./dist/presets-all.js"
+    },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.mjs",
+      "require": "./dist/editor.js"
     }
   },
   "files": ["dist", "README.md"],
@@ -30,6 +35,9 @@
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "@wavr/preview": "workspace:*"
   },
   "devDependencies": {
     "@wavr/core": "workspace:*",
