@@ -21,14 +21,14 @@ declare global {
 
 const CANVAS_SIZE = 512;
 
-function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitFrames(n: number): Promise<void> {
-  for (let i = 0; i < n; i++) {
-    await nextFrame();
-  }
+function whenDocumentReady(): Promise<void> {
+  return new Promise((resolve) => {
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      resolve();
+      return;
+    }
+    document.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+  });
 }
 
 function bootstrap(): Promise<{ canvas: HTMLCanvasElement; handle: GradientHandle }> {
@@ -80,6 +80,13 @@ const log = (msg: string): void => {
 };
 
 const ready = (async () => {
+  // Yield so the HTML parser can fire DOMContentLoaded before shader compile.
+  // Synchronous compile inside the classic script blocked page.goto().
+  await whenDocumentReady();
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+
   log("bootstrap:start");
   const { handle } = await bootstrap();
   log("bootstrap:done");
@@ -87,13 +94,6 @@ const ready = (async () => {
   handle.setSpeed(0);
   handle.pause();
   log("engine:paused");
-
-  // Warmup draw so shader compile + uniform upload settle before the first
-  // captured fixture. captureFrame() is synchronous (render + readPixels).
-  handle.captureFrame();
-  await waitFrames(1);
-  log("warmup:done");
-
   log("exposing __wavrRender");
 
   window.__wavrRender = async (config: GradientConfig, time: number): Promise<Uint8Array> => {

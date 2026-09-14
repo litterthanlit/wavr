@@ -820,7 +820,7 @@ void main() {
     this.compositeTextures = null;
   }
 
-  private renderBloomPass(state: EngineState) {
+  private renderBloomPass(state: EngineState, output: WebGLFramebuffer | null = null) {
     if (!state.realBloomEnabled) return;
     const gl = this.gl;
 
@@ -836,9 +836,8 @@ void main() {
     gl.bindVertexArray(this.quadVAO);
     gl.disable(gl.BLEND);
 
-    // Step 1: Render gradient to scene FBO (the gradient was already rendered
-    // to the screen — blit screen to scene FBO)
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    // Step 1: Copy the just-rendered gradient (screen or capture FBO) into the scene FBO
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, output);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.bloomSceneFBO!);
     gl.blitFramebuffer(
       0, 0, gl.canvas.width, gl.canvas.height,
@@ -878,19 +877,19 @@ void main() {
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Step 5: Composite — draw scene + bloom to screen
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // Step 5: Composite — draw scene + bloom to the original target
+    gl.bindFramebuffer(gl.FRAMEBUFFER, output);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
     // First, restore the scene
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.bloomSceneFBO!);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, output);
     gl.blitFramebuffer(
       0, 0, gl.canvas.width, gl.canvas.height,
       0, 0, gl.canvas.width, gl.canvas.height,
       gl.COLOR_BUFFER_BIT, gl.NEAREST
     );
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, output);
 
     // Then additively blend the bloom on top
     gl.enable(gl.BLEND);
@@ -1396,7 +1395,7 @@ void main() {
     }
   }
 
-  render(state: EngineState) {
+  render(state: EngineState, output: WebGLFramebuffer | null = null) {
     const gl = this.gl;
     if (this.program) gl.useProgram(this.program);
 
@@ -1419,8 +1418,8 @@ void main() {
       this.seti("u_prevFrame", 0);
     }
 
-    // Final render target: feedback FBO or screen
-    const finalTarget = feedbackActive ? this.feedbackFBOs![this.feedbackIndex] : null;
+    // Final render target: feedback FBO, explicit capture FBO, or the default framebuffer
+    const finalTarget = feedbackActive ? this.feedbackFBOs![this.feedbackIndex] : output;
 
     const visibleLayers = state.layers.filter((l) => l.visible);
 
@@ -1490,7 +1489,7 @@ void main() {
     // Real bloom pass (extract + blur + composite)
     if (!feedbackActive) {
       // Only run when not using feedback FBOs (they use different framebuffer flow)
-      this.renderBloomPass(state);
+      this.renderBloomPass(state, output);
     }
 
     if (this.shouldCleanupTextures(state.layers, performance.now())) {
@@ -1500,7 +1499,7 @@ void main() {
     // Blit FBO to screen and swap buffers
     if (feedbackActive && this.feedbackFBOs) {
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.feedbackFBOs[this.feedbackIndex]);
-      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, output);
       gl.blitFramebuffer(
         0, 0, gl.canvas.width, gl.canvas.height,
         0, 0, gl.canvas.width, gl.canvas.height,
@@ -1603,14 +1602,68 @@ void main() {
     return this.gl.canvas as HTMLCanvasElement;
   }
 
-  readPixels(): Uint8Array {
+  private captureFBO: WebGLFramebuffer | null = null;
+  private captureTex: WebGLTexture | null = null;
+  private captureWidth = 0;
+  private captureHeight = 0;
+
+  private destroyCaptureFBO() {
     const gl = this.gl;
+    if (this.captureFBO) {
+      gl.deleteFramebuffer(this.captureFBO);
+      this.captureFBO = null;
+    }
+    if (this.captureTex) {
+      gl.deleteTexture(this.captureTex);
+      this.captureTex = null;
+    }
+    this.captureWidth = 0;
+    this.captureHeight = 0;
+  }
+
+  private ensureCaptureFBO(width: number, height: number) {
+    const gl = this.gl;
+    if (this.captureFBO && this.captureWidth === width && this.captureHeight === height) {
+      return;
+    }
+    this.destroyCaptureFBO();
+
+    const tex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    const fbo = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    this.assertFramebufferComplete("capture");
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.finish();
-    const width = gl.canvas.width;
-    const height = gl.canvas.height;
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    this.captureFBO = fbo;
+    this.captureTex = tex;
+    this.captureWidth = width;
+    this.captureHeight = height;
+  }
+
+  /**
+   * Render `state` into an offscreen FBO and return RGBA bytes.
+   * Reading the default framebuffer after present is racy (and on SwiftShader,
+   * gl.finish()+readPixels of the backbuffer can lose the context).
+   */
+  capturePixels(state: EngineState): Uint8Array {
+    const gl = this.gl;
+    const width = Math.max(1, gl.canvas.width);
+    const height = Math.max(1, gl.canvas.height);
+    this.ensureCaptureFBO(width, height);
+    this.render(state, this.captureFBO);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.captureFBO);
     const pixels = new Uint8Array(width * height * 4);
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return pixels;
   }
 
@@ -1620,6 +1673,7 @@ void main() {
     this.destroyTrailFBOs();
     this.destroyBloomFBOs();
     this.destroyCompositeFBOs();
+    this.destroyCaptureFBO();
     if (this.trailProgram) {
       this.gl.deleteProgram(this.trailProgram);
       this.trailProgram = null;

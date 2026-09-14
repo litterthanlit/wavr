@@ -20,9 +20,9 @@ export default defineConfig({
   // (spec 0002 §5 + §10).
   timeout: 600_000,
   use: {
-    // Default waitUntil is "load"; we only need domcontentloaded since the runner
-    // exposes __wavrReady asynchronously.
-    navigationTimeout: 30_000,
+    // Runner script is deferred so goto is not blocked on shader compile, but
+    // keep a high ceiling for slow file:// + SwiftShader startups.
+    navigationTimeout: 180_000,
     launchOptions: {
       args: [
         // ANGLE's SwiftShader backend is more stable than --use-gl=swiftshader direct.

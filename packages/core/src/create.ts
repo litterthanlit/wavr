@@ -104,8 +104,7 @@ export function createGradient(
 
     captureFrame() {
       if (destroyed) return new Uint8Array(0);
-      engine.render(state);
-      return engine.readPixels();
+      return engine.capturePixels(state);
     },
 
     destroy() {
