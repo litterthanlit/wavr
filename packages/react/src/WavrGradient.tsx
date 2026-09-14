@@ -106,7 +106,7 @@ export function WavrGradient({
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       onError?.(err);
-      console.error("[wavr] failed to create gradient", err);
+      console.warn("[wavr] failed to create gradient", err);
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
       return;
     }

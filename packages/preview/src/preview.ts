@@ -14,7 +14,7 @@ export interface WavrPreviewOptions {
 
 export interface WavrPreviewHandle {
   getConfig(): GradientConfig;
-  gradient: GradientHandle;
+  gradient: GradientHandle | null;
   editor: WavrEditorHandle | null;
   destroy(): void;
 }
@@ -26,24 +26,31 @@ export function mountWavrPreview(
   const computed = window.getComputedStyle(host);
   if (computed.position === "static") host.style.position = "relative";
 
-    const canvas = document.createElement("canvas");
-    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
-    host.appendChild(canvas);
+  const canvas = document.createElement("canvas");
+  canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
+  host.appendChild(canvas);
 
-    let current = cloneConfig(options.config);
-    const bounds = host.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    canvas.width = Math.max(1, Math.floor(Math.max(1, bounds.width) * dpr));
-    canvas.height = Math.max(1, Math.floor(Math.max(1, bounds.height) * dpr));
+  let current = cloneConfig(options.config);
+  const bounds = host.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  canvas.width = Math.max(1, Math.floor(Math.max(1, bounds.width) * dpr));
+  canvas.height = Math.max(1, Math.floor(Math.max(1, bounds.height) * dpr));
 
-    const gradient = createGradient(canvas, current, { onError: options.onError });
+  let gradient: GradientHandle | null = null;
+  try {
+    gradient = createGradient(canvas, current, { onError: options.onError });
     if (bounds.width > 0 && bounds.height > 0) {
       gradient.resize(Math.max(1, bounds.width), Math.max(1, bounds.height));
     }
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    options.onError?.(err);
+    console.warn("[wavr] failed to create gradient", err);
+  }
 
   const observer = new ResizeObserver((entries) => {
     const entry = entries[0];
-    if (!entry) return;
+    if (!entry || !gradient) return;
     gradient.resize(entry.contentRect.width, entry.contentRect.height);
   });
   observer.observe(host);
@@ -51,7 +58,7 @@ export function mountWavrPreview(
   if (options.interactive !== false) {
     const onMove = (event: MouseEvent) => {
       const rect = host.getBoundingClientRect();
-      gradient.setMouse((event.clientX - rect.left) / rect.width, 1 - (event.clientY - rect.top) / rect.height);
+      gradient?.setMouse((event.clientX - rect.left) / rect.width, 1 - (event.clientY - rect.top) / rect.height);
     };
     host.addEventListener("mousemove", onMove);
     host.addEventListener(
@@ -60,7 +67,7 @@ export function mountWavrPreview(
         const touch = event.touches[0];
         if (!touch) return;
         const rect = host.getBoundingClientRect();
-        gradient.setMouse((touch.clientX - rect.left) / rect.width, 1 - (touch.clientY - rect.top) / rect.height);
+        gradient?.setMouse((touch.clientX - rect.left) / rect.width, 1 - (touch.clientY - rect.top) / rect.height);
       },
       { passive: true },
     );
@@ -72,7 +79,7 @@ export function mountWavrPreview(
         config: current,
         onChange(next) {
           current = next;
-          gradient.update(next);
+          gradient?.update(next);
           options.onChange?.(next);
         },
         onApply: options.onApply,
@@ -87,7 +94,7 @@ export function mountWavrPreview(
     destroy() {
       observer.disconnect();
       editor?.destroy();
-      gradient.destroy();
+      gradient?.destroy();
       canvas.remove();
     },
   };

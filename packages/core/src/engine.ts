@@ -143,6 +143,40 @@ const MASK_BLEND_MODE_MAP: Record<MaskBlendMode, number> = {
   smoothUnion: 3,
 };
 
+function getWebGL2Context(
+  canvas: HTMLCanvasElement,
+  options: GradientEngineOptions,
+): WebGL2RenderingContext | null {
+  const preserveDrawingBuffer = options.preserveDrawingBuffer ?? false;
+  const attempts: WebGLContextAttributes[] = [
+    {
+      alpha: true,
+      antialias: false,
+      preserveDrawingBuffer,
+      premultipliedAlpha: false,
+      powerPreference: options.powerPreference ?? "high-performance",
+    },
+    {
+      alpha: true,
+      antialias: false,
+      preserveDrawingBuffer,
+      premultipliedAlpha: false,
+      powerPreference: "default",
+    },
+    {
+      alpha: true,
+      antialias: false,
+      preserveDrawingBuffer,
+      premultipliedAlpha: false,
+    },
+  ];
+  for (const attrs of attempts) {
+    const gl = canvas.getContext("webgl2", attrs);
+    if (gl) return gl;
+  }
+  return canvas.getContext("webgl2");
+}
+
 export class GradientEngine {
   private gl: WebGL2RenderingContext;
   private program!: WebGLProgram;
@@ -224,13 +258,7 @@ export class GradientEngine {
   private metrics = createEmptyEngineMetrics();
 
   constructor(canvas: HTMLCanvasElement, options: GradientEngineOptions = {}) {
-    const gl = canvas.getContext("webgl2", {
-      alpha: true,
-      antialias: false,
-      preserveDrawingBuffer: options.preserveDrawingBuffer ?? false,
-      premultipliedAlpha: false,
-      powerPreference: options.powerPreference ?? "high-performance",
-    });
+    const gl = getWebGL2Context(canvas, options);
     if (!gl) throw new Error("WebGL 2 not supported");
     this.gl = gl;
     this.initProgram();
@@ -1603,5 +1631,6 @@ void main() {
       this.textMaskTexture = null;
     }
     if (this.program) this.gl.deleteProgram(this.program);
+    this.gl.getExtension("WEBGL_lose_context")?.loseContext();
   }
 }
