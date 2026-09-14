@@ -28,7 +28,7 @@ function resolveLayer(layer: LayerConfig): LayerParams {
     opacity: layer.opacity ?? LAYER_DEFAULTS.opacity,
     blendMode: layer.blendMode ?? LAYER_DEFAULTS.blendMode,
     depth: layer.depth ?? LAYER_DEFAULTS.depth,
-    visible: layer.visible,
+    visible: layer.visible ?? true,
     imageData: layer.imageData,
     imageScale: layer.imageScale,
     imageOffset: layer.imageOffset,
