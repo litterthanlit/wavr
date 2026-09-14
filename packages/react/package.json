@@ -34,13 +34,15 @@
   },
   "peerDependencies": {
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
+    "react-dom": ">=18.0.0",
+    "@wavr/preview": "^0.1.0"
   },
-  "dependencies": {
-    "@wavr/preview": "workspace:*"
+  "peerDependenciesMeta": {
+    "@wavr/preview": { "optional": true }
   },
   "devDependencies": {
     "@wavr/core": "workspace:*",
+    "@wavr/preview": "workspace:*",
     "tsup": "^8.0.0",
     "typescript": "^5",
     "react": "^19.0.0",

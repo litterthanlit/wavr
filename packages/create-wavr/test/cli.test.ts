@@ -18,6 +18,13 @@ describe("parseArgs", () => {
     expect(parseArgs([])).toMatchObject({ dir: "wavr-landing", template: "hero", preset: "aurora" });
   });
 
+  it("ignores a bare -- separator", () => {
+    expect(parseArgs(["--", "site", "--template", "html"])).toMatchObject({
+      dir: "site",
+      template: "html",
+    });
+  });
+
   it("parses template, preset, and link", () => {
     const options = parseArgs(["site", "--template", "waitlist", "--preset", "ocean", "--link", "/workspace"]);
     expect(options).toMatchObject({
@@ -42,6 +49,9 @@ describe("scaffold", () => {
     const config = readFileSync(path.join(dir, "wavr.config.ts"), "utf8");
     expect(config).toContain("sunset");
     expect(readFileSync(path.join(dir, "app/page.tsx"), "utf8")).toContain("WavrBackground");
+    const background = readFileSync(path.join(dir, "components/WavrBackground.tsx"), "utf8");
+    expect(background).toContain("showEditor");
+    expect(background).not.toContain("isDev");
     expect(readFileSync(path.join(dir, "app/api/wavr-config/route.ts"), "utf8")).toContain("wavr.config.ts");
     expect(readFileSync(path.join(dir, ".cursor/skills/wavr/SKILL.md"), "utf8")).toContain("name: wavr");
     expect(readFileSync(path.join(dir, "package.json"), "utf8")).toContain("@wavr/gradient");

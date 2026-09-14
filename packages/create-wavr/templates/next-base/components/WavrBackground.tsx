@@ -7,7 +7,7 @@ import { wavrConfig as initialConfig } from "../wavr.config";
 
 export function WavrBackground() {
   const [config, setConfig] = useState(initialConfig);
-  const isDev = process.env.NODE_ENV !== "production";
+  const showEditor = process.env.NODE_ENV !== "production";
 
   const onApply = useCallback(async (next: GradientConfig) => {
     const response = await fetch("/api/wavr-config", {
@@ -23,9 +23,9 @@ export function WavrBackground() {
   return (
     <WavrGradient
       config={config}
-      editor={isDev}
+      editor={showEditor}
       onConfigChange={setConfig}
-      onApply={isDev ? onApply : undefined}
+      onApply={showEditor ? onApply : undefined}
       className="wavr-bg"
     />
   );

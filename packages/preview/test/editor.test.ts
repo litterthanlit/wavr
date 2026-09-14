@@ -14,7 +14,8 @@ describe("mountWavrEditor", () => {
     const onChange = vi.fn();
     const handle = mountWavrEditor(host, { config: aurora, onChange, visible: true });
 
-    const root = host.querySelector("[data-wavr-editor='root']");
+    const root = document.body.querySelector("[data-wavr-editor='root']");
+    expect(root?.parentElement).toBe(document.body);
     expect(root?.shadowRoot).toBeTruthy();
     const panel = root?.shadowRoot?.querySelector("[data-wavr-editor='panel']");
     expect(panel).toBeTruthy();
@@ -28,14 +29,14 @@ describe("mountWavrEditor", () => {
     const last = onChange.mock.calls.at(-1)?.[0];
     expect(last.layers[0].type).toBe(ocean.layers[0]?.type);
     handle.destroy();
-    expect(host.querySelector("[data-wavr-editor='root']")).toBeNull();
+    expect(document.body.querySelector("[data-wavr-editor='root']")).toBeNull();
   });
 
   it("toggles the panel with the E key and the chip", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const handle = mountWavrEditor(host, { config: aurora, visible: true });
-    const root = host.querySelector("[data-wavr-editor='root']");
+    const root = document.body.querySelector("[data-wavr-editor='root']");
     const panel = root?.shadowRoot?.querySelector("[data-wavr-editor='panel']") as HTMLElement;
     const chip = root?.shadowRoot?.querySelector("[data-wavr-editor='chip']") as HTMLButtonElement;
 

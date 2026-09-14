@@ -126,21 +126,25 @@ export function WavrGradient({
     if (!container || !enabled) return;
     let cancelled = false;
 
-    void import("@wavr/preview").then(({ mountWavrEditor }) => {
-      if (cancelled || !container) return;
-      const overlay = mountWavrEditor(container, {
-        config: configRef.current,
-        visible: true,
-        onChange(next) {
-          setLiveConfig(next);
-          onConfigChangeRef.current?.(next);
-        },
-        onApply(next) {
-          return onApplyRef.current?.(next);
-        },
+    void import("@wavr/preview")
+      .then(({ mountWavrEditor }) => {
+        if (cancelled || !container) return;
+        const overlay = mountWavrEditor(container, {
+          config: configRef.current,
+          visible: true,
+          onChange(next) {
+            setLiveConfig(next);
+            onConfigChangeRef.current?.(next);
+          },
+          onApply(next) {
+            return onApplyRef.current?.(next);
+          },
+        });
+        editorRef.current = overlay;
+      })
+      .catch((error: unknown) => {
+        console.error("[wavr] failed to mount preview editor", error);
       });
-      editorRef.current = overlay;
-    });
 
     return () => {
       cancelled = true;
@@ -338,11 +342,5 @@ export function WavrGradient({
     return () => observer.disconnect();
   }, [events?.onInView]);
 
-  return (
-    <div
-      ref={containerRef}
-      className={className}
-      style={{ position: style?.position ?? "relative", ...style }}
-    />
-  );
+  return <div ref={containerRef} className={className} style={style} />;
 }

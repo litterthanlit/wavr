@@ -17,7 +17,7 @@ import { EDITOR_CSS } from "./styles";
 export interface WavrEditorOptions {
   config: GradientConfig;
   onChange?: (config: GradientConfig) => void;
-  onApply?: (config: GradientConfig) => void;
+  onApply?: (config: GradientConfig) => void | Promise<void>;
   visible?: boolean;
 }
 
@@ -70,7 +70,7 @@ export function mountWavrEditor(
   let destroyed = false;
 
   const root = el("div", { class: "wavr-editor-root", "data-wavr-editor": "root" });
-  root.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:2147483000;";
+  root.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483000;";
   const shadow = root.attachShadow({ mode: "open" });
   const style = el("style");
   style.textContent = EDITOR_CSS;
@@ -267,7 +267,7 @@ export function mountWavrEditor(
 
   shell.append(panel, chip);
   shadow.append(style, shell);
-  host.appendChild(root);
+  (host.ownerDocument?.body ?? host).appendChild(root);
 
   function syncFields(): void {
     const layer = activeLayer(current);

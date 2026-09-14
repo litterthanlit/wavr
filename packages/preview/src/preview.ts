@@ -8,7 +8,7 @@ export interface WavrPreviewOptions {
   editor?: boolean;
   interactive?: boolean;
   onChange?: (config: GradientConfig) => void;
-  onApply?: (config: GradientConfig) => void;
+  onApply?: (config: GradientConfig) => void | Promise<void>;
   onError?: CreateGradientOptions["onError"];
 }
 
