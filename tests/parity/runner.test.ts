@@ -53,6 +53,15 @@ function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+function isEmptyFramebuffer(pixels: Uint8Array): boolean {
+  for (let i = 0; i < pixels.length; i += 4) {
+    if ((pixels[i] ?? 0) !== 0 || (pixels[i + 1] ?? 0) !== 0 || (pixels[i + 2] ?? 0) !== 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function writePng(outPath: string, pixels: Uint8Array, width: number, height: number): void {
   const png = new PNG({ width, height });
   // WebGL readPixels returns bottom-to-top scanlines; flip to top-down for PNG.
@@ -91,6 +100,14 @@ test.describe("parity", () => {
         );
         const pixels = new Uint8Array(pixelsArr);
         expect(pixels.length).toBe(CANVAS_SIZE * CANVAS_SIZE * 4);
+        if (isEmptyFramebuffer(pixels)) {
+          const actualPng = path.join(RESULTS_DIR, `${fixture.name}.t${tMs}.actual.png`);
+          writePng(actualPng, pixels, CANVAS_SIZE, CANVAS_SIZE);
+          throw new Error(
+            `Parity framebuffer for ${fixture.name} at t=${tMs}ms is empty (all RGB zero). ` +
+              `WebGL did not produce a visible frame. See ${path.relative(REPO_ROOT, actualPng)}.`,
+          );
+        }
 
         const actualHash = await hashFramebuffer(pixels, 2);
         const hashFile = goldenPath(fixture.name, tMs);

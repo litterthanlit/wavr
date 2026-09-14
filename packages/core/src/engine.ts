@@ -1603,6 +1603,17 @@ void main() {
     return this.gl.canvas as HTMLCanvasElement;
   }
 
+  readPixels(): Uint8Array {
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.finish();
+    const width = gl.canvas.width;
+    const height = gl.canvas.height;
+    const pixels = new Uint8Array(width * height * 4);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    return pixels;
+  }
+
   destroy() {
     this.stopLoop();
     this.destroyFeedbackFBOs();

@@ -27,6 +27,7 @@ export default defineConfig({
       args: [
         // ANGLE's SwiftShader backend is more stable than --use-gl=swiftshader direct.
         "--use-angle=swiftshader",
+        "--enable-unsafe-swiftshader",
         "--enable-webgl",
         "--ignore-gpu-blocklist",
       ],

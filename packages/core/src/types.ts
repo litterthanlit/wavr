@@ -93,6 +93,8 @@ export interface GradientHandle {
   setTimelineProgress(t: number): void;
   animateTo(config: Partial<GradientConfig>, options: AnimateOptions): void;
   resize(width: number, height: number): void;
+  /** Render the current state once and return RGBA bytes from the default framebuffer. */
+  captureFrame(): Uint8Array;
   destroy(): void;
 }
 
