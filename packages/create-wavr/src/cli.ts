@@ -9,7 +9,7 @@ Usage:
 Options:
   -t, --template   ${TEMPLATES.join(" | ")} (default: hero)
   -p, --preset     Named Wavr preset (default: aurora)
-      --link       Absolute Wavr monorepo root; uses file: package links
+      --link       Absolute Wavr monorepo root; uses pnpm link: to local packages
   -h, --help       Show this message
 
 The generated Next app includes a compact editor overlay in \`next dev\`.

@@ -45,8 +45,8 @@ function packageNameFromDir(dir: string): string {
 function nextPackageJson(dest: string, options: CliOptions): Record<string, unknown> {
   const deps: Record<string, string> = options.link
     ? {
-        "@wavr/gradient": `file:${path.resolve(options.link, "packages/react")}`,
-        "@wavr/preview": `file:${path.resolve(options.link, "packages/preview")}`,
+        "@wavr/gradient": `link:${path.resolve(options.link, "packages/react")}`,
+        "@wavr/preview": `link:${path.resolve(options.link, "packages/preview")}`,
       }
     : {
         "@wavr/gradient": "^0.1.0",
