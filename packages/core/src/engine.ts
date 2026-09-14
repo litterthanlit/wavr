@@ -471,8 +471,13 @@ export class GradientEngine {
   resize(width: number, height: number) {
     const gl = this.gl;
     const dpr = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
-    gl.canvas.width = Math.max(1, Math.floor(width * dpr));
-    gl.canvas.height = Math.max(1, Math.floor(height * dpr));
+    const nextWidth = Math.max(1, Math.floor(width * dpr));
+    const nextHeight = Math.max(1, Math.floor(height * dpr));
+    if (gl.canvas.width !== nextWidth || gl.canvas.height !== nextHeight) {
+      gl.canvas.width = nextWidth;
+      gl.canvas.height = nextHeight;
+    }
+    if (this.program) gl.useProgram(this.program);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   }
 
@@ -1365,6 +1370,7 @@ void main() {
 
   render(state: EngineState) {
     const gl = this.gl;
+    if (this.program) gl.useProgram(this.program);
 
     // Trail pass (before main render — writes to separate FBO)
     this.renderTrailPass(state);

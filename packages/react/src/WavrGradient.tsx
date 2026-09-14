@@ -87,8 +87,8 @@ export function WavrGradient({
     const canvas = document.createElement("canvas");
     const { width, height } = container.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, maxPixelRatio);
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
+    canvas.width = Math.max(1, Math.floor(Math.max(width, 1) * dpr));
+    canvas.height = Math.max(1, Math.floor(Math.max(height, 1) * dpr));
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     canvas.style.display = "block";
@@ -96,12 +96,24 @@ export function WavrGradient({
     canvas.style.inset = "0";
     container.appendChild(canvas);
 
-    const handle = createGradient(canvas, configRef.current, {
-      onError,
-      maxPixelRatio,
-      maxFrameRate,
-    });
+    let handle: GradientHandle;
+    try {
+      handle = createGradient(canvas, configRef.current, {
+        onError,
+        maxPixelRatio,
+        maxFrameRate,
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      onError?.(err);
+      console.error("[wavr] failed to create gradient", err);
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      return;
+    }
     handleRef.current = handle;
+    if (width > 0 && height > 0) {
+      handle.resize(width, height);
+    }
 
     const ro = new ResizeObserver(([entry]) => {
       handle.resize(entry.contentRect.width, entry.contentRect.height);

@@ -26,14 +26,20 @@ export function mountWavrPreview(
   const computed = window.getComputedStyle(host);
   if (computed.position === "static") host.style.position = "relative";
 
-  const canvas = document.createElement("canvas");
-  canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
-  host.appendChild(canvas);
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
+    host.appendChild(canvas);
 
-  let current = cloneConfig(options.config);
-  const gradient = createGradient(canvas, current, { onError: options.onError });
-  const bounds = host.getBoundingClientRect();
-  gradient.resize(Math.max(1, bounds.width), Math.max(1, bounds.height));
+    let current = cloneConfig(options.config);
+    const bounds = host.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    canvas.width = Math.max(1, Math.floor(Math.max(1, bounds.width) * dpr));
+    canvas.height = Math.max(1, Math.floor(Math.max(1, bounds.height) * dpr));
+
+    const gradient = createGradient(canvas, current, { onError: options.onError });
+    if (bounds.width > 0 && bounds.height > 0) {
+      gradient.resize(Math.max(1, bounds.width), Math.max(1, bounds.height));
+    }
 
   const observer = new ResizeObserver((entries) => {
     const entry = entries[0];
