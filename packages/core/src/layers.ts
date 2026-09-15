@@ -143,15 +143,19 @@ export const DEFAULT_LAYER: LayerParams = {
 };
 
 export function createLayer(overrides?: Partial<LayerParams>): LayerParams {
+  const cleaned = Object.fromEntries(
+    Object.entries(overrides ?? {}).filter(([, value]) => value !== undefined),
+  ) as Partial<LayerParams>;
+
   return {
     ...DEFAULT_LAYER,
-    ...(overrides?.gradientType && overrides.softness === undefined
-      ? { softness: defaultSoftnessForGradientType(overrides.gradientType) }
+    ...(cleaned.gradientType && cleaned.softness === undefined
+      ? { softness: defaultSoftnessForGradientType(cleaned.gradientType) }
       : {}),
-    colors: DEFAULT_LAYER.colors.map((c) => [...c] as [number, number, number]),
-    mask1: { ...DEFAULT_MASK },
-    mask2: { ...DEFAULT_MASK },
-    ...overrides,
+    colors: (cleaned.colors ?? DEFAULT_LAYER.colors).map((c) => [...c] as [number, number, number]),
+    mask1: { ...DEFAULT_MASK, ...(cleaned.mask1 ?? {}) },
+    mask2: { ...DEFAULT_MASK, ...(cleaned.mask2 ?? {}) },
+    ...cleaned,
   };
 }
 

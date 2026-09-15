@@ -102,6 +102,11 @@ export function createGradient(
       engine.resize(width, height);
     },
 
+    captureFrame() {
+      if (destroyed) return new Uint8Array(0);
+      return engine.capturePixels(state);
+    },
+
     destroy() {
       if (destroyed) return;
       destroyed = true;

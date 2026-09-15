@@ -4,13 +4,11 @@
 //   window.__wavrReady   : Promise<void>    resolves after shader warmup
 //   window.__wavrRender  : (config, time) => Promise<Uint8Array>  raw RGBA bytes
 //
-// Adaptation vs §3: the spec says "handle.pause() then handle.setTime(time)
-// then await rAF". In practice `GradientEngine.startLoop` early-returns when
-// `state.playing === false`, so a paused engine never renders a fresh frame.
-// Instead we freeze animation by setting speed multiplier to 0 (elapsedTime
-// doesn't advance) and keeping the engine playing, which lets the rAF tick
-// actually call render(). This is the "rAF-tick coordination" the spec said
-// to revisit if flaky — documenting explicitly rather than silently deviating.
+// Spec §3 said pause + setTime + rAF, then readPixels. That path is racy:
+// startLoop skips render() while paused, and waiting on rAF after a presented
+// frame clears the backbuffer when preserveDrawingBuffer is false — every
+// fixture then hashed identically. captureFrame() is the follow-up the spec
+// called out (engine.renderNow + readPixels in the same turn).
 
 import { createGradient, type GradientConfig, type GradientHandle } from "@wavr/core";
 
@@ -23,26 +21,14 @@ declare global {
 
 const CANVAS_SIZE = 512;
 
-function nextFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitFrames(n: number): Promise<void> {
-  for (let i = 0; i < n; i++) {
-    await nextFrame();
-  }
-}
-
-function readFramebuffer(canvas: HTMLCanvasElement): Uint8Array {
-  const gl =
-    (canvas.getContext("webgl2") as WebGL2RenderingContext | null) ??
-    (canvas.getContext("webgl") as WebGLRenderingContext | null);
-  if (!gl) throw new Error("runner: failed to acquire WebGL context for readPixels");
-  const width = canvas.width;
-  const height = canvas.height;
-  const pixels = new Uint8Array(width * height * 4);
-  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-  return pixels;
+function whenDocumentReady(): Promise<void> {
+  return new Promise((resolve) => {
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      resolve();
+      return;
+    }
+    document.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+  });
 }
 
 function bootstrap(): Promise<{ canvas: HTMLCanvasElement; handle: GradientHandle }> {
@@ -71,12 +57,15 @@ function bootstrap(): Promise<{ canvas: HTMLCanvasElement; handle: GradientHandl
       };
 
       const handle = createGradient(canvas, seed, {
+        preserveDrawingBuffer: true,
+        maxPixelRatio: 1,
         onError: (err) => {
           // Surface to the page so Playwright's console capture picks it up.
           // eslint-disable-next-line no-console
           console.error("[wavr runner] engine error", err);
         },
       });
+      handle.resize(CANVAS_SIZE, CANVAS_SIZE);
 
       resolve({ canvas, handle });
     } catch (err) {
@@ -91,34 +80,28 @@ const log = (msg: string): void => {
 };
 
 const ready = (async () => {
+  // Yield so the HTML parser can fire DOMContentLoaded before shader compile.
+  // Synchronous compile inside the classic script blocked page.goto().
+  await whenDocumentReady();
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+
   log("bootstrap:start");
-  const { canvas, handle } = await bootstrap();
+  const { handle } = await bootstrap();
   log("bootstrap:done");
 
-  // Freeze animation: speed=0 means elapsedTime advances by 0 each rAF tick,
-  // so setTime(t) sticks. We keep the engine "playing" because pause() skips
-  // render() entirely.
   handle.setSpeed(0);
-  handle.play();
-  log("engine:play");
-
-  // Warmup: run a few frames so shader compile + uniform upload settle.
-  await waitFrames(3);
-  log("warmup:done");
-
+  handle.pause();
+  log("engine:paused");
   log("exposing __wavrRender");
 
   window.__wavrRender = async (config: GradientConfig, time: number): Promise<Uint8Array> => {
     handle.update(config);
     handle.setSpeed(0);
-    handle.play();
+    handle.pause();
     handle.setTime(time);
-    // Two frames: first tick applies the freshly-uploaded uniforms + runs
-    // render(), second guarantees the draw call has flushed to the framebuffer
-    // before readPixels. preserveDrawingBuffer:true on the GL context keeps
-    // the backbuffer valid after the frame settles.
-    await waitFrames(2);
-    return readFramebuffer(canvas);
+    return handle.captureFrame();
   };
 })().catch((err: Error) => {
   // eslint-disable-next-line no-console

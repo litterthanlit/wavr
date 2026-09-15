@@ -1,0 +1,25 @@
+{
+  "name": "create-wavr",
+  "version": "0.1.0",
+  "description": "Scaffold a Wavr shader landing page with an in-preview editor",
+  "type": "module",
+  "bin": {
+    "create-wavr": "./dist/cli.js"
+  },
+  "files": ["dist", "templates", "skill", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wavr/preview": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsup": "^8.0.0",
+    "typescript": "^5",
+    "vitest": "^1.6.0"
+  }
+}
