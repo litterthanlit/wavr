@@ -196,6 +196,13 @@ export class GradientEngine {
   private gl: WebGL2RenderingContext;
   private program!: WebGLProgram;
   private uniforms: UniformMap = {};
+  private colorLocations: (WebGLUniformLocation | undefined)[] = [];
+  /**
+   * Last values uploaded to each main-program uniform, so unchanged ones are
+   * skipped (most are constant between frames). Only valid for the program
+   * the locations came from, so cacheUniforms() clears it.
+   */
+  private lastUniformValues = new Map<WebGLUniformLocation, number[]>();
   private elapsedTime = 0;
   private animationId: number | null = null;
   private maxPixelRatio = 1.5;
@@ -475,10 +482,13 @@ export class GradientEngine {
       const loc = gl.getUniformLocation(this.program, name);
       if (loc) this.uniforms[name] = loc;
     }
+    this.colorLocations = [];
     for (let i = 0; i < 8; i++) {
       const loc = gl.getUniformLocation(this.program, `u_colors[${i}]`);
+      this.colorLocations.push(loc ?? undefined);
       if (loc) this.uniforms[`u_colors[${i}]`] = loc;
     }
+    this.lastUniformValues.clear();
   }
 
   setMouse(x: number, y: number) {
@@ -1188,24 +1198,47 @@ void main() {
     return true;
   }
 
+  /**
+   * Records `a`..`c` (the first `count` of them) as the value of `loc` and
+   * returns whether that differs from what was last uploaded.
+   */
+  private uniformChanged(loc: WebGLUniformLocation, count: number, a: number, b = 0, c = 0): boolean {
+    const last = this.lastUniformValues.get(loc);
+    if (last === undefined) {
+      this.lastUniformValues.set(loc, [a, b, c]);
+      return true;
+    }
+    if (last[0] === a && (count < 2 || last[1] === b) && (count < 3 || last[2] === c)) {
+      return false;
+    }
+    last[0] = a;
+    last[1] = b;
+    last[2] = c;
+    return true;
+  }
+
   private setf(name: string, val: number) {
     const loc = this.uniforms[name];
-    if (loc !== undefined) this.gl.uniform1f(loc, val);
+    if (loc !== undefined && this.uniformChanged(loc, 1, val)) this.gl.uniform1f(loc, val);
   }
 
   private seti(name: string, val: number) {
     const loc = this.uniforms[name];
-    if (loc !== undefined) this.gl.uniform1i(loc, val);
+    if (loc !== undefined && this.uniformChanged(loc, 1, val)) this.gl.uniform1i(loc, val);
   }
 
   private set2f(name: string, x: number, y: number) {
     const loc = this.uniforms[name];
-    if (loc !== undefined) this.gl.uniform2f(loc, x, y);
+    if (loc !== undefined && this.uniformChanged(loc, 2, x, y)) this.gl.uniform2f(loc, x, y);
   }
 
   private setMat4(name: string, val: Float32Array) {
     const loc = this.uniforms[name];
-    if (loc !== undefined) this.gl.uniformMatrix4fv(loc, false, val);
+    if (loc === undefined) return;
+    const last = this.lastUniformValues.get(loc);
+    if (last !== undefined && last.length === 16 && last.every((v, i) => v === val[i])) return;
+    this.lastUniformValues.set(loc, Array.from(val));
+    this.gl.uniformMatrix4fv(loc, false, val);
   }
 
   private setLayerUniforms(layer: LayerParams) {
@@ -1217,10 +1250,12 @@ void main() {
     this.setf("u_distortion", layer.distortion);
     this.setf("u_softness", layer.softness);
     this.seti("u_colorCount", layer.colors.length);
-    for (let i = 0; i < 8; i++) {
-      const key = `u_colors[${i}]`;
-      if (this.uniforms[key] !== undefined && i < layer.colors.length) {
-        gl.uniform3fv(this.uniforms[key], layer.colors[i]);
+    const colorCount = Math.min(layer.colors.length, this.colorLocations.length);
+    for (let i = 0; i < colorCount; i++) {
+      const loc = this.colorLocations[i];
+      const color = layer.colors[i];
+      if (loc !== undefined && this.uniformChanged(loc, 3, color[0], color[1], color[2])) {
+        gl.uniform3f(loc, color[0], color[1], color[2]);
       }
     }
     this.setf("u_layerOpacity", layer.opacity);
