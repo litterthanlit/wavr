@@ -26,6 +26,8 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
   const [saved, setSaved] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [storageMessage, setStorageMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const store = useGradientStore();
 
@@ -37,24 +39,60 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
 
   if (!open) return null;
 
-  const handleSave = () => {
+  const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+  const handleSave = async () => {
     const trimmed = name.trim();
-    if (!trimmed) return;
-    saveProject(trimmed, store);
-    setProjects(loadProjects());
-    setName("");
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (!trimmed || busy) return;
+    setBusy(true);
+    setStorageMessage(null);
+    try {
+      await saveProject(trimmed, store);
+      setName("");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setStorageMessage(`Could not save: ${errorText(err)}`);
+    } finally {
+      setProjects(loadProjects());
+      setBusy(false);
+    }
   };
 
-  const handleLoad = (project: SavedProject) => {
-    store.loadPreset(projectStateForLoad(project) as Partial<typeof store>);
-    onClose();
+  const handleLoad = async (project: SavedProject) => {
+    if (busy) return;
+    setBusy(true);
+    setStorageMessage(null);
+    try {
+      const { patch, missingImages } = await projectStateForLoad(project);
+      store.loadPreset(patch);
+      if (missingImages > 0) {
+        setStorageMessage(
+          `Loaded "${project.name}", but ${missingImages} image${missingImages === 1 ? " was" : "s were"} ` +
+          "no longer in this browser's storage.",
+        );
+      } else {
+        onClose();
+      }
+    } catch (err) {
+      setStorageMessage(`Could not load: ${errorText(err)}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleDelete = (projectName: string) => {
-    deleteProject(projectName);
-    setProjects(loadProjects());
+  const handleDelete = async (projectName: string) => {
+    if (busy) return;
+    setBusy(true);
+    setStorageMessage(null);
+    try {
+      await deleteProject(projectName);
+    } catch (err) {
+      setStorageMessage(`Could not delete: ${errorText(err)}`);
+    } finally {
+      setProjects(loadProjects());
+      setBusy(false);
+    }
   };
 
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -132,13 +170,19 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
           />
           <button
             onClick={handleSave}
-            disabled={!name.trim()}
+            disabled={!name.trim() || busy}
             className="px-3 py-1.5 text-xs text-white bg-accent hover:bg-accent/80
               rounded-md transition-all duration-150 disabled:opacity-40"
           >
-            {saved ? "Saved!" : "Save"}
+            {saved ? "Saved!" : busy ? "Saving..." : "Save"}
           </button>
         </div>
+
+        {storageMessage && (
+          <div role="alert" className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-4 text-amber-100">
+            {storageMessage}
+          </div>
+        )}
 
         {/* Projects list */}
         <div className="flex-1 overflow-y-auto">
@@ -165,15 +209,19 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => handleLoad(project)}
+                      disabled={busy}
                       className="px-2 py-1 text-[10px] text-text-secondary hover:text-accent
-                        bg-elevated rounded transition-colors"
+                        bg-elevated rounded transition-colors disabled:opacity-40"
                     >
                       Load
                     </button>
                     <button
                       onClick={() => handleDelete(project.name)}
+                      disabled={busy}
+                      aria-label={`Delete ${project.name}`}
                       className="px-2 py-1 text-[10px] text-text-tertiary hover:text-text-primary
-                        bg-elevated rounded transition-colors opacity-0 group-hover:opacity-100"
+                        bg-elevated rounded transition-colors opacity-0 group-hover:opacity-100
+                        focus-visible:opacity-100 disabled:opacity-40"
                     >
                       Delete
                     </button>

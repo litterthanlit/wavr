@@ -4,6 +4,15 @@ import { Keyframe, PlaybackMode } from "./timeline";
 import { cloneScene3D, type Scene3DState } from "./scene3d";
 import { sceneDocumentToStorePatch, storeToSceneDocument } from "./scene-document";
 import type { WavrSceneDocumentValue } from "@wavr/schema";
+import {
+  getImageBackend,
+  isDataUrl,
+  isImageRef,
+  loadImage,
+  pruneImages,
+  storeImage,
+  type ImageBackend,
+} from "./image-store";
 
 export interface SavedProject {
   name: string;
@@ -209,27 +218,7 @@ export function loadProjects(): SavedProject[] {
   }
 }
 
-export function saveProject(name: string, state: GradientState): void {
-  const projects = loadProjects();
-  const existing = projects.findIndex((p) => p.name === name);
-  const timestamp = Date.now();
-  const isoTimestamp = new Date(timestamp).toISOString();
-  const previous = existing >= 0 ? projects[existing] : undefined;
-  const entry: SavedProject = {
-    name,
-    timestamp,
-    state: exportProjectState(state),
-    sceneDocument: storeToSceneDocument(state, {
-      name,
-      createdAt: previous?.sceneDocument?.meta.createdAt ?? isoTimestamp,
-      updatedAt: isoTimestamp,
-    }),
-  };
-  if (existing >= 0) {
-    projects[existing] = entry;
-  } else {
-    projects.push(entry);
-  }
+function writeProjects(projects: SavedProject[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
   } catch (e) {
@@ -240,13 +229,134 @@ export function saveProject(name: string, state: GradientState): void {
   }
 }
 
-export function projectStateForLoad(project: SavedProject): Partial<GradientState> {
-  if (project.state) return project.state as Partial<GradientState>;
-  if (project.sceneDocument) return sceneDocumentToStorePatch(project.sceneDocument);
-  return {};
+// Project writes and image pruning run one at a time, so a prune can't delete
+// an image that another save has stored but not yet referenced.
+let queue: Promise<unknown> = Promise.resolve();
+function serialized<T>(task: () => Promise<T>): Promise<T> {
+  const run = queue.then(task, task);
+  queue = run.catch(() => undefined);
+  return run;
 }
 
-export function deleteProject(name: string): void {
-  const projects = loadProjects().filter((p) => p.name !== name);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+type ImageField = "imageData" | "distortionMapData";
+const IMAGE_FIELDS: ImageField[] = ["imageData", "distortionMapData"];
+
+/** Move inline data-URL images into the image store, leaving references. */
+async function externalizeImages(project: SavedProject, store: ImageBackend): Promise<SavedProject> {
+  const layers = project.state?.layers;
+  if (!project.state || !layers?.some((l) => IMAGE_FIELDS.some((f) => isDataUrl(l[f])))) return project;
+  const nextLayers = await Promise.all(layers.map(async (layer) => {
+    const next = { ...layer };
+    for (const field of IMAGE_FIELDS) {
+      const value = layer[field];
+      if (isDataUrl(value)) next[field] = await storeImage(store, value);
+    }
+    return next;
+  }));
+  return { ...project, state: { ...project.state, layers: nextLayers } };
+}
+
+function collectImageRefs(projects: SavedProject[]): Set<string> {
+  const refs = new Set<string>();
+  for (const project of projects) {
+    for (const layer of project.state?.layers ?? []) {
+      for (const field of IMAGE_FIELDS) {
+        const value = layer[field];
+        if (isImageRef(value)) refs.add(value);
+      }
+    }
+  }
+  return refs;
+}
+
+async function pruneUnreferenced(store: ImageBackend, projects: SavedProject[]): Promise<void> {
+  try {
+    await pruneImages(store, collectImageRefs(projects));
+  } catch (err) {
+    console.warn("[wavr] could not clean up stored images", err);
+  }
+}
+
+/**
+ * Save (or overwrite) a project. Images go to IndexedDB and the project keeps
+ * references; images still inline in older projects are moved too, which
+ * frees localStorage space. Falls back to inline images without IndexedDB.
+ */
+export function saveProject(name: string, state: GradientState): Promise<void> {
+  return serialized(async () => {
+    const projects = loadProjects();
+    const existing = projects.findIndex((p) => p.name === name);
+    const timestamp = Date.now();
+    const isoTimestamp = new Date(timestamp).toISOString();
+    const previous = existing >= 0 ? projects[existing] : undefined;
+    const entry: SavedProject = {
+      name,
+      timestamp,
+      state: exportProjectState(state),
+      sceneDocument: storeToSceneDocument(state, {
+        name,
+        createdAt: previous?.sceneDocument?.meta.createdAt ?? isoTimestamp,
+        updatedAt: isoTimestamp,
+      }),
+    };
+    if (existing >= 0) {
+      projects[existing] = entry;
+    } else {
+      projects.push(entry);
+    }
+
+    const store = getImageBackend();
+    let toWrite = projects;
+    if (store) {
+      try {
+        toWrite = await Promise.all(projects.map((p) => externalizeImages(p, store)));
+      } catch (err) {
+        console.warn("[wavr] image storage unavailable; saving images inline", err);
+      }
+    }
+    writeProjects(toWrite);
+    if (store) await pruneUnreferenced(store, toWrite);
+  });
+}
+
+export interface ProjectLoadResult {
+  patch: Partial<GradientState>;
+  /** Images the project referenced that are no longer stored. */
+  missingImages: number;
+}
+
+/** Store patch for a saved project, with stored images resolved. */
+export async function projectStateForLoad(project: SavedProject): Promise<ProjectLoadResult> {
+  if (!project.state) {
+    const patch = project.sceneDocument ? sceneDocumentToStorePatch(project.sceneDocument) : {};
+    return { patch, missingImages: 0 };
+  }
+  const store = getImageBackend();
+  let missingImages = 0;
+  const layers = await Promise.all(project.state.layers.map(async (layer) => {
+    const next = { ...layer };
+    for (const field of IMAGE_FIELDS) {
+      const value = layer[field];
+      if (!isImageRef(value)) continue;
+      let resolved: string | null = null;
+      try {
+        resolved = store ? await loadImage(store, value) : null;
+      } catch (err) {
+        console.warn("[wavr] could not read a stored image", err);
+      }
+      if (resolved === null) missingImages++;
+      next[field] = resolved;
+    }
+    return next;
+  }));
+  return { patch: { ...project.state, layers } as Partial<GradientState>, missingImages };
+}
+
+export function deleteProject(name: string): Promise<void> {
+  return serialized(async () => {
+    const projects = loadProjects().filter((p) => p.name !== name);
+    writeProjects(projects);
+    const store = getImageBackend();
+    if (store) await pruneUnreferenced(store, projects);
+  });
 }
