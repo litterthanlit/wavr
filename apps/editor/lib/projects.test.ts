@@ -1,6 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLayer } from "@wavr/core";
-import { exportProjectState, projectStateForLoad, saveProject } from "./projects";
+import { deleteProject, exportProjectState, loadProjects, projectStateForLoad, saveProject } from "./projects";
+import {
+  IMAGE_REF_PREFIX,
+  MemoryImageBackend,
+  blobToDataUrl,
+  dataUrlToBlob,
+  setImageBackendForTests,
+} from "./image-store";
 import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 import type { GradientState } from "./store";
 
@@ -187,10 +194,10 @@ describe("project export", () => {
     expect(exported.performanceMode).toBe("battery");
   });
 
-  it("saves a scene document next to the legacy project state", () => {
+  it("saves a scene document next to the legacy project state", async () => {
     localStorage.clear();
 
-    saveProject("Scene doc", minimalState({
+    await saveProject("Scene doc", minimalState({
       brightness: 1.25,
       performanceMode: "quality",
     }));
@@ -205,16 +212,16 @@ describe("project export", () => {
     });
   });
 
-  it("can load from scene-document-only saved projects", () => {
+  it("can load from scene-document-only saved projects", async () => {
     const state = minimalState({
       layers: [createLayer({ gradientType: "plasma", speed: 0.7 })],
       brightness: 1.3,
     });
-    saveProject("Future scene", state);
+    await saveProject("Future scene", state);
     const saved = JSON.parse(localStorage.getItem("wavr-projects") ?? "[]")[0];
     delete saved.state;
 
-    const patch = projectStateForLoad(saved);
+    const { patch } = await projectStateForLoad(saved);
 
     expect(patch).toMatchObject({
       brightness: 1.3,
@@ -225,5 +232,133 @@ describe("project export", () => {
         }),
       ],
     });
+  });
+});
+
+// Small but distinct "images": the store hashes bytes, so any data URL works.
+const PNG_A = "data:image/png;base64," + btoa("image-a".repeat(200));
+const PNG_B = "data:image/webp;base64," + btoa("image-b".repeat(200));
+
+function stored(): string {
+  return localStorage.getItem("wavr-projects") ?? "[]";
+}
+
+describe("project image storage", () => {
+  let images: MemoryImageBackend;
+
+  beforeEach(() => {
+    installLocalStorage();
+    images = new MemoryImageBackend();
+    setImageBackendForTests(images);
+  });
+
+  afterEach(() => setImageBackendForTests(undefined));
+
+  it("keeps image bytes out of localStorage and restores them on load", async () => {
+    await saveProject("With image", minimalState({
+      layers: [createLayer({ imageData: PNG_A, distortionMapData: PNG_B })],
+    }));
+
+    expect(stored()).not.toContain("data:image");
+    const [project] = loadProjects();
+    expect(project.state?.layers[0].imageData).toMatch(new RegExp(`^${IMAGE_REF_PREFIX}[0-9a-f]{64}$`));
+    expect(images.entries.size).toBe(2);
+
+    const { patch, missingImages } = await projectStateForLoad(project);
+    expect(missingImages).toBe(0);
+    expect(patch.layers?.[0].imageData).toBe(PNG_A);
+    expect(patch.layers?.[0].distortionMapData).toBe(PNG_B);
+  });
+
+  it("stores identical images once", async () => {
+    await saveProject("Twice", minimalState({
+      layers: [createLayer({ imageData: PNG_A }), createLayer({ imageData: PNG_A })],
+    }));
+    await saveProject("Again", minimalState({ layers: [createLayer({ imageData: PNG_A })] }));
+    expect(images.entries.size).toBe(1);
+  });
+
+  it("moves inline images out of older projects on the next save", async () => {
+    const legacy = [{
+      name: "Legacy",
+      timestamp: 1,
+      state: { ...exportProjectState(minimalState()), layers: [createLayer({ imageData: PNG_A })] },
+    }];
+    localStorage.setItem("wavr-projects", JSON.stringify(legacy));
+    const before = stored().length;
+
+    await saveProject("New", minimalState());
+
+    expect(stored()).not.toContain("data:image");
+    expect(stored().length).toBeLessThan(before + 20_000);
+    const legacyProject = loadProjects().find((p) => p.name === "Legacy")!;
+    expect((await projectStateForLoad(legacyProject)).patch.layers?.[0].imageData).toBe(PNG_A);
+  });
+
+  it("deletes images no project uses, but keeps shared ones", async () => {
+    await saveProject("One", minimalState({ layers: [createLayer({ imageData: PNG_A })] }));
+    await saveProject("Two", minimalState({ layers: [createLayer({ imageData: PNG_A, distortionMapData: PNG_B })] }));
+    expect(images.entries.size).toBe(2);
+
+    await deleteProject("Two");
+    expect(images.entries.size).toBe(1); // PNG_A is still used by "One"
+
+    // Overwriting a project drops the image it no longer uses.
+    await saveProject("One", minimalState());
+    expect(images.entries.size).toBe(0);
+  });
+
+  it("reports images that are no longer stored", async () => {
+    await saveProject("Lost", minimalState({ layers: [createLayer({ imageData: PNG_A })] }));
+    images.entries.clear();
+
+    const { patch, missingImages } = await projectStateForLoad(loadProjects()[0]);
+    expect(missingImages).toBe(1);
+    expect(patch.layers?.[0].imageData).toBeNull();
+  });
+
+  it("keeps images inline when IndexedDB is unavailable", async () => {
+    setImageBackendForTests(null);
+    await saveProject("Inline", minimalState({ layers: [createLayer({ imageData: PNG_A })] }));
+    expect(loadProjects()[0].state?.layers[0].imageData).toBe(PNG_A);
+  });
+
+  it("falls back to inline images if the image store fails", async () => {
+    vi.spyOn(images, "put").mockRejectedValue(new Error("disk full"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await saveProject("Fallback", minimalState({ layers: [createLayer({ imageData: PNG_A })] }));
+    expect(loadProjects()[0].state?.layers[0].imageData).toBe(PNG_A);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("surfaces a readable error when localStorage is full", async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException("full", "QuotaExceededError");
+      },
+    });
+    await expect(saveProject("Big", minimalState())).rejects.toThrow(/Storage quota exceeded/);
+  });
+
+  it("does not lose images when saves overlap", async () => {
+    await Promise.all([
+      saveProject("A", minimalState({ layers: [createLayer({ imageData: PNG_A })] })),
+      saveProject("B", minimalState({ layers: [createLayer({ imageData: PNG_B })] })),
+      deleteProject("nonexistent"),
+    ]);
+    expect(loadProjects().map((p) => p.name).sort()).toEqual(["A", "B"]);
+    expect(images.entries.size).toBe(2);
+  });
+});
+
+describe("image-store data URLs", () => {
+  it("round-trips base64 and percent-encoded data URLs", async () => {
+    expect(await blobToDataUrl(dataUrlToBlob(PNG_A))).toBe(PNG_A);
+    const svg = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E";
+    const blob = dataUrlToBlob(svg);
+    expect(blob.type).toBe("image/svg+xml");
+    expect(await blob.text()).toBe('<svg xmlns="http://www.w3.org/2000/svg"/>');
   });
 });

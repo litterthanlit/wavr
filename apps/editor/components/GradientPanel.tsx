@@ -33,27 +33,32 @@ const TEXT_ALIGN_OPTIONS = [
 ];
 
 const MAX_IMAGE_SIZE = 2048;
+const WEBP_QUALITY = 0.92;
 
 function resizeAndLoadImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
+      const original = reader.result as string;
       const img = new Image();
       img.onload = () => {
-        if (img.width <= MAX_IMAGE_SIZE && img.height <= MAX_IMAGE_SIZE) {
-          resolve(reader.result as string);
+        if (!img.width || !img.height) {
+          resolve(original); // e.g. an SVG without intrinsic size
           return;
         }
-        const ratio = Math.min(MAX_IMAGE_SIZE / img.width, MAX_IMAGE_SIZE / img.height);
+        const ratio = Math.min(1, MAX_IMAGE_SIZE / img.width, MAX_IMAGE_SIZE / img.height);
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(img.width * ratio);
         canvas.height = Math.round(img.height * ratio);
         const ctx = canvas.getContext("2d")!;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/png"));
+        // WebP keeps alpha and is usually much smaller than PNG, which keeps
+        // saved projects small. Browsers that can't encode WebP return PNG.
+        const encoded = canvas.toDataURL("image/webp", WEBP_QUALITY);
+        resolve(ratio === 1 && original.length <= encoded.length ? original : encoded);
       };
       img.onerror = reject;
-      img.src = reader.result as string;
+      img.src = original;
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
