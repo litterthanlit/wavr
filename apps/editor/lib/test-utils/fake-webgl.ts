@@ -67,7 +67,7 @@ export function createFakeGL() {
     checkFramebufferStatus: () => "FRAMEBUFFER_COMPLETE",
     isContextLost: () => false,
     getExtension: () => null,
-    getParameter: () => 4096,
+    getParameter: (name: string) => (name === "MAX_VIEWPORT_DIMS" ? new Int32Array([4096, 4096]) : 4096),
     useProgram: (p: Handle) => { program = p; },
     activeTexture: (unit: string) => { activeUnit = Number(unit.replace("TEXTURE", "")); },
     bindTexture: (_t: never, tex: Handle | null) => { units.set(activeUnit, tex); },

@@ -32,6 +32,8 @@ describe("flipRowsRGBA", () => {
 
 describe("snapshotFrame", () => {
   it("returns null before the engine has rendered a frame", () => {
-    expect(snapshotFrame({ captureImageData: () => null })).toBeNull();
+    expect(
+      snapshotFrame({ captureImageData: () => null, getElapsedTime: () => 0, getMaxCaptureSize: () => 4096 }),
+    ).toBeNull();
   });
 });
