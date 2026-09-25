@@ -78,8 +78,44 @@ function getExportCanvas(canvas: HTMLCanvasElement, sceneCanvas?: HTMLCanvasElem
   return composite;
 }
 
-export function exportPNG(canvas: HTMLCanvasElement, filename = "wavr-gradient.png", sceneCanvas?: HTMLCanvasElement | null) {
-  getExportCanvas(canvas, sceneCanvas).toBlob((blob) => {
+/** Anything that can hand back the current frame as ImageData (GradientEngine). */
+export interface FrameSource {
+  captureImageData(): ImageData | null;
+}
+
+/**
+ * Copy the engine's current frame into a 2D canvas. The WebGL canvas itself
+ * can't be read reliably: with preserveDrawingBuffer off, its backbuffer is
+ * cleared once a frame is presented, so a toBlob() from a click handler may
+ * produce a blank image. Returns null if nothing has rendered yet or the
+ * capture fails, so callers can fall back to reading the canvas.
+ */
+export function snapshotFrame(source: FrameSource): HTMLCanvasElement | null {
+  let frame: ImageData | null;
+  try {
+    frame = source.captureImageData();
+  } catch (err) {
+    console.warn("[wavr] frame capture failed; falling back to the canvas", err);
+    return null;
+  }
+  if (!frame) return null;
+  const snapshot = document.createElement("canvas");
+  snapshot.width = frame.width;
+  snapshot.height = frame.height;
+  const ctx = snapshot.getContext("2d");
+  if (!ctx) return null;
+  ctx.putImageData(frame, 0, 0);
+  return snapshot;
+}
+
+export function exportPNG(
+  canvas: HTMLCanvasElement,
+  filename = "wavr-gradient.png",
+  sceneCanvas?: HTMLCanvasElement | null,
+  frameSource?: FrameSource | null,
+) {
+  const gradientCanvas = (frameSource && snapshotFrame(frameSource)) ?? canvas;
+  getExportCanvas(gradientCanvas, sceneCanvas).toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

@@ -5,7 +5,8 @@ import { useGradientStore } from "@/lib/store";
 import {
   exportPNG, exportCSS, exportTailwindCSS, exportReactComponent,
   exportWebComponent, exportStandalonePlayer, exportGIF, copyToClipboard, exportWebM, generateEmbedCode,
-  generateEmbedConfig, generateEmbedSnippet, getPortableExportWarnings, downloadTextFile
+  generateEmbedConfig, generateEmbedSnippet, getPortableExportWarnings, downloadTextFile,
+  type FrameSource,
 } from "@/lib/export";
 import { encodeState } from "@/lib/url";
 import {
@@ -20,6 +21,7 @@ interface ExportModalProps {
   onClose: () => void;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   sceneCanvasRef?: RefObject<HTMLCanvasElement | null>;
+  engineRef?: RefObject<FrameSource | null>;
 }
 
 function ExportButton({
@@ -114,7 +116,7 @@ function RuntimeFidelityReport({ report }: { report: RuntimeEmbedFidelityReport 
   );
 }
 
-export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }: ExportModalProps) {
+export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef, engineRef }: ExportModalProps) {
   const [recording, setRecording] = useState(false);
   const [gifRecording, setGifRecording] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -302,7 +304,7 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef }
                 title="PNG Image"
                 desc="Full resolution screenshot"
                 actionLabel="Download"
-                action={() => { if (canvasRef.current) exportPNG(canvasRef.current, "wavr-gradient.png", sceneCanvasRef?.current); }}
+                action={() => { if (canvasRef.current) exportPNG(canvasRef.current, "wavr-gradient.png", sceneCanvasRef?.current, engineRef?.current); }}
               />
               <button
                 onClick={async () => {
