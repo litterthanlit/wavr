@@ -8,6 +8,12 @@ import type { ParticleField, Scene3DState, SceneObject3D } from "@/lib/scene3d";
 
 interface Scene3DCanvasProps {
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
+  /**
+   * Receives a function that renders the scene right now and returns its
+   * canvas (or null when the scene is gone). Draw from that canvas in the same
+   * task: with preserveDrawingBuffer off, it is cleared once presented.
+   */
+  onCaptureReady?: (capture: SceneCapture | null) => void;
 }
 
 type ScenePointer = { x: number; y: number };
@@ -165,7 +171,23 @@ function SceneContents({
   );
 }
 
-export default function Scene3DCanvas({ onCanvasReady }: Scene3DCanvasProps) {
+export type SceneCapture = () => HTMLCanvasElement;
+
+function SceneCaptureBridge({ onCaptureReady }: { onCaptureReady?: (capture: SceneCapture | null) => void }) {
+  const gl = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
+  const camera = useThree((state) => state.camera);
+  useEffect(() => {
+    onCaptureReady?.(() => {
+      gl.render(scene, camera);
+      return gl.domElement;
+    });
+    return () => onCaptureReady?.(null);
+  }, [gl, scene, camera, onCaptureReady]);
+  return null;
+}
+
+export default function Scene3DCanvas({ onCanvasReady, onCaptureReady }: Scene3DCanvasProps) {
   const enabled = useGradientStore((state) => state.scene3DEnabled);
   const scene = useGradientStore((state) => state.scene3D);
   const playing = useGradientStore((state) => state.playing);
@@ -224,6 +246,7 @@ export default function Scene3DCanvas({ onCanvasReady }: Scene3DCanvasProps) {
         <SceneInvalidator enabled={enabled} scene={scene} />
         <SceneRenderLoop enabled={enabled} playing={playing} maxFps={effectiveMaxFps} />
         <SceneContents scene={scene} pointerRef={pointerRef} particleScale={performance.particleScale} />
+        <SceneCaptureBridge onCaptureReady={onCaptureReady} />
       </R3FCanvas>
     </div>
   );

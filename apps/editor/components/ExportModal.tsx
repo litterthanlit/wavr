@@ -6,8 +6,9 @@ import {
   exportPNG, exportCSS, exportTailwindCSS, exportReactComponent,
   exportWebComponent, exportStandalonePlayer, exportGIF, copyToClipboard, exportWebM, generateEmbedCode,
   generateEmbedConfig, generateEmbedSnippet, getPortableExportWarnings, downloadTextFile,
-  type FrameSource,
+  pngExportSize, type FrameSource, type SceneCaptureFn,
 } from "@/lib/export";
+import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
 import { encodeState } from "@/lib/url";
 import {
   getRuntimeEmbedFidelityReport,
@@ -21,8 +22,11 @@ interface ExportModalProps {
   onClose: () => void;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   sceneCanvasRef?: RefObject<HTMLCanvasElement | null>;
+  sceneCaptureRef?: RefObject<SceneCaptureFn | null>;
   engineRef?: RefObject<FrameSource | null>;
 }
+
+const PNG_SCALES = [1, 2, 4] as const;
 
 function ExportButton({
   title, desc, action, actionLabel = "Copy",
@@ -116,16 +120,74 @@ function RuntimeFidelityReport({ report }: { report: RuntimeEmbedFidelityReport 
   );
 }
 
-export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef, engineRef }: ExportModalProps) {
+export default function ExportModal({
+  open, onClose, canvasRef, sceneCanvasRef, sceneCaptureRef, engineRef,
+}: ExportModalProps) {
   const [recording, setRecording] = useState(false);
   const [gifRecording, setGifRecording] = useState(false);
   const [progress, setProgress] = useState(0);
   const [gifProgress, setGifProgress] = useState(0);
+  const [pngScale, setPngScale] = useState<(typeof PNG_SCALES)[number]>(1);
+  const [pngExporting, setPngExporting] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [tab, setTab] = useState<"ship" | "image" | "code" | "embed">("ship");
   const store = useGradientStore();
   const colors = store.colors as [number, number, number][];
 
   if (!open) return null;
+
+  const pngSizeLabel = (scale: number) => {
+    const canvas = canvasRef.current;
+    const engine = engineRef?.current;
+    if (!canvas) return `${scale}× current view`;
+    const size = engine
+      ? pngExportSize(canvas, scale, engine.getMaxCaptureSize())
+      : { width: canvas.width, height: canvas.height };
+    return `${size.width} × ${size.height} px`;
+  };
+
+  const exportPng = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || pngExporting) return;
+    setPngExporting(true);
+    setMediaError(null);
+    try {
+      await exportPNG({
+        canvas,
+        frameSource: engineRef?.current,
+        sceneCapture: sceneCaptureRef?.current,
+        scale: pngScale,
+      });
+    } catch (err) {
+      setMediaError(`PNG export failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setPngExporting(false);
+    }
+  };
+
+  const exportGif = async () => {
+    const engine = engineRef?.current;
+    if (!engine || gifRecording) return;
+    setGifRecording(true);
+    setGifProgress(0);
+    setMediaError(null);
+    // Snapshot the scene now so edits made while exporting don't leak in.
+    const snapshot = useGradientStore.getState();
+    try {
+      await exportGIF({
+        frameSource: engine,
+        stateAt: (seconds) => withPerformanceMode(applyTimeline(snapshot, snapshot.timelinePosition + seconds)),
+        sceneCapture: sceneCaptureRef?.current,
+        durationMs: 3000,
+        fps: 12,
+        onProgress: setGifProgress,
+      });
+    } catch (err) {
+      setMediaError(`GIF export failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setGifRecording(false);
+    }
+  };
 
   const stateForExport = {
     colors,
@@ -300,12 +362,43 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef, 
 
           {tab === "image" && (
             <>
-              <ExportButton
-                title="PNG Image"
-                desc="Full resolution screenshot"
-                actionLabel="Download"
-                action={() => { if (canvasRef.current) exportPNG(canvasRef.current, "wavr-gradient.png", sceneCanvasRef?.current, engineRef?.current); }}
-              />
+              <div className="flex items-center justify-between gap-3 p-3 bg-surface border border-border rounded-lg">
+                <div className="text-left min-w-0">
+                  <div className="text-xs font-medium text-text-primary">PNG Image</div>
+                  <div className="text-xs text-text-tertiary mt-0.5 tabular-nums">
+                    {pngSizeLabel(pngScale)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div role="radiogroup" aria-label="PNG resolution" className="flex gap-0.5 bg-elevated rounded-md p-0.5">
+                    {PNG_SCALES.map((scale) => (
+                      <button
+                        key={scale}
+                        type="button"
+                        role="radio"
+                        aria-checked={pngScale === scale}
+                        aria-label={`${scale}× resolution`}
+                        onClick={() => setPngScale(scale)}
+                        className={`px-2 py-1 text-[11px] font-medium rounded transition-colors duration-150 tabular-nums ${
+                          pngScale === scale
+                            ? "bg-surface text-text-primary"
+                            : "text-text-tertiary hover:text-text-secondary"
+                        }`}
+                      >
+                        {scale}×
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={exportPng}
+                    disabled={pngExporting}
+                    className="text-xs text-text-tertiary hover:text-accent transition-colors disabled:opacity-50"
+                  >
+                    {pngExporting ? "..." : "Download"}
+                  </button>
+                </div>
+              </div>
               <button
                 onClick={async () => {
                   if (!canvasRef.current || recording) return;
@@ -328,12 +421,7 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef, 
                 </span>
               </button>
               <button
-                onClick={async () => {
-                  if (!canvasRef.current || gifRecording) return;
-                  setGifRecording(true); setGifProgress(0);
-                  await exportGIF(canvasRef.current, 3000, 12, setGifProgress, sceneCanvasRef?.current);
-                  setGifRecording(false);
-                }}
+                onClick={exportGif}
                 disabled={gifRecording}
                 className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg
                   hover:border-border-active transition-all duration-150 group disabled:opacity-50"
@@ -341,13 +429,20 @@ export default function ExportModal({ open, onClose, canvasRef, sceneCanvasRef, 
                 <div className="text-left">
                   <div className="text-xs font-medium text-text-primary">GIF Animation</div>
                   <div className="text-xs text-text-tertiary mt-0.5">
-                    {gifRecording ? `Encoding... ${Math.round(gifProgress * 100)}%` : "3 second loop, 640px wide"}
+                    {gifRecording
+                      ? `${gifProgress < 0.5 ? "Rendering" : "Encoding"}... ${Math.round(gifProgress * 100)}%`
+                      : "3 second loop, 640px wide"}
                   </div>
                 </div>
                 <span className="text-xs text-text-tertiary group-hover:text-accent transition-colors">
                   {gifRecording ? "..." : "Record"}
                 </span>
               </button>
+              {mediaError && (
+                <p role="alert" className="text-[11px] leading-4 text-red-400">
+                  {mediaError}
+                </p>
+              )}
             </>
           )}
 

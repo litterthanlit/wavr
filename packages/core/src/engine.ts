@@ -158,6 +158,27 @@ function usesNeighborSampling(state: EngineState): boolean {
   );
 }
 
+export interface CaptureOptions {
+  /** State to render. Defaults to the most recently rendered state. */
+  state?: EngineState;
+  /** Animation time in seconds. Defaults to the live clock. */
+  time?: number;
+  /** Output size in pixels. Defaults to the canvas size. */
+  width?: number;
+  height?: number;
+}
+
+/** Scale `width`×`height` down, keeping aspect, so neither side exceeds `max`. */
+export function fitSize(width: number, height: number, max: number): { width: number; height: number } {
+  const w = Math.max(1, Math.round(width));
+  const h = Math.max(1, Math.round(height));
+  const scale = Math.min(1, max / Math.max(w, h));
+  return {
+    width: Math.max(1, Math.floor(w * scale)),
+    height: Math.max(1, Math.floor(h * scale)),
+  };
+}
+
 function getWebGL2Context(
   canvas: HTMLCanvasElement,
   options: GradientEngineOptions,
@@ -1743,20 +1764,72 @@ void main() {
     return pixels;
   }
 
+  getElapsedTime(): number {
+    return this.elapsedTime;
+  }
+
+  /** Largest width/height captureImageData() can render at on this GPU. */
+  getMaxCaptureSize(): number {
+    const gl = this.gl;
+    const viewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array | null;
+    return Math.min(
+      gl.getParameter(gl.MAX_TEXTURE_SIZE) as number,
+      gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) as number,
+      viewport ? Math.min(viewport[0], viewport[1]) : Infinity,
+    );
+  }
+
   /**
-   * Re-render the most recently drawn state offscreen and return it as
-   * top-down ImageData. Use this instead of reading the canvas: with
-   * preserveDrawingBuffer off, the backbuffer is cleared once a frame is
-   * presented, so toBlob()/drawImage() outside the render callback can
-   * return a blank image. Returns null before the first frame or while the
-   * context is lost.
+   * Render a frame offscreen and return it as top-down ImageData. Use this
+   * instead of reading the canvas: with preserveDrawingBuffer off, the
+   * backbuffer is cleared once a frame is presented, so toBlob()/drawImage()
+   * outside the render callback can return a blank image.
+   *
+   * Defaults to re-rendering the most recent state at the current time and
+   * canvas size. The live clock, canvas size and "current state" are
+   * restored afterwards. A larger size is scaled down (keeping aspect) to fit
+   * GPU limits; pixel-sized effects (grain, dither, ASCII) render finer.
+   * Returns null before the first frame or while the context is lost.
    */
-  captureImageData(): ImageData | null {
-    if (!this.lastState || this.gl.isContextLost()) return null;
-    const pixels = this.capturePixels(this.lastState);
-    const width = Math.max(1, this.gl.canvas.width);
-    const height = Math.max(1, this.gl.canvas.height);
-    return new ImageData(flipRowsRGBA(pixels, width, height), width, height);
+  captureImageData(options: CaptureOptions = {}): ImageData | null {
+    const gl = this.gl;
+    const state = options.state ?? this.lastState;
+    if (!state || gl.isContextLost()) return null;
+
+    const canvas = gl.canvas;
+    const liveWidth = canvas.width;
+    const liveHeight = canvas.height;
+    const { width, height } = fitSize(
+      options.width ?? liveWidth,
+      options.height ?? liveHeight,
+      this.getMaxCaptureSize(),
+    );
+    const resized = width !== liveWidth || height !== liveHeight;
+    const liveTime = this.elapsedTime;
+    const liveState = this.lastState;
+
+    try {
+      if (options.time !== undefined) this.elapsedTime = options.time;
+      if (resized) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      const pixels = this.capturePixels(state);
+      return new ImageData(flipRowsRGBA(pixels, width, height), width, height);
+    } finally {
+      this.elapsedTime = liveTime;
+      if (resized) {
+        canvas.width = liveWidth;
+        canvas.height = liveHeight;
+        gl.viewport(0, 0, liveWidth, liveHeight);
+        // Don't keep a full-size capture target around after a hi-res export.
+        this.destroyCaptureFBO();
+        // Resizing cleared the visible canvas; redraw it so a paused editor
+        // isn't left blank until the next state change.
+        if (liveState) this.render(liveState);
+      }
+      this.lastState = liveState;
+    }
   }
 
   destroy() {

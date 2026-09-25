@@ -1,3 +1,7 @@
+import { fitSize, type CaptureOptions, type EngineState } from "@wavr/core";
+import { encodeGif } from "./gif";
+import type { GifWorkerRequest, GifWorkerResponse } from "./gif.worker";
+
 export function generateEmbedCode(stateHash: string, width = 800, height = 600): string {
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://wavr.app";
   return `<iframe src="${baseUrl}/embed#${stateHash}" width="${width}" height="${height}" frameborder="0" style="border:0;border-radius:8px;" allow="autoplay"></iframe>`;
@@ -71,59 +75,118 @@ function drawCompositeFrame(
   }
 }
 
-function getExportCanvas(canvas: HTMLCanvasElement, sceneCanvas?: HTMLCanvasElement | null): HTMLCanvasElement {
-  if (!sceneCanvas) return canvas;
-  const composite = document.createElement("canvas");
-  drawCompositeFrame(composite, canvas, sceneCanvas);
-  return composite;
+/** Anything that can render frames offscreen on demand (GradientEngine). */
+export interface FrameSource {
+  captureImageData(options?: CaptureOptions): ImageData | null;
+  getElapsedTime(): number;
+  getMaxCaptureSize(): number;
 }
 
-/** Anything that can hand back the current frame as ImageData (GradientEngine). */
-export interface FrameSource {
-  captureImageData(): ImageData | null;
+/** Renders the 3D overlay right now and returns its canvas (see Scene3DCanvas). */
+export type SceneCaptureFn = () => HTMLCanvasElement;
+
+function imageDataToCanvas(frame: ImageData): HTMLCanvasElement | null {
+  const canvas = document.createElement("canvas");
+  canvas.width = frame.width;
+  canvas.height = frame.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.putImageData(frame, 0, 0);
+  return canvas;
 }
 
 /**
- * Copy the engine's current frame into a 2D canvas. The WebGL canvas itself
+ * Render the engine's current frame into a 2D canvas. The WebGL canvas itself
  * can't be read reliably: with preserveDrawingBuffer off, its backbuffer is
  * cleared once a frame is presented, so a toBlob() from a click handler may
  * produce a blank image. Returns null if nothing has rendered yet or the
  * capture fails, so callers can fall back to reading the canvas.
  */
-export function snapshotFrame(source: FrameSource): HTMLCanvasElement | null {
+export function snapshotFrame(source: FrameSource, options?: CaptureOptions): HTMLCanvasElement | null {
   let frame: ImageData | null;
   try {
-    frame = source.captureImageData();
+    frame = source.captureImageData(options);
   } catch (err) {
     console.warn("[wavr] frame capture failed; falling back to the canvas", err);
     return null;
   }
-  if (!frame) return null;
-  const snapshot = document.createElement("canvas");
-  snapshot.width = frame.width;
-  snapshot.height = frame.height;
-  const ctx = snapshot.getContext("2d");
-  if (!ctx) return null;
-  ctx.putImageData(frame, 0, 0);
-  return snapshot;
+  return frame ? imageDataToCanvas(frame) : null;
 }
 
-export function exportPNG(
-  canvas: HTMLCanvasElement,
+/** Draw the 3D overlay (rendered on demand) over `target`, scaled to fit. */
+function drawSceneOverlay(target: HTMLCanvasElement, sceneCapture?: SceneCaptureFn | null) {
+  if (!sceneCapture) return;
+  const ctx = target.getContext("2d");
+  if (!ctx) return;
+  try {
+    // Must draw in the same task as the render: the overlay's WebGL buffer is
+    // cleared once presented.
+    ctx.drawImage(sceneCapture(), 0, 0, target.width, target.height);
+  } catch (err) {
+    console.warn("[wavr] 3D overlay capture failed; exporting the gradient only", err);
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  // Revoking synchronously can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export interface PngExportOptions {
+  /** The live WebGL canvas; its size is the 1× export size. */
+  canvas: HTMLCanvasElement;
+  frameSource?: FrameSource | null;
+  sceneCapture?: SceneCaptureFn | null;
+  /** Resolution multiplier. Clamped to what the GPU can render. */
+  scale?: number;
+  filename?: string;
+}
+
+/** PNG size for a given scale, after clamping to the GPU's limit. */
+export function pngExportSize(
+  canvas: { width: number; height: number },
+  scale: number,
+  maxSize: number,
+): { width: number; height: number } {
+  return fitSize(canvas.width * scale, canvas.height * scale, maxSize);
+}
+
+export function exportPNG({
+  canvas,
+  frameSource,
+  sceneCapture,
+  scale = 1,
   filename = "wavr-gradient.png",
-  sceneCanvas?: HTMLCanvasElement | null,
-  frameSource?: FrameSource | null,
-) {
-  const gradientCanvas = (frameSource && snapshotFrame(frameSource)) ?? canvas;
-  getExportCanvas(gradientCanvas, sceneCanvas).toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, "image/png");
+}: PngExportOptions): Promise<void> {
+  const size = frameSource
+    ? pngExportSize(canvas, scale, frameSource.getMaxCaptureSize())
+    : { width: canvas.width, height: canvas.height };
+  const snapshot = frameSource ? snapshotFrame(frameSource, size) : null;
+
+  // Last resort: read the WebGL canvas directly (may be blank; see snapshotFrame).
+  const output = snapshot ?? document.createElement("canvas");
+  if (!snapshot) {
+    output.width = canvas.width;
+    output.height = canvas.height;
+    output.getContext("2d")?.drawImage(canvas, 0, 0);
+  }
+  drawSceneOverlay(output, sceneCapture);
+
+  return new Promise((resolve, reject) => {
+    output.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("PNG encoding failed"));
+        return;
+      }
+      downloadBlob(blob, filename);
+      resolve();
+    }, "image/png");
+  });
 }
 
 export function exportCSS(
@@ -730,187 +793,103 @@ customElements.define("wavr-gradient",WavrGradient);
 <!-- <wavr-gradient mode="scroll" style="width:100%;height:100vh;position:fixed;top:0;left:0;z-index:-1"></wavr-gradient> -->`;
 }
 
-export function exportGIF(
-  canvas: HTMLCanvasElement,
-  duration = 3000,
-  fps = 15,
-  onProgress?: (percent: number) => void,
-  sceneCanvas?: HTMLCanvasElement | null
-): Promise<void> {
-  return new Promise((resolve) => {
-    const totalFrames = Math.round((duration / 1000) * fps);
-    const delay = Math.round(1000 / fps);
-    const width = Math.min(canvas.width, 640);
-    const height = Math.round((width / canvas.width) * canvas.height);
-
-    // Create offscreen canvas for resizing
-    const offscreen = document.createElement("canvas");
-    offscreen.width = width;
-    offscreen.height = height;
-    const ctx = offscreen.getContext("2d")!;
-
-    // Capture frames
-    const frames: ImageData[] = [];
-    let framesCaptured = 0;
-
-    const captureInterval = setInterval(() => {
-      ctx.drawImage(canvas, 0, 0, width, height);
-      if (sceneCanvas) {
-        ctx.drawImage(sceneCanvas, 0, 0, width, height);
+/**
+ * Encode in a Web Worker so the editor stays responsive; falls back to the
+ * main thread where workers aren't available.
+ */
+export function encodeGifAsync(
+  input: GifWorkerRequest,
+  onProgress?: (fraction: number) => void,
+): Promise<Uint8Array> {
+  let worker: Worker;
+  try {
+    if (typeof Worker === "undefined") throw new Error("no Worker");
+    worker = new Worker(new URL("./gif.worker.ts", import.meta.url));
+  } catch {
+    return Promise.resolve(encodeGif({ ...input, onProgress }));
+  }
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (event: MessageEvent<GifWorkerResponse>) => {
+      const message = event.data;
+      if (message.type === "progress") {
+        onProgress?.(message.value);
+        return;
       }
-      frames.push(ctx.getImageData(0, 0, width, height));
-      framesCaptured++;
-      onProgress?.(framesCaptured / totalFrames * 0.5);
-
-      if (framesCaptured >= totalFrames) {
-        clearInterval(captureInterval);
-        encodeGIF(frames, width, height, delay, onProgress).then(resolve);
-      }
-    }, delay);
+      worker.terminate();
+      if (message.type === "done") resolve(message.bytes);
+      else reject(new Error(message.message));
+    };
+    worker.onerror = (event) => {
+      worker.terminate();
+      reject(new Error(event.message || "GIF encoder failed"));
+    };
+    worker.postMessage(input, input.frames.map((frame) => frame.buffer));
   });
 }
 
-// Simple GIF encoder (no external deps, LZW compression)
-function encodeGIF(
-  frames: ImageData[],
-  width: number,
-  height: number,
-  delay: number,
-  onProgress?: (percent: number) => void
-): Promise<void> {
-  return new Promise((resolve) => {
-    // Quantize to 256 colors per frame using median cut approximation
-    const gif: number[] = [];
-
-    // GIF89a header
-    gif.push(0x47, 0x49, 0x46, 0x38, 0x39, 0x61);
-    // Logical screen descriptor
-    gif.push(width & 0xFF, (width >> 8) & 0xFF);
-    gif.push(height & 0xFF, (height >> 8) & 0xFF);
-    gif.push(0x70, 0x00, 0x00); // no GCT, 128 colors
-
-    // Netscape extension for looping
-    gif.push(0x21, 0xFF, 0x0B);
-    const ns = "NETSCAPE2.0";
-    for (let i = 0; i < ns.length; i++) gif.push(ns.charCodeAt(i));
-    gif.push(0x03, 0x01, 0x00, 0x00, 0x00);
-
-    for (let f = 0; f < frames.length; f++) {
-      onProgress?.(0.5 + (f / frames.length) * 0.5);
-      const data = frames[f].data;
-
-      // Build color table (simple uniform quantization)
-      const palette: number[] = [];
-      for (let r = 0; r < 6; r++)
-        for (let g = 0; g < 7; g++)
-          for (let b = 0; b < 6; b++)
-            palette.push(Math.round(r * 51), Math.round(g * 42.5), Math.round(b * 51));
-      // Pad to 256
-      while (palette.length < 768) palette.push(0);
-
-      // Graphic control extension
-      gif.push(0x21, 0xF9, 0x04, 0x00);
-      const d = Math.round(delay / 10);
-      gif.push(d & 0xFF, (d >> 8) & 0xFF, 0x00, 0x00);
-
-      // Image descriptor with local color table
-      gif.push(0x2C);
-      gif.push(0, 0, 0, 0); // left, top
-      gif.push(width & 0xFF, (width >> 8) & 0xFF);
-      gif.push(height & 0xFF, (height >> 8) & 0xFF);
-      gif.push(0x87); // local color table, 256 entries
-
-      // Local color table
-      for (let i = 0; i < 768; i++) gif.push(palette[i]);
-
-      // Index pixels
-      const indices: number[] = [];
-      for (let i = 0; i < data.length; i += 4) {
-        const ri = Math.round(data[i] / 51);
-        const gi = Math.round(data[i + 1] / 42.5);
-        const bi = Math.round(data[i + 2] / 51);
-        indices.push(Math.min(ri * 42 + gi * 6 + bi, 255));
-      }
-
-      // LZW compress
-      const minCodeSize = 8;
-      gif.push(minCodeSize);
-      const lzw = lzwEncode(indices, minCodeSize);
-      // Write sub-blocks
-      let pos = 0;
-      while (pos < lzw.length) {
-        const chunk = Math.min(255, lzw.length - pos);
-        gif.push(chunk);
-        for (let i = 0; i < chunk; i++) gif.push(lzw[pos++]);
-      }
-      gif.push(0x00); // block terminator
-    }
-
-    gif.push(0x3B); // trailer
-
-    const blob = new Blob([new Uint8Array(gif)], { type: "image/gif" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "wavr-gradient.gif";
-    a.click();
-    URL.revokeObjectURL(url);
-    onProgress?.(1);
-    resolve();
-  });
+export interface GifExportOptions {
+  frameSource: FrameSource;
+  /** Engine state at `seconds` into the clip (timeline keyframes applied). */
+  stateAt: (seconds: number) => EngineState;
+  sceneCapture?: SceneCaptureFn | null;
+  durationMs?: number;
+  fps?: number;
+  maxWidth?: number;
+  onProgress?: (fraction: number) => void;
+  filename?: string;
 }
 
-function lzwEncode(indices: number[], minCodeSize: number): number[] {
-  const clearCode = 1 << minCodeSize;
-  const eoiCode = clearCode + 1;
-  let codeSize = minCodeSize + 1;
-  let nextCode = eoiCode + 1;
+/**
+ * Deterministic GIF export: each frame is rendered offscreen at its exact
+ * time, then everything is encoded in a worker. Capture is 0–50% of the
+ * progress, encoding 50–100%.
+ */
+export async function exportGIF({
+  frameSource,
+  stateAt,
+  sceneCapture,
+  durationMs = 3000,
+  fps = 12,
+  maxWidth = 640,
+  onProgress,
+  filename = "wavr-gradient.gif",
+}: GifExportOptions): Promise<void> {
+  const frameCount = Math.max(1, Math.round((durationMs / 1000) * fps));
+  const startTime = frameSource.getElapsedTime();
 
-  // Build initial dictionary
-  const dict = new Map<string, number>();
-  for (let i = 0; i < clearCode; i++) dict.set(String(i), i);
+  const scaled = document.createElement("canvas");
+  const ctx = scaled.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Canvas 2D is not available");
+  ctx.imageSmoothingQuality = "high";
 
-  const output: number[] = [];
-  let bits = 0;
-  let bitCount = 0;
+  const frames: Uint8ClampedArray[] = [];
+  for (let i = 0; i < frameCount; i++) {
+    const seconds = i / fps;
+    const frame = frameSource.captureImageData({ state: stateAt(seconds), time: startTime + seconds });
+    if (!frame) throw new Error("Could not capture a frame (WebGL context lost?)");
+    const full = imageDataToCanvas(frame);
+    if (!full) throw new Error("Canvas 2D is not available");
+    drawSceneOverlay(full, sceneCapture);
 
-  function writeBits(code: number, size: number) {
-    bits |= code << bitCount;
-    bitCount += size;
-    while (bitCount >= 8) {
-      output.push(bits & 0xFF);
-      bits >>= 8;
-      bitCount -= 8;
+    if (i === 0) {
+      scaled.width = Math.min(frame.width, maxWidth);
+      scaled.height = Math.max(1, Math.round((scaled.width / frame.width) * frame.height));
     }
+    ctx.clearRect(0, 0, scaled.width, scaled.height);
+    ctx.drawImage(full, 0, 0, scaled.width, scaled.height);
+    frames.push(ctx.getImageData(0, 0, scaled.width, scaled.height).data);
+
+    onProgress?.(((i + 1) / frameCount) * 0.5);
+    // Let the progress UI (and the live preview) update between frames.
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
-  writeBits(clearCode, codeSize);
-  let current = String(indices[0]);
-
-  for (let i = 1; i < indices.length; i++) {
-    const next = current + "," + indices[i];
-    if (dict.has(next)) {
-      current = next;
-    } else {
-      writeBits(dict.get(current)!, codeSize);
-      if (nextCode < 4096) {
-        dict.set(next, nextCode++);
-        if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
-      } else {
-        writeBits(clearCode, codeSize);
-        dict.clear();
-        for (let j = 0; j < clearCode; j++) dict.set(String(j), j);
-        nextCode = eoiCode + 1;
-        codeSize = minCodeSize + 1;
-      }
-      current = String(indices[i]);
-    }
-  }
-  writeBits(dict.get(current)!, codeSize);
-  writeBits(eoiCode, codeSize);
-  if (bitCount > 0) output.push(bits & 0xFF);
-
-  return output;
+  const bytes = await encodeGifAsync(
+    { width: scaled.width, height: scaled.height, frames, delayCs: 100 / fps },
+    (fraction) => onProgress?.(0.5 + fraction * 0.5),
+  );
+  downloadBlob(new Blob([bytes as BlobPart], { type: "image/gif" }), filename);
+  onProgress?.(1);
 }
 
 export function exportWebM(

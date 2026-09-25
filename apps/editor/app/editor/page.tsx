@@ -17,6 +17,7 @@ import { useGradientStore } from "@/lib/store";
 import { applyHashToStore, initializeUrlSync } from "@/lib/url-sync";
 import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
+import type { SceneCapture } from "@/components/Scene3DCanvas";
 
 const Scene3DCanvas = dynamic(() => import("@/components/Scene3DCanvas"), {
   ssr: false,
@@ -32,6 +33,15 @@ export default function EditorPage() {
   const [activeTab, setActiveTab] = useState<SidebarTab>("gradient");
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const sceneCanvasElRef = useRef<HTMLCanvasElement | null>(null);
+  const sceneCaptureRef = useRef<SceneCapture | null>(null);
+  // Stable callbacks: Scene3DCanvas clears these refs whenever the callback
+  // identity changes, so inline arrows would null them on every re-render.
+  const handleSceneCanvasReady = useCallback((el: HTMLCanvasElement | null) => {
+    sceneCanvasElRef.current = el;
+  }, []);
+  const handleSceneCaptureReady = useCallback((capture: SceneCapture | null) => {
+    sceneCaptureRef.current = capture;
+  }, []);
   const engineRef = useRef<GradientEngine | null>(null);
   const scene3DEnabled = useGradientStore((state) => state.scene3DEnabled);
 
@@ -142,7 +152,7 @@ export default function EditorPage() {
               onEngineReady={(eng) => { engineRef.current = eng; }}
             />
             {scene3DEnabled && (
-              <Scene3DCanvas onCanvasReady={(el) => { sceneCanvasElRef.current = el; }} />
+              <Scene3DCanvas onCanvasReady={handleSceneCanvasReady} onCaptureReady={handleSceneCaptureReady} />
             )}
           </div>
           <Timeline />
@@ -154,6 +164,7 @@ export default function EditorPage() {
         onClose={() => setExportOpen(false)}
         canvasRef={canvasElRef}
         sceneCanvasRef={sceneCanvasElRef}
+        sceneCaptureRef={sceneCaptureRef}
         engineRef={engineRef}
       />
       <ShortcutsModal

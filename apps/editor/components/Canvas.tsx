@@ -7,7 +7,8 @@ import {
   GradientState,
   getEditorPerformanceSettings,
 } from "@/lib/store";
-import { interpolateKeyframes, normalizeTimelineTime, type Keyframe, type PlaybackMode } from "@/lib/timeline";
+import { normalizeTimelineTime, type PlaybackMode } from "@/lib/timeline";
+import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
 import Toast from "@/components/ui/Toast";
 
@@ -261,13 +262,6 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     let lastTimelineCursorSync = 0;
     const getFrameState = () => {
       const state = useGradientStore.getState();
-      const withPerformanceMode = (nextState: GradientState): GradientState => {
-        const settings = getEditorPerformanceSettings(nextState.performanceMode);
-        if (settings.realBloom === "off" && nextState.realBloomEnabled) {
-          return { ...nextState, realBloomEnabled: false };
-        }
-        return nextState;
-      };
 
       // Advance timeline position and apply interpolated params
       if (state.timelineEnabled && state.playing && state.keyframes.length > 0) {
@@ -292,15 +286,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
           lastTimelineCursorSync = now;
         }
 
-        const interpolated = interpolateKeyframes(
-          state.keyframes as Keyframe[],
-          timelineSampleTime,
-          state.timelineDuration,
-          state.timelinePlaybackMode as PlaybackMode,
-        );
-        if (interpolated) {
-          return withPerformanceMode({ ...state, ...interpolated });
-        }
+        const withTimeline = applyTimeline(state, timelineSampleTime);
+        if (withTimeline !== state) return withPerformanceMode(withTimeline);
       } else {
         lastTimelineUpdate = performance.now();
         timelineSampleTime = state.timelinePosition;
