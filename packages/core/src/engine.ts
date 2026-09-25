@@ -143,6 +143,21 @@ const MASK_BLEND_MODE_MAP: Record<MaskBlendMode, number> = {
   smoothUnion: 3,
 };
 
+/**
+ * Effects that sample neighbouring pixels. With any of them on, render() takes
+ * the composite + post pass path so the taps are texture fetches of the
+ * composited scene rather than full gradient re-evaluations.
+ */
+function usesNeighborSampling(state: EngineState): boolean {
+  return (
+    state.bloomEnabled ||
+    state.glowEnabled ||
+    (state.blurEnabled && state.blurAmount > 0) ||
+    state.chromaticAberration > 0.001 ||
+    state.pixelSortEnabled
+  );
+}
+
 function getWebGL2Context(
   canvas: HTMLCanvasElement,
   options: GradientEngineOptions,
@@ -410,7 +425,7 @@ export class GradientEngine {
       "u_mouseSmooth", "u_mouseVelocity", "u_colorBlend",
       "u_chromaticAberration", "u_hueShift",
       "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
-      "u_layerOpacity", "u_isBaseLayer",
+      "u_layerOpacity", "u_isBaseLayer", "u_postPass", "u_sceneTexture",
       "u_curlEnabled", "u_curlIntensity", "u_curlScale",
       "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
       "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
@@ -1395,6 +1410,23 @@ void main() {
     }
   }
 
+  /** Global effects applied to the composited image; see render(). */
+  private setPostPassUniforms(sceneTexture: WebGLTexture) {
+    const gl = this.gl;
+    gl.activeTexture(gl.TEXTURE6);
+    gl.bindTexture(gl.TEXTURE_2D, sceneTexture);
+    this.seti("u_sceneTexture", 6);
+    this.seti("u_postPass", 1);
+    this.seti("u_compositeEnabled", 0);
+    // Per-layer inputs were already applied when compositing the layers.
+    this.setf("u_hasImage", 0.0);
+    this.setf("u_hasDistortionMap", 0.0);
+    this.seti("u_maskEnabled", 0);
+    this.setf("u_textMaskEnabled", 0.0);
+    this.setf("u_layerOpacity", 1.0);
+    this.seti("u_meshEnabled", 0);
+  }
+
   render(state: EngineState, output: WebGLFramebuffer | null = null) {
     const gl = this.gl;
     this.lastState = state;
@@ -1429,8 +1461,8 @@ void main() {
       gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
-    } else if (visibleLayers.length === 1) {
-      // Single layer: render directly (no compositing overhead)
+    } else if (visibleLayers.length === 1 && !usesNeighborSampling(state)) {
+      // Single layer: gradient and global effects in one pass
       gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
       gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       gl.disable(gl.BLEND);
@@ -1438,60 +1470,63 @@ void main() {
       this.setGlobalUniforms(state, true);
       this.setLayerUniforms(layer);
       this.seti("u_compositeEnabled", 0);
+      this.seti("u_postPass", 0);
       this.drawGeometry(state.meshDistortionEnabled);
     } else {
-      // Multi-layer: shader-based compositing via FBO ping-pong
+      // Composite the layers (FBO ping-pong, no global effects), then apply
+      // global effects once to the composited image in a post pass. Effects
+      // that sample neighbouring pixels read that image instead of
+      // re-evaluating the gradient per tap, and see every layer.
       this.ensureCompositeFBOs();
 
-      let compIdx = 0;
+      let writeIdx = 0;
       for (let i = 0; i < visibleLayers.length; i++) {
         const layer = visibleLayers[i];
-        const isFirst = i === 0;
-        const isLast = i === visibleLayers.length - 1;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.compositeFBOs![writeIdx]);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.disable(gl.BLEND);
+        // Pixels a layer discards (3D projection) must not keep last frame's contents.
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
 
-        if (isFirst) {
-          // First layer: render to composite FBO, no blending
-          gl.bindFramebuffer(gl.FRAMEBUFFER, this.compositeFBOs![compIdx]);
-          gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-          gl.disable(gl.BLEND);
+        // Never leave the texture being rendered to bound to a sampler unit:
+        // WebGL rejects that draw as a feedback loop.
+        gl.activeTexture(gl.TEXTURE6);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.activeTexture(gl.TEXTURE5);
+        if (i === 0) {
+          gl.bindTexture(gl.TEXTURE_2D, null);
           this.seti("u_compositeEnabled", 0);
         } else {
-          // Subsequent layers: read previous composite, apply blend mode
-          const readIdx = 1 - compIdx;
-          gl.activeTexture(gl.TEXTURE5);
-          gl.bindTexture(gl.TEXTURE_2D, this.compositeTextures![readIdx]);
+          gl.bindTexture(gl.TEXTURE_2D, this.compositeTextures![1 - writeIdx]);
           this.seti("u_compositePrev", 5);
           this.seti("u_compositeEnabled", 1);
           this.seti("u_blendMode", GradientEngine.BLEND_MODE_MAP[layer.blendMode]);
-
-          if (isLast) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
-          } else {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.compositeFBOs![compIdx]);
-          }
-          gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-          gl.disable(gl.BLEND);
         }
 
-        // Apply global effects only on the last layer
-        this.setGlobalUniforms(state, isLast);
+        this.setGlobalUniforms(state, false);
+        this.seti("u_toneMapMode", 0); // tone map once, in the post pass
+        this.seti("u_postPass", 0);
         this.setLayerUniforms(layer);
         this.drawGeometry(state.meshDistortionEnabled);
 
-        if (!isLast) {
-          compIdx = 1 - compIdx;
-        }
+        writeIdx = 1 - writeIdx;
       }
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      gl.disable(gl.BLEND);
+      this.setGlobalUniforms(state, true);
+      this.setPostPassUniforms(this.compositeTextures![1 - writeIdx]);
+      this.drawGeometry(false);
+
+      gl.activeTexture(gl.TEXTURE6);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      this.seti("u_postPass", 0);
     }
 
     // Restore quad VAO as default
     this.gl.bindVertexArray(this.quadVAO);
-
-    // Real bloom pass (extract + blur + composite)
-    if (!feedbackActive) {
-      // Only run when not using feedback FBOs (they use different framebuffer flow)
-      this.renderBloomPass(state, output);
-    }
 
     if (this.shouldCleanupTextures(state.layers, performance.now())) {
       this.cleanupTextures(state.layers);
@@ -1509,6 +1544,10 @@ void main() {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       this.feedbackIndex = 1 - this.feedbackIndex;
     }
+
+    // Cinematic bloom on the final image. Runs after the feedback blit so the
+    // two effects can be combined (bloom used to be skipped under feedback).
+    this.renderBloomPass(state, output);
   }
 
   startLoop(getState: () => EngineState, onFrame?: (fps: number) => void) {

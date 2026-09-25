@@ -43,6 +43,11 @@ uniform float u_ditherSize;
 uniform float u_layerOpacity;
 uniform bool u_isBaseLayer;
 
+// Post pass: the layers have already been composited into u_sceneTexture and
+// this draw applies the global effects to that image.
+uniform bool u_postPass;
+uniform sampler2D u_sceneTexture;
+
 // Advanced effects
 uniform bool u_curlEnabled;
 uniform float u_curlIntensity;
@@ -1440,6 +1445,15 @@ vec3 computeGradient(vec2 uv, float time) {
   else return imageGradient(uv, time);
 }
 
+// Colour at another point, for effects that need neighbouring pixels (bloom,
+// glow, blur, chromatic aberration, pixel sort). In the post pass this is one
+// texture fetch of the composited scene; otherwise it re-evaluates the
+// gradient. textureLod: some callers sit in non-uniform control flow.
+vec3 sampleScene(vec2 uv, float time) {
+  if (u_postPass) return textureLod(u_sceneTexture, uv, 0.0).rgb;
+  return computeGradient(uv, time);
+}
+
 // ============================================================
 // Main
 // ============================================================
@@ -1449,7 +1463,7 @@ void main() {
   float time = u_time * u_speed;
 
   // Parallax depth offset (applied first — shifts entire layer)
-  if (u_parallaxEnabled) {
+  if (u_parallaxEnabled && !u_postPass) {
     vec2 offset = u_mouseSmooth * u_layerDepth * u_parallaxStrength * 0.05;
     offset.x *= u_resolution.y / u_resolution.x; // aspect ratio correction
     uv = fract(uv + offset); // wrap for seamless edges
@@ -1489,7 +1503,9 @@ void main() {
 
   // Base gradient (with optional radial zoom blur)
   vec3 color;
-  if (u_radialBlurAmount > 0.001) {
+  if (u_postPass) {
+    color = textureLod(u_sceneTexture, uv, 0.0).rgb;
+  } else if (u_radialBlurAmount > 0.001) {
     vec2 center = vec2(0.5);
     vec2 dir = uv - center;
     float strength = u_radialBlurAmount * 0.02;
@@ -1568,9 +1584,9 @@ void main() {
     vec2 dir = uv - center;
     float edgeDist = length(dir); // stronger toward edges like a real lens
     float caOffset = u_chromaticAberration * 0.012 * (0.5 + edgeDist);
-    vec3 cR = computeGradient(uv + dir * caOffset, time);
-    vec3 cG = computeGradient(uv + dir * caOffset * 0.5, time);
-    vec3 cB = computeGradient(uv - dir * caOffset, time);
+    vec3 cR = sampleScene(uv + dir * caOffset, time);
+    vec3 cG = sampleScene(uv + dir * caOffset * 0.5, time);
+    vec3 cB = sampleScene(uv - dir * caOffset, time);
     color = vec3(cR.r, cG.g, cB.b);
   }
 
@@ -1598,7 +1614,7 @@ void main() {
       vec2 dir = vec2(cos(angle), sin(angle));
       for (int r = 0; r < 4; r++) {
         vec2 offset = dir * radii[r] * u_bloomIntensity;
-        vec3 s = computeGradient(uv + offset, time);
+        vec3 s = sampleScene(uv + offset, time);
         float lum = dot(s, vec3(0.2126, 0.7152, 0.0722));
         // Soft knee threshold — gradual onset instead of hard cutoff
         float knee = smoothstep(0.35, 0.75, lum);
@@ -1623,7 +1639,7 @@ void main() {
       float angle = float(i) * 2.399; // golden angle spiral
       float r = sqrt(float(i + 1) / 17.0) * u_glowRadius;
       vec2 offset = vec2(cos(angle), sin(angle)) * r;
-      vec3 s = computeGradient(uv + offset, time);
+      vec3 s = sampleScene(uv + offset, time);
       // Weight by luminance — only bright areas glow
       float lum = dot(s, vec3(0.2126, 0.7152, 0.0722));
       float w = lum * (1.0 - r / u_glowRadius);
@@ -1674,14 +1690,14 @@ void main() {
     float px = u_blurAmount / u_resolution.x;
     float py = u_blurAmount / u_resolution.y;
     vec3 sum = color * 4.0;
-    sum += computeGradient(uv + vec2(px, 0.0), time) * 2.0;
-    sum += computeGradient(uv - vec2(px, 0.0), time) * 2.0;
-    sum += computeGradient(uv + vec2(0.0, py), time) * 2.0;
-    sum += computeGradient(uv - vec2(0.0, py), time) * 2.0;
-    sum += computeGradient(uv + vec2(px, py), time);
-    sum += computeGradient(uv - vec2(px, py), time);
-    sum += computeGradient(uv + vec2(px, -py), time);
-    sum += computeGradient(uv - vec2(px, -py), time);
+    sum += sampleScene(uv + vec2(px, 0.0), time) * 2.0;
+    sum += sampleScene(uv - vec2(px, 0.0), time) * 2.0;
+    sum += sampleScene(uv + vec2(0.0, py), time) * 2.0;
+    sum += sampleScene(uv - vec2(0.0, py), time) * 2.0;
+    sum += sampleScene(uv + vec2(px, py), time);
+    sum += sampleScene(uv - vec2(px, py), time);
+    sum += sampleScene(uv + vec2(px, -py), time);
+    sum += sampleScene(uv - vec2(px, -py), time);
     color = sum / 16.0;
   }
 
@@ -1732,7 +1748,7 @@ void main() {
       // Re-sample gradient at displaced position
       vec2 sortedUV = uv + vec2(offset, 0.0);
       sortedUV.x = clamp(sortedUV.x, 0.0, 1.0);
-      vec3 sortedColor = computeGradient(sortedUV, time);
+      vec3 sortedColor = sampleScene(sortedUV, time);
       // Apply tone mapping to the re-sampled color too
       sortedColor = sortedColor / (sortedColor + 1.0);
       color = mix(color, sortedColor, sortAmount * u_pixelSortIntensity);
@@ -1792,7 +1808,8 @@ void main() {
   }
 
   // 3D Shape Projection (raymarching)
-  if (u_3dEnabled) {
+  // Already applied per layer when this is the post pass.
+  if (u_3dEnabled && !u_postPass) {
     vec4 projected = raymarched3D(v_uv);
     if (projected.a > 0.0) {
       // projected.xy = surface UV, projected.z = shade factor
@@ -1813,6 +1830,9 @@ void main() {
 
   vec3 layerColor = clamp(color, 0.0, 1.0);
   float layerAlpha = u_layerOpacity * mask;
+  if (u_postPass) {
+    layerAlpha *= textureLod(u_sceneTexture, v_uv, 0.0).a;
+  }
 
   // Spec 0004: Deband — add ±0.5 LSB of noise per channel to smooth 8-bit banding.
   // Interleaved Gradient Noise (Jiménez) spreads error across high frequencies,
