@@ -1,5 +1,9 @@
 @import "tailwindcss";
-@import "../src/lib/css/liftkitvars.css";
+
+/* Pin the rem base (previously set by the removed LiftKit stylesheet). */
+:root {
+  font-size: 16px;
+}
 
 @theme {
   --color-root: var(--color-root-val);
