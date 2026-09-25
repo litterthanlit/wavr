@@ -99,3 +99,17 @@ export function mat4Multiply(a: Float32Array, b: Float32Array): Float32Array {
   }
   return out;
 }
+
+/**
+ * gl.readPixels returns rows bottom-up; image formats expect top-down.
+ * Returns a new top-down copy of `pixels` (RGBA, 4 bytes per pixel).
+ */
+export function flipRowsRGBA(pixels: Uint8Array, width: number, height: number): Uint8ClampedArray<ArrayBuffer> {
+  const rowBytes = width * 4;
+  const out = new Uint8ClampedArray(new ArrayBuffer(rowBytes * height));
+  for (let y = 0; y < height; y++) {
+    const src = (height - 1 - y) * rowBytes;
+    out.set(pixels.subarray(src, src + rowBytes), y * rowBytes);
+  }
+  return out;
+}

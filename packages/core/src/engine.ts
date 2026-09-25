@@ -18,7 +18,7 @@ const fragmentSource = _fragmentSource.replace(
   'precision highp float;',
   'precision highp float;\n\n' + hslSource + '\n' + blendModesSource
 );
-import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply } from "./math";
+import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply, flipRowsRGBA } from "./math";
 
 export interface EngineState {
   layers: LayerParams[];
@@ -1397,6 +1397,7 @@ void main() {
 
   render(state: EngineState, output: WebGLFramebuffer | null = null) {
     const gl = this.gl;
+    this.lastState = state;
     if (this.program) gl.useProgram(this.program);
 
     // Trail pass (before main render — writes to separate FBO)
@@ -1602,6 +1603,7 @@ void main() {
     return this.gl.canvas as HTMLCanvasElement;
   }
 
+  private lastState: EngineState | null = null;
   private captureFBO: WebGLFramebuffer | null = null;
   private captureTex: WebGLTexture | null = null;
   private captureWidth = 0;
@@ -1665,6 +1667,22 @@ void main() {
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return pixels;
+  }
+
+  /**
+   * Re-render the most recently drawn state offscreen and return it as
+   * top-down ImageData. Use this instead of reading the canvas: with
+   * preserveDrawingBuffer off, the backbuffer is cleared once a frame is
+   * presented, so toBlob()/drawImage() outside the render callback can
+   * return a blank image. Returns null before the first frame or while the
+   * context is lost.
+   */
+  captureImageData(): ImageData | null {
+    if (!this.lastState || this.gl.isContextLost()) return null;
+    const pixels = this.capturePixels(this.lastState);
+    const width = Math.max(1, this.gl.canvas.width);
+    const height = Math.max(1, this.gl.canvas.height);
+    return new ImageData(flipRowsRGBA(pixels, width, height), width, height);
   }
 
   destroy() {

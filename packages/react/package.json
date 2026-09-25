@@ -30,7 +30,8 @@
   "files": ["dist", "README.md"],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "lint": "tsc --noEmit"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

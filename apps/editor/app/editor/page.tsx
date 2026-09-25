@@ -154,6 +154,7 @@ export default function EditorPage() {
         onClose={() => setExportOpen(false)}
         canvasRef={canvasElRef}
         sceneCanvasRef={sceneCanvasElRef}
+        engineRef={engineRef}
       />
       <ShortcutsModal
         open={shortcutsOpen}
