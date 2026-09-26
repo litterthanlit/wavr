@@ -98,7 +98,8 @@ export interface GradientEngineOptions {
 
 type UniformMap = Record<string, WebGLUniformLocation>;
 
-const GRADIENT_TYPE_MAP: Record<LayerParams["gradientType"], number> = {
+/** Shader id for each gradient type (`u_gradientType`). */
+export const GRADIENT_TYPE_IDS: Readonly<Record<LayerParams["gradientType"], number>> = {
   mesh: 0,
   radial: 1,
   linear: 2,
@@ -1264,7 +1265,7 @@ void main() {
 
   private setLayerUniforms(layer: LayerParams) {
     const gl = this.gl;
-    this.seti("u_gradientType", GRADIENT_TYPE_MAP[layer.gradientType] ?? 0);
+    this.seti("u_gradientType", GRADIENT_TYPE_IDS[layer.gradientType] ?? 0);
     this.setf("u_speed", layer.speed);
     this.setf("u_complexity", layer.complexity);
     this.setf("u_scale", layer.scale);

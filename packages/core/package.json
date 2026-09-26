@@ -9,6 +9,9 @@
     "./presets": "./src/presets/index.ts",
     "./presets/all": "./src/presets/all.ts"
   },
+  "dependencies": {
+    "@wavr/schema": "workspace:*"
+  },
   "scripts": {
     "lint": "tsc --noEmit"
   },

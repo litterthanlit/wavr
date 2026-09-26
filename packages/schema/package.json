@@ -14,7 +14,8 @@
     "./effects": "./src/effects/index.ts",
     "./effect-registry": "./src/effect-registry.ts",
     "./scene-document": "./src/scene-document.ts",
-    "./render-plan": "./src/render-plan.ts"
+    "./render-plan": "./src/render-plan.ts",
+    "./enums": "./src/enums.ts"
   },
   "files": ["dist", "src", "README.md"],
   "sideEffects": false,

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { d } from "./descriptions.gen";
+import { BLEND_MODES, GRADIENT_TYPES } from "./enums";
 
 // Convention: primitives never carry defaults. Defaults are applied at the
 // use site (e.g. LayerConfig.blendMode defaults to "normal", Shape3DEffect.shape
@@ -19,28 +20,10 @@ export type RGBColor = z.infer<typeof RGBColor>;
 export const ColorSpace = d("ColorSpace", z.enum(["linear", "oklab"]));
 export type ColorSpace = z.infer<typeof ColorSpace>;
 
-export const GradientType = d(
-  "GradientType",
-  z.enum([
-    "mesh", "radial", "linear", "conic", "plasma",
-    "dither", "scanline", "glitch", "voronoi", "image",
-    "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
-  ])
-);
+export const GradientType = d("GradientType", z.enum(GRADIENT_TYPES));
 export type GradientType = z.infer<typeof GradientType>;
 
-// 26-value Photoshop set — source of truth: packages/core/src/layers.ts
-export const BlendMode = d(
-  "BlendMode",
-  z.enum([
-    "normal",
-    "darken", "multiply", "colorBurn", "linearBurn", "darkerColor",
-    "lighten", "screen", "colorDodge", "add", "lighterColor",
-    "overlay", "softLight", "hardLight", "vividLight", "linearLight", "pinLight", "hardMix",
-    "difference", "exclusion", "subtract", "divide",
-    "hue", "saturation", "color", "luminosity",
-  ])
-);
+export const BlendMode = d("BlendMode", z.enum(BLEND_MODES));
 export type BlendMode = z.infer<typeof BlendMode>;
 
 export const Shape3DKind = d(

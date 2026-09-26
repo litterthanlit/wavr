@@ -1,23 +1,8 @@
+import { GRADIENT_TYPES as ALL_GRADIENT_TYPES } from "@wavr/schema/enums";
 import type { GradientConfig, GradientType, LayerConfig, RGBColor } from "@wavr/core";
 
-export const GRADIENT_TYPES: GradientType[] = [
-  "mesh",
-  "radial",
-  "linear",
-  "conic",
-  "plasma",
-  "dither",
-  "scanline",
-  "glitch",
-  "voronoi",
-  "silk",
-  "aurora",
-  "liquid",
-  "softCells",
-  "grainflow",
-  "prismGlass",
-  "neonTunnel",
-];
+// Every type except "image", which needs an uploaded image.
+export const GRADIENT_TYPES: GradientType[] = ALL_GRADIENT_TYPES.filter((type) => type !== "image");
 
 export function cloneConfig(config: GradientConfig): GradientConfig {
   return structuredClone(config);
