@@ -10,6 +10,7 @@ import {
 import { normalizeTimelineTime, type PlaybackMode } from "@/lib/timeline";
 import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
+import { StartupWatch } from "@/lib/startup-guard";
 import Toast from "@/components/ui/Toast";
 
 // Shared audio analyzer instance (persists across re-renders)
@@ -52,12 +53,36 @@ function applyAudioBands(state: GradientState, bands: AudioBands): Partial<Gradi
   return mods;
 }
 
+/**
+ * Safe mode renders at half resolution on a low-power GPU, capped at 30fps
+ * (battery mode) and paused, so a scene that hangs the GPU at full size can
+ * still be opened and fixed.
+ */
+const SAFE_MODE_RENDER_SCALE = 0.5;
+
 interface CanvasProps {
   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
   onEngineReady?: (engine: GradientEngine) => void;
+  safeMode?: boolean;
+  /** The render loop ran through its startup probation without stalling. */
+  onStartupHealthy?: () => void;
+  /** Frames stalled during startup, or the GPU context was lost repeatedly. */
+  onStartupStall?: (reason: "stalled" | "context-lost") => void;
 }
 
-export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
+export default function Canvas({
+  onCanvasReady,
+  onEngineReady,
+  safeMode = false,
+  onStartupHealthy,
+  onStartupStall,
+}: CanvasProps) {
+  // Callbacks are read through a ref so a parent re-render never tears down
+  // and rebuilds the engine (a full uber-shader recompile).
+  const callbacksRef = useRef({ onCanvasReady, onEngineReady, onStartupHealthy, onStartupStall });
+  useEffect(() => {
+    callbacksRef.current = { onCanvasReady, onEngineReady, onStartupHealthy, onStartupStall };
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GradientEngine | null>(null);
   const [fps, setFps] = useState(0);
@@ -182,7 +207,10 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     let engine: GradientEngine;
     try {
-      engine = new GradientEngine(canvas, { preserveDrawingBuffer: false });
+      engine = new GradientEngine(canvas, {
+        preserveDrawingBuffer: false,
+        ...(safeMode ? { powerPreference: "low-power" as const } : {}),
+      });
     } catch (e) {
       initErrorRef.current = e instanceof Error ? e.message : "Failed to initialize WebGL";
       // Defer state update to avoid sync setState in effect
@@ -190,23 +218,27 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       return;
     }
     engineRef.current = engine;
-    const applyPerformanceMode = () => {
-      const settings = getEditorPerformanceSettings(useGradientStore.getState().performanceMode);
-      engine.setMaxPixelRatio(settings.maxPixelRatio);
-      engine.setMaxFrameRate(settings.maxFrameRate);
-    };
-    applyPerformanceMode();
-    onCanvasReady?.(canvas);
-    onEngineReady?.(engine);
-
+    const renderScale = safeMode ? SAFE_MODE_RENDER_SCALE : 1;
     const resize = () => {
       const parent = canvas.parentElement;
       if (!parent) return;
-      engine.resize(parent.clientWidth, parent.clientHeight);
+      engine.resize(parent.clientWidth * renderScale, parent.clientHeight * renderScale);
       canvas.style.width = parent.clientWidth + "px";
       canvas.style.height = parent.clientHeight + "px";
       syncTextMaskTexture();
     };
+    const applyPerformanceMode = () => {
+      const settings = getEditorPerformanceSettings(
+        safeMode ? "battery" : useGradientStore.getState().performanceMode,
+      );
+      engine.setMaxPixelRatio(settings.maxPixelRatio);
+      engine.setMaxFrameRate(settings.maxFrameRate);
+      // setMaxPixelRatio resizes to the CSS size; reapply the safe-mode scale.
+      if (safeMode) resize();
+    };
+    applyPerformanceMode();
+    callbacksRef.current.onCanvasReady?.(canvas);
+    callbacksRef.current.onEngineReady?.(engine);
 
     resize();
 
@@ -215,13 +247,36 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       resizeObserver.observe(canvas.parentElement);
     }
 
+    // Startup watchdog: see lib/startup-guard.ts.
+    const watch = new StartupWatch();
+    let startupSettled = false;
+    let contextLossCount = 0;
+    // Set on a stall: the recovery screen takes over, so nothing may restart
+    // the loop behind it.
+    let halted = false;
+    const stall = (reason: "stalled" | "context-lost") => {
+      startupSettled = true;
+      halted = true;
+      engine.stopLoop();
+      callbacksRef.current.onStartupStall?.(reason);
+    };
+
     const handleContextLost = (e: Event) => {
+      engine.stopLoop();
+      contextLossCount++;
+      // A loss before the first healthy start, or a second one, usually means
+      // the GPU hung and was reset. Restoring would re-run the same work and
+      // hang it again, so hand over to the recovery screen instead.
+      if (!startupSettled || contextLossCount > 1) {
+        stall("context-lost");
+        return;
+      }
       e.preventDefault();
       setContextLost(true);
-      engine.stopLoop();
     };
 
     const handleContextRestored = () => {
+      if (halted) return;
       try {
         engine.initProgram();
         resize();
@@ -261,6 +316,16 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     let lastSyncedTimelinePosition = timelineSampleTime;
     let lastTimelineCursorSync = 0;
     const getFrameState = () => {
+      if (!startupSettled) {
+        const verdict = watch.frame(performance.now());
+        if (verdict === "healthy") {
+          startupSettled = true;
+          callbacksRef.current.onStartupHealthy?.();
+        } else if (verdict === "stalled") {
+          stall("stalled");
+        }
+      }
+
       const state = useGradientStore.getState();
 
       // Advance timeline position and apply interpolated params
@@ -315,8 +380,10 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         engine.stopLoop();
+        watch.pause();
         return;
       }
+      if (halted) return;
       startEngineLoop();
     };
 
@@ -346,7 +413,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       unsubscribePerformance();
       engine.destroy();
     };
-  }, [handleMouseMove, handleClick, onCanvasReady, onEngineReady, syncTextMaskTexture]);
+  }, [handleMouseMove, handleClick, safeMode, syncTextMaskTexture]);
 
   // Reduced motion: pause by default
   useEffect(() => {

@@ -58,6 +58,7 @@ Per-layer params (type, colors, speed, masks, images, …) live on each layer. G
   - `set()` for continuous updates (sliders), `setDiscrete()` for one-shot changes (toggles, selects), `commitSet()` on pointer-up to close an undo step.
   - `lib/url-sync.ts` mirrors the schema-owned slice into the URL hash.
 - **Sidebar:** 5 tabs (Gradient, Scene, Effects, Presets, Code), switched with keys 1–5.
+- **Startup crash guard:** `lib/startup-guard.ts` + `lib/use-startup-guard.ts`. Before the engine is created, a "starting" record is written to IndexedDB with strict durability; it's marked healthy after ~5 s of smooth frames. A start that never got there (machine froze, tab killed), a frame stall, or a context loss during startup opens `StartupRecovery` instead of WebGL, offering safe mode (half resolution, low-power GPU, paused, no 3D overlay). `/editor?safe` forces that screen. Canvas callbacks are held in refs: never make the engine effect depend on parent props, or every parent re-render recompiles the uber shader.
 - **Frame state:** `lib/frame-state.ts` (`applyTimeline`, `withPerformanceMode`) builds the per-frame state. It's shared by `Canvas.tsx` and export, so exports match the live view.
 - **Export:**
   - `lib/export.ts` handles PNG (1×/2×/4×) and GIF, both rendered offscreen at exact times.

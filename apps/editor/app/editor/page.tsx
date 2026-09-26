@@ -13,8 +13,11 @@ import ProjectsModal from "@/components/ProjectsModal";
 import SceneGalleryModal from "@/components/SceneGalleryModal";
 import Onboarding from "@/components/Onboarding";
 import CommandPalette from "@/components/CommandPalette";
+import StartupRecovery from "@/components/StartupRecovery";
 import { useGradientStore } from "@/lib/store";
 import { applyHashToStore, initializeUrlSync } from "@/lib/url-sync";
+import { FORCE_RECOVERY_PARAM, type StartupMode } from "@/lib/startup-guard";
+import { useStartupGuard } from "@/lib/use-startup-guard";
 import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
 import type { SceneCapture } from "@/components/Scene3DCanvas";
@@ -44,6 +47,29 @@ export default function EditorPage() {
   }, []);
   const engineRef = useRef<GradientEngine | null>(null);
   const scene3DEnabled = useGradientStore((state) => state.scene3DEnabled);
+  const { phase, start, reportHealthy, reportStall } = useStartupGuard();
+  const running = phase.kind === "running";
+  const safeMode = phase.kind === "running" && phase.mode === "safe";
+  const handleCanvasReady = useCallback((el: HTMLCanvasElement) => {
+    canvasElRef.current = el;
+  }, []);
+  const handleEngineReady = useCallback((eng: GradientEngine) => {
+    engineRef.current = eng;
+  }, []);
+
+  const startFromRecovery = useCallback(
+    (mode: StartupMode, resetScene = false) => {
+      // Drop ?safe so the next reload doesn't land on the recovery screen again.
+      const url = new URL(window.location.href);
+      url.searchParams.delete(FORCE_RECOVERY_PARAM);
+      if (resetScene) url.hash = "";
+      window.history.replaceState(window.history.state, "", url);
+      if (resetScene) applyHashToStore();
+      if (mode === "safe") useGradientStore.getState().set({ playing: false });
+      void start(mode);
+    },
+    [start],
+  );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -129,6 +155,11 @@ export default function EditorPage() {
     return dispose;
   }, []);
 
+  // The engine is destroyed whenever the canvas unmounts (recovery screen).
+  useEffect(() => {
+    if (!running) engineRef.current = null;
+  }, [running]);
+
   useEffect(() => {
     if (!scene3DEnabled) {
       sceneCanvasElRef.current = null;
@@ -147,11 +178,37 @@ export default function EditorPage() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="relative flex flex-1 min-h-0 overflow-hidden">
-            <Canvas
-              onCanvasReady={(el) => { canvasElRef.current = el; }}
-              onEngineReady={(eng) => { engineRef.current = eng; }}
-            />
-            {scene3DEnabled && (
+            {running ? (
+              <Canvas
+                onCanvasReady={handleCanvasReady}
+                onEngineReady={handleEngineReady}
+                safeMode={safeMode}
+                onStartupHealthy={reportHealthy}
+                onStartupStall={reportStall}
+              />
+            ) : phase.kind === "recovery" ? (
+              <StartupRecovery
+                phase={phase}
+                onSafeStart={() => startFromRecovery("safe")}
+                onResetScene={() => startFromRecovery("safe", true)}
+                onNormalStart={() => startFromRecovery("normal")}
+              />
+            ) : (
+              <div className="flex-1 bg-root" aria-busy="true" aria-label="Starting renderer" />
+            )}
+            {safeMode && (
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-full border border-border bg-base/80 py-1 pl-3 pr-1 text-[11px] text-text-secondary backdrop-blur">
+                <span>Safe mode · half resolution</span>
+                <button
+                  type="button"
+                  onClick={() => startFromRecovery("normal")}
+                  className="rounded-full bg-surface px-2 py-0.5 text-text-primary transition-colors hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  Exit safe mode
+                </button>
+              </div>
+            )}
+            {scene3DEnabled && running && !safeMode && (
               <Scene3DCanvas onCanvasReady={handleSceneCanvasReady} onCaptureReady={handleSceneCaptureReady} />
             )}
           </div>
@@ -190,7 +247,7 @@ export default function EditorPage() {
         }}
       />
       <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
-      <Onboarding />
+      {running && <Onboarding />}
     </div>
     </div>
   );
