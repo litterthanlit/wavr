@@ -2,7 +2,7 @@
 
 ## What This Project Is
 
-Wavr is an interactive animated gradient editor — think Unicorn Studio. Users build moving mesh gradients and effects in a visual editor, then export as PNG/GIF/WebM, code (CSS, React, web component) or embeds. See `PRD.md` for the product spec, `ROADMAP.md` for what's next, `docs/` and `specs/` for design notes. `.context/HANDOFF.md` predates the monorepo; trust the code over it.
+Wavr is an interactive animated gradient editor — think Unicorn Studio. Users build moving mesh gradients and effects in a visual editor, then export as PNG/GIF/MP4/WebM, code (CSS, React, web component) or embeds. See `PRD.md` for the product spec, `ROADMAP.md` for what's next, `docs/` and `specs/` for design notes. `.context/HANDOFF.md` predates the monorepo; trust the code over it.
 
 ## Repo Layout
 
@@ -62,6 +62,7 @@ Per-layer params (type, colors, speed, masks, images, …) live on each layer. G
 - **Export:**
   - `lib/export.ts` handles PNG (1×/2×/4×) and GIF, both rendered offscreen at exact times.
   - GIFs are encoded by `lib/gif.ts` (median-cut palette, ordered dither, LZW) in `lib/gif.worker.ts`.
+  - Video (`lib/video-export.ts`) renders frames the same way and encodes with WebCodecs via Mediabunny (loaded on demand): MP4/H.264 when the browser can encode it, else WebM VP9/VP8. Without WebCodecs it falls back to real-time MediaRecorder capture (`exportWebM`).
   - Code/embed exports are simplified single-layer shaders and warn about what they drop.
 - **Projects:**
   - `lib/projects.ts` stores projects in `localStorage` (`wavr-projects`). Uploaded images go to IndexedDB via `lib/image-store.ts`, and projects hold `wavr-image:<sha256>` references.

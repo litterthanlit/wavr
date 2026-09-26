@@ -9,6 +9,7 @@ import {
   pngExportSize, type FrameSource, type SceneCaptureFn,
 } from "@/lib/export";
 import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
+import { exportVideo } from "@/lib/video-export";
 import { encodeState } from "@/lib/url";
 import {
   getRuntimeEmbedFidelityReport,
@@ -130,6 +131,7 @@ export default function ExportModal({
   const [pngScale, setPngScale] = useState<(typeof PNG_SCALES)[number]>(1);
   const [pngExporting, setPngExporting] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [videoFormat, setVideoFormat] = useState<string | null>(null);
   const [tab, setTab] = useState<"ship" | "image" | "code" | "embed">("ship");
   const store = useGradientStore();
   const colors = store.colors as [number, number, number][];
@@ -162,6 +164,38 @@ export default function ExportModal({
       setMediaError(`PNG export failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setPngExporting(false);
+    }
+  };
+
+  const exportVideoClip = async () => {
+    const canvas = canvasRef.current;
+    const engine = engineRef?.current;
+    if (!canvas || !engine || recording) return;
+    setRecording(true);
+    setProgress(0);
+    setMediaError(null);
+    const snapshot = useGradientStore.getState();
+    try {
+      const format = await exportVideo({
+        frameSource: engine,
+        stateAt: (seconds) => withPerformanceMode(applyTimeline(snapshot, snapshot.timelinePosition + seconds)),
+        sceneCapture: sceneCaptureRef?.current,
+        durationMs: 5000,
+        fps: 30,
+        onProgress: setProgress,
+        // Browsers without a WebCodecs encoder record the live canvas instead.
+        recordFallback: () =>
+          exportWebM(canvas, 5000, "wavr-gradient.webm", setProgress, sceneCanvasRef?.current),
+      });
+      setVideoFormat(
+        format === "recorded"
+          ? "Last export: WebM (real-time recording)"
+          : `Last export: ${format.container.toUpperCase()} (${format.codec === "avc" ? "H.264" : format.codec.toUpperCase()})`,
+      );
+    } catch (err) {
+      setMediaError(`Video export failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRecording(false);
     }
   };
 
@@ -400,24 +434,21 @@ export default function ExportModal({
                 </div>
               </div>
               <button
-                onClick={async () => {
-                  if (!canvasRef.current || recording) return;
-                  setRecording(true); setProgress(0);
-                  await exportWebM(canvasRef.current, 5000, "wavr-gradient.webm", setProgress, sceneCanvasRef?.current);
-                  setRecording(false);
-                }}
+                onClick={exportVideoClip}
                 disabled={recording}
                 className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg
                   hover:border-border-active transition-all duration-150 group disabled:opacity-50"
               >
                 <div className="text-left">
-                  <div className="text-xs font-medium text-text-primary">WebM Video</div>
+                  <div className="text-xs font-medium text-text-primary">Video</div>
                   <div className="text-xs text-text-tertiary mt-0.5">
-                    {recording ? `Recording... ${Math.round(progress * 100)}%` : "5 second recording"}
+                    {recording
+                      ? `Rendering... ${Math.round(progress * 100)}%`
+                      : videoFormat ?? "5 second clip, MP4 or WebM, up to 1080p"}
                   </div>
                 </div>
                 <span className="text-xs text-text-tertiary group-hover:text-accent transition-colors">
-                  {recording ? "..." : "Record"}
+                  {recording ? "..." : "Export"}
                 </span>
               </button>
               <button

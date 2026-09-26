@@ -85,7 +85,7 @@ export interface FrameSource {
 /** Renders the 3D overlay right now and returns its canvas (see Scene3DCanvas). */
 export type SceneCaptureFn = () => HTMLCanvasElement;
 
-function imageDataToCanvas(frame: ImageData): HTMLCanvasElement | null {
+export function imageDataToCanvas(frame: ImageData): HTMLCanvasElement | null {
   const canvas = document.createElement("canvas");
   canvas.width = frame.width;
   canvas.height = frame.height;
@@ -114,7 +114,7 @@ export function snapshotFrame(source: FrameSource, options?: CaptureOptions): HT
 }
 
 /** Draw the 3D overlay (rendered on demand) over `target`, scaled to fit. */
-function drawSceneOverlay(target: HTMLCanvasElement, sceneCapture?: SceneCaptureFn | null) {
+export function drawSceneOverlay(target: HTMLCanvasElement, sceneCapture?: SceneCaptureFn | null) {
   if (!sceneCapture) return;
   const ctx = target.getContext("2d");
   if (!ctx) return;
@@ -127,7 +127,7 @@ function drawSceneOverlay(target: HTMLCanvasElement, sceneCapture?: SceneCapture
   }
 }
 
-function downloadBlob(blob: Blob, filename: string) {
+export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
