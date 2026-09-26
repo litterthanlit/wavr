@@ -1,4 +1,4 @@
-import { fitSize, type CaptureOptions, type EngineState } from "@wavr/core";
+import { GRADIENT_TYPE_IDS, fitSize, type CaptureOptions, type EngineState } from "@wavr/core";
 import { encodeGif } from "./gif";
 import type { GifWorkerRequest, GifWorkerResponse } from "./gif.worker";
 
@@ -271,15 +271,9 @@ export function generateEmbedConfig(state: ExportableState & {
   hueShift?: number;
   domainWarp?: number;
 }): EmbedConfig {
-  const typeMap: Record<string, number> = {
-    mesh: 0, radial: 1, linear: 2, conic: 3, plasma: 4,
-    dither: 5, scanline: 6, glitch: 7, image: 8, voronoi: 9,
-    silk: 10, aurora: 11, liquid: 12, softCells: 13, grainflow: 14,
-    prismGlass: 15, neonTunnel: 16,
-  };
 
   const config: EmbedConfig = {
-    type: typeMap[state.gradientType] ?? 0,
+    type: gradientTypeId(state.gradientType),
     colors: state.colors.map(c => c.map(v => +v.toFixed(3)) as [number, number, number]),
     speed: +state.speed.toFixed(2),
     complexity: Math.round(state.complexity),
@@ -385,25 +379,6 @@ interface ExportableState {
   saturation: number;
 }
 
-const EXPORT_TYPE_MAP: Record<string, number> = {
-  mesh: 0,
-  radial: 1,
-  linear: 2,
-  conic: 3,
-  plasma: 4,
-  dither: 5,
-  scanline: 6,
-  glitch: 7,
-  image: 8,
-  voronoi: 9,
-  silk: 10,
-  aurora: 11,
-  liquid: 12,
-  softCells: 13,
-  grainflow: 14,
-  prismGlass: 15,
-  neonTunnel: 16,
-};
 
 const PORTABLE_VERTEX_SHADER = `#version 300 es
 precision highp float;
@@ -414,8 +389,9 @@ void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
 }`;
 
-function exportTypeId(type: string): number {
-  return EXPORT_TYPE_MAP[type] ?? EXPORT_TYPE_MAP.mesh;
+/** Shader id for a gradient type, falling back to mesh for unknown values. */
+function gradientTypeId(type: string): number {
+  return (GRADIENT_TYPE_IDS as Record<string, number>)[type] ?? GRADIENT_TYPE_IDS.mesh;
 }
 
 function exportNumber(value: number | undefined, fallback: number, digits = 2): string {
@@ -436,7 +412,7 @@ function exportColorsJson(colors: [number, number, number][]): string {
 }
 
 function portableFragmentShader(state: ExportableState): string {
-  const type = exportTypeId(state.gradientType);
+  const type = gradientTypeId(state.gradientType);
   const complexity = Math.max(1, Math.min(8, Math.round(state.complexity)));
   const softness = state.softness ?? 0;
 

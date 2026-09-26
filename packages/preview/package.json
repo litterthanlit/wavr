@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@wavr/core": "workspace:*",
+    "@wavr/schema": "workspace:*",
     "happy-dom": "^15.11.7",
     "tsup": "^8.0.0",
     "typescript": "^5",

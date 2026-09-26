@@ -1,24 +1,14 @@
-export type BlendMode =
-  | "normal"
-  | "darken" | "multiply" | "colorBurn" | "linearBurn" | "darkerColor"
-  | "lighten" | "screen" | "colorDodge" | "add" | "lighterColor"
-  | "overlay" | "softLight" | "hardLight" | "vividLight" | "linearLight" | "pinLight" | "hardMix"
-  | "difference" | "exclusion" | "subtract" | "divide"
-  | "hue" | "saturation" | "color" | "luminosity";
+import type {
+  BlendMode,
+  GradientType,
+  ImageBlendMode,
+  MaskBlendMode,
+  MaskShape,
+  TextMaskAlign,
+} from "@wavr/schema/enums";
 
-export type ImageBlendMode = "replace" | "normal" | "multiply" | "screen" | "overlay";
-
-export type MaskShape = "none" | "circle" | "roundedRect" | "ellipse" | "polygon" | "star" | "blob";
-
-export type MaskBlendMode = "union" | "subtract" | "intersect" | "smoothUnion";
-
-export type TextMaskAlign = "left" | "center" | "right";
-
-export type GradientType =
-  | "mesh" | "radial" | "linear" | "conic" | "plasma"
-  | "dither" | "scanline" | "glitch" | "image" | "voronoi"
-  | "silk" | "aurora" | "liquid" | "softCells" | "grainflow"
-  | "prismGlass" | "neonTunnel";
+// Canonical lists live in @wavr/schema/enums; re-exported for engine users.
+export type { BlendMode, GradientType, ImageBlendMode, MaskBlendMode, MaskShape, TextMaskAlign };
 
 export function defaultSoftnessForGradientType(type: GradientType): number {
   switch (type) {

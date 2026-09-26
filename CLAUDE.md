@@ -69,15 +69,14 @@ Per-layer params (type, colors, speed, masks, images, …) live on each layer. G
 
 ## Adding a Gradient Mode
 
-Update every one of these, or types and exports drift:
-1. `packages/schema/src/primitives.ts`: `GradientType` enum
-2. `packages/core/src/layers.ts`: `GradientType` union (+ `defaultSoftnessForGradientType` if needed)
-3. `packages/core/src/engine.ts`: `GRADIENT_TYPE_MAP`
-4. `packages/core/src/shaders/fragment.glsl`: the gradient function, the `computeGradient()` dispatch, and the `u_gradientType` comment
-5. `packages/react/src/types.ts`: `GradientType`
-6. `packages/preview/src/config.ts`: its gradient type list
-7. `apps/editor/lib/gradient-types.ts`: `GRADIENT_OPTIONS`, plus the random / premium lists as appropriate
-8. `apps/editor/lib/export.ts`: both gradient-type-to-id maps used by the portable exports
+The canonical list is `GRADIENT_TYPES` in `packages/schema/src/enums.ts` (zod-free). The schema, engine and preview derive their types and lists from it. Then:
+1. `packages/core/src/engine.ts`: add a shader id to `GRADIENT_TYPE_IDS` (a type error until you do). The portable exports in `export.ts` reuse it.
+2. `packages/core/src/shaders/fragment.glsl`: add the gradient function, the `computeGradient()` dispatch branch, and update the `u_gradientType` comment.
+3. `packages/react/src/types.ts`: add it to the published `GradientType` union. This copy stays standalone so the `.d.ts` files don't depend on `@wavr/core`; `types.check.ts` fails `pnpm lint` if it drifts.
+4. `apps/editor/lib/gradient-types.ts`: add a `GRADIENT_OPTIONS` entry, plus the random / premium lists as appropriate.
+5. Optionally, `defaultSoftnessForGradientType` in `packages/core/src/layers.ts`.
+
+`apps/editor/lib/gradient-types.test.ts` fails if a type is missing an editor option, a shader id, or a dispatch branch.
 
 ## Testing
 

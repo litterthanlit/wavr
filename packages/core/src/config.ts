@@ -128,6 +128,46 @@ export function resolveConfig(config: GradientConfig): EngineState {
   };
 }
 
+/**
+ * Engine-state keys that each top-level config field sets in resolveConfig().
+ * Typed over every field, so a new config field fails to compile until it is
+ * mapped here.
+ */
+export const CONFIG_FIELD_STATE_KEYS: Record<
+  Exclude<keyof GradientConfig, "layers" | "brightness" | "saturation">,
+  readonly (keyof EngineState)[]
+> = {
+  noise: ["noiseEnabled", "noiseIntensity", "noiseScale"],
+  grain: ["grain"],
+  mouseReact: ["mouseReact"],
+  bloom: ["bloomEnabled", "bloomIntensity"],
+  vignette: ["vignette"],
+  blur: ["blurEnabled", "blurAmount"],
+  radialBlur: ["radialBlurAmount"],
+  chromaticAberration: ["chromaticAberration"],
+  hueShift: ["hueShift"],
+  ascii: ["asciiEnabled", "asciiSize"],
+  dither: ["ditherEnabled", "ditherSize"],
+  curl: ["curlEnabled", "curlIntensity", "curlScale"],
+  kaleidoscope: ["kaleidoscopeEnabled", "kaleidoscopeSegments", "kaleidoscopeRotation"],
+  reactionDiffusion: ["reactionDiffEnabled", "reactionDiffIntensity", "reactionDiffScale"],
+  pixelSort: ["pixelSortEnabled", "pixelSortIntensity", "pixelSortThreshold"],
+  domainWarp: ["domainWarp"],
+  feedback: ["feedbackEnabled", "feedbackDecay"],
+  parallax: ["parallaxEnabled", "parallaxStrength"],
+  shape3d: ["threeDEnabled", "threeDShape", "threeDPerspective", "threeDRotationSpeed", "threeDZoom", "threeDLighting"],
+  meshDistortion: ["meshDistortionEnabled", "meshDisplacement", "meshFrequency", "meshSpeed"],
+  oklabEnabled: ["oklabEnabled"],
+  toneMapMode: ["toneMapMode"],
+  ripple: ["rippleEnabled", "rippleIntensity"],
+  glow: ["glowEnabled", "glowIntensity", "glowRadius"],
+  caustic: ["causticEnabled", "causticIntensity"],
+  liquify: ["liquifyEnabled", "liquifyIntensity", "liquifyScale"],
+  trail: ["trailEnabled", "trailLength", "trailWidth"],
+  realBloomEnabled: ["realBloomEnabled"],
+  deband: ["debandEnabled", "debandStrength"],
+};
+
 const SHAPE_NAMES = ["sphere", "torus", "plane", "cylinder", "cube"] as const;
 
 export function stateToConfig(state: EngineState): GradientConfig {

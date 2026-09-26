@@ -9,6 +9,7 @@ export default defineConfig({
     url: "src/url.ts",
     parity: "src/parity.ts",
     "effects/index": "src/effects/index.ts",
+    enums: "src/enums.ts",
   },
   format: ["esm", "cjs"],
   dts: true,
