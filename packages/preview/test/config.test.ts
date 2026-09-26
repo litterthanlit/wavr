@@ -31,9 +31,11 @@ describe("config helpers", () => {
   });
 
   it("clones configs", () => {
+    const original = sunset.grain;
     const copy = cloneConfig(sunset);
     copy.grain = 1;
-    expect(sunset.grain).toBeUndefined();
+    expect(copy.grain).toBe(1);
+    expect(sunset.grain).toBe(original);
   });
 
   it("formats a react snippet", () => {

@@ -13,7 +13,7 @@ export {
 } from "@wavr/schema/enums";
 export { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply, mat4Identity, flipRowsRGBA } from "./math";
 export type { GradientConfig, LayerConfig, RGBColor, GradientHandle, CreateGradientOptions, AnimateOptions } from "./types";
-export { resolveConfig, stateToConfig } from "./config";
+export { CONFIG_FIELD_STATE_KEYS, resolveConfig, stateToConfig } from "./config";
 export { TweenManager } from "./animate";
 export type { EasingFunction } from "./animate";
 export {

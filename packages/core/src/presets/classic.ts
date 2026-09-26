@@ -10,6 +10,10 @@ export const aurora: GradientConfig = {
   }],
   saturation: 1.2,
   vignette: 0.2,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
+  grain: 0,
 };
 
 export const sunset: GradientConfig = {
@@ -23,6 +27,10 @@ export const sunset: GradientConfig = {
   brightness: 1.1,
   saturation: 1.3,
   vignette: 0.3,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
+  grain: 0,
 };
 
 export const midnight: GradientConfig = {
@@ -37,6 +45,9 @@ export const midnight: GradientConfig = {
   brightness: 0.8,
   grain: 0.08,
   vignette: 0.4,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
 };
 
 export const candy: GradientConfig = {
@@ -50,6 +61,11 @@ export const candy: GradientConfig = {
   }],
   brightness: 1.1,
   saturation: 1.4,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
+  grain: 0,
+  vignette: 0,
 };
 
 export const ocean: GradientConfig = {
@@ -64,6 +80,10 @@ export const ocean: GradientConfig = {
   brightness: 0.9,
   saturation: 1.2,
   vignette: 0.2,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
+  grain: 0,
 };
 
 export const lava: GradientConfig = {
@@ -79,6 +99,8 @@ export const lava: GradientConfig = {
   bloom: { enabled: true, intensity: 0.4 },
   grain: 0.06,
   vignette: 0.3,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
 };
 
 export const cyber: GradientConfig = {
@@ -91,6 +113,10 @@ export const cyber: GradientConfig = {
   }],
   saturation: 1.3,
   vignette: 0.15,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
+  grain: 0,
 };
 
 export const monochrome: GradientConfig = {
@@ -104,4 +130,7 @@ export const monochrome: GradientConfig = {
   saturation: 0.1,
   grain: 0.1,
   vignette: 0.25,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
 };

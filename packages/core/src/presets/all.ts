@@ -1,3 +1,4 @@
+import * as soft from "./soft";
 import * as classic from "./classic";
 import * as dither from "./dither";
 import * as scanline from "./scanline";
@@ -8,6 +9,7 @@ import * as abstract from "./abstract";
 import { GradientConfig } from "../types";
 
 export const presets: Record<string, GradientConfig> = {
+  ...soft,
   ...classic,
   ...dither,
   ...scanline,
