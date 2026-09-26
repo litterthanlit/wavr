@@ -6,6 +6,7 @@ import { getAudioAnalyzer } from "@/components/Canvas";
 import Toggle from "@/components/ui/Toggle";
 import Slider from "@/components/ui/Slider";
 import Select from "@/components/ui/Select";
+import AddEffectMenu from "@/components/AddEffectMenu";
 
 const AUDIO_TARGETS = [
   { value: "distortion", label: "Distortion" },
@@ -44,6 +45,8 @@ export default function EffectsPanel() {
 
   return (
     <div className="flex flex-col gap-1 p-4">
+      <AddEffectMenu />
+
       {/* Output quality (spec 0004) — on by default, grouped separately so users
           don't confuse it with creative effects. Leave on unless exporting a
           posterized look. */}
