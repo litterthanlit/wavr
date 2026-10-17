@@ -5,19 +5,31 @@ import dynamic from "next/dynamic";
 import Canvas from "@/components/Canvas";
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
-import ExportModal from "@/components/ExportModal";
-import ShortcutsModal from "@/components/ShortcutsModal";
 import MobileDrawer from "@/components/MobileDrawer";
 import Timeline from "@/components/Timeline";
-import ProjectsModal from "@/components/ProjectsModal";
-import SceneGalleryModal from "@/components/SceneGalleryModal";
-import Onboarding from "@/components/Onboarding";
-import CommandPalette from "@/components/CommandPalette";
+import {
+  LazyExportModal,
+  LazyShortcutsModal,
+  LazyProjectsModal,
+  LazySceneGalleryModal,
+  LazyCommandPalette,
+  LazyOnboarding,
+  prefetchEditorChunks,
+} from "@/components/lazy";
 import { useGradientStore } from "@/lib/store";
-import { applyHashToStore, initializeUrlSync } from "@/lib/url-sync";
+import { applyHashToStore, initializeUrlSync, preloadUrlCodec } from "@/lib/url-sync";
+import { hasSeenOnboarding } from "@/lib/onboarding";
+import { useEverOpened } from "@/lib/useEverOpened";
 import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
 import type { SceneCapture } from "@/components/Scene3DCanvas";
+
+// A shared link carries its state in the hash. Start fetching the decoder as
+// soon as this module runs so it is ready by the time hydration applies the
+// hash; without a hash the codec is only warmed later, when the browser is idle.
+if (typeof window !== "undefined" && window.location.hash.length > 1) {
+  preloadUrlCodec();
+}
 
 const Scene3DCanvas = dynamic(() => import("@/components/Scene3DCanvas"), {
   ssr: false,
@@ -31,18 +43,34 @@ export default function EditorPage() {
   const [scenesOpen, setScenesOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("gradient");
+  // Each modal's code loads the first time it opens (or earlier, on hover or
+  // idle, see prefetchEditorChunks) and then stays mounted so its state survives.
+  const exportMounted = useEverOpened(exportOpen);
+  const shortcutsMounted = useEverOpened(shortcutsOpen);
+  const projectsMounted = useEverOpened(projectsOpen);
+  const scenesMounted = useEverOpened(scenesOpen);
+  const paletteMounted = useEverOpened(paletteOpen);
+  const [onboardingNeeded, setOnboardingNeeded] = useState(false);
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
   const sceneCanvasElRef = useRef<HTMLCanvasElement | null>(null);
   const sceneCaptureRef = useRef<SceneCapture | null>(null);
-  // Stable callbacks: Scene3DCanvas clears these refs whenever the callback
-  // identity changes, so inline arrows would null them on every re-render.
+  const engineRef = useRef<GradientEngine | null>(null);
+  // Stable callbacks: Canvas and Scene3DCanvas re-run their setup effects (and
+  // Scene3DCanvas clears these refs) whenever a callback identity changes, so
+  // inline arrows would rebuild the WebGL engine on every page re-render, e.g.
+  // each time a modal opens or the tab changes.
+  const handleCanvasReady = useCallback((el: HTMLCanvasElement) => {
+    canvasElRef.current = el;
+  }, []);
+  const handleEngineReady = useCallback((eng: GradientEngine) => {
+    engineRef.current = eng;
+  }, []);
   const handleSceneCanvasReady = useCallback((el: HTMLCanvasElement | null) => {
     sceneCanvasElRef.current = el;
   }, []);
   const handleSceneCaptureReady = useCallback((capture: SceneCapture | null) => {
     sceneCaptureRef.current = capture;
   }, []);
-  const engineRef = useRef<GradientEngine | null>(null);
   const scene3DEnabled = useGradientStore((state) => state.scene3DEnabled);
 
   const handleKeyDown = useCallback(
@@ -124,7 +152,7 @@ export default function EditorPage() {
   // URL-state bridge: apply any incoming hash to the store, then install the
   // subscriber + popstate + beforeunload listeners. See apps/editor/lib/url-sync.ts.
   useEffect(() => {
-    applyHashToStore();
+    void applyHashToStore();
     const dispose = initializeUrlSync();
     return dispose;
   }, []);
@@ -134,6 +162,16 @@ export default function EditorPage() {
       sceneCanvasElRef.current = null;
     }
   }, [scene3DEnabled]);
+
+  // Warm the lazy chunks once startup has settled.
+  useEffect(() => prefetchEditorChunks(), []);
+
+  // The walkthrough only loads for first-time visitors. Deferred a frame so the
+  // state update doesn't run synchronously inside the effect.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setOnboardingNeeded(!hasSeenOnboarding()));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   return (
     <div className="h-screen w-screen bg-root flex items-center justify-center">
@@ -148,8 +186,8 @@ export default function EditorPage() {
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="relative flex flex-1 min-h-0 overflow-hidden">
             <Canvas
-              onCanvasReady={(el) => { canvasElRef.current = el; }}
-              onEngineReady={(eng) => { engineRef.current = eng; }}
+              onCanvasReady={handleCanvasReady}
+              onEngineReady={handleEngineReady}
             />
             {scene3DEnabled && (
               <Scene3DCanvas onCanvasReady={handleSceneCanvasReady} onCaptureReady={handleSceneCaptureReady} />
@@ -159,38 +197,48 @@ export default function EditorPage() {
         </div>
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
       </div>
-      <ExportModal
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
-        canvasRef={canvasElRef}
-        sceneCanvasRef={sceneCanvasElRef}
-        sceneCaptureRef={sceneCaptureRef}
-        engineRef={engineRef}
-      />
-      <ShortcutsModal
-        open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
-      <ProjectsModal
-        open={projectsOpen}
-        onClose={() => setProjectsOpen(false)}
-      />
-      <SceneGalleryModal
-        open={scenesOpen}
-        onClose={() => setScenesOpen(false)}
-      />
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        ui={{
-          openExport: () => setExportOpen(true),
-          openProjects: () => setProjectsOpen(true),
-          openShortcuts: () => setShortcutsOpen(true),
-          setTab: setActiveTab,
-        }}
-      />
+      {exportMounted && (
+        <LazyExportModal
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          canvasRef={canvasElRef}
+          sceneCanvasRef={sceneCanvasElRef}
+          sceneCaptureRef={sceneCaptureRef}
+          engineRef={engineRef}
+        />
+      )}
+      {shortcutsMounted && (
+        <LazyShortcutsModal
+          open={shortcutsOpen}
+          onClose={() => setShortcutsOpen(false)}
+        />
+      )}
+      {projectsMounted && (
+        <LazyProjectsModal
+          open={projectsOpen}
+          onClose={() => setProjectsOpen(false)}
+        />
+      )}
+      {scenesMounted && (
+        <LazySceneGalleryModal
+          open={scenesOpen}
+          onClose={() => setScenesOpen(false)}
+        />
+      )}
+      {paletteMounted && (
+        <LazyCommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          ui={{
+            openExport: () => setExportOpen(true),
+            openProjects: () => setProjectsOpen(true),
+            openShortcuts: () => setShortcutsOpen(true),
+            setTab: setActiveTab,
+          }}
+        />
+      )}
       <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
-      <Onboarding />
+      {onboardingNeeded && <LazyOnboarding />}
     </div>
     </div>
   );

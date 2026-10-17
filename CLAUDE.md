@@ -50,6 +50,8 @@ Per-layer params (type, colors, speed, masks, images, …) live on each layer. G
 - **Render loop:** use `requestAnimationFrame`, never `setInterval`. That goes for export capture loops too.
 - **GL context:** don't store the GL context or the engine in React state; use a ref.
 - **Three.js:** the gradient engine is raw WebGL. Three.js / React Three Fiber is confined to the lazy-loaded 3D scene overlay (`components/Scene3DCanvas.tsx`).
+- **Canvas callbacks:** `Canvas` tears down and rebuilds the WebGL engine whenever `onCanvasReady` / `onEngineReady` change identity. Pass `useCallback`s (as `app/editor/page.tsx` does), never inline arrows.
+- **Hydration:** `/editor` is prerendered, so don't read `localStorage` or `window` in the first render of a client component. The mismatch forces React to throw away the server HTML (error #418). Read it after hydration, or through `useSyncExternalStore` with a server snapshot (see `lib/useTheme.ts`).
 - **No backend:** Wavr is a client-only tool.
 
 ## Editor (`apps/editor`)
@@ -57,8 +59,11 @@ Per-layer params (type, colors, speed, masks, images, …) live on each layer. G
 - **Store (`lib/store.ts`, Zustand):**
   - `set()` for continuous updates (sliders), `setDiscrete()` for one-shot changes (toggles, selects), `commitSet()` on pointer-up to close an undo step.
   - `lib/url-sync.ts` mirrors the schema-owned slice into the URL hash.
+  - The zod-backed codec (decode, validate, encode) lives in `lib/url-codec.ts` and loads on demand through `loadUrlCodec()`. Keep `@wavr/schema` runtime imports other than `DEFAULT_CONFIG` out of `url-sync.ts`, `url.ts` and anything else in the initial bundle. That is why `applyHashToStore()` is async (it applies an empty hash synchronously). `/embed` bundles the codec statically.
 - **Sidebar:** 5 tabs (Gradient, Scene, Effects, Presets, Code), switched with keys 1–5.
-- **Frame state:** `lib/frame-state.ts` (`applyTimeline`, `withPerformanceMode`) builds the per-frame state. It's shared by `Canvas.tsx` and export, so exports match the live view.
+- **Lazy UI:**
+  - The initial bundle is the canvas, top bar, layer panel, Gradient tab and timeline. Everything else (other tabs, modals, command palette, onboarding, mobile drawer body) is a `next/dynamic` import in `components/lazy.tsx`, which also exports `preload*` helpers for hover/focus and `prefetchEditorChunks` (one chunk per idle slot).
+  - New modals and tabs go there. Mount a modal with `useEverOpened(open)` so it loads on first open and stays mounted afterwards.- **Frame state:** `lib/frame-state.ts` (`applyTimeline`, `withPerformanceMode`) builds the per-frame state. It's shared by `Canvas.tsx` and export, so exports match the live view.
 - **Export:**
   - `lib/export.ts` handles PNG (1×/2×/4×) and GIF, both rendered offscreen at exact times.
   - GIFs are encoded by `lib/gif.ts` (median-cut palette, ordered dither, LZW) in `lib/gif.worker.ts`.

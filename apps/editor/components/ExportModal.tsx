@@ -9,7 +9,7 @@ import {
   pngExportSize, type FrameSource, type SceneCaptureFn,
 } from "@/lib/export";
 import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
-import { encodeState } from "@/lib/url";
+import { encodeState } from "@/lib/url-codec";
 import {
   getRuntimeEmbedFidelityReport,
   sceneDocumentToJson,

@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef } from "react";
 import { GradientEngine } from "@wavr/core";
 import { useGradientStore } from "@/lib/store";
 import { applyHashToStore } from "@/lib/url-sync";
+// An embed always decodes a hash, so bundle the codec with the route instead of
+// fetching it after the page chunk (a lazy load would show the default
+// gradient first). url-sync's dynamic import then resolves without a request.
+import "@/lib/url-codec";
 
 const EMBED_MAX_PIXEL_RATIO = 1.5;
 const EMBED_MAX_FRAME_RATE = 45;
@@ -13,7 +17,7 @@ export default function EmbedPage() {
   const engineRef = useRef<GradientEngine | null>(null);
 
   useEffect(() => {
-    applyHashToStore();
+    void applyHashToStore();
 
     window.addEventListener("hashchange", applyHashToStore);
     window.addEventListener("popstate", applyHashToStore);
