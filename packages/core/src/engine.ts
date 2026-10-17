@@ -15,6 +15,17 @@ import {
   type GpuResourceSample,
 } from "./instrumentation";
 import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply, flipRowsRGBA } from "./math";
+import {
+  POINTER_SPEED_REF,
+  RIPPLE_DURATION,
+  TRAIL_FLOOR_PER_FRAME,
+  createPointerState,
+  pointerVelocity,
+  setPointerPresent,
+  setPointerTarget,
+  settlePointer,
+  stepPointer,
+} from "./pointer";
 
 export interface EngineState {
   layers: LayerParams[];
@@ -150,7 +161,7 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_speed", "u_complexity", "u_scale", "u_distortion", "u_softness",
   "u_brightness", "u_saturation", "u_colorCount",
   "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
-  "u_mouseReact",
+  "u_mouseReact", "u_mousePresence",
   "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
   "u_blurEnabled", "u_blurAmount",
   "u_colorBlend",
@@ -196,7 +207,7 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_glowEnabled", "u_glowIntensity", "u_glowRadius",
   "u_causticEnabled", "u_causticIntensity",
   "u_liquifyEnabled", "u_liquifyIntensity", "u_liquifyScale",
-  "u_trailEnabled", "u_trailTexture",
+  "u_trailEnabled", "u_trailTexture", "u_trailWidth",
   // Spec 0004: Deband (blue-noise anti-banding, on by default)
   "u_debandEnabled", "u_debandStrength",
 ];
@@ -311,22 +322,22 @@ export class GradientEngine {
   private animationId: number | null = null;
   private maxPixelRatio = 1.5;
   private minFrameIntervalMs = 1000 / 60;
-  private mouseX = 0.5;
-  private mouseY = 0.5;
-  // Smoothed mouse for physics
-  private smoothMouseX = 0.5;
-  private smoothMouseY = 0.5;
-  private mouseVelX = 0;
-  private mouseVelY = 0;
-  private prevSmoothX = 0.5;
-  private prevSmoothY = 0.5;
-  // Click ripple state
+  /** The pointer: absent until the first setMouse, then smoothed without overshoot (pointer.ts). */
+  private pointer = createPointerState();
+  /** Whether the pointer smoother or presence was still moving at the last advancePointer. */
+  private pointerMoving = false;
+  // Click ripple: origin (uv) and seconds since the click, in real time
   private rippleOriginX = 0;
   private rippleOriginY = 0;
-  private rippleStartTime = -10;
-  // Spring mouse velocity (separate from smoothed velocity for physics)
-  private springVelX = 0;
-  private springVelY = 0;
+  private rippleAge = RIPPLE_DURATION;
+  // Real seconds of pointer time not yet applied to the trail field, and the
+  // smoothed pointer where the trail was last stamped (if it was present then).
+  private trailPendingDt = 0;
+  private trailStampX = 0.5;
+  private trailStampY = 0.5;
+  private trailStampLive = false;
+  /** Seconds a paused loop keeps drawing for after the pointer last moved, so the trail can finish fading. */
+  private trailHot = 0;
   // 3D rotation accumulator
   private rotationAngle = 0;
   private speedMultiplier = 1.0;
@@ -751,15 +762,59 @@ export class GradientEngine {
     }
   }
 
+  /**
+   * The pointer is at (x, y): uv, 0..1 with y up. Counts as the pointer being
+   * present; setPointerActive(false) says it left. Nothing reacts until this
+   * is first called, and the first call jumps there instead of sweeping in.
+   */
   setMouse(x: number, y: number) {
-    this.mouseX = x;
-    this.mouseY = y;
+    setPointerTarget(this.pointer, x, y);
   }
 
+  /** The pointer entered (true) or left (false) the canvas. The effects ease out where the pointer was. */
+  setPointerActive(active: boolean) {
+    setPointerPresent(this.pointer, active);
+  }
+
+  /** A click at (x, y), uv with y up. The ripple runs on real seconds, so it plays while paused too. */
   triggerRipple(x: number, y: number) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     this.rippleOriginX = x;
     this.rippleOriginY = y;
-    this.rippleStartTime = this.elapsedTime;
+    this.rippleAge = 0;
+  }
+
+  /**
+   * Advances everything that runs on real time by `dt` seconds: the pointer
+   * smoother and presence, the ripple, and the trail's pending decay. startLoop
+   * calls this every frame, paused or not; call it directly to drive the pointer
+   * without a loop (stills, tests).
+   */
+  advancePointer(dt: number) {
+    const step = Number.isFinite(dt) ? Math.max(dt, 0) : 0;
+    this.pointerMoving = stepPointer(this.pointer, step);
+    this.rippleAge = Math.min(this.rippleAge + step, RIPPLE_DURATION);
+    this.trailPendingDt = Math.min(this.trailPendingDt + step, 0.1);
+    this.trailHot = Math.max(this.trailHot - step, 0);
+  }
+
+  /** Jumps the smoothed pointer and its presence to where they are heading, at rest. For captures and tests. */
+  settlePointer() {
+    settlePointer(this.pointer);
+    this.pointerMoving = false;
+  }
+
+  /**
+   * Whether `state` still has pointer-driven visuals changing, so a paused
+   * loop has to keep drawing: the smoother or presence settling, a ripple
+   * running or a trail fading. False once they have come to rest.
+   */
+  isPointerAnimating(state: EngineState): boolean {
+    return (
+      this.pointerMoving ||
+      (state.rippleEnabled && this.rippleAge < RIPPLE_DURATION) ||
+      (state.trailEnabled && this.trailHot > 0)
+    );
   }
 
   setElapsedTime(t: number) {
@@ -862,7 +917,10 @@ export class GradientEngine {
 
     this.trailProgram = program;
     this.trailUniforms = {};
-    const names = ["u_trailPass", "u_trailPrev", "u_trailDecay", "u_trailMouse", "u_trailWidth"];
+    const names = [
+      "u_trailPrev", "u_trailDecay", "u_trailFloor", "u_trailFrom", "u_trailTo",
+      "u_trailWidth", "u_trailAspect", "u_trailStamp",
+    ];
     for (const name of names) {
       const loc = gl.getUniformLocation(program, name);
       if (loc) this.trailUniforms[name] = loc;
@@ -1200,9 +1258,23 @@ export class GradientEngine {
     gl.disable(gl.BLEND);
   }
 
-  private renderTrailPass(state: EngineState) {
+  /**
+   * Advances the trail field by the pointer time elapsed since the last call
+   * (advancePointer accumulates it): the previous energy decays frame-rate
+   * independently, and the pointer stamps a soft line from where it was to
+   * where it is. render() calls this, and does nothing when no time has passed,
+   * so redrawing the same moment (an export capture, a paused repaint) never
+   * ages the trail. Allocates the field when the trail is on.
+   */
+  updateTrail(state: EngineState) {
     const gl = this.gl;
-    if (!state.trailEnabled) return;
+    if (!state.trailEnabled) {
+      // Nothing to keep: drop the field, so enabling the trail again starts clean.
+      this.destroyTrailFBOs();
+      this.trailPendingDt = 0;
+      this.trailStampLive = false;
+      return;
+    }
 
     // Lazy init
     if (!this.trailProgram) this.initTrailProgram();
@@ -1212,42 +1284,59 @@ export class GradientEngine {
       this.initTrailFBOs();
     }
 
-    const prev = 1 - this.trailIndex;
-    const curr = this.trailIndex;
+    const dt = this.trailPendingDt;
+    if (dt <= 0) return;
+    this.trailPendingDt = 0;
+
+    const pointer = this.pointer;
+    const moving = this.pointerMoving;
+    const toX = pointer.x.value;
+    const toY = pointer.y.value;
+    // Faint under a still pointer, full strength once it moves at about a canvas height per second.
+    const [vx, vy] = pointerVelocity(pointer, expectedW / expectedH);
+    const speed = Math.min(Math.hypot(vx, vy) / POINTER_SPEED_REF, 1);
+    const stamp = pointer.presence.value * (0.12 + 0.88 * speed);
+    // A pointer that just entered stamps a dot, not a line from wherever it last was.
+    const fromX = this.trailStampLive ? this.trailStampX : toX;
+    const fromY = this.trailStampLive ? this.trailStampY : toY;
+    this.trailStampX = toX;
+    this.trailStampY = toY;
+    this.trailStampLive = pointer.presence.value > 0.05;
+    // Keep a paused loop drawing while the stroke fades (decay 0.96 per frame takes about 2 s to reach 1/255).
+    if (moving) {
+      const perFrame = Math.min(Math.max(state.trailLength, 0.5), 0.995);
+      this.trailHot = Math.min(Math.log(1 / 255) / (60 * Math.log(perFrame)), 12);
+    }
+
+    const read = this.trailIndex;
+    const write = 1 - this.trailIndex;
 
     this.useAuxProgram(this.trailProgram!);
     gl.bindVertexArray(this.quadVAO);
-
-    // Pass 1: Decay previous trail into current FBO
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.trailFBOs![curr]);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.trailFBOs![write]);
     gl.viewport(0, 0, this.trailWidth, this.trailHeight);
     gl.disable(gl.BLEND);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.trailTextures![prev]);
+    gl.bindTexture(gl.TEXTURE_2D, this.trailTextures![read]);
     const tu = this.trailUniforms;
-    if (tu["u_trailPass"]) gl.uniform1i(tu["u_trailPass"], 0);
     if (tu["u_trailPrev"]) gl.uniform1i(tu["u_trailPrev"], 0);
-    if (tu["u_trailDecay"]) gl.uniform1f(tu["u_trailDecay"], state.trailLength);
+    if (tu["u_trailDecay"]) gl.uniform1f(tu["u_trailDecay"], Math.pow(state.trailLength, dt * 60));
+    if (tu["u_trailFloor"]) gl.uniform1f(tu["u_trailFloor"], TRAIL_FLOOR_PER_FRAME * dt * 60);
+    if (tu["u_trailFrom"]) gl.uniform2f(tu["u_trailFrom"], fromX, fromY);
+    if (tu["u_trailTo"]) gl.uniform2f(tu["u_trailTo"], toX, toY);
+    if (tu["u_trailWidth"]) gl.uniform1f(tu["u_trailWidth"], Math.max(state.trailWidth, 1e-3));
+    if (tu["u_trailAspect"]) gl.uniform1f(tu["u_trailAspect"], expectedW / expectedH);
+    if (tu["u_trailStamp"]) gl.uniform1f(tu["u_trailStamp"], stamp);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Pass 2: Draw circle at mouse position (additive)
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-
-    if (tu["u_trailPass"]) gl.uniform1i(tu["u_trailPass"], 1);
-    if (tu["u_trailMouse"]) gl.uniform2f(tu["u_trailMouse"], this.smoothMouseX, this.smoothMouseY);
-    if (tu["u_trailWidth"]) gl.uniform1f(tu["u_trailWidth"], state.trailWidth);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    gl.disable(gl.BLEND);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    // Swap
-    this.trailIndex = prev;
+    // The field just written is the one the post pass reads.
+    this.trailIndex = write;
   }
 
   loadImageTexture(dataURL: string): WebGLTexture | null {
@@ -1583,8 +1672,10 @@ export class GradientEngine {
     const aspect = canvas.width / canvas.height;
     const proj = mat4Perspective(Math.PI / 3, aspect, 0.1, 100.0);
     const view = mat4LookAt([0, 0.8, 2.0], [0, 0, 0], [0, 1, 0]);
-    const azimuth = (this.smoothMouseX - 0.5) * 0.5;
-    const elevation = (this.smoothMouseY - 0.5) * 0.3;
+    // The pointer tilts the view only while it is present.
+    const { x, y, presence } = this.pointer;
+    const azimuth = (x.value - 0.5) * presence.value * 0.5;
+    const elevation = (y.value - 0.5) * presence.value * 0.3;
     let mv = mat4RotateY(view, azimuth);
     mv = mat4RotateX(mv, elevation);
     return mat4Multiply(proj, mv);
@@ -1594,9 +1685,12 @@ export class GradientEngine {
   private setLayerGlobals(state: EngineState, mvp: Float32Array | null) {
     this.setf("u_time", this.elapsedTime);
     this.set2f("u_resolution", this.gl.canvas.width, this.gl.canvas.height);
-    this.set2f("u_mouse", this.mouseX, this.mouseY);
-    this.set2f("u_mouseSmooth", this.smoothMouseX, this.smoothMouseY);
-    this.set2f("u_mouseVelocity", this.mouseVelX, this.mouseVelY);
+    const pointer = this.pointer;
+    const [velocityX, velocityY] = pointerVelocity(pointer, this.gl.canvas.width / this.gl.canvas.height);
+    this.set2f("u_mouse", pointer.targetX, pointer.targetY);
+    this.set2f("u_mouseSmooth", pointer.x.value, pointer.y.value);
+    this.set2f("u_mouseVelocity", velocityX, velocityY);
+    this.setf("u_mousePresence", pointer.presence.value);
     this.setf("u_mouseReact", state.mouseReact);
     this.setf("u_colorBlend", state.colorBlend);
     this.setf("u_domainWarp", state.domainWarp);
@@ -1613,8 +1707,8 @@ export class GradientEngine {
     this.setf("u_3dLighting", state.threeDLighting);
     // Rotation: auto-rotation + mouse-driven offset
     if (state.threeDEnabled) {
-      const azimuth = this.rotationAngle + (this.smoothMouseX - 0.5) * 2.0;
-      const elevation = (this.smoothMouseY - 0.5) * 1.5;
+      const azimuth = this.rotationAngle + (pointer.x.value - 0.5) * pointer.presence.value * 2.0;
+      const elevation = (pointer.y.value - 0.5) * pointer.presence.value * 1.5;
       this.set2f("u_3dRotation", azimuth, elevation);
     }
     // Mesh Distortion
@@ -1671,11 +1765,10 @@ export class GradientEngine {
     this.seti("u_feedbackEnabled", state.feedbackEnabled ? 1 : 0);
     this.setf("u_feedbackDecay", state.feedbackDecay);
     this.seti("u_toneMapMode", state.toneMapMode);
-    // Ripple
-    const rippleTime = this.elapsedTime - this.rippleStartTime;
-    this.setf("u_rippleEnabled", state.rippleEnabled && rippleTime < 2.0 ? 1.0 : 0.0);
+    // Ripple (real seconds since the click)
+    this.setf("u_rippleEnabled", state.rippleEnabled && this.rippleAge < RIPPLE_DURATION ? 1.0 : 0.0);
     this.set2f("u_rippleOrigin", this.rippleOriginX, this.rippleOriginY);
-    this.setf("u_rippleTime", rippleTime);
+    this.setf("u_rippleTime", this.rippleAge);
     this.setf("u_rippleIntensity", state.rippleIntensity);
     // Soft glow
     this.seti("u_glowEnabled", state.glowEnabled ? 1 : 0);
@@ -1686,6 +1779,7 @@ export class GradientEngine {
     this.setf("u_causticIntensity", state.causticIntensity);
     // Trail
     this.seti("u_trailEnabled", state.trailEnabled && this.trailTextures ? 1 : 0);
+    this.setf("u_trailWidth", Math.max(state.trailWidth, 1e-3));
     // Liquify
     this.seti("u_liquifyEnabled", state.liquifyEnabled ? 1 : 0);
     this.setf("u_liquifyIntensity", state.liquifyIntensity);
@@ -1713,8 +1807,8 @@ export class GradientEngine {
     const visibleLayers = state.layers.filter((l) => l.visible);
     if (!this.programsReady(visibleLayers)) return false;
 
-    // Trail pass (before main render — writes to separate FBO)
-    this.renderTrailPass(state);
+    // Trail field (before the main render — writes to its own targets)
+    this.updateTrail(state);
 
     const feedbackActive = state.feedbackEnabled;
 
@@ -1841,10 +1935,17 @@ export class GradientEngine {
 
       lastRenderMs = nowMs;
       const now = nowMs / 1000;
+      const dt = now - lastTime;
+      lastTime = now;
+
+      // Real-time state: the pointer smoother and presence, the ripple, the
+      // trail. It runs while paused too, so the pointer keeps answering.
+      this.advancePointer(dt);
 
       if (!state.playing) {
-        lastTime = now;
-        if (state !== lastPausedState) {
+        // Paused: the animation clock stands still, so redraw only for a new
+        // state or while the pointer, ripple or trail is still moving.
+        if (state !== lastPausedState || this.isPointerAnimating(state)) {
           const renderStart = performance.now();
           // Not drawn yet (a program is still compiling): try this state again next frame.
           if (this.render(state)) {
@@ -1856,34 +1957,7 @@ export class GradientEngine {
       }
       lastPausedState = null;
 
-      const dt = now - lastTime;
       this.elapsedTime += dt * this.speedMultiplier;
-      lastTime = now;
-
-      // Spring mouse physics (stiffness=120, damping=12 for overshoot + settle)
-      const springDt = Math.min(dt, 0.033); // cap at ~30fps equivalent
-      const stiffness = 120;
-      const damping = 12;
-
-      const dx = this.mouseX - this.smoothMouseX;
-      const dy = this.mouseY - this.smoothMouseY;
-
-      this.springVelX += (dx * stiffness - this.springVelX * damping) * springDt;
-      this.springVelY += (dy * stiffness - this.springVelY * damping) * springDt;
-
-      this.prevSmoothX = this.smoothMouseX;
-      this.prevSmoothY = this.smoothMouseY;
-      this.smoothMouseX += this.springVelX * springDt;
-      this.smoothMouseY += this.springVelY * springDt;
-
-      // Derive mouse velocity for shader (smoothed from spring motion)
-      if (springDt > 0) {
-        const rawVelX = (this.smoothMouseX - this.prevSmoothX) / springDt;
-        const rawVelY = (this.smoothMouseY - this.prevSmoothY) / springDt;
-        const velLerp = 1.0 - Math.exp(-8.0 * springDt);
-        this.mouseVelX += (rawVelX - this.mouseVelX) * velLerp;
-        this.mouseVelY += (rawVelY - this.mouseVelY) * velLerp;
-      }
 
       // Accumulate 3D auto-rotation
       if (state.threeDEnabled) {

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { Canvas as R3FCanvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { attachPointer } from "@wavr/core";
 import { getEditorPerformanceSettings, useGradientStore } from "@/lib/store";
 import type { ParticleField, Scene3DState, SceneObject3D } from "@/lib/scene3d";
 
@@ -16,7 +17,41 @@ interface Scene3DCanvasProps {
   onCaptureReady?: (capture: SceneCapture | null) => void;
 }
 
-type ScenePointer = { x: number; y: number };
+/**
+ * The pointer over the canvas area, -1..1 from the centre with y up (0 when it
+ * is absent). `x`/`y` are what the scene reads: they ease towards the targets.
+ */
+type ScenePointer = {
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  /** Asks the demand-driven scene for a frame; set once the R3F canvas exists. */
+  invalidate: (() => void) | null;
+};
+
+/** Eases the pointer towards its target, a frame at a time, until it arrives. */
+function PointerSmoother({ pointerRef }: { pointerRef: MutableRefObject<ScenePointer> }) {
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    const pointer = pointerRef.current;
+    pointer.invalidate = invalidate;
+    return () => {
+      pointer.invalidate = null;
+    };
+  }, [invalidate, pointerRef]);
+
+  useFrame((_, delta) => {
+    const pointer = pointerRef.current;
+    pointer.x = THREE.MathUtils.damp(pointer.x, pointer.targetX, 12, delta);
+    pointer.y = THREE.MathUtils.damp(pointer.y, pointer.targetY, 12, delta);
+    // Demand frameloop: keep asking for frames while it is still on its way.
+    if (Math.abs(pointer.x - pointer.targetX) > 1e-3 || Math.abs(pointer.y - pointer.targetY) > 1e-3) invalidate();
+  });
+
+  return null;
+}
 
 function SceneRenderLoop({ enabled, playing, maxFps }: { enabled: boolean; playing: boolean; maxFps: number }) {
   const invalidate = useThree((state) => state.invalidate);
@@ -200,7 +235,7 @@ export default function Scene3DCanvas({ onCanvasReady, onCaptureReady }: Scene3D
     ? performance.sceneMaxFps
     : Math.min(performance.sceneMaxFps, scene.quality.maxFps);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const pointerRef = useRef<ScenePointer>({ x: 0, y: 0 });
+  const pointerRef = useRef<ScenePointer>({ x: 0, y: 0, targetX: 0, targetY: 0, invalidate: null });
 
   useEffect(() => () => onCanvasReady?.(null), [onCanvasReady]);
 
@@ -208,21 +243,27 @@ export default function Scene3DCanvas({ onCanvasReady, onCaptureReady }: Scene3D
     if (!enabled) onCanvasReady?.(null);
   }, [enabled, onCanvasReady]);
 
+  // The same pointer as the gradient under it (attachPointer): relative to the
+  // canvas area, absent once it leaves. The overlay itself ignores pointer
+  // events, so listen on the element that holds both canvases.
   useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      const rect = wrapperRef.current?.getBoundingClientRect();
-      const left = rect?.left ?? 0;
-      const top = rect?.top ?? 0;
-      const width = rect?.width ?? window.innerWidth;
-      const height = rect?.height ?? window.innerHeight;
-      if (width <= 0 || height <= 0) return;
-      pointerRef.current.x = ((event.clientX - left) / width) * 2 - 1;
-      pointerRef.current.y = -(((event.clientY - top) / height) * 2 - 1);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    return () => window.removeEventListener("pointermove", handlePointerMove);
-  }, []);
+    const host = wrapperRef.current?.parentElement;
+    if (!enabled || !host) return;
+    const pointer = pointerRef.current;
+    return attachPointer(host, {
+      setMouse(x, y) {
+        pointer.targetX = x * 2 - 1;
+        pointer.targetY = y * 2 - 1;
+        pointer.invalidate?.();
+      },
+      setPointerActive(active) {
+        if (active) return;
+        pointer.targetX = 0;
+        pointer.targetY = 0;
+        pointer.invalidate?.();
+      },
+    });
+  }, [enabled]);
 
   if (!enabled) return null;
 
@@ -245,6 +286,7 @@ export default function Scene3DCanvas({ onCanvasReady, onCaptureReady }: Scene3D
       >
         <SceneInvalidator enabled={enabled} scene={scene} />
         <SceneRenderLoop enabled={enabled} playing={playing} maxFps={effectiveMaxFps} />
+        <PointerSmoother pointerRef={pointerRef} />
         <SceneContents scene={scene} pointerRef={pointerRef} particleScale={performance.particleScale} />
         <SceneCaptureBridge onCaptureReady={onCaptureReady} />
       </R3FCanvas>

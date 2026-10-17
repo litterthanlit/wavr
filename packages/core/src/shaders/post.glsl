@@ -129,6 +129,42 @@ void main() {
     uv = vec2(cos(angle), sin(angle)) * r + 0.5;
   }
 
+  // Pointer trail, part 1: the streak bends the picture like a drop of water
+  // dragged across glass. trail.glsl keeps an energy field; its slope pulls the
+  // lookup towards the ridge, a soft magnifier along the stroke.
+  float trailEnergy = 0.0;
+  if (u_trailEnabled) {
+    vec2 aspect = vec2(u_resolution.x / u_resolution.y, 1.0);
+    vec2 reach = 1.5 / vec2(textureSize(u_trailTexture, 0));
+    float exLo = texture(u_trailTexture, uv - vec2(reach.x, 0.0)).r;
+    float exHi = texture(u_trailTexture, uv + vec2(reach.x, 0.0)).r;
+    float eyLo = texture(u_trailTexture, uv - vec2(0.0, reach.y)).r;
+    float eyHi = texture(u_trailTexture, uv + vec2(0.0, reach.y)).r;
+    vec2 slope = vec2(exHi - exLo, eyHi - eyLo) / (2.0 * reach * aspect); // energy per canvas height
+    uv += slope * (u_trailWidth * u_trailWidth * 0.30) / aspect;
+    trailEnergy = texture(u_trailTexture, uv).r;
+  }
+
+  // Click ripple, part 1: a thin ring that eases out from the click, in
+  // aspect-correct space and real seconds, refracting the picture as it passes.
+  // RIPPLE_LIFE is RIPPLE_DURATION in pointer.ts.
+  float rippleGlow = 0.0;
+  if (u_rippleEnabled > 0.5) {
+    const float RIPPLE_LIFE = 1.6;
+    vec2 aspect = vec2(u_resolution.x / u_resolution.y, 1.0);
+    vec2 fromClick = (uv - u_rippleOrigin) * aspect;
+    float life = clamp(u_rippleTime / RIPPLE_LIFE, 0.0, 1.0);
+    float front = 0.60 * (1.0 - pow(1.0 - life, 3.0)); // ease-out radius, canvas heights
+    float width = mix(0.020, 0.058, life);             // the ring softens as it travels
+    float x = (length(fromClick) - front) / width;
+    float body = max(1.0 - x * x, 0.0);                // C1 profile, exactly zero outside the ring
+    float fade = (1.0 - life) * (1.0 - life) * smoothstep(0.0, 0.05, u_rippleTime);
+    rippleGlow = body * body * fade * u_rippleIntensity;
+    // Refraction: displacement follows the slope of the ring, away from the centre.
+    vec2 outward = fromClick / sqrt(dot(fromClick, fromClick) + 0.0004);
+    uv += outward * (x * body * fade * width * 1.1 * u_rippleIntensity) / aspect;
+  }
+
   // Scene colour (with optional radial zoom blur)
   vec3 color;
   if (u_radialBlurAmount > 0.001) {
@@ -265,22 +301,14 @@ void main() {
     color += color * caust * 0.3;
   }
 
-  // Mouse trail composite
-  if (u_trailEnabled) {
-    vec4 trail = texture(u_trailTexture, uv);
-    color += trail.rgb * trail.a * 0.6;
-  }
+  // Pointer trail, part 2: a lift of the picture's own colour along the stroke,
+  // not white paint.
+  color *= 1.0 + 0.30 * trailEnergy;
 
-  // Click ripple (expanding ring from click position)
-  if (u_rippleEnabled > 0.5 && u_rippleTime < 2.0) {
-    float dist = distance(uv, u_rippleOrigin);
-    float rippleRadius = u_rippleTime * 0.5;
-    float rippleWidth = 0.05;
-    float ripple = smoothstep(rippleRadius - rippleWidth, rippleRadius, dist)
-                 - smoothstep(rippleRadius, rippleRadius + rippleWidth, dist);
-    ripple *= 1.0 - u_rippleTime * 0.5; // fade out
-    color += ripple * u_rippleIntensity * 0.3;
-  }
+  // Click ripple, part 2: the ring brightens the colours it crosses, with a
+  // faint sheen on the crest.
+  color *= 1.0 + 0.9 * rippleGlow;
+  color += 0.10 * rippleGlow * rippleGlow;
 
   // Vignette — natural lens falloff with elliptical shape
   if (u_vignette > 0.0) {

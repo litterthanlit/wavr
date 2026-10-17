@@ -22,6 +22,11 @@ export interface PortableExportFidelityInput {
   keyframeCount?: number;
   audioEnabled?: boolean;
   customGLSL?: string | null;
+  /** Mouse reactivity, 0..1. Portable exports animate on their own but ignore the pointer. */
+  mouseReact?: number;
+  rippleEnabled?: boolean;
+  trailEnabled?: boolean;
+  parallaxEnabled?: boolean;
 }
 
 export function getPortableExportWarnings(input: PortableExportFidelityInput): string[] {
@@ -50,6 +55,12 @@ export function getPortableExportWarnings(input: PortableExportFidelityInput): s
 
   if (input.audioEnabled) {
     warnings.push("Audio reactivity is not included in portable code exports.");
+  }
+
+  if ((input.mouseReact ?? 0) > 0 || input.rippleEnabled || input.trailEnabled || input.parallaxEnabled) {
+    warnings.push(
+      "Mouse interaction is not included in portable code exports (pointer reactivity, click ripple, trail and parallax). Use the embed or the React component to keep it.",
+    );
   }
 
   if (input.customGLSL?.trim()) {
