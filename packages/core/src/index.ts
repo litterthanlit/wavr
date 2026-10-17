@@ -24,6 +24,16 @@ export {
   summarizeGpuResources,
 } from "./instrumentation";
 export type { EngineMetrics, GpuResourceSample, GpuResourceSummary } from "./instrumentation";
+export { SHADER_PARTS } from "./shader-sources";
+export type { ShaderParts } from "./shader-sources";
+export {
+  MAX_POINTER_SPEED,
+  MAX_POINTER_STEP,
+  POINTER_OMEGA,
+  PRESENCE_OMEGA_IN,
+  PRESENCE_OMEGA_OUT,
+  SNAP_PRESENCE,
+} from "./pointer";
 export {
   PALETTE_SIZE,
   MAX_PALETTE_COLORS,

@@ -1,6 +1,8 @@
 import { GRADIENT_TYPE_IDS, fitSize, type CaptureOptions, type EngineState } from "@wavr/core";
 import { encodeGif } from "./gif";
 import type { GifWorkerRequest, GifWorkerResponse } from "./gif.worker";
+import { compactCode, indentCode, portableModule } from "./portable-runtime";
+import { resolvePortableSettings, type PortableSettings, type PortableState } from "./portable-shader";
 
 export function generateEmbedCode(stateHash: string, width = 800, height = 600): string {
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://wavr.app";
@@ -9,6 +11,7 @@ export function generateEmbedCode(stateHash: string, width = 800, height = 600):
 
 export interface PortableExportLayerInput {
   visible?: boolean;
+  gradientType?: string;
   imageData?: string | null;
   distortionMapData?: string | null;
   maskEnabled?: boolean;
@@ -22,7 +25,7 @@ export interface PortableExportFidelityInput {
   keyframeCount?: number;
   audioEnabled?: boolean;
   customGLSL?: string | null;
-  /** Mouse reactivity, 0..1. Portable exports animate on their own but ignore the pointer. */
+  /** Mouse reactivity, 0..1. Portable exports carry the pointer warp, but not the click ripple, trail or parallax below. */
   mouseReact?: number;
   rippleEnabled?: boolean;
   trailEnabled?: boolean;
@@ -41,6 +44,10 @@ export function getPortableExportWarnings(input: PortableExportFidelityInput): s
     warnings.push("Image and distortion-map textures are not included in portable code exports.");
   }
 
+  if (visibleLayers.some((layer) => layer.gradientType === "image")) {
+    warnings.push("The Image gradient needs its picture, so portable code exports draw a Mesh gradient in its place.");
+  }
+
   if (visibleLayers.some((layer) => layer.maskEnabled || layer.textMaskEnabled)) {
     warnings.push("Masks and text masks are not included in portable code exports.");
   }
@@ -57,9 +64,9 @@ export function getPortableExportWarnings(input: PortableExportFidelityInput): s
     warnings.push("Audio reactivity is not included in portable code exports.");
   }
 
-  if ((input.mouseReact ?? 0) > 0 || input.rippleEnabled || input.trailEnabled || input.parallaxEnabled) {
+  if (input.rippleEnabled || input.trailEnabled || input.parallaxEnabled) {
     warnings.push(
-      "Mouse interaction is not included in portable code exports (pointer reactivity, click ripple, trail and parallax). Use the embed or the React component to keep it.",
+      "Click ripple, pointer trail and parallax are not included in portable code exports; pointer reactivity is. Use the embed or the React component to keep them.",
     );
   }
 
@@ -378,217 +385,37 @@ module.exports = {
 </script>`;
 }
 
-interface ExportableState {
-  colors: [number, number, number][];
-  gradientType: string;
-  speed: number;
-  complexity: number;
-  scale: number;
-  distortion: number;
-  softness?: number;
-  brightness: number;
-  saturation: number;
-}
-
-
-const PORTABLE_VERTEX_SHADER = `#version 300 es
-precision highp float;
-in vec2 a_position;
-out vec2 v_uv;
-void main() {
-  v_uv = a_position * 0.5 + 0.5;
-  gl_Position = vec4(a_position, 0.0, 1.0);
-}`;
+/**
+ * What the code exports (React, web component, standalone player) are built
+ * from. Beyond the layer's look it takes the colour grade and, for the pointer,
+ * `mouseReact`; see PortableState for the defaults.
+ */
+export type ExportableState = PortableState;
 
 /** Shader id for a gradient type, falling back to mesh for unknown values. */
 function gradientTypeId(type: string): number {
   return (GRADIENT_TYPE_IDS as Record<string, number>)[type] ?? GRADIENT_TYPE_IDS.mesh;
 }
 
-function exportNumber(value: number | undefined, fallback: number, digits = 2): string {
-  const n = Number.isFinite(value) ? value : fallback;
-  return (n ?? fallback).toFixed(digits);
-}
+/** The pointer is read over the canvas itself, so an export that reacts to it says what that means for the page. */
+const POINTER_NOTE = [
+  "The gradient bends around the pointer while it is over the canvas. Content layered on top of it",
+  "needs pointer-events: none for the pointer to reach the canvas.",
+];
 
-function templateLiteral(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
-}
-
-function exportColorsLiteral(colors: [number, number, number][]): string {
-  return colors.map(c => `[${c.map(v => v.toFixed(3)).join(", ")}]`).join(",\n      ");
-}
-
-function exportColorsJson(colors: [number, number, number][]): string {
-  return JSON.stringify(colors.map(c => c.map(v => +v.toFixed(3))));
-}
-
-function portableFragmentShader(state: ExportableState): string {
-  const type = gradientTypeId(state.gradientType);
-  const complexity = Math.max(1, Math.min(8, Math.round(state.complexity)));
-  const softness = state.softness ?? 0;
-
-  return `#version 300 es
-precision highp float;
-in vec2 v_uv;
-out vec4 fragColor;
-uniform float u_time;
-uniform vec2 u_resolution;
-uniform vec3 u_colors[8];
-uniform int u_colorCount;
-
-const int TYPE = ${type};
-const float SPEED = ${exportNumber(state.speed, 0.4)};
-const int OCTAVES = ${complexity};
-const float SCALE = ${exportNumber(state.scale, 1)};
-const float DISTORTION = ${exportNumber(state.distortion, 0.3)};
-const float SOFTNESS = ${exportNumber(softness, 0)};
-const float BRIGHTNESS = ${exportNumber(state.brightness, 1)};
-const float SATURATION = ${exportNumber(state.saturation, 1)};
-
-vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
-vec2 mod289(vec2 x){return x-floor(x*(1./289.))*289.;}
-vec3 permute(vec3 x){return mod289(((x*34.)+1.)*x);}
-float snoise(vec2 v){
-  const vec4 C=vec4(.211324865405187,.366025403784439,-.577350269189626,.024390243902439);
-  vec2 i=floor(v+dot(v,C.yy));vec2 x0=v-i+dot(i,C.xx);
-  vec2 i1=(x0.x>x0.y)?vec2(1,0):vec2(0,1);
-  vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod289(i);
-  vec3 p=permute(permute(i.y+vec3(0,i1.y,1))+i.x+vec3(0,i1.x,1));
-  vec3 m=max(.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
-  m=m*m;m=m*m;
-  vec3 x=2.*fract(p*C.www)-1.;vec3 h=abs(x)-.5;
-  vec3 ox=floor(x+.5);vec3 a0=x-ox;
-  m*=1.79284291400159-.85373472095314*(a0*a0+h*h);
-  vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;
-  return 130.*dot(m,g);
-}
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
-vec2 hash22(vec2 p){return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453);}
-float fbm(vec2 p){
-  float v=0.,a=.5,f=1.;
-  for(int i=0;i<8;i++){if(i>=OCTAVES)break;v+=a*snoise(p*f);f*=2.;a*=.5;}
-  return v;
-}
-float cells(vec2 p){
-  vec2 i=floor(p),f=fract(p);float m=8.;
-  for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
-    vec2 g=vec2(float(x),float(y));
-    vec2 o=hash22(i+g);
-    m=min(m,length(g+o-f));
-  }
-  return m;
-}
-float liquid(vec2 p,float t){
-  float v=0.;
-  for(int i=0;i<5;i++){
-    float fi=float(i);
-    vec2 c=.5+.28*vec2(sin(t*.28+fi*1.7),cos(t*.22+fi*2.1));
-    v+=.055/(length(p-c)+.045);
-  }
-  return smoothstep(.3,1.25,v);
-}
-float fieldFor(vec2 uv,float t){
-  vec2 p=(uv-.5)*SCALE+.5;
-  vec2 warp=vec2(fbm(p*1.7+t*.08),fbm(p*1.7-t*.07));
-  vec2 q=p+(warp-.5)*DISTORTION;
-  if(TYPE==1)return smoothstep(.05,1.05,length(q-.5)*1.45);
-  if(TYPE==2)return fract(q.x*.75+q.y*.35+t*.05+fbm(q)*.2);
-  if(TYPE==3)return fract(atan(q.y-.5,q.x-.5)/6.28318+length(q-.5)*.55+t*.04);
-  if(TYPE==4)return .5+.5*sin((q.x+q.y)*6.0+fbm(q*2.2)*4.0+t);
-  if(TYPE==5)return floor((fbm(q*3.0+t*.1)*.5+.5)*9.0)/8.0;
-  if(TYPE==6)return fract(q.y*18.0+t*.2+fbm(q*2.0)*.18);
-  if(TYPE==7)return fract(q.x+floor(q.y*16.0)*.13+step(.7,hash(vec2(floor(q.y*16.0),floor(t*6.0))))*.18);
-  if(TYPE==9)return smoothstep(.08,.72,cells(q*4.5+t*.08));
-  if(TYPE==10){
-    float r=sin((q.x+fbm(q*1.4+t*.05)*DISTORTION)*7.0+q.y*2.0+t*.45);
-    return smoothstep(-.85,.85,r);
-  }
-  if(TYPE==11){
-    float curtain=sin(q.x*7.0+fbm(vec2(q.x*1.5,q.y*.8)+t*.06)*5.0+t*.35);
-    float lift=smoothstep(.08,.9,q.y);
-    return mix(.12,.95,smoothstep(-.65,.9,curtain)*lift);
-  }
-  if(TYPE==12)return liquid(q,t);
-  if(TYPE==13)return smoothstep(.0,1.0,1.0-cells(q*3.4+(warp-.5)*.8));
-  if(TYPE==14){
-    float cloth=fbm(q*1.2+vec2(t*.08,t*.03));
-    float warp=fbm(q*1.9+cloth+t*.05);
-    float a=.5+.5*sin((q.x*1.25+q.y*.4+warp*1.9+t*.1)*6.28318);
-    float b=.5+.5*sin((-q.x*.45+q.y*1.6+cloth*1.5-t*.08)*6.28318);
-    return mix(cloth,mix(a,b,.38),.34);
-  }
-  if(TYPE==15){
-    vec2 r=q-.5;
-    float a=atan(r.y,r.x);
-    float d=length(r);
-    float sheet=.5+.5*sin((r.x*1.8-r.y*1.15+fbm(r*1.6+t*.06)*1.7+t*.16)*6.28318);
-    float fold=1.-smoothstep(.02,.56,abs(sin(a*2.+d*5.2-t*.2)));
-    return clamp(mix(fbm(r*1.15+t*.05),sheet,.52)+fold*.18,0.,1.);
-  }
-  if(TYPE==16){
-    vec2 r=q-.5;
-    float d=length(r);
-    float a=atan(r.y,r.x);
-    float spiral=a*1.85+d*(9.+COMPLEXITY*.85)-t*.42;
-    float contour=1.-smoothstep(.015,.26,abs(fract(spiral/6.28318)-.5));
-    float depth=1./(.18+d*1.55);
-    return mix(fract(depth*.42+a/6.28318+t*.05),contour,.55);
-  }
-  return fbm(q*2.0+vec2(t*.12,-t*.08))*.5+.5;
-}
-vec3 getColor(float t){
-  t=clamp(t,0.,1.);float s=t*float(u_colorCount-1);
-  int idx=int(floor(s));float f=fract(s);f=f*f*(3.-2.*f);
-  int next=min(idx+1,u_colorCount-1);
-  return mix(u_colors[idx],u_colors[next],f);
-}
-vec3 softColor(float t){
-  float spread=.02+SOFTNESS*.12;
-  vec3 c=getColor(t)*.46;
-  c+=getColor(t-spread)*.18+getColor(t+spread)*.18;
-  c+=getColor(t-spread*2.)*.09+getColor(t+spread*2.)*.09;
-  return c;
-}
-void main(){
-  vec2 aspect=vec2(u_resolution.x/max(u_resolution.y,1.0),1.0);
-  vec2 uv=(v_uv-.5)*aspect+.5;
-  float time=u_time*SPEED;
-  float field=fieldFor(uv,time);
-  field=mix(field,smoothstep(.08,.92,field),clamp(SOFTNESS,0.,1.));
-  vec3 color=softColor(field);
-  if(TYPE==5){
-    float dotMask=step(.48,fract((gl_FragCoord.x+gl_FragCoord.y)*.5));
-    color*=mix(.88,1.08,dotMask);
-  }
-  if(TYPE==14 || TYPE==15 || TYPE==16){
-    float grain=hash(gl_FragCoord.xy+time*60.)-.5;
-    color+=grain*(.035+SOFTNESS*.025);
-  }
-  if(TYPE==15){
-    color+=getColor(fract(field+.18))*.16*smoothstep(.55,1.,field);
-  }
-  if(TYPE==16){
-    color+=getColor(fract(field+.32))*.22*smoothstep(.48,1.,field);
-  }
-  color*=BRIGHTNESS;
-  float grey=dot(color,vec3(.2126,.7152,.0722));
-  color=mix(vec3(grey),color,SATURATION);
-  color=color/(color+1.);
-  fragColor=vec4(clamp(color,0.,1.),1.);
-}`;
+/** The note as comment lines (`open` and `close` are the comment syntax), or nothing where the pointer is off. */
+function pointerNote(settings: PortableSettings, open: string, close = ""): string {
+  if (settings.mouseReact <= 0) return "";
+  return `\n\n${POINTER_NOTE.map((line) => `${open}${line}${close}`).join("\n")}`;
 }
 
 export function exportReactComponent(state: ExportableState): string {
-  const colorsStr = exportColorsLiteral(state.colors);
-  const fragment = templateLiteral(portableFragmentShader(state));
-  const vertex = templateLiteral(PORTABLE_VERTEX_SHADER);
+  const settings = resolvePortableSettings(state);
 
   return `"use client";
 import { useEffect, useRef } from "react";
 
-const VERTEX = \`${vertex}\`;
-
-const FRAGMENT = \`${fragment}\`;
+${portableModule(settings, "ts")}
 
 interface WavrGradientProps {
   className?: string;
@@ -600,75 +427,7 @@ export default function WavrGradient({ className = "", scrollLinked = false }: W
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const gl = canvas.getContext("webgl2", { alpha: false, antialias: false });
-    if (!gl) return;
-
-    function compile(type: number, src: string) {
-      const s = gl!.createShader(type)!;
-      gl!.shaderSource(s, src); gl!.compileShader(s);
-      return s;
-    }
-
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERTEX));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAGMENT));
-    gl.linkProgram(prog); gl.useProgram(prog);
-
-    const vao = gl.createVertexArray()!;
-    gl.bindVertexArray(vao);
-    const buf = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
-    const pos = gl.getAttribLocation(prog, "a_position");
-    gl.enableVertexAttribArray(pos);
-    gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
-
-    const uTime = gl.getUniformLocation(prog, "u_time");
-    const uRes = gl.getUniformLocation(prog, "u_resolution");
-    const uCount = gl.getUniformLocation(prog, "u_colorCount");
-    const colors: [number,number,number][] = [
-      ${colorsStr}
-    ];
-    gl.uniform1i(uCount, colors.length);
-    for (let i = 0; i < colors.length; i++) {
-      const loc = gl.getUniformLocation(prog, \`u_colors[\${i}]\`);
-      if (loc) gl.uniform3fv(loc, colors[i]);
-    }
-
-    let t = 0, raf = 0, last = performance.now() / 1000;
-    let lastRender = 0;
-    const obs = new ResizeObserver(() => {
-      const dpr = Math.min(devicePixelRatio || 1, 1.5);
-      canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
-      canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
-      gl.viewport(0, 0, canvas.width, canvas.height);
-    });
-    obs.observe(canvas);
-
-    function getScrollProgress() {
-      const docH = document.documentElement.scrollHeight - window.innerHeight;
-      return docH > 0 ? window.scrollY / docH : 0;
-    }
-
-    function render() {
-      raf = requestAnimationFrame(render);
-      const nowMs = performance.now();
-      if (document.hidden || nowMs - lastRender < 1000 / 45) return;
-      lastRender = nowMs;
-      if (scrollLinked) {
-        t = getScrollProgress() * 10;
-      } else {
-        const now = nowMs / 1000;
-        t += now - last; last = now;
-      }
-      gl!.uniform1f(uTime, t);
-      gl!.uniform2f(uRes, canvas!.width, canvas!.height);
-      gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4);
-    }
-    render();
-
-    return () => { cancelAnimationFrame(raf); obs.disconnect(); gl.deleteProgram(prog); };
+    return canvas ? startWavr(canvas, scrollLinked) : undefined;
   }, [scrollLinked]);
 
   return <canvas ref={canvasRef} className={\`block w-full h-full \${className}\`} />;
@@ -676,108 +435,65 @@ export default function WavrGradient({ className = "", scrollLinked = false }: W
 
 // Usage:
 // <WavrGradient />                        — auto-animating
-// <WavrGradient scrollLinked />           — driven by page scroll`;
+// <WavrGradient scrollLinked />           — driven by page scroll${pointerNote(settings, "// ")}`;
+}
+
+/** The script of the <wavr-gradient> element, shared by the web component and the standalone player. */
+function webComponentScript(settings: PortableSettings): string {
+  return `(() => {
+${indentCode(portableModule(settings, "js"), "  ")}
+
+  class WavrGradient extends HTMLElement {
+    connectedCallback() {
+      const canvas = document.createElement("canvas");
+      canvas.style.cssText = "display:block;width:100%;height:100%";
+      (this.shadowRoot || this.attachShadow({ mode: "open" })).replaceChildren(canvas);
+      this.stop = startWavr(canvas, this.getAttribute("mode") === "scroll");
+      if (!this.stop) this.textContent = "WebGL 2 is not supported";
+    }
+    disconnectedCallback() {
+      if (this.stop) this.stop();
+      this.stop = undefined;
+    }
+  }
+  if (!customElements.get("wavr-gradient")) customElements.define("wavr-gradient", WavrGradient);
+})();`;
 }
 
 export function exportWebComponent(state: ExportableState): string {
-  const colorsArr = exportColorsJson(state.colors);
-  const vertex = JSON.stringify(PORTABLE_VERTEX_SHADER);
-  const fragment = JSON.stringify(portableFragmentShader(state));
-
+  const settings = resolvePortableSettings(state);
   return `<!-- Wavr Gradient Web Component -->
 <script>
-class WavrGradient extends HTMLElement {
-  connectedCallback() {
-    const shadow = this.attachShadow({ mode: "open" });
-    const canvas = document.createElement("canvas");
-    canvas.style.cssText = "display:block;width:100%;height:100%";
-    shadow.appendChild(canvas);
-
-    const gl = canvas.getContext("webgl2", { alpha: false, antialias: false });
-    if (!gl) { this.textContent = "WebGL 2 not supported"; return; }
-
-    const VS = ${vertex};
-    const FS = ${fragment};
-
-    function compile(type, src) {
-      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s;
-    }
-    const prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
-    gl.linkProgram(prog); gl.useProgram(prog);
-
-    const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
-    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
-    const pos = gl.getAttribLocation(prog, "a_position");
-    gl.enableVertexAttribArray(pos); gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
-
-    const uTime = gl.getUniformLocation(prog, "u_time");
-    const uRes = gl.getUniformLocation(prog, "u_resolution");
-    const colors = ${colorsArr};
-    gl.uniform1i(gl.getUniformLocation(prog, "u_colorCount"), colors.length);
-    colors.forEach((c, i) => {
-      const loc = gl.getUniformLocation(prog, "u_colors[" + i + "]");
-      if (loc) gl.uniform3fv(loc, c);
-    });
-
-    let t = 0, last = performance.now() / 1000;
-    let lastRender = 0;
-    const scrollMode = this.getAttribute("mode") === "scroll";
-    const resize = () => {
-      const dpr = Math.min(devicePixelRatio || 1, 1.5);
-      canvas.width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
-      canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
-      gl.viewport(0, 0, canvas.width, canvas.height);
-    };
-    new ResizeObserver(resize).observe(canvas); resize();
-
-    const loop = () => {
-      requestAnimationFrame(loop);
-      const nowMs = performance.now();
-      if (document.hidden || nowMs - lastRender < 1000 / 45) return;
-      lastRender = nowMs;
-      if (scrollMode) {
-        const docH = document.documentElement.scrollHeight - window.innerHeight;
-        t = docH > 0 ? (window.scrollY / docH) * 10 : 0;
-      } else {
-        const now = nowMs / 1000; t += now - last; last = now;
-      }
-      gl.uniform1f(uTime, t);
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    };
-    loop();
-  }
-}
-customElements.define("wavr-gradient", WavrGradient);
+${webComponentScript(settings)}
 </script>
 
 <!-- Usage: -->
 <wavr-gradient style="width: 100%; height: 400px; display: block;"></wavr-gradient>
 
 <!-- Scroll-linked (gradient animates as user scrolls the page): -->
-<!-- <wavr-gradient mode="scroll" style="width: 100%; height: 400px; display: block;"></wavr-gradient> -->`;
+<!-- <wavr-gradient mode="scroll" style="width: 100%; height: 400px; display: block;"></wavr-gradient> -->${pointerNote(settings, "<!-- ", " -->")}`;
+}
+
+/**
+ * Percent-encodes only what a double-quoted `src` attribute and a data URL
+ * can't carry (and everything outside printable ASCII), so the spaces that make
+ * up much of the source stay one byte each.
+ */
+function dataUrlEncode(text: string): string {
+  return text.replace(/[%"#&\\<>]|[^\x20-\x7e]/gu, (char) => encodeURIComponent(char));
 }
 
 export function exportStandalonePlayer(state: ExportableState): string {
-  const colorsArr = exportColorsJson(state.colors);
-  const playerSource = `(function(){
-const VS=${JSON.stringify(PORTABLE_VERTEX_SHADER)};
-const FS=${JSON.stringify(portableFragmentShader(state))};
-const COLORS=${colorsArr};
-class WavrGradient extends HTMLElement{connectedCallback(){const s=this.attachShadow({mode:"open"});const c=document.createElement("canvas");c.style.cssText="display:block;width:100%;height:100%";s.appendChild(c);const g=c.getContext("webgl2",{alpha:false});if(!g)return;function mk(t,src){const sh=g.createShader(t);g.shaderSource(sh,src);g.compileShader(sh);return sh;}const pr=g.createProgram();g.attachShader(pr,mk(g.VERTEX_SHADER,VS));g.attachShader(pr,mk(g.FRAGMENT_SHADER,FS));g.linkProgram(pr);g.useProgram(pr);const va=g.createVertexArray();g.bindVertexArray(va);const bf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,bf);g.bufferData(g.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),g.STATIC_DRAW);const po=g.getAttribLocation(pr,"a_position");g.enableVertexAttribArray(po);g.vertexAttribPointer(po,2,g.FLOAT,false,0,0);const uT=g.getUniformLocation(pr,"u_time"),uR=g.getUniformLocation(pr,"u_resolution");g.uniform1i(g.getUniformLocation(pr,"u_colorCount"),COLORS.length);COLORS.forEach((cl,i)=>{const l=g.getUniformLocation(pr,"u_colors["+i+"]");if(l)g.uniform3fv(l,cl);});const scr=this.getAttribute("mode")==="scroll";let t=0,la=performance.now()/1000,lr=0;const ro=new ResizeObserver(()=>{const d=Math.min(devicePixelRatio||1,1.5);c.width=Math.max(1,Math.floor(c.clientWidth*d));c.height=Math.max(1,Math.floor(c.clientHeight*d));g.viewport(0,0,c.width,c.height);});ro.observe(c);(function lp(){requestAnimationFrame(lp);const ms=performance.now();if(document.hidden||ms-lr<1000/45)return;lr=ms;if(scr){const dH=document.documentElement.scrollHeight-window.innerHeight;t=dH>0?(window.scrollY/dH)*10:0;}else{const n=ms/1000;t+=n-la;la=n;}g.uniform1f(uT,t);g.uniform2f(uR,c.width,c.height);g.drawArrays(g.TRIANGLE_STRIP,0,4);})();}}
-customElements.define("wavr-gradient",WavrGradient);
-})();`;
+  const settings = resolvePortableSettings(state);
+  const playerSource = compactCode(webComponentScript(settings));
   return `<!-- Wavr Standalone Player — drop this script anywhere -->
-<script src="data:text/javascript;charset=utf-8,${encodeURIComponent(playerSource)}"></script>
+<script src="data:text/javascript;charset=utf-8,${dataUrlEncode(playerSource)}"></script>
 
 <!-- Usage: -->
 <wavr-gradient style="width:100%;height:400px;display:block"></wavr-gradient>
 
 <!-- Scroll-linked: -->
-<!-- <wavr-gradient mode="scroll" style="width:100%;height:100vh;position:fixed;top:0;left:0;z-index:-1"></wavr-gradient> -->`;
+<!-- <wavr-gradient mode="scroll" style="width:100%;height:100vh;position:fixed;top:0;left:0;z-index:-1"></wavr-gradient> -->${pointerNote(settings, "<!-- ", " -->")}`;
 }
 
 /**

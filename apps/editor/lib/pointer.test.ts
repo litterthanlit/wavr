@@ -291,7 +291,7 @@ describe("attachPointer", () => {
   it("marks the pointer inactive when the window loses focus", () => {
     const element = fakeElement();
     const view = new EventTarget();
-    element.ownerDocument = { defaultView: view };
+    (element as { ownerDocument: unknown }).ownerDocument = { defaultView: view };
     const target = spyTarget();
     const detach = attachPointer(element, target);
     fire(view, "blur");

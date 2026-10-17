@@ -23,12 +23,13 @@ pnpm workspace + Turborepo. Node version in `.nvmrc`.
 
 ```bash
 pnpm dev            # editor dev server
-pnpm lint           # tsc --noEmit for packages, ESLint for the editor
+pnpm lint           # tsc --noEmit for packages, ESLint + tsc --noEmit for the editor
 pnpm test           # vitest in every package that has tests
 pnpm build          # tsup for packages, `next build --webpack` for the editor
 pnpm --filter editor test        # one package
 pnpm test:parity    # Playwright parity harness
 pnpm snapshots [dir]  # render every gradient type and parity fixture to PNGs (see Testing)
+pnpm export-parity [dir]  # render code exports next to the engine and diff them (see Testing)
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint, test and build on every PR; `parity.yml` runs the parity harness.
@@ -79,7 +80,7 @@ Per-layer params (type, colors, speed, masks, images, …) live on each layer. G
 - **Export:**
   - `lib/export.ts` handles PNG (1×/2×/4×) and GIF, both rendered offscreen at exact times.
   - GIFs are encoded by `lib/gif.ts` (median-cut palette, ordered dither, LZW) in `lib/gif.worker.ts`.
-  - Code/embed exports are simplified single-layer shaders and warn about what they drop.
+  - Code exports (React, web component, standalone player) are single-layer and warn about what they drop, but what they include is the engine's own code: `lib/portable-shader.ts` cuts the selected gradient, its mouse style, tone map and colour grade out of the engine's GLSL (`SHADER_PARTS`), and `lib/portable-runtime.ts` is the shared JS (palette bake ported from `palette.ts`, pointer smoother from `pointer.ts`). Don't hand-write export shader code; a new gradient mode needs no export change. `exportCSS` / Tailwind are plain CSS approximations.
 - **Projects:**
   - `lib/projects.ts` stores projects in `localStorage` (`wavr-projects`). Uploaded images go to IndexedDB via `lib/image-store.ts`, and projects hold `wavr-image:<sha256>` references.
   - `saveProject`, `deleteProject` and `projectStateForLoad` are async and serialized; await them.
@@ -98,10 +99,11 @@ The canonical list is `GRADIENT_TYPES` in `packages/schema/src/enums.ts` (zod-fr
 
 ## Testing
 
-- **Editor unit tests:** Vitest over `apps/editor/lib/**/*.test.ts`, in a Node environment. `.glsl` imports are stubbed.
+- **Editor unit tests:** Vitest over `apps/editor/lib/**/*.test.ts`, in a Node environment. `.glsl` imports load as text.
 - **Engine tests:** `lib/test-utils/fake-webgl.ts` is a recording fake WebGL 2 context (options: `parallelCompile`, `floatTargets`; `controls` to fail or finish compiles). Construct a real `GradientEngine` on it to assert draw targets, per-draw uniforms, bound textures, program creation and upload counts (see `engine-render-passes.test.ts`, `engine-programs.test.ts`, `engine-uniform-cache.test.ts`, `engine-capture.test.ts`). `engine-shader-sources.test.ts` reads the real `.glsl` files and checks the assembled sources: one gradient function per layer program, one `computeGradient` call, no gradient code in post.
 - **Parity harness:** `pnpm test:parity` renders real frames on headless Chromium's SwiftShader. Its page compiles every gradient type before the first test, so a shader that fails to compile fails CI with the GLSL log. `tests/parity/goldens/` is empty, so until the `parity-generate` workflow commits goldens, each fixture only has to render a non-blank frame; once any golden exists, a missing one fails. Set `CHROMIUM_PATH` to use an existing Chromium. Any change to rendered output still needs a look (below), and a check on a real GPU (the Vercel preview works).
 - **Snapshots:** `pnpm snapshots [dir]` (default `test-results/snapshots`) renders every gradient type (default layer; `image` gets a generated picture) and every parity fixture at t=1s, 512×512, with `engine.captureImageData`, and prints timing per image. Options (usage at the top of `tests/parity/snapshot.mjs`): `--only`, `--time`, `--size`, `--width/--height` or `--aspect`, `--palette <name|#hex,…>`, `--layer k=v,…`, `--state k=v,…`, `--presets`, `--scenes file.json`, `--scale`, `--bench N`, and pointer staging (`--mouse x,y`, `--stroke`, `--ripple`). `pnpm snapshots:diff <dirA> <dirB>` compares two runs; `SNAPSHOT_PAGE` points at another build of the page. Compare against a run from another commit when you touch shaders or the engine, and look at the PNGs.
+- **Export parity:** `pnpm export-parity [dir]` renders each type through the engine and through the exported standalone player (or `--format web`) and prints the mean/max difference; it takes the snapshot options plus `--max-mean`. Run it after touching shaders, the palette or the pointer model.
 - **Mouse styles:** `node tests/parity/mouse-probe.mjs` measures each warp style's peak displacement, reach and circularity; rerun it after changing style constants.
 - **React package:** `packages/react` has Vitest with happy-dom (`packages/react/test`).
 

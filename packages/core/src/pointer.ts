@@ -24,7 +24,7 @@ export const RIPPLE_DURATION = 1.6;
 /** Trail energy removed per 60 Hz frame on top of the multiplicative decay, so 8-bit energy reaches zero instead of stalling. */
 export const TRAIL_FLOOR_PER_FRAME = 0.0025;
 /** Entering with less than this much presence jumps the smoothed pointer to the real one instead of sweeping across the canvas. */
-const SNAP_PRESENCE = 0.15;
+export const SNAP_PRESENCE = 0.15;
 
 const EPS_POSITION = 2e-4;
 const EPS_VELOCITY = 2e-3;
