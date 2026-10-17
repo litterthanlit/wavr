@@ -7,19 +7,43 @@
 //
 //   window.__wavrSnapshotReady : Promise<void>
 //   window.__wavrGradientTypes : the gradient types, in GRADIENT_TYPES order
-//   window.__wavrSnapshot      : (job, timeSeconds, sizePx) => Promise<SnapshotResult>
+//   window.__wavrSnapshot      : (job, SnapshotOptions) => Promise<SnapshotResult>
+//
+// A frame has no history, so the pointer is staged: `mouse` puts it somewhere
+// and lets it settle (the mouse effects at rest under the pointer); `stroke`
+// moves it along a line at constant speed and captures mid-motion (the
+// velocity-driven parts, and the trail); `ripple` starts a click ripple and
+// ages it.
 
 import {
   GRADIENT_TYPES,
   GradientEngine,
   createLayer,
   resolveConfig,
+  type EngineState,
   type GradientConfig,
   type GradientType,
 } from "@wavr/core";
 
 /** A default layer of one gradient type, or a whole parity-fixture config. */
 export type SnapshotJob = { type: GradientType } | { config: GradientConfig };
+
+/** Positions are uv: 0..1 across, y up. */
+export interface SnapshotOptions {
+  /** Animation time, seconds. */
+  time: number;
+  /** Capture size in pixels. */
+  width: number;
+  height: number;
+  /** The pointer, settled here: present, at rest. Absent when neither this nor `stroke` is given. */
+  mouse?: [number, number];
+  /** The pointer travels from `from` to `to` over `seconds`, stepped at 60 Hz, and the frame is captured as it arrives. */
+  stroke?: { from: [number, number]; to: [number, number]; seconds: number };
+  /** A click at `at`, `age` seconds ago (rippleEnabled is switched on). */
+  ripple?: { at: [number, number]; age: number };
+  /** Overrides for the engine state (mouseReact, trailEnabled, ...). */
+  state?: Record<string, number | boolean>;
+}
 
 export interface SnapshotResult {
   /** PNG, top-down. */
@@ -40,7 +64,7 @@ declare global {
   interface Window {
     __wavrSnapshotReady: Promise<void>;
     __wavrGradientTypes: readonly GradientType[];
-    __wavrSnapshot: (job: SnapshotJob, time: number, size: number) => Promise<SnapshotResult>;
+    __wavrSnapshot: (job: SnapshotJob, options: SnapshotOptions) => Promise<SnapshotResult>;
   }
 }
 
@@ -99,8 +123,9 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
       const testImage = makeTestImage();
 
       window.__wavrGradientTypes = GRADIENT_TYPES;
-      window.__wavrSnapshot = async (job, time, size) => {
-        let state;
+      window.__wavrSnapshot = async (job, options) => {
+        const { time, width, height } = options;
+        let state: EngineState;
         if ("type" in job) {
           const layer = createLayer({
             gradientType: job.type,
@@ -111,10 +136,46 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
         } else {
           state = resolveConfig(job.config);
         }
+        if (options.state) state = { ...state, ...options.state } as EngineState;
+        if (options.ripple) state = { ...state, rippleEnabled: true };
+
+        // At the capture size already: the trail field is sized from the canvas,
+        // and a resize inside captureImageData would throw a staged stroke away.
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+
+        // Stage the pointer. The engine is shared between jobs, so start from
+        // nothing: pointer absent, no ripple running, an empty trail.
+        engine.setPointerActive(false);
+        engine.settlePointer();
+        engine.advancePointer(10);
+        engine.updateTrail({ ...state, trailEnabled: false });
+        if (options.mouse) {
+          engine.setMouse(options.mouse[0], options.mouse[1]);
+          engine.settlePointer();
+        }
+        if (options.stroke) {
+          const { from, to, seconds } = options.stroke;
+          const frames = Math.max(1, Math.round(seconds * 60));
+          engine.setMouse(from[0], from[1]);
+          engine.settlePointer();
+          for (let i = 1; i <= frames; i++) {
+            const t = i / frames;
+            engine.setMouse(from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t);
+            engine.advancePointer(1 / 60);
+            engine.updateTrail(state);
+          }
+        }
+        if (options.ripple) {
+          engine.triggerRipple(options.ripple.at[0], options.ripple.at[1]);
+          engine.advancePointer(options.ripple.age);
+        }
 
         const readyBefore = engine.getMetrics().totalShaderCompileMs;
         const start = performance.now();
-        const frame = engine.captureImageData({ state, time, width: size, height: size });
+        const frame = engine.captureImageData({ state, time, width, height });
         const captureMs = performance.now() - start;
         if (!frame) throw new Error("captureImageData returned null");
         const programsReadyMs = engine.getMetrics().totalShaderCompileMs - readyBefore;

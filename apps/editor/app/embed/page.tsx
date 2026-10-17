@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import { GradientEngine } from "@wavr/core";
+import { useEffect, useRef } from "react";
+import { GradientEngine, attachPointer } from "@wavr/core";
 import { useGradientStore } from "@/lib/store";
 import { applyHashToStore } from "@/lib/url-sync";
 // An embed always decodes a hash, so bundle the codec with the route instead of
@@ -14,7 +14,6 @@ const EMBED_MAX_FRAME_RATE = 45;
 
 export default function EmbedPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const engineRef = useRef<GradientEngine | null>(null);
 
   useEffect(() => {
     void applyHashToStore();
@@ -27,33 +26,6 @@ export default function EmbedPage() {
       window.removeEventListener("popstate", applyHashToStore);
     };
   }, []);
-
-  const setMouseFromEvent = useCallback((e: MouseEvent) => {
-    const canvas = canvasRef.current;
-    const engine = engineRef.current;
-    if (!canvas || !engine) return;
-
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = 1.0 - (e.clientY - rect.top) / rect.height;
-    engine.setMouse(x, y);
-  }, []);
-
-  const triggerRipple = useCallback((e: MouseEvent) => {
-    setMouseFromEvent(e);
-    const canvas = canvasRef.current;
-    const engine = engineRef.current;
-    if (!canvas || !engine) return;
-
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = 1.0 - (e.clientY - rect.top) / rect.height;
-    engine.triggerRipple(x, y);
-  }, [setMouseFromEvent]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -68,7 +40,6 @@ export default function EmbedPage() {
       return;
     }
 
-    engineRef.current = engine;
     engine.setMaxPixelRatio(EMBED_MAX_PIXEL_RATIO);
     engine.setMaxFrameRate(EMBED_MAX_FRAME_RATE);
 
@@ -96,8 +67,7 @@ export default function EmbedPage() {
     resizeObserver.observe(parent);
     window.addEventListener("resize", resize);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    canvas.addEventListener("mousemove", setMouseFromEvent);
-    canvas.addEventListener("click", triggerRipple);
+    const detachPointer = attachPointer(canvas, engine, { ripple: true });
 
     if (document.visibilityState === "visible") startLoop();
 
@@ -105,12 +75,10 @@ export default function EmbedPage() {
       resizeObserver.disconnect();
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      canvas.removeEventListener("mousemove", setMouseFromEvent);
-      canvas.removeEventListener("click", triggerRipple);
+      detachPointer();
       engine.destroy();
-      engineRef.current = null;
     };
-  }, [setMouseFromEvent, triggerRipple]);
+  }, []);
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-black">

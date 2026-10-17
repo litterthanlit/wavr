@@ -80,6 +80,16 @@ export function createGradient(
       engine.setMouse(x, y);
     },
 
+    setPointerActive(active: boolean) {
+      if (destroyed) return;
+      engine.setPointerActive(active);
+    },
+
+    triggerRipple(x: number, y: number) {
+      if (destroyed) return;
+      engine.triggerRipple(x, y);
+    },
+
     setTime(t: number) {
       if (destroyed) return;
       engine.setElapsedTime(t);

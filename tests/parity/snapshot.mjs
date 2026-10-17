@@ -3,6 +3,21 @@
 // looked at, or diffed against a run from another commit.
 //
 //   pnpm snapshots [outDir] [--only mesh,fixture-solid] [--time 1] [--size 512]
+//                  [--width 768 --height 432]
+//                  [--mouse 0.4,0.6] [--stroke 0.2,0.5,0.8,0.5[,0.4]] [--ripple 0.5,0.5[,0.4]]
+//                  [--state mouseReact=1,trailEnabled=true]
+//
+// --size makes square images; --width/--height override it (a non-square size
+// shows whether effects are circles). The pointer options stage the pointer for
+// a still, with positions as 0..1 across and y up:
+//   --mouse x,y        the pointer rests there, present (the mouse effects at rest)
+//   --stroke x0,y0,x1,y1[,seconds]
+//                      the pointer travels that line at constant speed (default
+//                      0.4 s) and the frame is taken as it arrives, so the
+//                      velocity-driven effects and the trail show
+//   --ripple x,y[,age] a click there `age` seconds ago (default 0.4), ripple on
+//   --state k=v,...    overrides engine state fields (numbers and true/false)
+// Without a pointer option the pointer is absent: no mouse effect at all.
 //
 // outDir defaults to test-results/snapshots. Files are type-<gradient>.png and
 // fixture-<name>.png, plus manifest.json with the timings and pixel stats.
@@ -28,20 +43,63 @@ const REPO_ROOT = path.resolve(HERE, "../..");
 const FIXTURES_DIR = path.join(REPO_ROOT, "packages/schema/test/fixtures/parity");
 const PAGE_URL = pathToFileURL(path.join(HERE, "pages/snapshot.html")).toString();
 
+/** "0.4,0.6" -> [0.4, 0.6]; between `min` and `max` numbers. */
+function parseNumbers(flag, text, min, max) {
+  const values = String(text).split(",").map(Number);
+  if (values.length < min || values.length > max || values.some((v) => !Number.isFinite(v))) {
+    throw new Error(`${flag} takes ${min === max ? min : `${min} to ${max}`} comma-separated numbers`);
+  }
+  return values;
+}
+
+function parseState(text) {
+  const state = {};
+  for (const pair of String(text).split(",").filter(Boolean)) {
+    const [key, value] = pair.split("=");
+    if (!key || value === undefined) throw new Error("--state takes key=value pairs");
+    state[key] = value === "true" ? true : value === "false" ? false : Number(value);
+    if (typeof state[key] === "number" && !Number.isFinite(state[key])) throw new Error(`--state ${key}: not a number`);
+  }
+  return state;
+}
+
 function parseArgs(argv) {
-  const options = { outDir: path.join(REPO_ROOT, "test-results/snapshots"), only: null, time: 1, size: 512 };
+  const options = {
+    outDir: path.join(REPO_ROOT, "test-results/snapshots"),
+    only: null,
+    time: 1,
+    size: 512,
+    width: null,
+    height: null,
+    mouse: null,
+    stroke: null,
+    ripple: null,
+    state: null,
+  };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--only") options.only = new Set(argv[++i].split(",").filter(Boolean));
     else if (arg === "--time") options.time = Number(argv[++i]);
     else if (arg === "--size") options.size = Number(argv[++i]);
+    else if (arg === "--width") options.width = Number(argv[++i]);
+    else if (arg === "--height") options.height = Number(argv[++i]);
+    else if (arg === "--mouse") options.mouse = parseNumbers("--mouse", argv[++i], 2, 2);
+    else if (arg === "--stroke") {
+      const [x0, y0, x1, y1, seconds = 0.4] = parseNumbers("--stroke", argv[++i], 4, 5);
+      options.stroke = { from: [x0, y0], to: [x1, y1], seconds };
+    } else if (arg === "--ripple") {
+      const [x, y, age = 0.4] = parseNumbers("--ripple", argv[++i], 2, 3);
+      options.ripple = { at: [x, y], age };
+    } else if (arg === "--state") options.state = parseState(argv[++i]);
     else if (arg === "--") continue;
     else positional.push(arg);
   }
   if (positional[0]) options.outDir = path.resolve(positional[0]);
-  if (!Number.isFinite(options.time) || !Number.isFinite(options.size)) {
-    throw new Error("--time and --size take numbers");
+  options.width ??= options.size;
+  options.height ??= options.size;
+  if (![options.time, options.size, options.width, options.height].every(Number.isFinite)) {
+    throw new Error("--time, --size, --width and --height take numbers");
   }
   return options;
 }
@@ -97,10 +155,17 @@ async function main() {
       const label = `[${String(index + 1).padStart(2)}/${jobs.length}] ${name.padEnd(24)}`;
       const wallStart = Date.now();
       try {
-        const result = await page.evaluate(({ job, time, size }) => window.__wavrSnapshot(job, time, size), {
+        const result = await page.evaluate(({ job, shot }) => window.__wavrSnapshot(job, shot), {
           job,
-          time: options.time,
-          size: options.size,
+          shot: {
+            time: options.time,
+            width: options.width,
+            height: options.height,
+            ...(options.mouse && { mouse: options.mouse }),
+            ...(options.stroke && { stroke: options.stroke }),
+            ...(options.ripple && { ripple: options.ripple }),
+            ...(options.state && { state: options.state }),
+          },
         });
         const file = path.join(options.outDir, `${name}.png`);
         fs.writeFileSync(file, Buffer.from(result.dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"));
@@ -126,7 +191,20 @@ async function main() {
 
   fs.writeFileSync(
     path.join(options.outDir, "manifest.json"),
-    JSON.stringify({ time: options.time, size: options.size, images: manifest }, null, 2),
+    JSON.stringify(
+      {
+        time: options.time,
+        width: options.width,
+        height: options.height,
+        mouse: options.mouse,
+        stroke: options.stroke,
+        ripple: options.ripple,
+        state: options.state,
+        images: manifest,
+      },
+      null,
+      2,
+    ),
   );
   console.log(
     `\n${jobs.length - failed}/${jobs.length} images in ${seconds(Date.now() - started)} -> ${path.relative(process.cwd(), options.outDir)}`,

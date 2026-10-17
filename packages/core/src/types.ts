@@ -87,7 +87,12 @@ export interface GradientHandle {
   update(config: Partial<GradientConfig>): void;
   play(): void;
   pause(): void;
+  /** The pointer is at (x, y): 0..1 across the canvas, y up. Counts as present. */
   setMouse(x: number, y: number): void;
+  /** The pointer entered (true) or left (false); the mouse effects ease in or out. attachPointer calls this. */
+  setPointerActive(active: boolean): void;
+  /** Starts a click ripple at (x, y), 0..1 with y up. Draws when `ripple` is enabled in the config. */
+  triggerRipple(x: number, y: number): void;
   setTime(t: number): void;
   setSpeed(multiplier: number): void;
   setTimelineProgress(t: number): void;

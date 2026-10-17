@@ -18,8 +18,9 @@ uniform bool u_oklabEnabled;
 
 // [layer] gradient parameters and mouse
 uniform vec2 u_mouse;
-uniform vec2 u_mouseSmooth;
-uniform vec2 u_mouseVelocity;
+uniform vec2 u_mouseSmooth;     // smoothed pointer: uv, y up
+uniform vec2 u_mouseVelocity;   // its velocity, canvas heights per second (aspect-correct)
+uniform float u_mousePresence;  // 0..1, eased: 0 until the pointer has entered, and again after it leaves
 uniform float u_mouseReact;
 uniform float u_complexity;
 uniform float u_scale;
@@ -129,7 +130,7 @@ uniform sampler2D u_prevFrame;
 
 // [post] Phase 11 Week 2: Click ripple, soft glow, caustics
 uniform vec2 u_rippleOrigin;
-uniform float u_rippleTime;
+uniform float u_rippleTime;     // seconds since the click, real time
 uniform float u_rippleEnabled;
 uniform float u_rippleIntensity;
 uniform bool u_glowEnabled;
@@ -138,9 +139,10 @@ uniform float u_glowRadius;
 uniform bool u_causticEnabled;
 uniform float u_causticIntensity;
 
-// [post] Phase 11: Mouse Trail
+// [post] Phase 11: Mouse Trail (energy field in R, written by trail.glsl)
 uniform bool u_trailEnabled;
 uniform sampler2D u_trailTexture;
+uniform float u_trailWidth;     // stamp radius, canvas heights
 
 // [post] Phase 11 Week 3: Liquify
 uniform bool u_liquifyEnabled;

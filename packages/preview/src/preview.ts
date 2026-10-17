@@ -1,4 +1,4 @@
-import { createGradient } from "@wavr/core";
+import { attachPointer, createGradient } from "@wavr/core";
 import type { CreateGradientOptions, GradientConfig, GradientHandle } from "@wavr/core";
 import { cloneConfig, shouldShowEditor } from "./config";
 import { mountWavrEditor, type WavrEditorHandle } from "./editor";
@@ -55,23 +55,9 @@ export function mountWavrPreview(
   });
   observer.observe(host);
 
-  if (options.interactive !== false) {
-    const onMove = (event: MouseEvent) => {
-      const rect = host.getBoundingClientRect();
-      gradient?.setMouse((event.clientX - rect.left) / rect.width, 1 - (event.clientY - rect.top) / rect.height);
-    };
-    host.addEventListener("mousemove", onMove);
-    host.addEventListener(
-      "touchmove",
-      (event) => {
-        const touch = event.touches[0];
-        if (!touch) return;
-        const rect = host.getBoundingClientRect();
-        gradient?.setMouse((touch.clientX - rect.left) / rect.width, 1 - (touch.clientY - rect.top) / rect.height);
-      },
-      { passive: true },
-    );
-  }
+  // Mouse, pen and touch the same way as every other Wavr surface (attachPointer).
+  const detachPointer =
+    options.interactive !== false && gradient ? attachPointer(host, gradient, { ripple: true }) : null;
 
   const showEditor = shouldShowEditor(options.editor);
   const editor = showEditor
@@ -92,6 +78,7 @@ export function mountWavrPreview(
     gradient,
     editor,
     destroy() {
+      detachPointer?.();
       observer.disconnect();
       editor?.destroy();
       gradient?.destroy();

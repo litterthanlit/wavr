@@ -179,6 +179,9 @@ importers:
       '@wavr/preview':
         specifier: workspace:*
         version: link:../preview
+      happy-dom:
+        specifier: ^15.11.7
+        version: 15.11.7
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -191,6 +194,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.39)(happy-dom@15.11.7)(lightningcss@1.32.0)(terser@5.46.1)
 
   packages/schema:
     dependencies:

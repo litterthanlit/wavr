@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { createGradient } from "@wavr/core";
+import { attachPointer, createGradient } from "@wavr/core";
 import type { EventTriggers, GradientConfig, GradientHandle } from "./types";
 
 type OverlayHandle = {
@@ -177,32 +177,23 @@ export function WavrGradient({
     handleRef.current?.setSpeed(speed);
   }, [speed]);
 
-  // Mouse interaction
+  // Pointer interaction (mouse, pen, touch): the mouse effects, and the click
+  // ripple when the config enables one. The handle is looked up per event, so
+  // this survives the gradient being recreated.
   useEffect(() => {
     if (!interactive) return;
     const el = containerRef.current;
     if (!el) return;
 
-    const handlePointer = (x: number, y: number) => {
-      const rect = el.getBoundingClientRect();
-      handleRef.current?.setMouse(
-        (x - rect.left) / rect.width,
-        1 - (y - rect.top) / rect.height,
-      );
-    };
-
-    const onMouse = (e: MouseEvent) => handlePointer(e.clientX, e.clientY);
-    const onTouch = (e: TouchEvent) => {
-      const t = e.touches[0];
-      if (t) handlePointer(t.clientX, t.clientY);
-    };
-
-    el.addEventListener("mousemove", onMouse);
-    el.addEventListener("touchmove", onTouch, { passive: true });
-    return () => {
-      el.removeEventListener("mousemove", onMouse);
-      el.removeEventListener("touchmove", onTouch);
-    };
+    return attachPointer(
+      el,
+      {
+        setMouse: (x, y) => handleRef.current?.setMouse(x, y),
+        setPointerActive: (active) => handleRef.current?.setPointerActive(active),
+        triggerRipple: (x, y) => handleRef.current?.triggerRipple(x, y),
+      },
+      { ripple: true },
+    );
   }, [interactive]);
 
   // Legacy scroll-linked mode (kept for backward compat)
@@ -307,12 +298,9 @@ export function WavrGradient({
       const y = 1 - (e.clientY - rect.top) / rect.height;
 
       if (click.effect === "ripple") {
-        // Use the engine's built-in ripple at click position
-        handleRef.current?.setMouse(x, y);
-        handleRef.current?.update({
-          ...configRef.current,
-          ripple: { enabled: true, intensity: 0.8 },
-        });
+        // The engine's built-in ripple at the click: switch it on, then start it.
+        handleRef.current?.update({ ripple: { enabled: true, intensity: 0.8 } });
+        handleRef.current?.triggerRipple(x, y);
       }
 
       if (click.config) {

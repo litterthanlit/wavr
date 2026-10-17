@@ -26,6 +26,22 @@ describe("export fidelity reporting", () => {
     ]);
   });
 
+  it("warns that mouse interaction is not part of portable code exports", () => {
+    const mouse = "Mouse interaction is not included in portable code exports";
+    const warn = (input: Parameters<typeof getPortableExportWarnings>[0]) =>
+      getPortableExportWarnings({ layers: [{ visible: true }], ...input });
+
+    expect(warn({ mouseReact: 0.5 }).join("\n")).toContain(mouse);
+    expect(warn({ mouseReact: 1 })).toHaveLength(1);
+    // The other pointer-driven features go with it.
+    expect(warn({ mouseReact: 0, rippleEnabled: true }).join("\n")).toContain(mouse);
+    expect(warn({ trailEnabled: true }).join("\n")).toContain(mouse);
+    expect(warn({ parallaxEnabled: true }).join("\n")).toContain(mouse);
+    // Nothing to warn about when the pointer does nothing.
+    expect(warn({ mouseReact: 0 })).toEqual([]);
+    expect(warn({})).toEqual([]);
+  });
+
   it("returns no warnings for a single plain gradient layer", () => {
     expect(getPortableExportWarnings({
       layers: [{ visible: true }],

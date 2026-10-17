@@ -127,7 +127,7 @@ vec4 raymarched3D(vec2 screenUV) {
 // Main — one layer
 // ============================================================
 
-// Per-layer work only: parallax, distortion map, 3D projection, the gradient
+// Per-layer work only: parallax, distortion map, 3D projection, mouse warp, the gradient
 // (a single call to computeGradient, so it is inlined once), image blend, mask,
 // opacity and compositing over the previous layers. Global effects are
 // post.glsl's job.
@@ -136,11 +136,14 @@ void main() {
   float time = u_time * u_speed;
   float shade = 1.0;
 
-  // Parallax depth offset (applied first — shifts entire layer)
+  // Parallax depth offset (applied first — shifts entire layer). It follows the
+  // pointer's offset from the centre, scaled by presence, so layers sit still
+  // at rest and while the pointer is away.
   if (u_parallaxEnabled) {
-    vec2 offset = u_mouseSmooth * u_layerDepth * u_parallaxStrength * 0.05;
+    vec2 offset = (u_mouseSmooth - 0.5) * u_mousePresence * u_layerDepth * u_parallaxStrength * 0.05;
     offset.x *= u_resolution.y / u_resolution.x; // aspect ratio correction
-    uv = fract(uv + offset); // wrap for seamless edges
+    // Mirrored, not wrapped: no seam where the shifted layer runs past an edge.
+    uv = 1.0 - abs(1.0 - mod(uv + offset, 2.0));
   }
 
   // Distortion map UV displacement
@@ -150,13 +153,17 @@ void main() {
   }
 
   // 3D Shape Projection (raymarching): the gradient is sampled at the surface
-  // UV instead, so find that before evaluating it.
+  // UV instead, so find that before evaluating it. The pointer warps the flat
+  // layer only, not a surface uv.
   if (u_3dEnabled) {
     vec4 projected = raymarched3D(v_uv);
     if (projected.a <= 0.0) discard;
     // projected.xy = surface UV, projected.z = shade factor
     uv = projected.xy;
     shade = projected.z;
+  } else {
+    // The one place the pointer reaches the gradient (mouse.glsl).
+    uv = mouseWarp(uv);
   }
 
   vec3 color = computeGradient(uv, time) * shade;

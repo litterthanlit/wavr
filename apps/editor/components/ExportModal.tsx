@@ -210,6 +210,10 @@ export default function ExportModal({
     keyframeCount: store.keyframes.length,
     audioEnabled: store.audioEnabled,
     customGLSL: store.customGLSL,
+    mouseReact: store.mouseReact,
+    rippleEnabled: store.rippleEnabled,
+    trailEnabled: store.trailEnabled,
+    parallaxEnabled: store.parallaxEnabled,
   });
   const runtimeReport = getRuntimeEmbedFidelityReport(store);
   const shareUrl = typeof window !== "undefined"

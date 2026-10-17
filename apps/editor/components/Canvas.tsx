@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { GradientEngine, type EngineMetrics } from "@wavr/core";
+import { GradientEngine, attachPointer, type EngineMetrics } from "@wavr/core";
 import {
   useGradientStore,
   GradientState,
@@ -85,24 +85,6 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       align: layer.textMaskAlign,
     });
   });
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !engineRef.current) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = 1.0 - (e.clientY - rect.top) / rect.height;
-    engineRef.current.setMouse(x, y);
-  }, []);
-
-  const handleClick = useCallback((e: MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !engineRef.current) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = 1.0 - (e.clientY - rect.top) / rect.height;
-    engineRef.current.triggerRipple(x, y);
-  }, []);
 
   const syncTextMaskTexture = useCallback(() => {
     const engine = engineRef.current;
@@ -354,9 +336,9 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     canvas.addEventListener("webglcontextlost", handleContextLost);
     canvas.addEventListener("webglcontextrestored", handleContextRestored);
-    window.addEventListener("mousemove", handleMouseMove);
+    // The pointer reacts while it is over the canvas, not anywhere on the page.
+    const detachPointer = attachPointer(canvas, engine, { ripple: true });
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    canvas.addEventListener("click", handleClick);
 
     const unsubscribePerformance = useGradientStore.subscribe((state, prev) => {
       if (state.performanceMode !== prev.performanceMode) {
@@ -372,13 +354,12 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       canvas.removeEventListener("webglcontextlost", handleContextLost);
       canvas.removeEventListener("webglcontextrestored", handleContextRestored);
       resizeObserver.disconnect();
-      window.removeEventListener("mousemove", handleMouseMove);
+      detachPointer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      canvas.removeEventListener("click", handleClick);
       unsubscribePerformance();
       engine.destroy();
     };
-  }, [handleMouseMove, handleClick, onCanvasReady, onEngineReady, syncTextMaskTexture]);
+  }, [onCanvasReady, onEngineReady, syncTextMaskTexture]);
 
   // Reduced motion: pause by default
   useEffect(() => {
