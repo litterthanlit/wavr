@@ -55,11 +55,8 @@ describe("mouse warp wiring", () => {
     expect(mouse).toContain("vec2(u_resolution.x / u_resolution.y, 1.0)");
   });
 
-  it("the retired in-gradient displacement functions are identities", () => {
-    for (const name of ["fluidDisplace", "vortexDisplace", "magnetDisplace", "gravityDisplace"]) {
-      expect(mouse, name).toMatch(new RegExp(`vec2 ${name}\\(vec2 uv, float strength\\) \\{ return uv; \\}`));
-    }
-    expect(mouse).toMatch(/float rippleEffect\(vec2 uv, float time\) \{ return 0\.0; \}/);
+  it("the old in-gradient displacement functions are gone; mouseWarp is the only way in", () => {
+    expect(mouse).not.toMatch(/\b(fluid|vortex|magnet|gravity)Displace\b|\brippleEffect\b/);
   });
 
   it("parallax is centred, presence-gated and mirrored rather than wrapped", () => {

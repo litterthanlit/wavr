@@ -40,7 +40,7 @@ export const DESCRIPTIONS = {
   "GradientConfig.radialBlur": "Radial blur strength from the center.",
   "GradientConfig.mouseReact": "How strongly mouse position modulates animation.",
   "GradientConfig.oklabEnabled": "Blend colors in OKLab space for more perceptual gradients.",
-  "GradientConfig.toneMapMode": "Tone mapping: 0=none, 1=ACES, 2=Reinhard, 3=Filmic.",
+  "GradientConfig.toneMapMode": "Tone mapping: 0=none, 1=soft highlights (unchanged below 0.8, rolls off brighter values), 2=ACES filmic, 3=reserved (renders as none).",
 
   // Effect groups — noun-phrase descriptors
   "NoiseEffect": "Fractal-noise overlay added to the composited gradient.",

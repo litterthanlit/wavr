@@ -160,15 +160,3 @@ vec2 mouseWarp(vec2 uv) {
   if (u_mouseReact <= 0.0 || u_mousePresence <= 0.0) return uv;
   return WAVR_MOUSE_WARP(uv);
 }
-
-// ============================================================
-// Retired in-gradient mouse displacement
-// ============================================================
-// gradients.glsl still calls these until its mouse code is deleted; they do
-// nothing now that mouseWarp() warps every gradient once, up front.
-
-vec2 fluidDisplace(vec2 uv, float strength) { return uv; }
-vec2 vortexDisplace(vec2 uv, float strength) { return uv; }
-float rippleEffect(vec2 uv, float time) { return 0.0; }
-vec2 magnetDisplace(vec2 uv, float strength) { return uv; }
-vec2 gravityDisplace(vec2 uv, float strength) { return uv; }
