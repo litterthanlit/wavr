@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DEFAULT_CONFIG, GradientConfig, MAX_URL_BYTES } from "@wavr/schema";
 import { createLayer } from "@wavr/core";
 import {
+  applyHashToStore,
   storeToConfig,
   configToStorePatch,
   __resetUrlSyncForTests,
 } from "./url-sync";
 import { useGradientStore, type GradientState } from "./store";
+import { INITIAL_LAYER_PARAMS } from "./initial-scene";
 import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 
 // Build a realistic store state on top of the live store defaults. We mutate
@@ -305,5 +307,39 @@ describe("oversized config guard", () => {
     expect(warn).toHaveBeenCalledTimes(1);
 
     vi.doUnmock("@wavr/schema");
+  });
+});
+
+describe("empty hash", () => {
+  const originalWindow = (globalThis as { window?: Window }).window;
+
+  afterEach(() => {
+    if (originalWindow !== undefined) {
+      (globalThis as unknown as { window: Window }).window = originalWindow;
+    } else {
+      delete (globalThis as { window?: Window }).window;
+    }
+  });
+
+  it("opens the editor's initial scene, not the schema baseline", () => {
+    (globalThis as unknown as { window: Partial<Window> }).window = {
+      location: { hash: "" } as Location,
+    } as unknown as Window;
+    useGradientStore.setState({ layers: [createLayer({ gradientType: "plasma" })] });
+
+    applyHashToStore();
+
+    const [layer] = useGradientStore.getState().layers;
+    expect(layer.gradientType).toBe(INITIAL_LAYER_PARAMS.gradientType);
+    expect(layer.colors).toEqual(INITIAL_LAYER_PARAMS.colors);
+    expect(DEFAULT_CONFIG.layers[0].type).not.toBe(layer.gradientType);
+  });
+
+  it("the initial scene is a valid config", () => {
+    const config = storeToConfig({
+      ...useGradientStore.getState(),
+      layers: [createLayer(INITIAL_LAYER_PARAMS)],
+    });
+    expect(GradientConfig.safeParse(config).success).toBe(true);
   });
 });

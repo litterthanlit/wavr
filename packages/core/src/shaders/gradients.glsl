@@ -46,12 +46,12 @@ vec3 meshGradient(vec2 uv, float time) {
   float fn = float(n);
   float sharp = mix(14.0, 8.0, max(u_softness, u_colorBlend));
   vec3 acc = vec3(0.0);
-  float wsum = 1e-6;
+  float wsum = 1e-9;
   for (int i = 0; i < 8; i++) {
     if (i >= n) break;
     float fi = float(i);
     float a = fi * 2.39996 + 0.7;
-    vec2 c = vec2(cos(a) * aspect, sin(a)) * sqrt((fi + 0.5) / fn) * 0.55;
+    vec2 c = vec2(cos(a) * aspect, sin(a)) * (0.16 + 0.26 * sqrt((fi + 0.5) / fn));
     vec2 h = hash22(vec2(fi, 1.0));
     c += 0.16 * vec2(sin(time * (0.35 + 0.2 * h.x) + fi * 2.1), cos(time * (0.3 + 0.2 * h.y) + fi * 1.7));
     vec2 d = p - c;
@@ -98,7 +98,7 @@ vec3 linearGradient(vec2 uv, float time) {
 #endif
 
 // Conic: the palette sweeps around a centre. The angle advances by a multiple
-// of 2 per turn, so there is no cut line, and the very middle fades to the
+// of 2 per turn, so there is no cut line, and the very middle eases to the
 // middle of the palette instead of pinching to a point.
 #if WAVR_GRADIENT == 3
 vec3 conicGradient(vec2 uv, float time) {
@@ -108,7 +108,7 @@ vec3 conicGradient(vec2 uv, float time) {
   float sweeps = float(1 + int(u_complexity) / 4);
   float x = atan(p.y, p.x) * (0.31831 * sweeps) + r * (0.8 * u_distortion) - time * 0.06
           + u_distortion * 0.12 * snoise(p * 1.2 + time * 0.05);
-  return mix(getGradientColor(0.5), foldedColor(x), smoothstep(0.0, 0.1, r));
+  return getGradientColor(mix(0.5, pingPong(x), smoothstep(0.0, 0.1, r)));
 }
 #endif
 
@@ -117,12 +117,12 @@ vec3 conicGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 4
 vec3 plasmaGradient(vec2 uv, float time) {
   vec2 p = centeredUV(uv) * u_scale * 3.0;
-  p += 0.35 * vec2(sin(p.y * 0.7 + time * 0.3), cos(p.x * 0.6 - time * 0.25));
+  p += 0.35 * vec2(sin(p.y * 0.7 + time * 0.2), cos(p.x * 0.6 - time * 0.17));
   float f = 0.85 + 0.2 * u_complexity;
-  float v = sin(p.x * f + time * 0.6)
-          + sin(p.y * f * 0.9 + time * 0.45)
-          + sin((p.x + p.y) * f * 0.6 + time * 0.5)
-          + sin(length(p + 0.8 * vec2(sin(time * 0.2), cos(time * 0.27))) * f * 1.1);
+  float v = sin(p.x * f + time * 0.3)
+          + sin(p.y * f * 0.9 + time * 0.22)
+          + sin((p.x + p.y) * f * 0.6 + time * 0.25)
+          + sin(length(p + 0.8 * vec2(sin(time * 0.12), cos(time * 0.16))) * f * 1.1);
   v = v * 0.25 + u_distortion * 0.35 * snoise(p * 0.5 + time * 0.05);
   float t = 0.5 + 0.5 * sin(v * mix(3.0, 1.7, u_softness));
   return getGradientColor(t);
@@ -219,7 +219,7 @@ vec3 softCellsGradient(vec2 uv, float time) {
   float edge = exp(-k * 1.21);
   float acc = 0.0;
   float dome = 0.0;
-  float wsum = 1e-4;
+  float wsum = 1e-7;
   for (int j = -1; j <= 1; j++) {
     for (int i = -1; i <= 1; i++) {
       vec2 g = vec2(float(i), float(j));
@@ -286,7 +286,7 @@ vec3 prismGlassGradient(vec2 uv, float time) {
 
 // Neon tunnel: rings receding into a soft vanishing point, swirling slowly. The
 // angle advances by 2 per turn (pingPong's period), so the spiral has no seam;
-// the vanishing point itself fades to a flat colour so it does not pinch.
+// the vanishing point itself eases to a flat colour so it does not pinch.
 #if WAVR_GRADIENT == 16
 vec3 neonTunnelGradient(vec2 uv, float time) {
   vec2 p = centeredUV(uv) * u_scale;
@@ -294,8 +294,8 @@ vec3 neonTunnelGradient(vec2 uv, float time) {
   float depth = 1.0 / (0.3 + r * 1.6);
   float x = depth * (0.6 + 0.05 * u_complexity) - time * 0.2
           + atan(p.y, p.x) * 0.31831 + depth * 0.3 * u_distortion;
-  vec3 color = foldedColor(x) * (0.6 + 0.4 * smoothstep(0.2, 1.2, depth));
-  return mix(getGradientColor(0.5) * 0.7, color, smoothstep(0.0, 0.1, r));
+  float core = smoothstep(0.0, 0.1, r);
+  return getGradientColor(mix(0.5, pingPong(x), core)) * mix(0.7, 0.6 + 0.4 * smoothstep(0.2, 1.2, depth), core);
 }
 #endif
 
@@ -370,7 +370,7 @@ vec3 scanlineGradient(vec2 uv, float time) {
   vec3 bar = blockColor * mix(0.65, 1.0, smoothstep(0.0, 1.0, p.y / blockHeight));
 
   // The empty background is a tint of the palette, never pure black, lifting toward the bottom.
-  vec3 bg = getGradientColor(p.x) * (0.1 + 0.12 * (1.0 - p.y));
+  vec3 bg = mix(u_colors[0], u_colors[u_colorCount - 1], p.x) * (0.1 + 0.12 * (1.0 - p.y));
   vec3 color = mix(bg, blockColor * 0.4, halo * inBlock * 0.55);
   color = mix(color, bar, colMask * blockMask);
 
@@ -417,7 +417,8 @@ vec3 glitchGradient(vec2 uv, float time) {
 
   vec2 q = vec2(p.x + smear, p.y);
   float trail = 0.015 * live * (0.3 + u_distortion);
-  vec3 color = vec3(glitchColor(q - vec2(trail, 0.0), time).r, glitchColor(q, time).g, glitchColor(q + vec2(trail, 0.0), time).b);
+  vec3 color = glitchColor(q, time);
+  color.r = glitchColor(q - vec2(trail, 0.0), time).r;
 
   // A fine dark seam between bands.
   float bandFrac = fract(p.y * bandScale);
