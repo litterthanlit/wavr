@@ -195,7 +195,7 @@ void main() {
   float layerAlpha = u_layerOpacity * mask;
 
   if (u_compositeEnabled) {
-    vec3 base = texture(u_compositePrev, v_uv).rgb;
+    vec3 base = texture(u_compositePrev, compositeUV(v_uv, vec2(textureSize(u_compositePrev, 0)))).rgb;
     vec3 blended = dispatchBlend(base, layerColor, u_blendMode);
     fragColor = vec4(mix(base, blended, layerAlpha), 1.0);
   } else {

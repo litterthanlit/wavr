@@ -11,6 +11,8 @@ export interface GpuResourceSummary {
 export interface EngineMetrics extends GpuResourceSummary {
   canvasWidth: number;
   canvasHeight: number;
+  /** Fraction of the canvas the layers of the last frame were drawn at (1 = full; see GradientEngine.setRenderScale). */
+  renderScale: number;
   maxPixelRatio: number;
   frameRateCap: number;
   lastCpuFrameMs: number;
@@ -62,6 +64,7 @@ export function createEmptyEngineMetrics(): EngineMetrics {
   return {
     canvasWidth: 0,
     canvasHeight: 0,
+    renderScale: 1,
     maxPixelRatio: 1.5,
     frameRateCap: 60,
     lastCpuFrameMs: 0,

@@ -1,4 +1,4 @@
-export { GradientEngine, GRADIENT_TYPE_IDS, fitSize } from "./engine";
+export { GradientEngine, GRADIENT_TYPE_IDS, FULL_RESOLUTION_GRADIENTS, TEXT_MASK_MIN_SCALE, fitSize } from "./engine";
 export { createGradient } from "./create";
 export type { EngineState, CaptureOptions } from "./engine";
 export type { LayerParams, GradientType, BlendMode, ImageBlendMode, MaskParams, MaskShape, MaskBlendMode, TextMaskAlign } from "./layers";
@@ -22,3 +22,21 @@ export {
   summarizeGpuResources,
 } from "./instrumentation";
 export type { EngineMetrics, GpuResourceSample, GpuResourceSummary } from "./instrumentation";
+export {
+  PALETTE_SIZE,
+  MAX_PALETTE_COLORS,
+  bakePalette,
+  effectiveBlend,
+  paletteDomain,
+  paletteReach,
+} from "./palette";
+export {
+  DEFAULT_MIN_RENDER_SCALE,
+  RenderScaleController,
+  createRenderScaleConfig,
+  initialRenderScaleState,
+  percentile,
+  renderScaleLevels,
+  stepRenderScale,
+} from "./render-scale";
+export type { RenderScaleConfig, RenderScaleOptions, RenderScaleState } from "./render-scale";

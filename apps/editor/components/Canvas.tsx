@@ -8,7 +8,7 @@ import {
   getEditorPerformanceSettings,
 } from "@/lib/store";
 import { normalizeTimelineTime, type PlaybackMode } from "@/lib/timeline";
-import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
+import { applyEnginePerformanceSettings, applyTimeline, withPerformanceMode } from "@/lib/frame-state";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
 import Toast from "@/components/ui/Toast";
 
@@ -69,7 +69,6 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const degradedRef = useRef(false);
   const textCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastTextParamsRef = useRef<string>("");
-  const lowFpsStartRef = useRef<number | null>(null);
   const initErrorRef = useRef<string | null>(null);
   const textMaskParamsKey = useGradientStore((state) => {
     const layer = state.layers[state.activeLayerIndex];
@@ -192,9 +191,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     }
     engineRef.current = engine;
     const applyPerformanceMode = () => {
-      const settings = getEditorPerformanceSettings(useGradientStore.getState().performanceMode);
-      engine.setMaxPixelRatio(settings.maxPixelRatio);
-      engine.setMaxFrameRate(settings.maxFrameRate);
+      applyEnginePerformanceSettings(engine, getEditorPerformanceSettings(useGradientStore.getState().performanceMode));
     };
     applyPerformanceMode();
     onCanvasReady?.(canvas);
@@ -239,28 +236,12 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       setFps(newFps);
       setMetrics(engine.getMetrics());
 
-      if (degradedRef.current) return;
-      // Frames are skipped while a shader compiles; that isn't a slow GPU.
-      if (engine.isCompiling()) {
-        lowFpsStartRef.current = null;
-        return;
-      }
-
-      if (newFps < 30) {
-        if (lowFpsStartRef.current === null) {
-          lowFpsStartRef.current = performance.now();
-        } else if (performance.now() - lowFpsStartRef.current > 2000) {
-          degradedRef.current = true;
-          const state = useGradientStore.getState();
-          const updates: Partial<typeof state> = {};
-          if (state.complexity > 1) updates.complexity = state.complexity - 1;
-          if (Object.keys(updates).length > 0) {
-            useGradientStore.getState().set(updates);
-            setToastMsg("Reduced quality for performance");
-          }
-        }
-      } else {
-        lowFpsStartRef.current = null;
+      // In auto mode the engine lowers its render scale on its own when frames
+      // run late (and raises it again later). The user's settings are not
+      // touched; tell them once why the picture may be softer.
+      if (!degradedRef.current && engine.getRenderScale() < 1 && useGradientStore.getState().performanceMode === "auto") {
+        degradedRef.current = true;
+        setToastMsg("Lowered render resolution to keep playback smooth");
       }
     };
 
@@ -423,6 +404,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
         {metrics && (
           <> · {metrics.lastCpuFrameMs.toFixed(1)}ms CPU · {metrics.framebufferCount} FBO · {formatBytes(metrics.estimatedBytes)}</>
         )}
+        {metrics && metrics.renderScale < 1 && <> · {Math.round(metrics.renderScale * 100)}% res</>}
       </div>
       <Toast
         message={toastMsg ?? ""}

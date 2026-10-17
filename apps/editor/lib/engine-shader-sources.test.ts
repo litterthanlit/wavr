@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { GRADIENT_TYPES, GRADIENT_TYPE_IDS } from "@wavr/core";
+import { FULL_RESOLUTION_GRADIENTS, GRADIENT_TYPES, GRADIENT_TYPE_IDS } from "@wavr/core";
 import { PROGRAM_UNIFORM_NAMES } from "../../../packages/core/src/engine";
 import {
   assembleLayerSource,
@@ -183,10 +183,55 @@ describe("assembled post source", () => {
   });
 
   it("reads neighbouring pixels from the scene texture only", () => {
-    expect(source).toMatch(/vec3 sampleScene\(vec2 uv\)\s*\{\s*return textureLod\(u_sceneTexture, uv, 0\.0\)\.rgb;/);
+    // One fetch per tap, through the render-scale addressing (compositeUV), never a gradient evaluation.
+    expect(source).toMatch(
+      /vec4 sampleSceneRGBA\(vec2 uv\)\s*\{\s*return textureLod\(u_sceneTexture, compositeUV\(uv, vec2\(textureSize\(u_sceneTexture, 0\)\)\), 0\.0\);/,
+    );
+    expect(source).toMatch(/vec3 sampleScene\(vec2 uv\)\s*\{\s*return sampleSceneRGBA\(uv\)\.rgb;/);
     const main = source.slice(source.indexOf("void main()"));
     expect(callsOf("sampleScene", main)).toBeGreaterThan(10);
     expect(main).not.toContain("u_postPass");
+    // Every read of the scene goes through those two functions.
+    const direct = source.match(/\b(texture|textureLod|texelFetch)\(\s*u_sceneTexture/g) ?? [];
+    expect(direct).toHaveLength(1);
+  });
+});
+
+describe("render scale", () => {
+  it("every gradient that reads gl_FragCoord is drawn at full resolution by the engine", () => {
+    // At a reduced render scale a pixel of the layer pass is bigger on screen, so a pattern laid out in
+    // gl_FragCoord (halftone cells, scanlines, paper grain) would change size. FULL_RESOLUTION_GRADIENTS
+    // is how the engine avoids that; a gradient added to this file with such a pattern must join it.
+    const blocks = [...stripComments(parts.gradients).matchAll(/^#if WAVR_GRADIENT == (\d+)\n([\s\S]*?)^#endif/gm)];
+    expect(blocks.length).toBe(GRADIENT_TYPES.length);
+    const readers = GRADIENT_TYPES.filter((type) => {
+      const block = blocks.find((b) => Number(b[1]) === GRADIENT_TYPE_IDS[type]);
+      return block !== undefined && block[2].includes("gl_FragCoord");
+    });
+    expect(readers.length).toBeGreaterThan(0);
+    for (const type of readers) expect(FULL_RESOLUTION_GRADIENTS.has(type), type).toBe(true);
+    // And nothing on the list is there for no reason: a type of its own, not a typo.
+    for (const type of FULL_RESOLUTION_GRADIENTS) expect(GRADIENT_TYPES).toContain(type);
+  });
+
+  it("only the gradients read gl_FragCoord in the layer program: the shared parts and layer main do not", () => {
+    for (const name of ["common", "mouse", "layer", "hsl", "blendModes"] as const) {
+      expect(stripComments(parts[name]), name).not.toContain("gl_FragCoord");
+    }
+  });
+
+  it("the layer program reads the previous layers, and post the scene, through compositeUV", () => {
+    const layer = stripComments(preprocess(assembleLayerSource(GRADIENT_TYPE_IDS.mesh, parts)));
+    expect(layer.match(/texture\(\s*u_compositePrev/g)).toHaveLength(1);
+    expect(layer).toContain("texture(u_compositePrev, compositeUV(v_uv, vec2(textureSize(u_compositePrev, 0))))");
+    expect(stripComments(parts.post)).not.toMatch(/\bu_compositePrev\b/);
+  });
+
+  it("compositeUV is the clamped uv at full scale and stays half a texel inside the drawn area", () => {
+    const common = stripComments(parts.common);
+    const body = /vec2 compositeUV\(vec2 uv, vec2 targetSize\)\s*\{([\s\S]*?)\n\}/.exec(common)![1];
+    expect(body).toContain("vec2 halfTexel = 0.5 / targetSize;");
+    expect(body).toContain("clamp(uv * u_compositeScale, halfTexel, u_compositeScale - halfTexel)");
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GradientEngine, createLayer, resolveConfig } from "@wavr/core";
+import { GradientEngine, bakePalette, createLayer, effectiveBlend, resolveConfig } from "@wavr/core";
 import type { EngineState } from "@wavr/core";
 import { createFakeGL, type FakeGLOptions } from "./test-utils/fake-webgl";
 
@@ -102,7 +102,7 @@ describe("GradientEngine render passes", () => {
   });
 
   it("post pass takes its palette and clock from the last visible layer", () => {
-    const { engine, draws } = setup();
+    const { engine, draws, uploads } = setup();
     const first = createLayer({ gradientType: "mesh", speed: 0.3, colors: [[1, 0, 0], [0, 1, 0]] });
     const last = createLayer({
       gradientType: "plasma",
@@ -116,9 +116,16 @@ describe("GradientEngine render passes", () => {
 
     const post = draws[draws.length - 1];
     expect(post.uniforms.u_speed).toBe(0.9);
-    expect(post.uniforms.u_softness).toBe(0.4);
-    expect(post.uniforms.u_colorCount).toBe(3);
-    expect(post.uniforms["u_colors[2]"]).toEqual([0, 1, 1]);
+
+    // The palette texture is the one baked from the last visible layer's colours...
+    const palette = post.boundTextures.get(7);
+    const baked = uploads.find((u) => u.texture === palette);
+    const blend = effectiveBlend(0, last.softness);
+    expect(baked?.data).toEqual(Array.from(bakePalette(last.colors, true, blend)));
+    // ...which is the texture the last layer's own draw used, with the same domain.
+    expect(draws[1].boundTextures.get(7)).toBe(palette);
+    expect(post.uniforms.u_paletteDomain).toEqual(draws[1].uniforms.u_paletteDomain);
+    expect(draws[0].boundTextures.get(7)).not.toBe(palette);
   });
 
   it("never samples a texture it is rendering into, across frames", () => {
@@ -175,25 +182,32 @@ describe("GradientEngine render passes", () => {
     expect(programs.length).toBe(programsAtStart);
   });
 
+  // The canvas of the fake GL is 16×8; the palette tables are half-float whatever the targets are.
+  // Skips targets that were created and deleted (the half-float attempt that fell back).
+  const compositeFormats = (fake: ReturnType<typeof setup>) =>
+    [...fake.textureFormats]
+      .filter(([texture]) => fake.textureSizes.get(texture)?.width === 16 && !fake.deletedTextures.includes(texture))
+      .map(([, format]) => format);
+
   it("renders the composite targets as half-float when the GPU can", () => {
-    const { engine, textureFormats } = setup({ floatTargets: true });
-    engine.render(stateWith({}));
-    expect([...textureFormats.values()]).toContain("RGBA16F");
-    expect(engine.getMetrics().estimatedBytes).toBe(16 * 8 * 8 * 2);
+    const fake = setup({ floatTargets: true });
+    fake.engine.render(stateWith({}));
+    expect(compositeFormats(fake)).toEqual(["RGBA16F", "RGBA16F"]);
+    expect(fake.engine.getMetrics().estimatedBytes).toBe(16 * 8 * 8 * 2);
   });
 
   it("falls back to 8-bit composite targets if half-float framebuffers are incomplete", () => {
-    const { engine, textureFormats, controls, draws } = setup({ floatTargets: true });
-    controls.rejectFloatTargets = true;
-    expect(engine.render(stateWith({}))).toBe(true);
-    expect(draws).toHaveLength(2);
-    expect([...textureFormats.values()]).toContain("RGBA");
-    expect(engine.getMetrics().estimatedBytes).toBe(16 * 8 * 4 * 2);
+    const fake = setup({ floatTargets: true });
+    fake.controls.rejectFloatTargets = true;
+    expect(fake.engine.render(stateWith({}))).toBe(true);
+    expect(fake.draws).toHaveLength(2);
+    expect(compositeFormats(fake)).toEqual(["RGBA", "RGBA"]);
+    expect(fake.engine.getMetrics().estimatedBytes).toBe(16 * 8 * 4 * 2);
   });
 
   it("uses 8-bit composite targets without float render support", () => {
-    const { engine, textureFormats } = setup();
-    engine.render(stateWith({}));
-    expect([...textureFormats.values()]).not.toContain("RGBA16F");
+    const fake = setup();
+    fake.engine.render(stateWith({}));
+    expect(compositeFormats(fake)).toEqual(["RGBA", "RGBA"]);
   });
 });

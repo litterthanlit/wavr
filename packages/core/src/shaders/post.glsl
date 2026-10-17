@@ -90,9 +90,15 @@ vec3 rotateHue(vec3 color, float angle) {
 // The composited layers. Effects that need neighbouring pixels (bloom, glow,
 // blur, chromatic aberration, pixel sort, radial blur) read them through here:
 // one texture fetch each, never a gradient evaluation. textureLod: some callers
-// sit in non-uniform control flow.
+// sit in non-uniform control flow. `uv` is 0..1 over the canvas; when the
+// layers were drawn at a reduced render scale, compositeUV picks the drawn
+// part of the target and the linear filter upsamples it.
+vec4 sampleSceneRGBA(vec2 uv) {
+  return textureLod(u_sceneTexture, compositeUV(uv, vec2(textureSize(u_sceneTexture, 0))), 0.0);
+}
+
 vec3 sampleScene(vec2 uv) {
-  return textureLod(u_sceneTexture, uv, 0.0).rgb;
+  return sampleSceneRGBA(uv).rgb;
 }
 
 // ============================================================
@@ -425,5 +431,5 @@ void main() {
   }
 
   // Alpha is whatever the layers left (opacity and masks).
-  fragColor = vec4(outColor, textureLod(u_sceneTexture, v_uv, 0.0).a);
+  fragColor = vec4(outColor, sampleSceneRGBA(v_uv).a);
 }

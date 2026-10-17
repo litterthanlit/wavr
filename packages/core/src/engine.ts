@@ -15,6 +15,17 @@ import {
   type GpuResourceSample,
 } from "./instrumentation";
 import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply, flipRowsRGBA } from "./math";
+import {
+  PALETTE_SIZE,
+  bakePalette,
+  createPaletteKey,
+  effectiveBlend,
+  paletteDomain,
+  paletteKeyMatches,
+  setPaletteKey,
+  type PaletteKey,
+} from "./palette";
+import { RenderScaleController, type RenderScaleOptions } from "./render-scale";
 
 export interface EngineState {
   layers: LayerParams[];
@@ -153,7 +164,7 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_mouseReact",
   "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
   "u_blurEnabled", "u_blurAmount",
-  "u_colorBlend",
+  "u_paletteTexture", "u_paletteDomain", "u_compositeScale",
   "u_chromaticAberration", "u_hueShift",
   "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
   "u_layerOpacity", "u_sceneTexture",
@@ -190,7 +201,7 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   // Phase 7: Mesh Distortion (vertex shader)
   "u_meshEnabled", "u_meshDisplacement", "u_meshFrequency", "u_meshSpeed", "u_mvp",
   // Phase 11: Shader Quality
-  "u_oklabEnabled", "u_toneMapMode",
+  "u_toneMapMode",
   // Phase 11 Week 2: Ripple, Glow, Caustics
   "u_rippleOrigin", "u_rippleTime", "u_rippleEnabled", "u_rippleIntensity",
   "u_glowEnabled", "u_glowIntensity", "u_glowRadius",
@@ -209,6 +220,44 @@ const UNIT_TEXT_MASK = 3; // layer
 const UNIT_TRAIL = 4; // post
 const UNIT_COMPOSITE_PREV = 5; // layer: layers composited so far
 const UNIT_SCENE = 6; // post: all layers composited
+const UNIT_PALETTE = 7; // layer, post: baked palette. Only ever sampled, never a render target.
+
+/** Lowest fixed render scale setRenderScale accepts. */
+const MIN_RENDER_SCALE = 0.25;
+
+/**
+ * Gradients whose look is fixed in screen pixels (they read gl_FragCoord for a
+ * grid, grain or scanlines) or in image detail. The layer pass is drawn at full
+ * resolution whenever one of them is visible, because at a lower scale a pixel
+ * of the layer pass is bigger on screen: halftone cells, scanlines and paper
+ * grain would grow and an uploaded picture would blur. A test checks this list
+ * against the gl_FragCoord users in gradients.glsl.
+ */
+export const FULL_RESOLUTION_GRADIENTS: ReadonlySet<LayerParams["gradientType"]> = new Set([
+  "dither",
+  "scanline",
+  "glitch",
+  "grainflow",
+  "image",
+]);
+
+/**
+ * The lowest the layer pass scale goes while a text mask is on: the mask is
+ * evaluated in the layer pass, so at a low scale the letter edges soften by
+ * 1/scale pixels. Shape masks are left to the caller's floor.
+ */
+export const TEXT_MASK_MIN_SCALE = 0.8;
+
+/** A layer's baked palette texture (palette.ts) and what it was baked from. */
+interface PaletteSlot {
+  texture: WebGLTexture;
+  /** Texture storage allocated (the first bake allocates, later ones update it). */
+  allocated: boolean;
+  key: PaletteKey;
+  /** `u_paletteDomain` for the baked blend. */
+  domainScale: number;
+  domainBias: number;
+}
 
 /** `KHR_parallel_shader_compile`: compile and link run off-thread. */
 interface ParallelShaderCompile {
@@ -241,6 +290,13 @@ export interface CaptureOptions {
   /** Output size in pixels. Defaults to the canvas size. */
   width?: number;
   height?: number;
+  /**
+   * Fraction of the output size the layers are drawn at before the global
+   * effects (1 = full, the default and what exports use, whatever the live
+   * render scale is). Lower values show what the live view looks like at that
+   * scale; the same rules apply as live (setRenderScale).
+   */
+  renderScale?: number;
 }
 
 /** Scale `width`×`height` down, keeping aspect, so neither side exceeds `max`. */
@@ -371,6 +427,33 @@ export class GradientEngine {
   private lastTextureCleanupMs = 0;
   private static readonly TEXTURE_CLEANUP_INTERVAL_MS = 5000;
 
+  /**
+   * One palette texture per visible layer, by position in the frame. A layer
+   * whose palette changed is baked again into its slot; slots past the last
+   * visible layer are freed.
+   */
+  private palettes: PaletteSlot[] = [];
+  private paletteData = new Float32Array(PALETTE_SIZE * 4);
+
+  /**
+   * Render scale: the fraction of the canvas the layer pass is drawn at (the
+   * post pass always draws the full canvas and upsamples). Fixed, or chosen by
+   * the controller while one is set. See layerPassScale() for when it applies.
+   */
+  private renderScale = 1;
+  private renderScaleController: RenderScaleController | null = null;
+  /** Set while capturing: the scale to draw at instead of the live one. */
+  private captureScale: number | null = null;
+  /** Size of the layer pass being drawn (what u_resolution is in layer programs). */
+  private passWidth = 0;
+  private passHeight = 0;
+  /** The scale the last frame was drawn at, after layerPassScale(). */
+  private drawnScale = 1;
+  /** Frames render() has drawn; the loop compares it before and after to see whether a callback drew. */
+  private framesDrawn = 0;
+  private lastCallbackMs: number | null = null;
+  private lastCallbackDrew = false;
+
   // Layer compositing FBOs (Phase 12)
   private compositeFBOs: [WebGLFramebuffer, WebGLFramebuffer] | null = null;
   private compositeTextures: [WebGLTexture, WebGLTexture] | null = null;
@@ -391,7 +474,7 @@ export class GradientEngine {
     if (!gl) throw new Error("WebGL 2 not supported");
     this.gl = gl;
     this.textureUnits = [
-      gl.TEXTURE0, gl.TEXTURE1, gl.TEXTURE2, gl.TEXTURE3, gl.TEXTURE4, gl.TEXTURE5, gl.TEXTURE6,
+      gl.TEXTURE0, gl.TEXTURE1, gl.TEXTURE2, gl.TEXTURE3, gl.TEXTURE4, gl.TEXTURE5, gl.TEXTURE6, gl.TEXTURE7,
     ];
     this.initProgram();
   }
@@ -436,6 +519,7 @@ export class GradientEngine {
     this.destroyBloomFBOs();
     this.destroyCompositeFBOs();
     this.destroyCaptureFBO();
+    this.trimPalettes(0);
 
     for (const record of this.layerPrograms.values()) this.disposeProgram(record);
     this.layerPrograms.clear();
@@ -549,6 +633,8 @@ export class GradientEngine {
   private createProgram(label: string, vertexSource: string, fragmentSource: string): ProgramRecord {
     const gl = this.gl;
     const startedAt = performance.now();
+    // Compiling can stall the main thread (and skips frames): not a verdict on the GPU.
+    this.renderScaleController?.reset(startedAt);
     const shaders: WebGLShader[] = [];
     const program = gl.createProgram()!;
     for (const [type, source] of [
@@ -635,6 +721,7 @@ export class GradientEngine {
       ["u_trailTexture", UNIT_TRAIL],
       ["u_compositePrev", UNIT_COMPOSITE_PREV],
       ["u_sceneTexture", UNIT_SCENE],
+      ["u_paletteTexture", UNIT_PALETTE],
     ] as const) {
       this.seti(name, unit);
     }
@@ -781,6 +868,43 @@ export class GradientEngine {
     this.minFrameIntervalMs = 1000 / clamped;
   }
 
+  /**
+   * Draws the layers at `scale` (0.25-1) of the canvas size and upsamples them
+   * for the global effects, which stay at full resolution: gradients are
+   * smooth, so this costs little sharpness and a lot less fill. Fixed; it ends
+   * adaptive scaling. Captures and exports always draw at 1 (see CaptureOptions).
+   * Layers that need full resolution ignore it (FULL_RESOLUTION_GRADIENTS,
+   * Custom GLSL, uploaded pictures), and text masks keep it at 0.8 or above.
+   */
+  setRenderScale(scale: number) {
+    this.renderScaleController = null;
+    this.renderScale = Math.min(1, Math.max(MIN_RENDER_SCALE, Number.isFinite(scale) ? scale : 1));
+  }
+
+  /**
+   * Lets the engine choose the render scale from how the render loop is doing,
+   * between 1 and `options.minScale` (default 0.6): it drops a step when more
+   * than a quarter of the frames in the last second arrive late for
+   * `options.targetFps`, and rises again after a couple of calm seconds, with a
+   * longer wait each time a rise did not hold. Only frames drawn by startLoop()
+   * count. Pass null to stop and return to full resolution.
+   */
+  setAdaptiveRenderScale(options: RenderScaleOptions | null) {
+    if (!options) {
+      this.renderScaleController = null;
+      this.renderScale = 1;
+      return;
+    }
+    const controller = new RenderScaleController(options, performance.now());
+    this.renderScaleController = controller;
+    this.renderScale = controller.scale;
+  }
+
+  /** The render scale asked for: the fixed one, or what the adaptive controller has chosen. */
+  getRenderScale(): number {
+    return this.renderScale;
+  }
+
   resize(width: number, height: number) {
     const gl = this.gl;
     const dpr = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
@@ -789,6 +913,7 @@ export class GradientEngine {
     if (gl.canvas.width !== nextWidth || gl.canvas.height !== nextHeight) {
       gl.canvas.width = nextWidth;
       gl.canvas.height = nextHeight;
+      this.renderScaleController?.reset(performance.now());
     }
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   }
@@ -1061,6 +1186,23 @@ export class GradientEngine {
     this.compositeTextures = targets.textures;
     this.compositeWidth = width;
     this.compositeHeight = height;
+  }
+
+  /**
+   * The fraction of the composite targets the layers of this frame are drawn
+   * into, from their lower-left corner: the capture scale while capturing
+   * (1 unless asked otherwise), else the live render scale, and 1 whenever a
+   * layer needs full resolution (see FULL_RESOLUTION_GRADIENTS), since the
+   * pass would otherwise change how it looks.
+   */
+  private layerPassScale(layers: LayerParams[]): number {
+    let scale = this.captureScale ?? this.renderScale;
+    if (scale >= 1 || this.customSource !== null) return 1;
+    for (const layer of layers) {
+      if (FULL_RESOLUTION_GRADIENTS.has(layer.gradientType) || layer.imageData) return 1;
+      if (layer.textMaskEnabled) scale = Math.max(scale, TEXT_MASK_MIN_SCALE);
+    }
+    return scale;
   }
 
   /** Two filterable colour targets, or null (and nothing left allocated) if incomplete. */
@@ -1406,6 +1548,7 @@ export class GradientEngine {
       pendingPrograms: programs.filter((program) => !program.ready && !program.error).length,
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
+      renderScale: this.drawnScale,
       maxPixelRatio: this.maxPixelRatio,
       frameRateCap: Math.round(1000 / this.minFrameIntervalMs),
     };
@@ -1488,7 +1631,58 @@ export class GradientEngine {
     this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
   }
 
-  /** The palette: what getGradientColor reads. */
+  /**
+   * Binds the baked palette of the layer in slot `slot` (its position among
+   * the visible layers) to the palette unit and sets `u_paletteDomain` on the
+   * program in use. The table is baked again only when the layer's colours,
+   * the colour blend or softness, or the Oklab switch differ from what was
+   * baked, so a frame with an unchanged palette uploads nothing.
+   */
+  private bindPalette(slot: number, layer: LayerParams, state: EngineState) {
+    const gl = this.gl;
+    const blend = effectiveBlend(state.colorBlend, layer.softness);
+    let entry = this.palettes[slot];
+    if (!entry) {
+      entry = {
+        texture: gl.createTexture()!,
+        allocated: false,
+        key: createPaletteKey(),
+        domainScale: 1,
+        domainBias: 0,
+      };
+      this.palettes[slot] = entry;
+    }
+
+    this.bindTexture(UNIT_PALETTE, entry.texture);
+    if (!entry.allocated || !paletteKeyMatches(entry.key, layer.colors, state.oklabEnabled, blend)) {
+      bakePalette(layer.colors, state.oklabEnabled, blend, this.paletteData);
+      if (entry.allocated) {
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, PALETTE_SIZE, 1, gl.RGBA, gl.FLOAT, this.paletteData);
+      } else {
+        // Half-float: unquantized colour, and linearly filterable without extensions in WebGL 2.
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, PALETTE_SIZE, 1, 0, gl.RGBA, gl.FLOAT, this.paletteData);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        entry.allocated = true;
+      }
+      setPaletteKey(entry.key, layer.colors, state.oklabEnabled, blend);
+      const domain = paletteDomain(blend);
+      entry.domainScale = domain.scale;
+      entry.domainBias = domain.bias;
+    }
+    this.set2f("u_paletteDomain", entry.domainScale, entry.domainBias);
+  }
+
+  /** Frees the palette textures of slots from `count` on (layers that were removed or hidden). */
+  private trimPalettes(count: number) {
+    while (this.palettes.length > count) {
+      this.gl.deleteTexture(this.palettes.pop()!.texture);
+    }
+  }
+
+  /** The raw stops, for the gradients that read `u_colors` themselves. */
   private setPalette(layer: LayerParams) {
     const record = this.active;
     if (!record) return;
@@ -1593,14 +1787,12 @@ export class GradientEngine {
   /** Uniforms shared by every layer draw (the layer program is bound). `mvp` is meshMvp() when mesh distortion is on. */
   private setLayerGlobals(state: EngineState, mvp: Float32Array | null) {
     this.setf("u_time", this.elapsedTime);
-    this.set2f("u_resolution", this.gl.canvas.width, this.gl.canvas.height);
+    this.set2f("u_resolution", this.passWidth, this.passHeight);
     this.set2f("u_mouse", this.mouseX, this.mouseY);
     this.set2f("u_mouseSmooth", this.smoothMouseX, this.smoothMouseY);
     this.set2f("u_mouseVelocity", this.mouseVelX, this.mouseVelY);
     this.setf("u_mouseReact", state.mouseReact);
-    this.setf("u_colorBlend", state.colorBlend);
     this.setf("u_domainWarp", state.domainWarp);
-    this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
     // Parallax
     this.seti("u_parallaxEnabled", state.parallaxEnabled ? 1 : 0);
     this.setf("u_parallaxStrength", state.parallaxStrength);
@@ -1626,17 +1818,15 @@ export class GradientEngine {
   }
 
   /**
-   * Uniforms of the post program (bound). `lastLayer` supplies the palette the
-   * effects read (reaction-diffusion) and the clock speed, as the last layer's
-   * uniforms always carried over to the global-effects draw.
+   * Uniforms of the post program (bound). `lastLayer` supplies the clock speed
+   * and, through its palette (bound by the caller), the colours the effects
+   * read (reaction-diffusion), as the last layer's uniforms always carried
+   * over to the global-effects draw.
    */
   private setPostUniforms(state: EngineState, lastLayer: LayerParams) {
     this.setf("u_time", this.elapsedTime);
     this.set2f("u_resolution", this.gl.canvas.width, this.gl.canvas.height);
     this.setf("u_speed", lastLayer.speed);
-    this.setPalette(lastLayer);
-    this.setf("u_colorBlend", state.colorBlend);
-    this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
 
     this.setf("u_brightness", state.brightness);
     this.setf("u_saturation", state.saturation);
@@ -1730,6 +1920,7 @@ export class GradientEngine {
     // Final render target: feedback FBO, explicit capture FBO, or the default framebuffer
     const finalTarget = feedbackActive ? this.feedbackFBOs![this.feedbackIndex] : output;
 
+    this.trimPalettes(visibleLayers.length);
     if (visibleLayers.length === 0) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
       gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -1741,11 +1932,20 @@ export class GradientEngine {
       const compositeTextures = this.compositeTextures!;
       const mvp = state.meshDistortionEnabled ? this.meshMvp() : null;
 
+      // The layers draw into the lower-left passWidth x passHeight corner of
+      // the (full-size) composite targets; the post pass reads just that part.
+      const scale = this.layerPassScale(visibleLayers);
+      this.passWidth = scale < 1 ? Math.max(1, Math.round(this.compositeWidth * scale)) : this.compositeWidth;
+      this.passHeight = scale < 1 ? Math.max(1, Math.round(this.compositeHeight * scale)) : this.compositeHeight;
+      const compositeScaleX = this.passWidth / this.compositeWidth;
+      const compositeScaleY = this.passHeight / this.compositeHeight;
+      this.drawnScale = compositeScaleX;
+
       let writeIdx = 0;
       for (let i = 0; i < visibleLayers.length; i++) {
         const layer = visibleLayers[i];
         gl.bindFramebuffer(gl.FRAMEBUFFER, compositeFBOs[writeIdx]);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.viewport(0, 0, this.passWidth, this.passHeight);
         gl.disable(gl.BLEND);
         // Pixels a layer discards (3D projection) must not keep last frame's contents.
         gl.clearColor(0, 0, 0, 0);
@@ -1759,6 +1959,8 @@ export class GradientEngine {
         this.useProgram(this.getLayerProgram(layer));
         this.setLayerGlobals(state, mvp);
         this.setLayerUniforms(layer);
+        this.bindPalette(i, layer, state);
+        this.set2f("u_compositeScale", compositeScaleX, compositeScaleY);
         this.seti("u_compositeEnabled", i === 0 ? 0 : 1);
         if (i > 0) this.seti("u_blendMode", GradientEngine.BLEND_MODE_MAP[layer.blendMode] ?? 0);
         this.drawGeometry(state.meshDistortionEnabled);
@@ -1780,7 +1982,10 @@ export class GradientEngine {
         this.bindTexture(UNIT_PREV_FRAME, this.feedbackTextures![1 - this.feedbackIndex]);
       }
       this.useProgram(this.getPostProgram());
-      this.setPostUniforms(state, visibleLayers[visibleLayers.length - 1]);
+      const lastLayer = visibleLayers[visibleLayers.length - 1];
+      this.setPostUniforms(state, lastLayer);
+      this.bindPalette(visibleLayers.length - 1, lastLayer, state);
+      this.set2f("u_compositeScale", compositeScaleX, compositeScaleY);
       this.drawGeometry(false);
 
       this.bindTexture(UNIT_SCENE, null);
@@ -1811,6 +2016,7 @@ export class GradientEngine {
     // Cinematic bloom on the final image. Runs after the feedback blit so the
     // two effects can be combined (bloom used to be skipped under feedback).
     this.renderBloomPass(state, output);
+    this.framesDrawn++;
     return true;
   }
 
@@ -1904,10 +2110,18 @@ export class GradientEngine {
       }
     };
 
-    const loop = () => {
+    // Without a render (a skipped, throttled or paused frame) there is nothing
+    // to time, so a gap is only ever measured from a callback that drew.
+    this.lastCallbackMs = null;
+    this.lastCallbackDrew = false;
+    this.renderScaleController?.reset(performance.now());
+
+    const loop = (timestamp?: number) => {
       this.animationId = requestAnimationFrame(loop);
+      const drawnBefore = this.framesDrawn;
       try {
         frame();
+        this.observeFrame(timestamp ?? performance.now(), this.framesDrawn !== drawnBefore);
       } catch (e) {
         this.stopLoop();
         const error = e instanceof Error ? e : new Error(String(e));
@@ -1916,6 +2130,22 @@ export class GradientEngine {
       }
     };
     loop();
+  }
+
+  /**
+   * Feeds the adaptive render scale one callback of the render loop. What is
+   * timed is the gap from a callback that drew to the next callback: while the
+   * GPU keeps up that is one display refresh, and when it does not the browser
+   * holds the next frame back, so the gap stretches. (The loop's own frame cap
+   * leaves gaps too, but only after callbacks that skipped, which are not timed.)
+   */
+  private observeFrame(nowMs: number, drew: boolean) {
+    const controller = this.renderScaleController;
+    if (controller && this.lastCallbackDrew && this.lastCallbackMs !== null) {
+      this.renderScale = controller.sample(nowMs, nowMs - this.lastCallbackMs);
+    }
+    this.lastCallbackMs = nowMs;
+    this.lastCallbackDrew = drew;
   }
 
   stopLoop() {
@@ -1990,15 +2220,23 @@ export class GradientEngine {
    * Reading the default framebuffer after present is racy (and on SwiftShader,
    * gl.finish()+readPixels of the backbuffer can lose the context).
    * Blocks until every program the state needs has compiled, so a capture is
-   * never a skipped (blank) frame.
+   * never a skipped (blank) frame. The layers are drawn at full resolution
+   * whatever the live render scale is (`renderScale` asks for less).
    */
-  capturePixels(state: EngineState): Uint8Array {
+  capturePixels(state: EngineState, renderScale = 1): Uint8Array {
     const gl = this.gl;
     const width = Math.max(1, gl.canvas.width);
     const height = Math.max(1, gl.canvas.height);
     this.compileBlocking(state);
     this.ensureCaptureFBO(width, height);
-    if (!this.render(state, this.captureFBO)) throw new Error("Cannot capture a frame: WebGL context lost");
+    this.captureScale = Math.min(1, Math.max(MIN_RENDER_SCALE, renderScale));
+    try {
+      if (!this.render(state, this.captureFBO)) throw new Error("Cannot capture a frame: WebGL context lost");
+    } finally {
+      this.captureScale = null;
+      // The next live frames are measured afresh: this one was not paced like them.
+      this.renderScaleController?.reset(performance.now());
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.captureFBO);
     const pixels = new Uint8Array(width * height * 4);
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
@@ -2056,7 +2294,7 @@ export class GradientEngine {
         canvas.width = width;
         canvas.height = height;
       }
-      const pixels = this.capturePixels(state);
+      const pixels = this.capturePixels(state, options.renderScale);
       return new ImageData(flipRowsRGBA(pixels, width, height), width, height);
     } finally {
       this.elapsedTime = liveTime;

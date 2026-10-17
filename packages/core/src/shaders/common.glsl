@@ -11,10 +11,13 @@ uniform float u_time;
 uniform vec2 u_resolution;
 uniform float u_speed;          // post: the last visible layer's, like the palette
 uniform float u_softness;
-uniform vec3 u_colors[8];
+uniform vec3 u_colors[8];       // the raw stops, for gradients that don't blend them
 uniform int u_colorCount;
-uniform float u_colorBlend;
-uniform bool u_oklabEnabled;
+uniform sampler2D u_paletteTexture; // baked getGradientColor, see "Palette" below
+uniform vec2 u_paletteDomain;       // post: the last visible layer's palette
+
+// [layer] [post] render scale: the share of the composite targets the layers drew into, see compositeUV()
+uniform vec2 u_compositeScale;
 
 // [layer] gradient parameters and mouse
 uniform vec2 u_mouse;
@@ -289,86 +292,38 @@ float opSmoothUnion(float d1, float d2, float k) {
 }
 
 // ============================================================
-// Oklab Color Space Conversion
+// Composite targets at a reduced render scale
 // ============================================================
 
-vec3 srgbToLinear(vec3 c) {
-  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
-}
-
-vec3 linearToSrgb(vec3 c) {
-  return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
-}
-
-vec3 linearToOklab(vec3 c) {
-  float l = 0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b;
-  float m = 0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b;
-  float s = 0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b;
-  float l_ = pow(l, 1.0 / 3.0);
-  float m_ = pow(m, 1.0 / 3.0);
-  float s_ = pow(s, 1.0 / 3.0);
-  return vec3(
-    0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-    1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-    0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
-  );
-}
-
-vec3 oklabToLinear(vec3 c) {
-  float l_ = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
-  float m_ = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
-  float s_ = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
-  float l = l_ * l_ * l_;
-  float m = m_ * m_ * m_;
-  float s = s_ * s_ * s_;
-  return vec3(
-    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
-  );
+// The composite targets are always full size, but below render scale 1 the
+// layers are drawn only into their lower-left corner, u_compositeScale of the
+// width and height (1.0 at full scale). `uv` is a position over the drawn
+// area, 0..1 like v_uv in the layer pass (the post pass upsamples it to the
+// whole canvas); this gives the matching texture coordinate. It stays half a
+// texel inside the drawn area, as CLAMP_TO_EDGE does at the edge of a texture,
+// so filtering never reads texels that were not drawn this frame. At scale 1
+// it is exactly the clamped uv.
+vec2 compositeUV(vec2 uv, vec2 targetSize) {
+  vec2 halfTexel = 0.5 / targetSize;
+  return clamp(uv * u_compositeScale, halfTexel, u_compositeScale - halfTexel);
 }
 
 // ============================================================
-// Color Interpolation
+// Palette
 // ============================================================
 
-vec3 sampleColorAt(float t) {
-  t = clamp(t, 0.0, 1.0);
-  float scaledT = t * float(u_colorCount - 1);
-  int idx = int(floor(scaledT));
-  float frac = fract(scaledT);
-  frac = frac * frac * (3.0 - 2.0 * frac);
-
-  int nextIdx = idx + 1;
-  if (nextIdx >= u_colorCount) nextIdx = u_colorCount - 1;
-
-  if (u_oklabEnabled) {
-    vec3 lab1 = linearToOklab(srgbToLinear(u_colors[idx]));
-    vec3 lab2 = linearToOklab(srgbToLinear(u_colors[nextIdx]));
-    vec3 blended = mix(lab1, lab2, frac);
-    return linearToSrgb(max(oklabToLinear(blended), vec3(0.0)));
-  }
-
-  return mix(u_colors[idx], u_colors[nextIdx], frac);
-}
+// The layer's palette (stops, Oklab or sRGB interpolation, colour blend and
+// softness) is evaluated on the CPU, once per change, into a 1D texture of
+// PALETTE_TEXELS (palette.ts is the source of the maths). The texture covers
+// t in [-reach, 1 + reach], where reach is how far the blend still moves the
+// colour past the ends; u_paletteDomain maps t to a coordinate along it.
+const float PALETTE_TEXELS = 512.0;
 
 vec3 getGradientColor(float t) {
-  float blend = max(u_colorBlend, u_softness * 0.85);
-  if (blend < 0.01) {
-    return sampleColorAt(t);
-  }
-
-  // Blend: sample multiple nearby positions and average for smooth transitions
-  // Higher blend = wider sampling = colors melt into each other
-  float spread = blend * 0.15;
-  vec3 color = sampleColorAt(t) * 0.4;
-  color += sampleColorAt(t - spread) * 0.15;
-  color += sampleColorAt(t + spread) * 0.15;
-  color += sampleColorAt(t - spread * 2.0) * 0.1;
-  color += sampleColorAt(t + spread * 2.0) * 0.1;
-  color += sampleColorAt(t - spread * 0.5) * 0.05;
-  color += sampleColorAt(t + spread * 0.5) * 0.05;
-  return color;
+  float u = clamp(t * u_paletteDomain.x + u_paletteDomain.y, 0.0, 1.0);
+  // Texel centres: u = 0 and u = 1 are the middles of the first and last texel.
+  // textureLod: callers sit in loops and branches (no implicit derivatives).
+  return textureLod(u_paletteTexture, vec2((u * (PALETTE_TEXELS - 1.0) + 0.5) / PALETTE_TEXELS, 0.5), 0.0).rgb;
 }
 
 float soft01(float v) {
