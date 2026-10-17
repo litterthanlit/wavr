@@ -26,20 +26,37 @@ describe("export fidelity reporting", () => {
     ]);
   });
 
-  it("warns that mouse interaction is not part of portable code exports", () => {
-    const mouse = "Mouse interaction is not included in portable code exports";
+  it("does not warn about pointer reactivity, which portable code exports carry", () => {
     const warn = (input: Parameters<typeof getPortableExportWarnings>[0]) =>
       getPortableExportWarnings({ layers: [{ visible: true }], ...input });
 
-    expect(warn({ mouseReact: 0.5 }).join("\n")).toContain(mouse);
-    expect(warn({ mouseReact: 1 })).toHaveLength(1);
-    // The other pointer-driven features go with it.
-    expect(warn({ mouseReact: 0, rippleEnabled: true }).join("\n")).toContain(mouse);
-    expect(warn({ trailEnabled: true }).join("\n")).toContain(mouse);
-    expect(warn({ parallaxEnabled: true }).join("\n")).toContain(mouse);
-    // Nothing to warn about when the pointer does nothing.
+    expect(warn({ mouseReact: 0.5 })).toEqual([]);
+    expect(warn({ mouseReact: 1 })).toEqual([]);
     expect(warn({ mouseReact: 0 })).toEqual([]);
     expect(warn({})).toEqual([]);
+  });
+
+  it("warns that click ripple, trail and parallax are not part of portable code exports", () => {
+    const dropped = "Click ripple, pointer trail and parallax are not included in portable code exports";
+    const warn = (input: Parameters<typeof getPortableExportWarnings>[0]) =>
+      getPortableExportWarnings({ layers: [{ visible: true }], ...input });
+
+    expect(warn({ rippleEnabled: true }).join("\n")).toContain(dropped);
+    expect(warn({ trailEnabled: true }).join("\n")).toContain(dropped);
+    expect(warn({ parallaxEnabled: true }).join("\n")).toContain(dropped);
+    // Pointer reactivity on top of them is not what is being dropped, and one message covers all three.
+    expect(warn({ mouseReact: 1, rippleEnabled: true, trailEnabled: true, parallaxEnabled: true })).toHaveLength(1);
+    expect(warn({ mouseReact: 1, trailEnabled: true }).join("\n")).toContain("pointer reactivity is");
+  });
+
+  it("warns that the image gradient is drawn as mesh", () => {
+    const warnings = getPortableExportWarnings({ layers: [{ visible: true, gradientType: "image" }] });
+    expect(warnings).toEqual([
+      "The Image gradient needs its picture, so portable code exports draw a Mesh gradient in its place.",
+    ]);
+    expect(getPortableExportWarnings({ layers: [{ visible: true, gradientType: "aurora" }] })).toEqual([]);
+    // A hidden image layer is not drawn at all.
+    expect(getPortableExportWarnings({ layers: [{ visible: false, gradientType: "image" }] })).toEqual([]);
   });
 
   it("returns no warnings for a single plain gradient layer", () => {

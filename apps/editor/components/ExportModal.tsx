@@ -199,6 +199,14 @@ export default function ExportModal({
     softness: store.softness as number,
     brightness: store.brightness,
     saturation: store.saturation,
+    hueShift: store.hueShift,
+    domainWarp: store.domainWarp,
+    colorBlend: store.colorBlend,
+    oklabEnabled: store.oklabEnabled,
+    toneMapMode: store.toneMapMode,
+    mouseReact: store.mouseReact,
+    debandEnabled: store.debandEnabled,
+    debandStrength: store.debandStrength,
   };
 
   const stateHash = encodeState(store);
