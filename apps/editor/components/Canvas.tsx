@@ -64,6 +64,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const [metrics, setMetrics] = useState<EngineMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [contextLost, setContextLost] = useState(false);
+  const [compiling, setCompiling] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const degradedRef = useRef(false);
   const textCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -224,6 +225,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     const handleContextRestored = () => {
       try {
         engine.initProgram();
+        // initProgram dropped the text mask texture along with everything else.
+        lastTextParamsRef.current = "";
         resize();
         startEngineLoop();
         setContextLost(false);
@@ -237,6 +240,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       setMetrics(engine.getMetrics());
 
       if (degradedRef.current) return;
+      // Frames are skipped while a shader compiles; that isn't a slow GPU.
+      if (engine.isCompiling()) {
+        lowFpsStartRef.current = null;
+        return;
+      }
 
       if (newFps < 30) {
         if (lowFpsStartRef.current === null) {
@@ -256,11 +264,34 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       }
     };
 
+    // Gradient types compile the first time they are drawn. Frames are skipped
+    // until then (the last one stays on screen); only hint at it when a
+    // compile takes noticeable time.
+    let compilingSince = 0;
+    let compilingShown = false;
+    const trackCompiling = () => {
+      if (!engine.isCompiling()) {
+        compilingSince = 0;
+        if (compilingShown) {
+          compilingShown = false;
+          setCompiling(false);
+        }
+        return;
+      }
+      const now = performance.now();
+      if (compilingSince === 0) compilingSince = now;
+      if (!compilingShown && now - compilingSince > 300) {
+        compilingShown = true;
+        setCompiling(true);
+      }
+    };
+
     let lastTimelineUpdate = performance.now();
     let timelineSampleTime = useGradientStore.getState().timelinePosition;
     let lastSyncedTimelinePosition = timelineSampleTime;
     let lastTimelineCursorSync = 0;
     const getFrameState = () => {
+      trackCompiling();
       const state = useGradientStore.getState();
 
       // Advance timeline position and apply interpolated params
@@ -309,7 +340,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     const startEngineLoop = () => {
       lastTimelineUpdate = performance.now();
-      engine.startLoop(getFrameState, handleFps);
+      // A shader that fails to compile surfaces here, from the first frame that needs it.
+      engine.startLoop(getFrameState, handleFps, (err) => setError(err.message));
     };
 
     const handleVisibilityChange = () => {
@@ -379,6 +411,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       {contextLost && (
         <div className="absolute inset-0 flex items-center justify-center bg-root/80">
           <p className="text-text-secondary text-sm">Recovering WebGL context...</p>
+        </div>
+      )}
+      {compiling && !contextLost && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <p className="rounded bg-base/70 px-2 py-1 text-xs text-text-secondary">Compiling shader...</p>
         </div>
       )}
       <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded hidden lg:block">

@@ -39,17 +39,22 @@ export function createGradient(
     engine.initProgram();
   });
 
-  // Start render loop with tween tick
-  engine.startLoop(() => {
-    // Tick active animations
-    const tweenUpdate = tweenManager.tick(currentConfig);
-    if (tweenUpdate) {
-      currentConfig = { ...currentConfig, ...tweenUpdate };
-      if (tweenUpdate.layers) currentConfig.layers = tweenUpdate.layers;
-      state = resolveConfig(currentConfig);
-    }
-    return state;
-  });
+  // Start render loop with tween tick. A render error (a shader that fails to
+  // compile) stops the loop and is reported through onError.
+  engine.startLoop(
+    () => {
+      // Tick active animations
+      const tweenUpdate = tweenManager.tick(currentConfig);
+      if (tweenUpdate) {
+        currentConfig = { ...currentConfig, ...tweenUpdate };
+        if (tweenUpdate.layers) currentConfig.layers = tweenUpdate.layers;
+        state = resolveConfig(currentConfig);
+      }
+      return state;
+    },
+    undefined,
+    options?.onError, // without one, the error is thrown from the frame callback
+  );
 
   const handle: GradientHandle = {
     update(partial: Partial<GradientConfig>) {

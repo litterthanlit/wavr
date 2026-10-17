@@ -76,6 +76,20 @@ describe("GradientEngine.captureImageData", () => {
     expect(redraw.uniforms.u_resolution).toEqual([16, 8]);
   });
 
+  it("renders through the layer and post passes into the capture target", () => {
+    const { engine, draws, attachments } = setup();
+    engine.render(state());
+    const before = draws.length;
+
+    engine.captureImageData();
+    const [layerPass, postPass] = draws.slice(before);
+    // The layers composite into their own targets; only the post pass writes the capture FBO.
+    expect(layerPass.target).not.toBeNull();
+    expect(postPass.target).not.toBeNull();
+    expect(postPass.target).not.toBe(layerPass.target);
+    expect(postPass.boundTextures.get(6)).toBe(attachments.get(layerPass.target!));
+  });
+
   it("scales oversized captures down to the GPU limit, keeping aspect", () => {
     const { engine } = setup(); // fake GPU limit: 4096
     engine.render(state());

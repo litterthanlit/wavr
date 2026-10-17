@@ -53,6 +53,30 @@ function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+// Goldens come from the parity-generate workflow. Until some are committed
+// there is nothing to compare against; the run then checks that every fixture
+// renders a non-blank frame, which still catches shaders that don't compile or
+// draw. Once any golden exists, a missing one fails.
+const GOLDENS_COMMITTED =
+  fs.existsSync(GOLDENS_DIR) && fs.readdirSync(GOLDENS_DIR).some((file) => file.endsWith(".hash"));
+
+// Renders one frame in the runner page. The bytes cross the CDP boundary as
+// base64: a plain number array of the 1 MB frame takes seconds to serialize.
+async function renderFrame(page: Page, config: GradientConfig, time: number): Promise<Uint8Array> {
+  const base64 = await page.evaluate(
+    async ({ config, time }) => {
+      const buf = await window.__wavrRender(config, time);
+      let binary = "";
+      for (let i = 0; i < buf.length; i += 0x8000) {
+        binary += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      }
+      return btoa(binary);
+    },
+    { config, time },
+  );
+  return new Uint8Array(Buffer.from(base64, "base64"));
+}
+
 function isEmptyFramebuffer(pixels: Uint8Array): boolean {
   for (let i = 0; i < pixels.length; i += 4) {
     if ((pixels[i] ?? 0) !== 0 || (pixels[i + 1] ?? 0) !== 0 || (pixels[i + 2] ?? 0) !== 0) {
@@ -87,6 +111,9 @@ test.describe("parity", () => {
     ensureDir(RESULTS_DIR);
     page = await browser.newPage();
     await page.goto(RUNNER_URL, { waitUntil: "domcontentloaded" });
+    // Rejects, with the GLSL info log, if the engine fails to start or any
+    // gradient type's shader fails to compile (the runner compiles them all).
+    await page.evaluate(() => window.__wavrReady);
     await page.waitForFunction(() => typeof window.__wavrRender === "function", null, {
       timeout: 300_000,
     });
@@ -96,14 +123,7 @@ test.describe("parity", () => {
       throw new Error("No parity fixtures found");
     }
     try {
-      const pixelsArr = await page.evaluate(
-        async ({ config, time }) => {
-          const buf = await window.__wavrRender(config, time);
-          return Array.from(buf);
-        },
-        { config: smoke.config, time: 0 },
-      );
-      const pixels = new Uint8Array(pixelsArr);
+      const pixels = await renderFrame(page, smoke.config, 0);
       if (isEmptyFramebuffer(pixels)) {
         skipReason =
           "Production fragment shader produced an empty framebuffer on this WebGL implementation (Chromium SwiftShader compiles the uber-shader but does not execute it). Run parity on a GPU or via a renderer that can execute the full fragment shader.";
@@ -138,14 +158,7 @@ test.describe("parity", () => {
         if (!page) {
           throw new Error("Parity page was not created");
         }
-        const pixelsArr = await page.evaluate(
-          async ({ config, time }) => {
-            const buf = await window.__wavrRender(config, time);
-            return Array.from(buf);
-          },
-          { config: fixture.config, time: t },
-        );
-        const pixels = new Uint8Array(pixelsArr);
+        const pixels = await renderFrame(page, fixture.config, t);
         expect(pixels.length).toBe(CANVAS_SIZE * CANVAS_SIZE * 4);
         if (isEmptyFramebuffer(pixels)) {
           const actualPng = path.join(RESULTS_DIR, `${fixture.name}.t${tMs}.actual.png`);
@@ -163,6 +176,11 @@ test.describe("parity", () => {
           fs.writeFileSync(hashFile, `${actualHash}\n`, "utf8");
           // eslint-disable-next-line no-console
           console.log(`[parity:write] ${fixture.name}.t${tMs} → ${actualHash}`);
+          return;
+        }
+
+        if (!fs.existsSync(hashFile) && !GOLDENS_COMMITTED) {
+          test.info().annotations.push({ type: "no-golden", description: `rendered, hash ${actualHash}` });
           return;
         }
 

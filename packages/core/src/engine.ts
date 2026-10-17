@@ -1,10 +1,12 @@
-import vertexSource from "./shaders/vertex.glsl";
-import _fragmentSource from "./shaders/fragment.glsl";
-import hslSource from "./shaders/hsl.glsl";
-import blendModesSource from "./shaders/blend-modes.glsl";
 import trailFragSource from "./shaders/trail.glsl";
 import bloomExtractSource from "./shaders/bloom-extract.glsl";
 import blurSource from "./shaders/blur.glsl";
+import {
+  FULLSCREEN_VERTEX_SOURCE,
+  LAYER_VERTEX_SOURCE,
+  assembleLayerSource,
+  assemblePostSource,
+} from "./shader-sources";
 import { BlendMode, ImageBlendMode, LayerParams, MaskBlendMode, MaskShape } from "./layers";
 import {
   createEmptyEngineMetrics,
@@ -12,12 +14,6 @@ import {
   type EngineMetrics,
   type GpuResourceSample,
 } from "./instrumentation";
-
-// Assemble full fragment source with blend mode includes
-const fragmentSource = _fragmentSource.replace(
-  'precision highp float;',
-  'precision highp float;\n\n' + hslSource + '\n' + blendModesSource
-);
 import { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply, flipRowsRGBA } from "./math";
 
 export interface EngineState {
@@ -145,18 +141,96 @@ const MASK_BLEND_MODE_MAP: Record<MaskBlendMode, number> = {
 };
 
 /**
- * Effects that sample neighbouring pixels. With any of them on, render() takes
- * the composite + post pass path so the taps are texture fetches of the
- * composited scene rather than full gradient re-evaluations.
+ * Uniforms the layer and post programs may declare. Locations are looked up by
+ * name once per program; a name a program doesn't use is simply absent. A
+ * uniform missing from this list is silently never set.
  */
-function usesNeighborSampling(state: EngineState): boolean {
-  return (
-    state.bloomEnabled ||
-    state.glowEnabled ||
-    (state.blurEnabled && state.blurAmount > 0) ||
-    state.chromaticAberration > 0.001 ||
-    state.pixelSortEnabled
-  );
+export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
+  "u_time", "u_resolution", "u_mouse", "u_mouseSmooth", "u_mouseVelocity",
+  "u_speed", "u_complexity", "u_scale", "u_distortion", "u_softness",
+  "u_brightness", "u_saturation", "u_colorCount",
+  "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
+  "u_mouseReact",
+  "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
+  "u_blurEnabled", "u_blurAmount",
+  "u_colorBlend",
+  "u_chromaticAberration", "u_hueShift",
+  "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
+  "u_layerOpacity", "u_sceneTexture",
+  "u_curlEnabled", "u_curlIntensity", "u_curlScale",
+  "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
+  "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
+  "u_pixelSortEnabled", "u_pixelSortIntensity", "u_pixelSortThreshold",
+  "u_domainWarp",
+  "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
+  // Image/texture uniforms
+  "u_imageTexture", "u_distortionMap",
+  "u_hasImage", "u_hasDistortionMap",
+  "u_imageScale", "u_imageOffset",
+  "u_distortionMapIntensity",
+  "u_imageBlendMode", "u_imageBlendOpacity",
+  // Mask uniforms
+  "u_maskEnabled",
+  "u_mask1Type", "u_mask1Position", "u_mask1Scale", "u_mask1Rotation",
+  "u_mask1Feather", "u_mask1Invert", "u_mask1CornerRadius",
+  "u_mask1Sides", "u_mask1StarInner", "u_mask1NoiseDist",
+  "u_mask2Type", "u_mask2Position", "u_mask2Scale", "u_mask2Rotation",
+  "u_mask2Feather", "u_mask2Invert", "u_mask2CornerRadius",
+  "u_mask2Sides", "u_mask2StarInner", "u_mask2NoiseDist",
+  "u_maskBlendMode", "u_maskSmoothness",
+  // Text mask
+  "u_textMaskEnabled", "u_textMaskTexture",
+  // Layer compositing (Phase 12)
+  "u_blendMode", "u_compositeEnabled", "u_compositePrev",
+  // Phase 7: Parallax
+  "u_parallaxEnabled", "u_parallaxStrength", "u_layerDepth",
+  // Phase 7: 3D Shape Projection
+  "u_3dEnabled", "u_3dShape", "u_3dPerspective",
+  "u_3dRotationSpeed", "u_3dRotation", "u_3dZoom", "u_3dLighting",
+  // Phase 7: Mesh Distortion (vertex shader)
+  "u_meshEnabled", "u_meshDisplacement", "u_meshFrequency", "u_meshSpeed", "u_mvp",
+  // Phase 11: Shader Quality
+  "u_oklabEnabled", "u_toneMapMode",
+  // Phase 11 Week 2: Ripple, Glow, Caustics
+  "u_rippleOrigin", "u_rippleTime", "u_rippleEnabled", "u_rippleIntensity",
+  "u_glowEnabled", "u_glowIntensity", "u_glowRadius",
+  "u_causticEnabled", "u_causticIntensity",
+  "u_liquifyEnabled", "u_liquifyIntensity", "u_liquifyScale",
+  "u_trailEnabled", "u_trailTexture",
+  // Spec 0004: Deband (blue-noise anti-banding, on by default)
+  "u_debandEnabled", "u_debandStrength",
+];
+
+// Texture units. Each sampler is bound to one fixed unit in its program.
+const UNIT_PREV_FRAME = 0; // post: feedback
+const UNIT_IMAGE = 1; // layer
+const UNIT_DISTORTION_MAP = 2; // layer
+const UNIT_TEXT_MASK = 3; // layer
+const UNIT_TRAIL = 4; // post
+const UNIT_COMPOSITE_PREV = 5; // layer: layers composited so far
+const UNIT_SCENE = 6; // post: all layers composited
+
+/** `KHR_parallel_shader_compile`: compile and link run off-thread. */
+interface ParallelShaderCompile {
+  COMPLETION_STATUS_KHR: number;
+}
+
+/**
+ * A linked (or still linking) program and what the engine needs to drive it.
+ * Uniform locations are per program, so each record carries its own.
+ */
+interface ProgramRecord {
+  label: string;
+  program: WebGLProgram;
+  /** Attached shaders; deleted once the program has linked. */
+  shaders: WebGLShader[];
+  /** Linked, locations resolved. */
+  ready: boolean;
+  /** Set when compile or link failed; thrown again on every use. */
+  error: Error | null;
+  startedAt: number;
+  uniforms: UniformMap;
+  colorLocations: (WebGLUniformLocation | undefined)[];
 }
 
 export interface CaptureOptions {
@@ -216,13 +290,21 @@ function getWebGL2Context(
 
 export class GradientEngine {
   private gl: WebGL2RenderingContext;
-  private program!: WebGLProgram;
-  private uniforms: UniformMap = {};
-  private colorLocations: (WebGLUniformLocation | undefined)[] = [];
+  private textureUnits: number[];
+  private parallelCompile: ParallelShaderCompile | null = null;
+  /** Render the composite targets as RGBA16F so deband and tone mapping see unquantized colour. */
+  private halfFloatTargets = false;
+  /** Layer programs by gradient (`g<shader id>`), plus `custom` for Custom GLSL. */
+  private layerPrograms = new Map<string, ProgramRecord>();
+  private postProgram: ProgramRecord | null = null;
+  /** Body of the user's `customGradient`; while set, every layer uses the custom program. */
+  private customSource: string | null = null;
+  /** The layer/post program bound for uniform uploads; null while an auxiliary program is bound. */
+  private active: ProgramRecord | null = null;
   /**
-   * Last values uploaded to each main-program uniform, so unchanged ones are
-   * skipped (most are constant between frames). Only valid for the program
-   * the locations came from, so cacheUniforms() clears it.
+   * Last values uploaded to each layer/post-program uniform, so unchanged ones
+   * are skipped (most are constant between frames). Locations belong to one
+   * program, so entries are dropped with it (disposeProgram).
    */
   private lastUniformValues = new Map<WebGLUniformLocation, number[]>();
   private elapsedTime = 0;
@@ -295,9 +377,12 @@ export class GradientEngine {
   private compositeWidth = 0;
   private compositeHeight = 0;
 
-  // Grid mesh for mesh distortion (Phase 7)
-  private quadVAO!: WebGLVertexArrayObject;
+  // Fullscreen quad and grid mesh for mesh distortion (Phase 7). Every program
+  // has `a_position` at location 0 (layout qualifier), so they all share these.
+  private quadVAO: WebGLVertexArrayObject | null = null;
+  private quadBuffer: WebGLBuffer | null = null;
   private gridVAO: WebGLVertexArrayObject | null = null;
+  private gridBuffers: WebGLBuffer[] = [];
   private gridIndexCount = 0;
   private metrics = createEmptyEngineMetrics();
 
@@ -305,49 +390,84 @@ export class GradientEngine {
     const gl = getWebGL2Context(canvas, options);
     if (!gl) throw new Error("WebGL 2 not supported");
     this.gl = gl;
+    this.textureUnits = [
+      gl.TEXTURE0, gl.TEXTURE1, gl.TEXTURE2, gl.TEXTURE3, gl.TEXTURE4, gl.TEXTURE5, gl.TEXTURE6,
+    ];
     this.initProgram();
   }
 
+  /**
+   * Drops every GL program and resource and rebuilds the base ones. Call it
+   * after a context restore. Layer programs are compiled lazily by render().
+   */
   initProgram() {
     const gl = this.gl;
 
-    if (this.program) {
-      gl.deleteProgram(this.program);
-    }
-
-    const vertShader = this.compileShader(gl.VERTEX_SHADER, vertexSource);
-    const fragShader = this.compileShader(gl.FRAGMENT_SHADER, fragmentSource);
-
-    const program = gl.createProgram()!;
-    gl.attachShader(program, vertShader);
-    gl.attachShader(program, fragShader);
-    const linkStart = performance.now();
-    gl.linkProgram(program);
-    this.recordShaderTiming(performance.now() - linkStart);
-
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      const log = gl.getProgramInfoLog(program);
-      throw new Error(`Program link failed: ${log}`);
-    }
-
-    this.program = program;
-    gl.useProgram(program);
+    this.releaseResources();
+    this.parallelCompile = gl.getExtension("KHR_parallel_shader_compile") as ParallelShaderCompile | null;
+    this.halfFloatTargets = !!(
+      gl.getExtension("EXT_color_buffer_float") ?? gl.getExtension("EXT_color_buffer_half_float")
+    );
 
     this.quadVAO = gl.createVertexArray()!;
     gl.bindVertexArray(this.quadVAO);
-    const buffer = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    this.quadBuffer = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
       gl.STATIC_DRAW
     );
-    const posLoc = gl.getAttribLocation(program, "a_position");
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    this.uniforms = {};
-    this.cacheUniforms();
+    // Start the post program now so it compiles alongside the first layer
+    // program. Without the extension that blocks, so check it here, where
+    // a broken shader has always failed.
+    const post = this.getPostProgram();
+    if (!this.parallelCompile) this.isProgramReady(post);
+  }
+
+  /** Deletes everything initProgram() and the lazy init* methods created. */
+  private releaseResources() {
+    const gl = this.gl;
+    this.destroyFeedbackFBOs();
+    this.destroyTrailFBOs();
+    this.destroyBloomFBOs();
+    this.destroyCompositeFBOs();
+    this.destroyCaptureFBO();
+
+    for (const record of this.layerPrograms.values()) this.disposeProgram(record);
+    this.layerPrograms.clear();
+    if (this.postProgram) this.disposeProgram(this.postProgram);
+    this.postProgram = null;
+    this.active = null;
+    this.lastUniformValues.clear();
+    for (const program of [this.trailProgram, this.bloomExtractProgram, this.bloomBlurProgram]) {
+      if (program) gl.deleteProgram(program);
+    }
+    this.trailProgram = null;
+    this.bloomExtractProgram = null;
+    this.bloomBlurProgram = null;
+    this.trailUniforms = {};
+    this.bloomExtractUniforms = {};
+    this.bloomBlurUniforms = {};
+
+    if (this.quadVAO) gl.deleteVertexArray(this.quadVAO);
+    if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
+    if (this.gridVAO) gl.deleteVertexArray(this.gridVAO);
+    for (const buffer of this.gridBuffers) gl.deleteBuffer(buffer);
+    this.quadVAO = null;
+    this.quadBuffer = null;
+    this.gridVAO = null;
+    this.gridBuffers = [];
+
+    for (const tex of this.textureCache.values()) gl.deleteTexture(tex);
+    this.textureCache.clear();
+    this.textureSizes.clear();
+    if (this.textMaskTexture) gl.deleteTexture(this.textMaskTexture);
+    this.textMaskTexture = null;
+    this.lastTextureRefs = [];
   }
 
   private initGridMesh() {
@@ -382,13 +502,13 @@ export class GradientEngine {
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
-    const posLoc = gl.getAttribLocation(this.program, "a_position");
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
+    this.gridBuffers = [vbo, ibo];
 
     gl.bindVertexArray(null);
   }
@@ -405,6 +525,7 @@ export class GradientEngine {
     }
   }
 
+  /** Compiles and links synchronously; for the small trail and bloom programs. */
   private compileShader(type: number, source: string): WebGLShader {
     const gl = this.gl;
     const shader = gl.createShader(type)!;
@@ -418,6 +539,196 @@ export class GradientEngine {
       throw new Error(`Shader compile failed: ${log}`);
     }
     return shader;
+  }
+
+  /**
+   * Starts compiling a layer or post program. The result is polled with
+   * isProgramReady(): with KHR_parallel_shader_compile that doesn't block
+   * until the compile is done; without it, the first poll does.
+   */
+  private createProgram(label: string, vertexSource: string, fragmentSource: string): ProgramRecord {
+    const gl = this.gl;
+    const startedAt = performance.now();
+    const shaders: WebGLShader[] = [];
+    const program = gl.createProgram()!;
+    for (const [type, source] of [
+      [gl.VERTEX_SHADER, vertexSource],
+      [gl.FRAGMENT_SHADER, fragmentSource],
+    ] as const) {
+      const shader = gl.createShader(type)!;
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      gl.attachShader(program, shader);
+      shaders.push(shader);
+    }
+    gl.linkProgram(program);
+    const record: ProgramRecord = {
+      label,
+      program,
+      shaders,
+      ready: false,
+      error: null,
+      startedAt,
+      uniforms: {},
+      colorLocations: [],
+    };
+    return record;
+  }
+
+  /**
+   * Whether the program has linked. Throws with the info log if it failed.
+   * Without the extension this blocks until the compile is done.
+   */
+  private isProgramReady(record: ProgramRecord): boolean {
+    if (record.ready) return true;
+    if (record.error) throw record.error;
+    // getProgramParameter(LINK_STATUS) and getShaderParameter block until the
+    // compile is done, so only ask for them once the extension says it is.
+    const ext = this.parallelCompile;
+    if (ext && !this.gl.getProgramParameter(record.program, ext.COMPLETION_STATUS_KHR)) {
+      return false;
+    }
+    this.finishProgram(record);
+    return true;
+  }
+
+  /** Waits for the program to link (blocking), then resolves its uniform locations. */
+  private finishProgram(record: ProgramRecord) {
+    if (record.ready) return;
+    if (record.error) throw record.error;
+    const gl = this.gl;
+
+    for (const shader of record.shaders) {
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        record.error = new Error(`Shader compile failed (${record.label}): ${gl.getShaderInfoLog(shader)}`);
+        throw record.error;
+      }
+    }
+    if (!gl.getProgramParameter(record.program, gl.LINK_STATUS)) {
+      record.error = new Error(`Program link failed (${record.label}): ${gl.getProgramInfoLog(record.program)}`);
+      throw record.error;
+    }
+    for (const shader of record.shaders) {
+      gl.detachShader(record.program, shader);
+      gl.deleteShader(shader);
+    }
+    record.shaders = [];
+    this.recordShaderTiming(performance.now() - record.startedAt);
+
+    for (const name of PROGRAM_UNIFORM_NAMES) {
+      const loc = gl.getUniformLocation(record.program, name);
+      if (loc) record.uniforms[name] = loc;
+    }
+    for (let i = 0; i < 8; i++) {
+      const loc = gl.getUniformLocation(record.program, `u_colors[${i}]`);
+      record.colorLocations.push(loc ?? undefined);
+    }
+    record.ready = true;
+
+    // Each sampler gets its own fixed unit for good.
+    this.useProgram(record);
+    for (const [name, unit] of [
+      ["u_prevFrame", UNIT_PREV_FRAME],
+      ["u_imageTexture", UNIT_IMAGE],
+      ["u_distortionMap", UNIT_DISTORTION_MAP],
+      ["u_textMaskTexture", UNIT_TEXT_MASK],
+      ["u_trailTexture", UNIT_TRAIL],
+      ["u_compositePrev", UNIT_COMPOSITE_PREV],
+      ["u_sceneTexture", UNIT_SCENE],
+    ] as const) {
+      this.seti(name, unit);
+    }
+  }
+
+  /** Frees a program and forgets its cached uniform values. */
+  private disposeProgram(record: ProgramRecord) {
+    const gl = this.gl;
+    for (const loc of Object.values(record.uniforms)) this.lastUniformValues.delete(loc);
+    for (const loc of record.colorLocations) {
+      if (loc) this.lastUniformValues.delete(loc);
+    }
+    for (const shader of record.shaders) {
+      gl.detachShader(record.program, shader);
+      gl.deleteShader(shader);
+    }
+    record.shaders = [];
+    if (this.active === record) {
+      gl.useProgram(null);
+      this.active = null;
+    }
+    gl.deleteProgram(record.program);
+  }
+
+  /** Binds a layer or post program; setf/seti/set2f/setMat4 then upload to it. */
+  private useProgram(record: ProgramRecord) {
+    if (this.active === record) return;
+    this.gl.useProgram(record.program);
+    this.active = record;
+  }
+
+  /** Binds a program that isn't a layer/post one (trail, bloom). */
+  private useAuxProgram(program: WebGLProgram) {
+    this.gl.useProgram(program);
+    this.active = null;
+  }
+
+  private getPostProgram(): ProgramRecord {
+    if (!this.postProgram) {
+      this.postProgram = this.createProgram("post", FULLSCREEN_VERTEX_SOURCE, assemblePostSource());
+    }
+    return this.postProgram;
+  }
+
+  /** The program that draws `layer`: one per gradient type, or the custom one. */
+  private getLayerProgram(layer: LayerParams): ProgramRecord {
+    const gradientId = GRADIENT_TYPE_IDS[layer.gradientType] ?? 0;
+    const key = this.customSource !== null ? "custom" : `g${gradientId}`;
+    let record = this.layerPrograms.get(key);
+    if (!record) {
+      const source = this.customSource !== null
+        ? assembleLayerSource({ custom: this.customSource })
+        : assembleLayerSource(gradientId);
+      record = this.createProgram(
+        this.customSource !== null ? "layer custom" : `layer ${layer.gradientType}`,
+        LAYER_VERTEX_SOURCE,
+        source,
+      );
+      this.layerPrograms.set(key, record);
+    }
+    return record;
+  }
+
+  /**
+   * Whether `state` can be drawn now, i.e. every program it needs has
+   * finished compiling (compiles are started for any that haven't been).
+   * render() skips frames until this is true, so the canvas keeps its last
+   * frame while a new gradient type compiles. Defaults to the last state
+   * rendered. Throws with the info log if a program failed to compile.
+   */
+  isReady(state: EngineState | null = this.lastState): boolean {
+    if (!state) return this.postProgram ? this.isProgramReady(this.postProgram) : false;
+    return this.programsReady(state.layers.filter((l) => l.visible));
+  }
+
+  /** Whether any program is still compiling (so frames that need it are being skipped). Cheap enough to poll every frame. */
+  isCompiling(): boolean {
+    const pending = (record: ProgramRecord) => !record.ready && !record.error;
+    if (this.postProgram && pending(this.postProgram)) return true;
+    for (const record of this.layerPrograms.values()) {
+      if (pending(record)) return true;
+    }
+    return false;
+  }
+
+  /** Starts compiling what a frame of `layers` draws with (each layer's program, then post) and polls it. */
+  private programsReady(layers: LayerParams[]): boolean {
+    if (layers.length === 0) return true;
+    // Poll them all (not just until one is pending) so a failure in any surfaces.
+    let ready = this.isProgramReady(this.getPostProgram());
+    for (const layer of layers) {
+      if (!this.isProgramReady(this.getLayerProgram(layer))) ready = false;
+    }
+    return ready;
   }
 
   private recordShaderTiming(ms: number) {
@@ -438,79 +749,6 @@ export class GradientEngine {
     if (status !== gl.FRAMEBUFFER_COMPLETE) {
       throw new Error(`${label} framebuffer incomplete: 0x${status.toString(16)}`);
     }
-  }
-
-  private cacheUniforms() {
-    const gl = this.gl;
-    const names = [
-      "u_time", "u_resolution", "u_mouse", "u_gradientType",
-      "u_speed", "u_complexity", "u_scale", "u_distortion",
-      "u_softness",
-      "u_brightness", "u_saturation", "u_colorCount",
-      "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
-      "u_mouseReact",
-      "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
-      "u_blurEnabled", "u_blurAmount",
-      "u_mouseSmooth", "u_mouseVelocity", "u_colorBlend",
-      "u_chromaticAberration", "u_hueShift",
-      "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
-      "u_layerOpacity", "u_isBaseLayer", "u_postPass", "u_sceneTexture",
-      "u_curlEnabled", "u_curlIntensity", "u_curlScale",
-      "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
-      "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
-      "u_pixelSortEnabled", "u_pixelSortIntensity", "u_pixelSortThreshold",
-      "u_domainWarp",
-      "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
-      // Image/texture uniforms
-      "u_imageTexture", "u_distortionMap",
-      "u_hasImage", "u_hasDistortionMap",
-      "u_imageScale", "u_imageOffset",
-      "u_distortionMapIntensity",
-      "u_imageBlendMode", "u_imageBlendOpacity",
-      // Mask uniforms
-      "u_maskEnabled",
-      "u_mask1Type", "u_mask1Position", "u_mask1Scale", "u_mask1Rotation",
-      "u_mask1Feather", "u_mask1Invert", "u_mask1CornerRadius",
-      "u_mask1Sides", "u_mask1StarInner", "u_mask1NoiseDist",
-      "u_mask2Type", "u_mask2Position", "u_mask2Scale", "u_mask2Rotation",
-      "u_mask2Feather", "u_mask2Invert", "u_mask2CornerRadius",
-      "u_mask2Sides", "u_mask2StarInner", "u_mask2NoiseDist",
-      "u_maskBlendMode", "u_maskSmoothness",
-      // Text mask
-      "u_textMaskEnabled", "u_textMaskTexture",
-      // Custom GLSL
-      "u_customEnabled",
-      // Layer compositing (Phase 12)
-      "u_blendMode", "u_compositeEnabled", "u_compositePrev",
-      // Phase 7: Parallax
-      "u_parallaxEnabled", "u_parallaxStrength", "u_layerDepth",
-      // Phase 7: 3D Shape Projection
-      "u_3dEnabled", "u_3dShape", "u_3dPerspective",
-      "u_3dRotationSpeed", "u_3dRotation", "u_3dZoom", "u_3dLighting",
-      // Phase 7: Mesh Distortion
-      "u_meshEnabled", "u_meshDisplacement", "u_meshFrequency", "u_meshSpeed", "u_mvp",
-      // Phase 11: Shader Quality
-      "u_oklabEnabled", "u_toneMapMode",
-      // Phase 11 Week 2: Ripple, Glow, Caustics
-      "u_rippleOrigin", "u_rippleTime", "u_rippleEnabled", "u_rippleIntensity",
-      "u_glowEnabled", "u_glowIntensity", "u_glowRadius",
-      "u_causticEnabled", "u_causticIntensity",
-      "u_liquifyEnabled", "u_liquifyIntensity", "u_liquifyScale",
-      "u_trailEnabled", "u_trailTexture",
-      // Spec 0004: Deband (blue-noise anti-banding, on by default)
-      "u_debandEnabled", "u_debandStrength",
-    ];
-    for (const name of names) {
-      const loc = gl.getUniformLocation(this.program, name);
-      if (loc) this.uniforms[name] = loc;
-    }
-    this.colorLocations = [];
-    for (let i = 0; i < 8; i++) {
-      const loc = gl.getUniformLocation(this.program, `u_colors[${i}]`);
-      this.colorLocations.push(loc ?? undefined);
-      if (loc) this.uniforms[`u_colors[${i}]`] = loc;
-    }
-    this.lastUniformValues.clear();
   }
 
   setMouse(x: number, y: number) {
@@ -552,7 +790,6 @@ export class GradientEngine {
       gl.canvas.width = nextWidth;
       gl.canvas.height = nextHeight;
     }
-    if (this.program) gl.useProgram(this.program);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   }
 
@@ -608,16 +845,7 @@ export class GradientEngine {
 
   private initTrailProgram() {
     const gl = this.gl;
-    // Simple fullscreen vertex shader (reuse same quad)
-    const vertSrc = `#version 300 es
-precision highp float;
-in vec2 a_position;
-out vec2 v_uv;
-void main() {
-  v_uv = a_position * 0.5 + 0.5;
-  gl_Position = vec4(a_position, 0.0, 1.0);
-}`;
-    const vertShader = this.compileShader(gl.VERTEX_SHADER, vertSrc);
+    const vertShader = this.compileShader(gl.VERTEX_SHADER, FULLSCREEN_VERTEX_SOURCE);
     const fragShader = this.compileShader(gl.FRAGMENT_SHADER, trailFragSource);
 
     const program = gl.createProgram()!;
@@ -694,17 +922,9 @@ void main() {
 
   private initBloomPrograms() {
     const gl = this.gl;
-    const vertSrc = `#version 300 es
-precision highp float;
-in vec2 a_position;
-out vec2 v_uv;
-void main() {
-  v_uv = a_position * 0.5 + 0.5;
-  gl_Position = vec4(a_position, 0.0, 1.0);
-}`;
 
     // Extract program
-    const extractVert = this.compileShader(gl.VERTEX_SHADER, vertSrc);
+    const extractVert = this.compileShader(gl.VERTEX_SHADER, FULLSCREEN_VERTEX_SOURCE);
     const extractFrag = this.compileShader(gl.FRAGMENT_SHADER, bloomExtractSource);
     const extractProg = gl.createProgram()!;
     gl.attachShader(extractProg, extractVert);
@@ -723,7 +943,7 @@ void main() {
     }
 
     // Blur program
-    const blurVert = this.compileShader(gl.VERTEX_SHADER, vertSrc);
+    const blurVert = this.compileShader(gl.VERTEX_SHADER, FULLSCREEN_VERTEX_SOURCE);
     const blurFrag = this.compileShader(gl.FRAGMENT_SHADER, blurSource);
     const blurProg = gl.createProgram()!;
     gl.attachShader(blurProg, blurVert);
@@ -824,13 +1044,43 @@ void main() {
     }
     this.destroyCompositeFBOs();
 
+    // Half-float targets keep the layers' colour unquantized for the post
+    // pass (deband, brightness, tone mapping). Fall back to RGBA8 if the
+    // driver won't render to them.
+    let targets = this.halfFloatTargets ? this.createCompositeTargets(width, height, true) : null;
+    if (!targets) {
+      this.halfFloatTargets = false;
+      targets = this.createCompositeTargets(width, height, false);
+    }
+    if (!targets) throw new Error("composite framebuffer incomplete");
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    this.compositeFBOs = targets.fbos;
+    this.compositeTextures = targets.textures;
+    this.compositeWidth = width;
+    this.compositeHeight = height;
+  }
+
+  /** Two filterable colour targets, or null (and nothing left allocated) if incomplete. */
+  private createCompositeTargets(
+    width: number,
+    height: number,
+    halfFloat: boolean,
+  ): { fbos: [WebGLFramebuffer, WebGLFramebuffer]; textures: [WebGLTexture, WebGLTexture] } | null {
+    const gl = this.gl;
     const textures: WebGLTexture[] = [];
     const fbos: WebGLFramebuffer[] = [];
 
     for (let i = 0; i < 2; i++) {
       const tex = gl.createTexture()!;
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      if (halfFloat) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      } else {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      }
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -840,17 +1090,14 @@ void main() {
       const fbo = gl.createFramebuffer()!;
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-      this.assertFramebufferComplete(`composite-${i}`);
       fbos.push(fbo);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        for (const f of fbos) gl.deleteFramebuffer(f);
+        for (const t of textures) gl.deleteTexture(t);
+        return null;
+      }
     }
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-
-    this.compositeFBOs = [fbos[0], fbos[1]];
-    this.compositeTextures = [textures[0], textures[1]];
-    this.compositeWidth = width;
-    this.compositeHeight = height;
+    return { fbos: [fbos[0], fbos[1]], textures: [textures[0], textures[1]] };
   }
 
   private destroyCompositeFBOs() {
@@ -893,7 +1140,7 @@ void main() {
     );
 
     // Step 2: Extract bright pixels → bloomFBO_A (1/4 res)
-    gl.useProgram(this.bloomExtractProgram!);
+    this.useAuxProgram(this.bloomExtractProgram!);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFBO_A!);
     gl.viewport(0, 0, this.bloomWidth, this.bloomHeight);
 
@@ -906,7 +1153,7 @@ void main() {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // Step 3: Horizontal blur bloomTex_A → bloomFBO_B
-    gl.useProgram(this.bloomBlurProgram!);
+    this.useAuxProgram(this.bloomBlurProgram!);
     const bu = this.bloomBlurUniforms;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFBO_B!);
@@ -951,9 +1198,6 @@ void main() {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     gl.disable(gl.BLEND);
-
-    // Switch back to main program
-    gl.useProgram(this.program);
   }
 
   private renderTrailPass(state: EngineState) {
@@ -971,7 +1215,7 @@ void main() {
     const prev = 1 - this.trailIndex;
     const curr = this.trailIndex;
 
-    gl.useProgram(this.trailProgram!);
+    this.useAuxProgram(this.trailProgram!);
     gl.bindVertexArray(this.quadVAO);
 
     // Pass 1: Decay previous trail into current FBO
@@ -1004,9 +1248,6 @@ void main() {
 
     // Swap
     this.trailIndex = prev;
-
-    // Switch back to main program
-    gl.useProgram(this.program);
   }
 
   loadImageTexture(dataURL: string): WebGLTexture | null {
@@ -1068,72 +1309,37 @@ void main() {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
+  /**
+   * Replaces the gradient of every layer with `code`, the body of
+   * `vec3 customGradient(vec2 uv, float time)`, or reverts with null. Compiles
+   * synchronously so the result can report errors; the built-in gradient
+   * functions aren't available to it, only the helpers (fbm, getGradientColor,
+   * mouse displacement, ...). A failed compile leaves the current shader as is.
+   */
   setCustomShader(code: string | null): { success: boolean; error?: string } {
-    const gl = this.gl;
-
     if (code === null) {
-      // Revert to default shader
-      try {
-        this.initProgram();
-        this.seti("u_customEnabled", 0);
-        return { success: true };
-      } catch (e) {
-        return { success: false, error: e instanceof Error ? e.message : "Reset failed" };
-      }
-    }
-
-    // Wrap user code in customGradient function and inject into shader
-    const customFunc = `vec3 customGradient(vec2 uv, float time) {\n${code}\n}`;
-
-    // Replace the placeholder customGradient in the fragment source
-    const modifiedFragment = fragmentSource.replace(
-      /vec3 customGradient\(vec2 uv, float time\) \{[^}]*\}/,
-      customFunc
-    );
-
-    try {
-      const vertShader = this.compileShader(gl.VERTEX_SHADER, vertexSource);
-      const fragShader = this.compileShader(gl.FRAGMENT_SHADER, modifiedFragment);
-
-      const newProgram = gl.createProgram()!;
-      gl.attachShader(newProgram, vertShader);
-      gl.attachShader(newProgram, fragShader);
-      const linkStart = performance.now();
-      gl.linkProgram(newProgram);
-      this.recordShaderTiming(performance.now() - linkStart);
-
-      if (!gl.getProgramParameter(newProgram, gl.LINK_STATUS)) {
-        const log = gl.getProgramInfoLog(newProgram);
-        gl.deleteProgram(newProgram);
-        return { success: false, error: log ?? "Link failed" };
-      }
-
-      // Success — swap programs
-      if (this.program) gl.deleteProgram(this.program);
-      this.program = newProgram;
-      gl.useProgram(newProgram);
-
-      // Re-bind the VAO (fullscreen quad)
-      this.quadVAO = gl.createVertexArray()!;
-      gl.bindVertexArray(this.quadVAO);
-      const buffer = gl.createBuffer()!;
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-      const posLoc = gl.getAttribLocation(newProgram, "a_position");
-      gl.enableVertexAttribArray(posLoc);
-      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
-      this.uniforms = {};
-      this.cacheUniforms();
-      this.seti("u_customEnabled", 1);
-
+      this.customSource = null;
+      const previous = this.layerPrograms.get("custom");
+      if (previous) this.disposeProgram(previous);
+      this.layerPrograms.delete("custom");
       return { success: true };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Compilation failed";
-      // Extract GLSL error from "Shader compile failed: " prefix
-      const cleaned = msg.replace(/^Shader compile failed:\s*/, "");
-      return { success: false, error: cleaned };
     }
+
+    const record = this.createProgram("layer custom", LAYER_VERTEX_SOURCE, assembleLayerSource({ custom: code }));
+    try {
+      this.finishProgram(record);
+    } catch (e) {
+      this.disposeProgram(record);
+      const msg = e instanceof Error ? e.message : "Compilation failed";
+      // Report just the GLSL log, without the "Shader compile failed (...):" prefix.
+      return { success: false, error: msg.replace(/^(Shader compile|Program link) failed \([^)]*\):\s*/, "") };
+    }
+
+    const previous = this.layerPrograms.get("custom");
+    if (previous) this.disposeProgram(previous);
+    this.layerPrograms.set("custom", record);
+    this.customSource = code;
+    return { success: true };
   }
 
   cleanupTextures(layers: LayerParams[]) {
@@ -1173,7 +1379,13 @@ void main() {
     }
     if (this.compositeFBOs) {
       resources.push({ kind: "framebuffer", count: 2 });
-      resources.push({ kind: "texture", width: this.compositeWidth, height: this.compositeHeight, count: 2 });
+      resources.push({
+        kind: "texture",
+        width: this.compositeWidth,
+        height: this.compositeHeight,
+        count: 2,
+        bytesPerPixel: this.halfFloatTargets ? 8 : 4,
+      });
     }
     if (this.textMaskTexture) {
       resources.push({ kind: "texture", width: canvas.width, height: canvas.height, count: 1 });
@@ -1184,9 +1396,14 @@ void main() {
 
     const summary = summarizeGpuResources(resources);
 
+    const programs = [...this.layerPrograms.values()];
+    if (this.postProgram) programs.push(this.postProgram);
+
     return {
       ...this.metrics,
       ...summary,
+      programCount: programs.length,
+      pendingPrograms: programs.filter((program) => !program.ready && !program.error).length,
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
       maxPixelRatio: this.maxPixelRatio,
@@ -1239,23 +1456,26 @@ void main() {
     return true;
   }
 
+  // Uniform setters. They upload to the layer/post program last bound with
+  // useProgram(), skipping unchanged values. Always set uniforms through these
+  // (never a raw gl.uniform* call on those programs), or the cache desyncs.
   private setf(name: string, val: number) {
-    const loc = this.uniforms[name];
+    const loc = this.active?.uniforms[name];
     if (loc !== undefined && this.uniformChanged(loc, 1, val)) this.gl.uniform1f(loc, val);
   }
 
   private seti(name: string, val: number) {
-    const loc = this.uniforms[name];
+    const loc = this.active?.uniforms[name];
     if (loc !== undefined && this.uniformChanged(loc, 1, val)) this.gl.uniform1i(loc, val);
   }
 
   private set2f(name: string, x: number, y: number) {
-    const loc = this.uniforms[name];
+    const loc = this.active?.uniforms[name];
     if (loc !== undefined && this.uniformChanged(loc, 2, x, y)) this.gl.uniform2f(loc, x, y);
   }
 
   private setMat4(name: string, val: Float32Array) {
-    const loc = this.uniforms[name];
+    const loc = this.active?.uniforms[name];
     if (loc === undefined) return;
     const last = this.lastUniformValues.get(loc);
     if (last !== undefined && last.length === 16 && last.every((v, i) => v === val[i])) return;
@@ -1263,46 +1483,52 @@ void main() {
     this.gl.uniformMatrix4fv(loc, false, val);
   }
 
+  private bindTexture(unit: number, texture: WebGLTexture | null) {
+    this.gl.activeTexture(this.textureUnits[unit]);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+  }
+
+  /** The palette: what getGradientColor reads. */
+  private setPalette(layer: LayerParams) {
+    const record = this.active;
+    if (!record) return;
+    this.setf("u_softness", layer.softness);
+    this.seti("u_colorCount", layer.colors.length);
+    const colorCount = Math.min(layer.colors.length, record.colorLocations.length);
+    for (let i = 0; i < colorCount; i++) {
+      const loc = record.colorLocations[i];
+      const color = layer.colors[i];
+      if (loc !== undefined && this.uniformChanged(loc, 3, color[0], color[1], color[2])) {
+        this.gl.uniform3f(loc, color[0], color[1], color[2]);
+      }
+    }
+  }
+
   private setLayerUniforms(layer: LayerParams) {
-    const gl = this.gl;
-    this.seti("u_gradientType", GRADIENT_TYPE_IDS[layer.gradientType] ?? 0);
     this.setf("u_speed", layer.speed);
     this.setf("u_complexity", layer.complexity);
     this.setf("u_scale", layer.scale);
     this.setf("u_distortion", layer.distortion);
-    this.setf("u_softness", layer.softness);
-    this.seti("u_colorCount", layer.colors.length);
-    const colorCount = Math.min(layer.colors.length, this.colorLocations.length);
-    for (let i = 0; i < colorCount; i++) {
-      const loc = this.colorLocations[i];
-      const color = layer.colors[i];
-      if (loc !== undefined && this.uniformChanged(loc, 3, color[0], color[1], color[2])) {
-        gl.uniform3f(loc, color[0], color[1], color[2]);
-      }
-    }
+    this.setPalette(layer);
     this.setf("u_layerOpacity", layer.opacity);
     // Parallax depth (per-layer)
     this.setf("u_layerDepth", layer.depth);
 
-    // Image texture (unit 1)
+    // Image texture
     const imageTex = layer.imageData ? this.loadImageTexture(layer.imageData) : null;
     if (imageTex) {
-      gl.activeTexture(gl.TEXTURE1);
-      gl.bindTexture(gl.TEXTURE_2D, imageTex);
-      this.seti("u_imageTexture", 1);
+      this.bindTexture(UNIT_IMAGE, imageTex);
       this.setf("u_hasImage", 1.0);
     } else {
       this.setf("u_hasImage", 0.0);
     }
 
-    // Distortion map (unit 2)
+    // Distortion map
     const distortionTex = (layer.distortionMapEnabled && layer.distortionMapData)
       ? this.loadImageTexture(layer.distortionMapData)
       : null;
     if (distortionTex) {
-      gl.activeTexture(gl.TEXTURE2);
-      gl.bindTexture(gl.TEXTURE_2D, distortionTex);
-      this.seti("u_distortionMap", 2);
+      this.bindTexture(UNIT_DISTORTION_MAP, distortionTex);
       this.setf("u_hasDistortionMap", 1.0);
     } else {
       this.setf("u_hasDistortionMap", 0.0);
@@ -1347,57 +1573,35 @@ void main() {
     // Text mask
     this.setf("u_textMaskEnabled", layer.textMaskEnabled ? 1.0 : 0.0);
     if (layer.textMaskEnabled && this.textMaskTexture) {
-      gl.activeTexture(gl.TEXTURE3);
-      gl.bindTexture(gl.TEXTURE_2D, this.textMaskTexture);
-      this.seti("u_textMaskTexture", 3);
+      this.bindTexture(UNIT_TEXT_MASK, this.textMaskTexture);
     }
   }
 
-  private setGlobalUniforms(state: EngineState, isBaseLayer: boolean) {
+  /** View-projection of the displaced mesh, with a subtle mouse-driven rotation. */
+  private meshMvp(): Float32Array {
+    const canvas = this.gl.canvas as HTMLCanvasElement;
+    const aspect = canvas.width / canvas.height;
+    const proj = mat4Perspective(Math.PI / 3, aspect, 0.1, 100.0);
+    const view = mat4LookAt([0, 0.8, 2.0], [0, 0, 0], [0, 1, 0]);
+    const azimuth = (this.smoothMouseX - 0.5) * 0.5;
+    const elevation = (this.smoothMouseY - 0.5) * 0.3;
+    let mv = mat4RotateY(view, azimuth);
+    mv = mat4RotateX(mv, elevation);
+    return mat4Multiply(proj, mv);
+  }
+
+  /** Uniforms shared by every layer draw (the layer program is bound). `mvp` is meshMvp() when mesh distortion is on. */
+  private setLayerGlobals(state: EngineState, mvp: Float32Array | null) {
     this.setf("u_time", this.elapsedTime);
     this.set2f("u_resolution", this.gl.canvas.width, this.gl.canvas.height);
     this.set2f("u_mouse", this.mouseX, this.mouseY);
     this.set2f("u_mouseSmooth", this.smoothMouseX, this.smoothMouseY);
     this.set2f("u_mouseVelocity", this.mouseVelX, this.mouseVelY);
     this.setf("u_mouseReact", state.mouseReact);
-
-    // Only apply post-processing on the final layer
-    this.seti("u_isBaseLayer", isBaseLayer ? 1 : 0);
-    this.setf("u_brightness", isBaseLayer ? state.brightness : 1.0);
-    this.setf("u_saturation", isBaseLayer ? state.saturation : 1.0);
-    this.seti("u_noiseEnabled", isBaseLayer && state.noiseEnabled ? 1 : 0);
-    this.setf("u_noiseIntensity", state.noiseIntensity);
-    this.setf("u_noiseScale", state.noiseScale);
-    this.setf("u_grain", isBaseLayer ? state.grain : 0);
-    this.seti("u_bloomEnabled", isBaseLayer && state.bloomEnabled ? 1 : 0);
-    this.setf("u_bloomIntensity", state.bloomIntensity);
-    this.setf("u_vignette", isBaseLayer ? state.vignette : 0);
-    this.setf("u_radialBlurAmount", state.radialBlurAmount);
-    this.seti("u_blurEnabled", isBaseLayer && state.blurEnabled ? 1 : 0);
-    this.setf("u_blurAmount", state.blurAmount);
     this.setf("u_colorBlend", state.colorBlend);
-    this.setf("u_chromaticAberration", isBaseLayer ? state.chromaticAberration : 0);
-    this.setf("u_hueShift", isBaseLayer ? state.hueShift : 0);
-    this.seti("u_asciiEnabled", isBaseLayer && state.asciiEnabled ? 1 : 0);
-    this.setf("u_asciiSize", state.asciiSize);
-    this.seti("u_ditherEnabled", isBaseLayer && state.ditherEnabled ? 1 : 0);
-    this.setf("u_ditherSize", state.ditherSize);
-    this.seti("u_curlEnabled", isBaseLayer && state.curlEnabled ? 1 : 0);
-    this.setf("u_curlIntensity", state.curlIntensity);
-    this.setf("u_curlScale", state.curlScale);
-    this.seti("u_kaleidoscopeEnabled", isBaseLayer && state.kaleidoscopeEnabled ? 1 : 0);
-    this.setf("u_kaleidoscopeSegments", state.kaleidoscopeSegments);
-    this.setf("u_kaleidoscopeRotation", state.kaleidoscopeRotation);
-    this.seti("u_reactionDiffEnabled", isBaseLayer && state.reactionDiffEnabled ? 1 : 0);
-    this.setf("u_reactionDiffIntensity", state.reactionDiffIntensity);
-    this.setf("u_reactionDiffScale", state.reactionDiffScale);
-    this.seti("u_pixelSortEnabled", isBaseLayer && state.pixelSortEnabled ? 1 : 0);
-    this.setf("u_pixelSortIntensity", state.pixelSortIntensity);
-    this.setf("u_pixelSortThreshold", state.pixelSortThreshold);
     this.setf("u_domainWarp", state.domainWarp);
-    this.seti("u_feedbackEnabled", isBaseLayer && state.feedbackEnabled ? 1 : 0);
-    this.setf("u_feedbackDecay", state.feedbackDecay);
-    // Parallax (active on all layers, not just base)
+    this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
+    // Parallax
     this.seti("u_parallaxEnabled", state.parallaxEnabled ? 1 : 0);
     this.setf("u_parallaxStrength", state.parallaxStrength);
     // 3D Shape Projection
@@ -1413,81 +1617,101 @@ void main() {
       const elevation = (this.smoothMouseY - 0.5) * 1.5;
       this.set2f("u_3dRotation", azimuth, elevation);
     }
-    // Shader quality
-    this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
-    this.seti("u_toneMapMode", isBaseLayer ? state.toneMapMode : 1);
-    // Ripple
-    const rippleTime = this.elapsedTime - this.rippleStartTime;
-    this.setf("u_rippleEnabled", isBaseLayer && state.rippleEnabled && rippleTime < 2.0 ? 1.0 : 0.0);
-    this.set2f("u_rippleOrigin", this.rippleOriginX, this.rippleOriginY);
-    this.setf("u_rippleTime", rippleTime);
-    this.setf("u_rippleIntensity", state.rippleIntensity);
-    // Soft glow
-    this.seti("u_glowEnabled", isBaseLayer && state.glowEnabled ? 1 : 0);
-    this.setf("u_glowIntensity", state.glowIntensity);
-    this.setf("u_glowRadius", state.glowRadius);
-    // Caustics
-    this.seti("u_causticEnabled", isBaseLayer && state.causticEnabled ? 1 : 0);
-    this.setf("u_causticIntensity", state.causticIntensity);
-    // Trail
-    const trailActive = isBaseLayer && state.trailEnabled && this.trailTextures;
-    this.seti("u_trailEnabled", trailActive ? 1 : 0);
-    if (trailActive) {
-      const gl = this.gl;
-      gl.activeTexture(gl.TEXTURE4);
-      gl.bindTexture(gl.TEXTURE_2D, this.trailTextures![this.trailIndex]);
-      this.seti("u_trailTexture", 4);
-    }
-    // Liquify
-    this.seti("u_liquifyEnabled", isBaseLayer && state.liquifyEnabled ? 1 : 0);
-    this.setf("u_liquifyIntensity", state.liquifyIntensity);
-    this.setf("u_liquifyScale", state.liquifyScale);
-    // Deband (blue-noise anti-banding) — only on the final composited output
-    this.seti("u_debandEnabled", isBaseLayer && state.debandEnabled ? 1 : 0);
-    this.setf("u_debandStrength", state.debandStrength);
     // Mesh Distortion
     this.seti("u_meshEnabled", state.meshDistortionEnabled ? 1 : 0);
     this.setf("u_meshDisplacement", state.meshDisplacement);
     this.setf("u_meshFrequency", state.meshFrequency);
     this.setf("u_meshSpeed", state.meshSpeed);
-
-    // MVP matrix for mesh distortion
-    if (state.meshDistortionEnabled) {
-      const canvas = this.gl.canvas as HTMLCanvasElement;
-      const aspect = canvas.width / canvas.height;
-      const proj = mat4Perspective(Math.PI / 3, aspect, 0.1, 100.0);
-      const view = mat4LookAt([0, 0.8, 2.0], [0, 0, 0], [0, 1, 0]);
-      // Subtle mouse-driven rotation
-      const azimuth = (this.smoothMouseX - 0.5) * 0.5;
-      const elevation = (this.smoothMouseY - 0.5) * 0.3;
-      let mv = mat4RotateY(view, azimuth);
-      mv = mat4RotateX(mv, elevation);
-      const mvp = mat4Multiply(proj, mv);
-      this.setMat4("u_mvp", mvp);
-    }
+    if (mvp) this.setMat4("u_mvp", mvp);
   }
 
-  /** Global effects applied to the composited image; see render(). */
-  private setPostPassUniforms(sceneTexture: WebGLTexture) {
-    const gl = this.gl;
-    gl.activeTexture(gl.TEXTURE6);
-    gl.bindTexture(gl.TEXTURE_2D, sceneTexture);
-    this.seti("u_sceneTexture", 6);
-    this.seti("u_postPass", 1);
-    this.seti("u_compositeEnabled", 0);
-    // Per-layer inputs were already applied when compositing the layers.
-    this.setf("u_hasImage", 0.0);
-    this.setf("u_hasDistortionMap", 0.0);
-    this.seti("u_maskEnabled", 0);
-    this.setf("u_textMaskEnabled", 0.0);
-    this.setf("u_layerOpacity", 1.0);
-    this.seti("u_meshEnabled", 0);
+  /**
+   * Uniforms of the post program (bound). `lastLayer` supplies the palette the
+   * effects read (reaction-diffusion) and the clock speed, as the last layer's
+   * uniforms always carried over to the global-effects draw.
+   */
+  private setPostUniforms(state: EngineState, lastLayer: LayerParams) {
+    this.setf("u_time", this.elapsedTime);
+    this.set2f("u_resolution", this.gl.canvas.width, this.gl.canvas.height);
+    this.setf("u_speed", lastLayer.speed);
+    this.setPalette(lastLayer);
+    this.setf("u_colorBlend", state.colorBlend);
+    this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
+
+    this.setf("u_brightness", state.brightness);
+    this.setf("u_saturation", state.saturation);
+    this.seti("u_noiseEnabled", state.noiseEnabled ? 1 : 0);
+    this.setf("u_noiseIntensity", state.noiseIntensity);
+    this.setf("u_noiseScale", state.noiseScale);
+    this.setf("u_grain", state.grain);
+    this.seti("u_bloomEnabled", state.bloomEnabled ? 1 : 0);
+    this.setf("u_bloomIntensity", state.bloomIntensity);
+    this.setf("u_vignette", state.vignette);
+    this.setf("u_radialBlurAmount", state.radialBlurAmount);
+    this.seti("u_blurEnabled", state.blurEnabled ? 1 : 0);
+    this.setf("u_blurAmount", state.blurAmount);
+    this.setf("u_chromaticAberration", state.chromaticAberration);
+    this.setf("u_hueShift", state.hueShift);
+    this.seti("u_asciiEnabled", state.asciiEnabled ? 1 : 0);
+    this.setf("u_asciiSize", state.asciiSize);
+    this.seti("u_ditherEnabled", state.ditherEnabled ? 1 : 0);
+    this.setf("u_ditherSize", state.ditherSize);
+    this.seti("u_curlEnabled", state.curlEnabled ? 1 : 0);
+    this.setf("u_curlIntensity", state.curlIntensity);
+    this.setf("u_curlScale", state.curlScale);
+    this.seti("u_kaleidoscopeEnabled", state.kaleidoscopeEnabled ? 1 : 0);
+    this.setf("u_kaleidoscopeSegments", state.kaleidoscopeSegments);
+    this.setf("u_kaleidoscopeRotation", state.kaleidoscopeRotation);
+    this.seti("u_reactionDiffEnabled", state.reactionDiffEnabled ? 1 : 0);
+    this.setf("u_reactionDiffIntensity", state.reactionDiffIntensity);
+    this.setf("u_reactionDiffScale", state.reactionDiffScale);
+    this.seti("u_pixelSortEnabled", state.pixelSortEnabled ? 1 : 0);
+    this.setf("u_pixelSortIntensity", state.pixelSortIntensity);
+    this.setf("u_pixelSortThreshold", state.pixelSortThreshold);
+    this.seti("u_feedbackEnabled", state.feedbackEnabled ? 1 : 0);
+    this.setf("u_feedbackDecay", state.feedbackDecay);
+    this.seti("u_toneMapMode", state.toneMapMode);
+    // Ripple
+    const rippleTime = this.elapsedTime - this.rippleStartTime;
+    this.setf("u_rippleEnabled", state.rippleEnabled && rippleTime < 2.0 ? 1.0 : 0.0);
+    this.set2f("u_rippleOrigin", this.rippleOriginX, this.rippleOriginY);
+    this.setf("u_rippleTime", rippleTime);
+    this.setf("u_rippleIntensity", state.rippleIntensity);
+    // Soft glow
+    this.seti("u_glowEnabled", state.glowEnabled ? 1 : 0);
+    this.setf("u_glowIntensity", state.glowIntensity);
+    this.setf("u_glowRadius", state.glowRadius);
+    // Caustics
+    this.seti("u_causticEnabled", state.causticEnabled ? 1 : 0);
+    this.setf("u_causticIntensity", state.causticIntensity);
+    // Trail
+    this.seti("u_trailEnabled", state.trailEnabled && this.trailTextures ? 1 : 0);
+    // Liquify
+    this.seti("u_liquifyEnabled", state.liquifyEnabled ? 1 : 0);
+    this.setf("u_liquifyIntensity", state.liquifyIntensity);
+    this.setf("u_liquifyScale", state.liquifyScale);
+    // Deband (blue-noise anti-banding) — only on the final composited output
+    this.seti("u_debandEnabled", state.debandEnabled ? 1 : 0);
+    this.setf("u_debandStrength", state.debandStrength);
   }
 
-  render(state: EngineState, output: WebGLFramebuffer | null = null) {
+  /**
+   * Draws `state` into `output` (the canvas by default) and returns whether it
+   * did. It doesn't while a program the frame needs is still compiling; the
+   * canvas then keeps the last frame that was presented.
+   *
+   * Always the same pipeline: each visible layer is drawn by its gradient's
+   * layer program into ping-pong composite targets, then the post program
+   * applies the global effects to the composited image and writes the final
+   * target (the canvas, the feedback target or `output`).
+   */
+  render(state: EngineState, output: WebGLFramebuffer | null = null): boolean {
     const gl = this.gl;
     this.lastState = state;
-    if (this.program) gl.useProgram(this.program);
+    if (gl.isContextLost()) return false;
+
+    const visibleLayers = state.layers.filter((l) => l.visible);
+    if (!this.programsReady(visibleLayers)) return false;
 
     // Trail pass (before main render — writes to separate FBO)
     this.renderTrailPass(state);
@@ -1501,45 +1725,26 @@ void main() {
           this.feedbackHeight !== gl.canvas.height) {
         this.initFeedbackFBOs();
       }
-      // Bind previous frame texture
-      const prevIdx = 1 - this.feedbackIndex;
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.feedbackTextures![prevIdx]);
-      this.seti("u_prevFrame", 0);
     }
 
     // Final render target: feedback FBO, explicit capture FBO, or the default framebuffer
     const finalTarget = feedbackActive ? this.feedbackFBOs![this.feedbackIndex] : output;
-
-    const visibleLayers = state.layers.filter((l) => l.visible);
 
     if (visibleLayers.length === 0) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
       gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
-    } else if (visibleLayers.length === 1 && !usesNeighborSampling(state)) {
-      // Single layer: gradient and global effects in one pass
-      gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
-      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-      gl.disable(gl.BLEND);
-      const layer = visibleLayers[0];
-      this.setGlobalUniforms(state, true);
-      this.setLayerUniforms(layer);
-      this.seti("u_compositeEnabled", 0);
-      this.seti("u_postPass", 0);
-      this.drawGeometry(state.meshDistortionEnabled);
     } else {
-      // Composite the layers (FBO ping-pong, no global effects), then apply
-      // global effects once to the composited image in a post pass. Effects
-      // that sample neighbouring pixels read that image instead of
-      // re-evaluating the gradient per tap, and see every layer.
       this.ensureCompositeFBOs();
+      const compositeFBOs = this.compositeFBOs!;
+      const compositeTextures = this.compositeTextures!;
+      const mvp = state.meshDistortionEnabled ? this.meshMvp() : null;
 
       let writeIdx = 0;
       for (let i = 0; i < visibleLayers.length; i++) {
         const layer = visibleLayers[i];
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.compositeFBOs![writeIdx]);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, compositeFBOs[writeIdx]);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         gl.disable(gl.BLEND);
         // Pixels a layer discards (3D projection) must not keep last frame's contents.
@@ -1548,38 +1753,39 @@ void main() {
 
         // Never leave the texture being rendered to bound to a sampler unit:
         // WebGL rejects that draw as a feedback loop.
-        gl.activeTexture(gl.TEXTURE6);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-        gl.activeTexture(gl.TEXTURE5);
-        if (i === 0) {
-          gl.bindTexture(gl.TEXTURE_2D, null);
-          this.seti("u_compositeEnabled", 0);
-        } else {
-          gl.bindTexture(gl.TEXTURE_2D, this.compositeTextures![1 - writeIdx]);
-          this.seti("u_compositePrev", 5);
-          this.seti("u_compositeEnabled", 1);
-          this.seti("u_blendMode", GradientEngine.BLEND_MODE_MAP[layer.blendMode]);
-        }
+        this.bindTexture(UNIT_SCENE, null);
+        this.bindTexture(UNIT_COMPOSITE_PREV, i === 0 ? null : compositeTextures[1 - writeIdx]);
 
-        this.setGlobalUniforms(state, false);
-        this.seti("u_toneMapMode", 0); // tone map once, in the post pass
-        this.seti("u_postPass", 0);
+        this.useProgram(this.getLayerProgram(layer));
+        this.setLayerGlobals(state, mvp);
         this.setLayerUniforms(layer);
+        this.seti("u_compositeEnabled", i === 0 ? 0 : 1);
+        if (i > 0) this.seti("u_blendMode", GradientEngine.BLEND_MODE_MAP[layer.blendMode] ?? 0);
         this.drawGeometry(state.meshDistortionEnabled);
 
         writeIdx = 1 - writeIdx;
       }
+      const sceneTexture = compositeTextures[1 - writeIdx];
 
+      // Post pass: global effects on the composited image.
       gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
       gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       gl.disable(gl.BLEND);
-      this.setGlobalUniforms(state, true);
-      this.setPostPassUniforms(this.compositeTextures![1 - writeIdx]);
+      this.bindTexture(UNIT_COMPOSITE_PREV, null);
+      this.bindTexture(UNIT_SCENE, sceneTexture);
+      const trailActive = state.trailEnabled && this.trailTextures !== null;
+      if (trailActive) this.bindTexture(UNIT_TRAIL, this.trailTextures![this.trailIndex]);
+      if (feedbackActive) {
+        // The previous frame: the feedback target we are not drawing into.
+        this.bindTexture(UNIT_PREV_FRAME, this.feedbackTextures![1 - this.feedbackIndex]);
+      }
+      this.useProgram(this.getPostProgram());
+      this.setPostUniforms(state, visibleLayers[visibleLayers.length - 1]);
       this.drawGeometry(false);
 
-      gl.activeTexture(gl.TEXTURE6);
-      gl.bindTexture(gl.TEXTURE_2D, null);
-      this.seti("u_postPass", 0);
+      this.bindTexture(UNIT_SCENE, null);
+      if (trailActive) this.bindTexture(UNIT_TRAIL, null);
+      if (feedbackActive) this.bindTexture(UNIT_PREV_FRAME, null);
     }
 
     // Restore quad VAO as default
@@ -1605,9 +1811,19 @@ void main() {
     // Cinematic bloom on the final image. Runs after the feedback blit so the
     // two effects can be combined (bloom used to be skipped under feedback).
     this.renderBloomPass(state, output);
+    return true;
   }
 
-  startLoop(getState: () => EngineState, onFrame?: (fps: number) => void) {
+  /**
+   * Renders `getState()` every animation frame. A render error (a shader that
+   * failed to compile, say) stops the loop and goes to `onError`, or is thrown
+   * if there is none.
+   */
+  startLoop(
+    getState: () => EngineState,
+    onFrame?: (fps: number) => void,
+    onError?: (error: Error) => void,
+  ) {
     this.stopLoop();
     let lastFpsUpdate = performance.now();
     let frameCount = 0;
@@ -1615,8 +1831,7 @@ void main() {
     let lastRenderMs = 0;
     let lastPausedState: EngineState | null = null;
 
-    const loop = () => {
-      this.animationId = requestAnimationFrame(loop);
+    const frame = () => {
       const state = getState();
       const nowMs = performance.now();
 
@@ -1631,9 +1846,11 @@ void main() {
         lastTime = now;
         if (state !== lastPausedState) {
           const renderStart = performance.now();
-          this.render(state);
-          this.recordFrameTiming(performance.now() - renderStart);
-          lastPausedState = state;
+          // Not drawn yet (a program is still compiling): try this state again next frame.
+          if (this.render(state)) {
+            this.recordFrameTiming(performance.now() - renderStart);
+            lastPausedState = state;
+          }
         }
         return;
       }
@@ -1674,15 +1891,28 @@ void main() {
       }
 
       const renderStart = performance.now();
-      this.render(state);
-      this.recordFrameTiming(performance.now() - renderStart);
+      if (this.render(state)) {
+        this.recordFrameTiming(performance.now() - renderStart);
+        frameCount++;
+      }
 
-      frameCount++;
       if (nowMs - lastFpsUpdate >= 500) {
         const fps = Math.round((frameCount / (nowMs - lastFpsUpdate)) * 1000);
         onFrame?.(fps);
         frameCount = 0;
         lastFpsUpdate = nowMs;
+      }
+    };
+
+    const loop = () => {
+      this.animationId = requestAnimationFrame(loop);
+      try {
+        frame();
+      } catch (e) {
+        this.stopLoop();
+        const error = e instanceof Error ? e : new Error(String(e));
+        if (!onError) throw error;
+        onError(error);
       }
     };
     loop();
@@ -1747,17 +1977,28 @@ void main() {
     this.captureHeight = height;
   }
 
+  /** Waits for (blocking) every program `state` draws with, compiling any not yet started. */
+  private compileBlocking(state: EngineState) {
+    const layers = state.layers.filter((l) => l.visible);
+    if (layers.length === 0) return;
+    this.finishProgram(this.getPostProgram());
+    for (const layer of layers) this.finishProgram(this.getLayerProgram(layer));
+  }
+
   /**
    * Render `state` into an offscreen FBO and return RGBA bytes.
    * Reading the default framebuffer after present is racy (and on SwiftShader,
    * gl.finish()+readPixels of the backbuffer can lose the context).
+   * Blocks until every program the state needs has compiled, so a capture is
+   * never a skipped (blank) frame.
    */
   capturePixels(state: EngineState): Uint8Array {
     const gl = this.gl;
     const width = Math.max(1, gl.canvas.width);
     const height = Math.max(1, gl.canvas.height);
+    this.compileBlocking(state);
     this.ensureCaptureFBO(width, height);
-    this.render(state, this.captureFBO);
+    if (!this.render(state, this.captureFBO)) throw new Error("Cannot capture a frame: WebGL context lost");
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.captureFBO);
     const pixels = new Uint8Array(width * height * 4);
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
@@ -1827,7 +2068,10 @@ void main() {
         this.destroyCaptureFBO();
         // Resizing cleared the visible canvas; redraw it so a paused editor
         // isn't left blank until the next state change.
-        if (liveState) this.render(liveState);
+        if (liveState) {
+          this.compileBlocking(liveState);
+          this.render(liveState);
+        }
       }
       this.lastState = liveState;
     }
@@ -1835,33 +2079,7 @@ void main() {
 
   destroy() {
     this.stopLoop();
-    this.destroyFeedbackFBOs();
-    this.destroyTrailFBOs();
-    this.destroyBloomFBOs();
-    this.destroyCompositeFBOs();
-    this.destroyCaptureFBO();
-    if (this.trailProgram) {
-      this.gl.deleteProgram(this.trailProgram);
-      this.trailProgram = null;
-    }
-    if (this.bloomExtractProgram) {
-      this.gl.deleteProgram(this.bloomExtractProgram);
-      this.bloomExtractProgram = null;
-    }
-    if (this.bloomBlurProgram) {
-      this.gl.deleteProgram(this.bloomBlurProgram);
-      this.bloomBlurProgram = null;
-    }
-    for (const tex of this.textureCache.values()) {
-      this.gl.deleteTexture(tex);
-    }
-    this.textureCache.clear();
-    this.textureSizes.clear();
-    if (this.textMaskTexture) {
-      this.gl.deleteTexture(this.textMaskTexture);
-      this.textMaskTexture = null;
-    }
-    if (this.program) this.gl.deleteProgram(this.program);
+    this.releaseResources();
     this.gl.getExtension("WEBGL_lose_context")?.loseContext();
   }
 }

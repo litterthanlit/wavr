@@ -20,6 +20,8 @@ node_modules
 packages/*/dist
 tests/parity/pages/runner.global.js
 tests/parity/pages/runner.global.js.map
+tests/parity/pages/snapshot.global.js
+tests/parity/pages/snapshot.global.js.map
 
 # next.js
 .next/

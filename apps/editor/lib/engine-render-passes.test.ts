@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GradientEngine, createLayer, resolveConfig } from "@wavr/core";
 import type { EngineState } from "@wavr/core";
-import { createFakeGL } from "./test-utils/fake-webgl";
+import { createFakeGL, type FakeGLOptions } from "./test-utils/fake-webgl";
 
 function stateWith(overrides: Partial<EngineState>, layerCount = 1): EngineState {
   const base = resolveConfig({ layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] });
@@ -11,45 +11,50 @@ function stateWith(overrides: Partial<EngineState>, layerCount = 1): EngineState
   return { ...base, layers, ...overrides };
 }
 
-function setup() {
-  const fake = createFakeGL();
+function setup(options: FakeGLOptions = {}) {
+  const fake = createFakeGL(options);
   const engine = new GradientEngine(fake.canvas, {});
   return { engine, ...fake };
 }
 
 describe("GradientEngine render passes", () => {
-  it("draws a plain single layer in one pass with global effects", () => {
-    const { engine, draws } = setup();
+  it("draws even a plain single layer as a layer pass plus a post pass", () => {
+    const { engine, draws, programOf } = setup();
     engine.render(stateWith({ vignette: 0.4 }));
-
-    expect(draws).toHaveLength(1);
-    expect(draws[0].target).toBeNull();
-    expect(draws[0].uniforms.u_postPass).toBe(0);
-    expect(draws[0].uniforms.u_vignette).toBe(0.4);
-  });
-
-  it("composites then post-processes when a single layer uses bloom", () => {
-    const { engine, draws, feedbackLoops } = setup();
-    engine.render(stateWith({ bloomEnabled: true, toneMapMode: 2 }));
 
     expect(draws).toHaveLength(2);
     const [layerPass, postPass] = draws;
 
-    // Layer pass: raw gradient into a composite FBO, no global effects.
+    // Layer pass: the gradient into a composite FBO, no global effects.
     expect(layerPass.target).not.toBeNull();
-    expect(layerPass.uniforms.u_postPass).toBe(0);
-    expect(layerPass.uniforms.u_bloomEnabled).toBe(0);
-    expect(layerPass.uniforms.u_toneMapMode).toBe(0);
+    expect(programOf(layerPass)?.gradientId).toBe(0);
+    expect(layerPass.uniforms.u_vignette).toBeUndefined();
 
-    // Post pass: effects on, reading the composited scene from unit 6.
+    // Post pass: global effects on the composited scene, straight to the canvas.
     expect(postPass.target).toBeNull();
-    expect(postPass.uniforms.u_postPass).toBe(1);
+    expect(programOf(postPass)?.gradientId).toBeNull();
+    expect(postPass.uniforms.u_vignette).toBe(0.4);
+  });
+
+  it("post pass reads the composited scene from unit 6 and applies effects", () => {
+    const { engine, draws, feedbackLoops } = setup();
+    engine.render(stateWith({ bloomEnabled: true, toneMapMode: 2, brightness: 1.3 }));
+
+    expect(draws).toHaveLength(2);
+    const [layerPass, postPass] = draws;
+
+    expect(layerPass.uniforms.u_bloomEnabled).toBeUndefined();
+    expect(layerPass.uniforms.u_toneMapMode).toBeUndefined();
+    expect(layerPass.uniforms.u_layerOpacity).toBe(1);
+
     expect(postPass.uniforms.u_bloomEnabled).toBe(1);
     expect(postPass.uniforms.u_toneMapMode).toBe(2);
+    expect(postPass.uniforms.u_brightness).toBe(1.3);
     expect(postPass.uniforms.u_sceneTexture).toBe(6);
-    expect(postPass.uniforms.u_maskEnabled).toBe(0);
-    expect(postPass.uniforms.u_layerOpacity).toBe(1);
     expect(postPass.boundTextures.get(6)).toBeTruthy();
+    // Per-layer inputs belong to the layer pass only.
+    expect(postPass.uniforms.u_maskEnabled).toBeUndefined();
+    expect(postPass.uniforms.u_layerOpacity).toBeUndefined();
     expect(feedbackLoops).toEqual([]);
   });
 
@@ -64,16 +69,14 @@ describe("GradientEngine render passes", () => {
 
     for (const pass of layerPasses) {
       expect(pass.target).not.toBeNull();
-      expect(pass.uniforms.u_postPass).toBe(0);
-      expect(pass.uniforms.u_vignette).toBe(0);
-      expect(pass.uniforms.u_grain).toBe(0);
+      expect(pass.uniforms.u_vignette).toBeUndefined();
+      expect(pass.uniforms.u_grain).toBeUndefined();
     }
     expect(layerPasses[0].uniforms.u_compositeEnabled).toBe(0);
     expect(layerPasses[1].uniforms.u_compositeEnabled).toBe(1);
     expect(layerPasses[2].uniforms.u_compositeEnabled).toBe(1);
 
     expect(post.target).toBeNull();
-    expect(post.uniforms.u_postPass).toBe(1);
     expect(post.uniforms.u_vignette).toBe(0.5);
     expect(post.uniforms.u_grain).toBe(0.3);
     expect(feedbackLoops).toEqual([]);
@@ -90,21 +93,107 @@ describe("GradientEngine render passes", () => {
     }
   });
 
+  it("each layer composites over the texture the previous one wrote", () => {
+    const { engine, draws, attachments } = setup();
+    engine.render(stateWith({}, 3));
+    expect(draws[0].boundTextures.get(5)).toBeNull();
+    expect(draws[1].boundTextures.get(5)).toBe(attachments.get(draws[0].target!));
+    expect(draws[2].boundTextures.get(5)).toBe(attachments.get(draws[1].target!));
+  });
+
+  it("post pass takes its palette and clock from the last visible layer", () => {
+    const { engine, draws } = setup();
+    const first = createLayer({ gradientType: "mesh", speed: 0.3, colors: [[1, 0, 0], [0, 1, 0]] });
+    const last = createLayer({
+      gradientType: "plasma",
+      blendMode: "screen",
+      speed: 0.9,
+      softness: 0.4,
+      colors: [[0, 0, 1], [1, 1, 0], [0, 1, 1]],
+    });
+    const hidden = createLayer({ gradientType: "glitch", visible: false, colors: [[1, 1, 1], [0, 0, 0]] });
+    engine.render(stateWith({ reactionDiffEnabled: true, layers: [first, last, hidden] }));
+
+    const post = draws[draws.length - 1];
+    expect(post.uniforms.u_speed).toBe(0.9);
+    expect(post.uniforms.u_softness).toBe(0.4);
+    expect(post.uniforms.u_colorCount).toBe(3);
+    expect(post.uniforms["u_colors[2]"]).toEqual([0, 1, 1]);
+  });
+
   it("never samples a texture it is rendering into, across frames", () => {
-    for (const layerCount of [2, 3, 4]) {
+    for (const layerCount of [1, 2, 3, 4]) {
       const { engine, feedbackLoops } = setup();
-      const state = stateWith({ bloomEnabled: true }, layerCount);
+      const state = stateWith(
+        { bloomEnabled: true, feedbackEnabled: true, trailEnabled: true, realBloomEnabled: true },
+        layerCount,
+      );
       engine.render(state);
       engine.render(state);
       engine.render(stateWith({}, layerCount));
+      engine.render(state);
       expect(feedbackLoops).toEqual([]);
     }
+  });
+
+  it("feeds the previous frame to the post pass under feedback, alternating targets", () => {
+    const { engine, draws, attachments } = setup();
+    const state = stateWith({ feedbackEnabled: true });
+    engine.render(state);
+    engine.render(state);
+
+    const [, post1, , post2] = draws;
+    expect(post1.target).not.toBeNull();
+    expect(post2.target).not.toBeNull();
+    expect(post2.target).not.toBe(post1.target);
+    // Each frame reads what the other one wrote.
+    expect(post1.boundTextures.get(0)).toBe(attachments.get(post2.target!));
+    expect(post2.boundTextures.get(0)).toBe(attachments.get(post1.target!));
+  });
+
+  it("binds the trail texture for the post pass", () => {
+    const { engine, draws } = setup();
+    engine.render(stateWith({ trailEnabled: true }));
+    const post = draws[draws.length - 1];
+    expect(post.uniforms.u_trailEnabled).toBe(1);
+    expect(post.boundTextures.get(4)).toBeTruthy();
   });
 
   it("runs cinematic bloom even when feedback is enabled", () => {
     const { engine, draws } = setup();
     engine.render(stateWith({ feedbackEnabled: true, realBloomEnabled: true }));
-    // 1 gradient draw + extract, horizontal blur, vertical blur, composite.
-    expect(draws).toHaveLength(5);
+    // Layer pass + post pass + extract, horizontal blur, vertical blur, composite.
+    expect(draws).toHaveLength(6);
+  });
+
+  it("clears the target when no layer is visible, without compiling anything", () => {
+    const { engine, draws, programs } = setup();
+    const programsAtStart = programs.length;
+    const hidden = createLayer({ gradientType: "radial", visible: false });
+    expect(engine.render(stateWith({ layers: [hidden] }))).toBe(true);
+    expect(draws).toHaveLength(0);
+    expect(programs.length).toBe(programsAtStart);
+  });
+
+  it("renders the composite targets as half-float when the GPU can", () => {
+    const { engine, textureFormats } = setup({ floatTargets: true });
+    engine.render(stateWith({}));
+    expect([...textureFormats.values()]).toContain("RGBA16F");
+    expect(engine.getMetrics().estimatedBytes).toBe(16 * 8 * 8 * 2);
+  });
+
+  it("falls back to 8-bit composite targets if half-float framebuffers are incomplete", () => {
+    const { engine, textureFormats, controls, draws } = setup({ floatTargets: true });
+    controls.rejectFloatTargets = true;
+    expect(engine.render(stateWith({}))).toBe(true);
+    expect(draws).toHaveLength(2);
+    expect([...textureFormats.values()]).toContain("RGBA");
+    expect(engine.getMetrics().estimatedBytes).toBe(16 * 8 * 4 * 2);
+  });
+
+  it("uses 8-bit composite targets without float render support", () => {
+    const { engine, textureFormats } = setup();
+    engine.render(stateWith({}));
+    expect([...textureFormats.values()]).not.toContain("RGBA16F");
   });
 });

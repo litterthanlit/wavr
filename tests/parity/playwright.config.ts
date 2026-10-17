@@ -13,17 +13,19 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
-  // 10 min per test — SwiftShader on macOS is catastrophically slow for Wavr's
-  // ~133KB shader bundle (many effect programs). Linux CI SwiftShader is 10-50x
-  // faster and typically completes a test in <15s. This high ceiling lets us run
-  // locally for debugging, but goldens are always generated via the CI action
-  // (spec 0002 §5 + §10).
+  // 10 min per test — a generous ceiling for slow SwiftShader hosts (macOS).
+  // The runner compiles one small program per gradient type plus the post
+  // program (about a second each on Linux SwiftShader) before the first test.
+  // Goldens are always generated via the CI action (spec 0002 §5 + §10).
   timeout: 600_000,
   use: {
     // Runner script is deferred so goto is not blocked on shader compile, but
     // keep a high ceiling for slow file:// + SwiftShader startups.
     navigationTimeout: 180_000,
     launchOptions: {
+      // Use a Chromium that's already on the machine instead of Playwright's
+      // own download (same override as `pnpm snapshots`).
+      executablePath: process.env.CHROMIUM_PATH || undefined,
       args: [
         // ANGLE's SwiftShader backend is more stable than --use-gl=swiftshader direct.
         "--use-angle=swiftshader",
