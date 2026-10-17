@@ -6,6 +6,7 @@
 //                  [--width 768 --height 432]
 //                  [--mouse 0.4,0.6] [--stroke 0.2,0.5,0.8,0.5[,0.4]] [--ripple 0.5,0.5[,0.4]]
 //                  [--state mouseReact=1,trailEnabled=true]
+//                  [--scale 0.6] [--bench 20] [--scenes scenes.json]
 //
 // --size makes square images; --width/--height override it (a non-square size
 // shows whether effects are circles). The pointer options stage the pointer for
@@ -19,8 +20,17 @@
 //   --state k=v,...    overrides engine state fields (numbers and true/false)
 // Without a pointer option the pointer is absent: no mouse effect at all.
 //
+// --scale draws the layers at that fraction of the size, as the live view does
+// at that render scale (captures and exports are always 1), then upsamples for
+// the global effects. --bench N times N more captures of each frame and prints
+// the median (ms): relative numbers only, SwiftShader renders on the CPU
+// (--size 960 has the pixel count of a 1280x720 canvas).
+//
 // outDir defaults to test-results/snapshots. Files are type-<gradient>.png and
 // fixture-<name>.png, plus manifest.json with the timings and pixel stats.
+// --scenes adds images of your own: a JSON array of { name, type | config,
+// state? } (a gradient type or a GradientConfig, plus engine-state overrides
+// such as colorBlend). They are written as scene-<name>.png.
 // `pnpm snapshots` rebuilds the page bundle first (tests/parity/pages/snapshot.ts).
 //
 // Frames are rendered by engine.captureImageData in headless Chromium on
@@ -41,7 +51,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "../..");
 const FIXTURES_DIR = path.join(REPO_ROOT, "packages/schema/test/fixtures/parity");
-const PAGE_URL = pathToFileURL(path.join(HERE, "pages/snapshot.html")).toString();
+// SNAPSHOT_PAGE points at another build of the page (an html file next to its
+// bundle), e.g. one made from another commit's engine, to compare images and
+// --bench timings between the two.
+const PAGE_FILE = process.env.SNAPSHOT_PAGE
+  ? path.resolve(process.env.SNAPSHOT_PAGE)
+  : path.join(HERE, "pages/snapshot.html");
+const PAGE_URL = pathToFileURL(PAGE_FILE).toString();
 
 /** "0.4,0.6" -> [0.4, 0.6]; between `min` and `max` numbers. */
 function parseNumbers(flag, text, min, max) {
@@ -75,6 +91,9 @@ function parseArgs(argv) {
     stroke: null,
     ripple: null,
     state: null,
+    scale: 1,
+    bench: 0,
+    scenes: null,
   };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
@@ -92,14 +111,18 @@ function parseArgs(argv) {
       const [x, y, age = 0.4] = parseNumbers("--ripple", argv[++i], 2, 3);
       options.ripple = { at: [x, y], age };
     } else if (arg === "--state") options.state = parseState(argv[++i]);
+    else if (arg === "--scale") options.scale = Number(argv[++i]);
+    else if (arg === "--bench") options.bench = Number(argv[++i]);
+    else if (arg === "--scenes") options.scenes = path.resolve(argv[++i]);
     else if (arg === "--") continue;
     else positional.push(arg);
   }
   if (positional[0]) options.outDir = path.resolve(positional[0]);
   options.width ??= options.size;
   options.height ??= options.size;
-  if (![options.time, options.size, options.width, options.height].every(Number.isFinite)) {
-    throw new Error("--time, --size, --width and --height take numbers");
+  const numeric = [options.time, options.size, options.width, options.height, options.scale, options.bench];
+  if (!numeric.every(Number.isFinite)) {
+    throw new Error("--time, --size, --width, --height, --scale and --bench take numbers");
   }
   return options;
 }
@@ -115,11 +138,16 @@ function readFixtures() {
     }));
 }
 
+function readScenes(file) {
+  if (!file) return [];
+  return JSON.parse(fs.readFileSync(file, "utf8")).map(({ name, ...job }) => ({ name: `scene-${name}`, job }));
+}
+
 const seconds = (ms) => `${(ms / 1000).toFixed(2)}s`;
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  if (!fs.existsSync(path.join(HERE, "pages/snapshot.global.js"))) {
+  if (!process.env.SNAPSHOT_PAGE && !fs.existsSync(path.join(HERE, "pages/snapshot.global.js"))) {
     throw new Error("tests/parity/pages/snapshot.global.js is missing: run `pnpm snapshots` (or `pnpm build:parity-runner`) first");
   }
   fs.mkdirSync(options.outDir, { recursive: true });
@@ -146,8 +174,12 @@ async function main() {
 
     // One default layer per gradient type (the page has the canonical list), then the parity fixtures.
     const types = await page.evaluate(() => window.__wavrGradientTypes);
-    jobs = [...types.map((type) => ({ name: `type-${type}`, job: { type } })), ...readFixtures()].filter(
-      ({ name }) => !options.only || options.only.has(name) || options.only.has(name.replace(/^(type|fixture)-/, "")),
+    jobs = [
+      ...types.map((type) => ({ name: `type-${type}`, job: { type } })),
+      ...readFixtures(),
+      ...readScenes(options.scenes),
+    ].filter(
+      ({ name }) => !options.only || options.only.has(name) || options.only.has(name.replace(/^(type|fixture|scene)-/, "")),
     );
     if (jobs.length === 0) throw new Error("No images match --only");
 
@@ -161,6 +193,8 @@ async function main() {
             time: options.time,
             width: options.width,
             height: options.height,
+            renderScale: options.scale,
+            benchFrames: options.bench,
             ...(options.mouse && { mouse: options.mouse }),
             ...(options.stroke && { stroke: options.stroke }),
             ...(options.ripple && { ripple: options.ripple }),
@@ -174,6 +208,7 @@ async function main() {
         console.log(
           `${label} ${seconds(result.captureMs).padStart(7)} (ready ${seconds(result.programsReadyMs)})` +
             `  lit ${(result.litFraction * 100).toFixed(1)}%  mean ${result.meanLuma.toFixed(3)}` +
+            `${result.benchMs === undefined ? "" : `  bench ${result.benchMs.toFixed(1)}ms/frame`}` +
             `${blank ? "  BLANK" : ""}  ${path.relative(process.cwd(), file)}`,
         );
         const { dataUrl: _dataUrl, ...stats } = result;
@@ -196,6 +231,7 @@ async function main() {
         time: options.time,
         width: options.width,
         height: options.height,
+        scale: options.scale,
         mouse: options.mouse,
         stroke: options.stroke,
         ripple: options.ripple,

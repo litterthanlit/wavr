@@ -25,8 +25,25 @@ import {
   type GradientType,
 } from "@wavr/core";
 
-/** A default layer of one gradient type, or a whole parity-fixture config. */
-export type SnapshotJob = { type: GradientType } | { config: GradientConfig };
+/**
+ * A default layer of one gradient type, or a whole parity-fixture config.
+ * `state` overrides engine-state fields after the config is resolved, for the
+ * ones a config can't set (colorBlend, ...).
+ */
+export type SnapshotJob = ({ type: GradientType } | { config: GradientConfig }) & {
+  state?: Partial<EngineState>;
+};
+
+export interface SnapshotOptions {
+  /**
+   * Render scale of the layer pass (default 1, as exports use). A lower value
+   * shows the live view at that scale, with the live rules (pixel-bound
+   * gradients and images stay full resolution).
+   */
+  renderScale?: number;
+  /** Time this many more captures of the same frame after the first, for `benchMs`. */
+  benchFrames?: number;
+}
 
 /** Positions are uv: 0..1 across, y up. */
 export interface SnapshotOptions {
@@ -50,6 +67,8 @@ export interface SnapshotResult {
   dataUrl: string;
   width: number;
   height: number;
+  /** Median wall time of one more capture of the same frame (render, readback and flip, no PNG), when benchFrames is set. */
+  benchMs?: number;
   /** captureImageData wall time; includes the first draw of a gradient type, which is where SwiftShader compiles. */
   captureMs: number;
   /** Time the driver took to report the programs this capture needed as ready (link, not first draw). */
@@ -136,6 +155,7 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
         } else {
           state = resolveConfig(job.config);
         }
+        if (job.state) state = { ...state, ...job.state };
         if (options.state) state = { ...state, ...options.state } as EngineState;
         if (options.ripple) state = { ...state, rippleEnabled: true };
 
@@ -175,10 +195,25 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
 
         const readyBefore = engine.getMetrics().totalShaderCompileMs;
         const start = performance.now();
-        const frame = engine.captureImageData({ state, time, width, height });
+        const capture = () =>
+          engine.captureImageData({ state, time, width, height, renderScale: options.renderScale });
+        const frame = capture();
         const captureMs = performance.now() - start;
         if (!frame) throw new Error("captureImageData returned null");
         const programsReadyMs = engine.getMetrics().totalShaderCompileMs - readyBefore;
+
+        // Steady-state cost of a frame: the first capture above paid for compiling.
+        let benchMs: number | undefined;
+        if (options.benchFrames && options.benchFrames > 0) {
+          const times: number[] = [];
+          for (let i = 0; i < options.benchFrames; i++) {
+            const t0 = performance.now();
+            capture();
+            times.push(performance.now() - t0);
+          }
+          times.sort((a, b) => a - b);
+          benchMs = times[Math.floor(times.length / 2)];
+        }
 
         let lit = 0;
         let luma = 0;
@@ -203,6 +238,7 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
           width: frame.width,
           height: frame.height,
           captureMs,
+          benchMs,
           programsReadyMs,
           litFraction: lit / pixels,
           meanLuma: luma / pixels / 255,

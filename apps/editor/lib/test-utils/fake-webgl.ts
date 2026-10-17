@@ -12,6 +12,19 @@ export interface DrawRecord {
   target: Handle | null;
   uniforms: Record<string, UniformValue>;
   boundTextures: Map<number, Handle | null>;
+  /** x, y, width, height of the viewport at the draw. */
+  viewport: [number, number, number, number];
+}
+
+/** A texImage2D / texSubImage2D given dimensions (rather than an image source). */
+export interface TextureUpload {
+  texture: Handle | null;
+  call: "texImage2D" | "texSubImage2D";
+  format: string;
+  width: number;
+  height: number;
+  /** A copy of the pixels, when given as an array. */
+  data: number[] | null;
 }
 
 export interface ProgramInfo {
@@ -59,6 +72,10 @@ export function createFakeGL(options: FakeGLOptions = {}) {
   let program: Handle | null = null;
   const attachments = new Map<Handle, Handle>(); // fbo → colour texture
   const textureFormats = new Map<Handle, string>(); // texture → internal format
+  const textureSizes = new Map<Handle, { width: number; height: number }>(); // texture → storage size
+  const uploads: TextureUpload[] = [];
+  const deletedTextures: Handle[] = [];
+  let viewport: [number, number, number, number] = [0, 0, 0, 0];
   const uniformsByProgram = new Map<Handle | null, Record<string, UniformValue>>();
   const locations = new Map<Handle, Map<string, UniformLocation>>();
   const shaderSources = new Map<Handle, string>();
@@ -87,7 +104,13 @@ export function createFakeGL(options: FakeGLOptions = {}) {
         feedbackLoops.push(`draw ${draws.length}: texture ${tex.id} bound to unit ${unit} while rendering into it`);
       }
     }
-    draws.push({ program, target, uniforms: { ...uniformsFor() }, boundTextures: new Map(units) });
+    draws.push({
+      program,
+      target,
+      uniforms: { ...uniformsFor() },
+      boundTextures: new Map(units),
+      viewport: [...viewport],
+    });
   };
 
   const setUniform = (loc: unknown, value: UniformValue) => {
@@ -181,9 +204,45 @@ export function createFakeGL(options: FakeGLOptions = {}) {
     useProgram: (p: Handle | null) => { program = p; },
     activeTexture: (unit: string) => { activeUnit = Number(unit.replace("TEXTURE", "")); },
     bindTexture: (_t: never, tex: Handle | null) => { units.set(activeUnit, tex); },
-    texImage2D: (_target: never, _level: never, internalFormat: string) => {
-      const tex = units.get(activeUnit);
-      if (tex) textureFormats.set(tex, String(internalFormat));
+    // Storage with explicit dimensions: (target, level, internalformat, width, height, border, format, type, pixels).
+    // The (…, format, type, source) form has no size to record.
+    texImage2D: (...args: unknown[]) => {
+      const tex = units.get(activeUnit) ?? null;
+      const internalFormat = String(args[2]);
+      if (tex) textureFormats.set(tex, internalFormat);
+      if (args.length >= 9) {
+        const width = Number(args[3]);
+        const height = Number(args[4]);
+        if (tex) textureSizes.set(tex, { width, height });
+        const pixels = args[8];
+        uploads.push({
+          texture: tex,
+          call: "texImage2D",
+          format: internalFormat,
+          width,
+          height,
+          data: ArrayBuffer.isView(pixels) ? Array.from(pixels as unknown as ArrayLike<number>) : null,
+        });
+      }
+    },
+    // (target, level, xoffset, yoffset, width, height, format, type, pixels)
+    texSubImage2D: (...args: unknown[]) => {
+      const tex = units.get(activeUnit) ?? null;
+      const pixels = args[8];
+      uploads.push({
+        texture: tex,
+        call: "texSubImage2D",
+        format: tex ? (textureFormats.get(tex) ?? "") : "",
+        width: Number(args[4]),
+        height: Number(args[5]),
+        data: ArrayBuffer.isView(pixels) ? Array.from(pixels as unknown as ArrayLike<number>) : null,
+      });
+    },
+    deleteTexture: (tex: Handle | null) => {
+      if (tex) deletedTextures.push(tex);
+    },
+    viewport: (x: number, y: number, width: number, height: number) => {
+      viewport = [x, y, width, height];
     },
     bindFramebuffer: (target: string, fbo: Handle | null) => {
       if (target === "FRAMEBUFFER" || target === "DRAW_FRAMEBUFFER") drawFramebuffer = fbo;
@@ -222,6 +281,9 @@ export function createFakeGL(options: FakeGLOptions = {}) {
     feedbackLoops,
     attachments,
     textureFormats,
+    textureSizes,
+    uploads,
+    deletedTextures,
     uniformCalls,
     programs,
     blockingQueries,
