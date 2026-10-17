@@ -7,6 +7,7 @@
 //
 //   window.__wavrSnapshotReady : Promise<void>
 //   window.__wavrGradientTypes : the gradient types, in GRADIENT_TYPES order
+//   window.__wavrPresets       : the ids of the built-in presets (PRESET_CATALOG order)
 //   window.__wavrSnapshot      : (job, SnapshotOptions) => Promise<SnapshotResult>
 //
 // A frame has no history, so the pointer is staged: `mouse` puts it somewhere
@@ -23,27 +24,25 @@ import {
   type EngineState,
   type GradientConfig,
   type GradientType,
+  type LayerParams,
 } from "@wavr/core";
+import { PRESET_CATALOG } from "@wavr/core/presets";
 
 /**
- * A default layer of one gradient type, or a whole parity-fixture config.
+ * A default layer of one gradient type (optionally with another palette and
+ * layer overrides), a whole parity-fixture config, or a built-in preset.
  * `state` overrides engine-state fields after the config is resolved, for the
  * ones a config can't set (colorBlend, ...).
  */
-export type SnapshotJob = ({ type: GradientType } | { config: GradientConfig }) & {
-  state?: Partial<EngineState>;
-};
-
-export interface SnapshotOptions {
-  /**
-   * Render scale of the layer pass (default 1, as exports use). A lower value
-   * shows the live view at that scale, with the live rules (pixel-bound
-   * gradients and images stay full resolution).
-   */
-  renderScale?: number;
-  /** Time this many more captures of the same frame after the first, for `benchMs`. */
-  benchFrames?: number;
-}
+export type SnapshotJob =
+  | {
+      type: GradientType;
+      colors?: [number, number, number][];
+      layer?: Partial<LayerParams>;
+      state?: Partial<EngineState>;
+    }
+  | { config: GradientConfig; state?: Partial<EngineState> }
+  | { preset: string };
 
 /** Positions are uv: 0..1 across, y up. */
 export interface SnapshotOptions {
@@ -60,6 +59,14 @@ export interface SnapshotOptions {
   ripple?: { at: [number, number]; age: number };
   /** Overrides for the engine state (mouseReact, trailEnabled, ...). */
   state?: Record<string, number | boolean>;
+  /**
+   * Render scale of the layer pass (default 1, as exports use). A lower value
+   * shows the live view at that scale, with the live rules (pixel-bound
+   * gradients and images stay full resolution).
+   */
+  renderScale?: number;
+  /** Time this many more captures of the same frame after the first, for `benchMs`. */
+  benchFrames?: number;
 }
 
 export interface SnapshotResult {
@@ -83,6 +90,7 @@ declare global {
   interface Window {
     __wavrSnapshotReady: Promise<void>;
     __wavrGradientTypes: readonly GradientType[];
+    __wavrPresets: readonly string[];
     __wavrSnapshot: (job: SnapshotJob, options: SnapshotOptions) => Promise<SnapshotResult>;
   }
 }
@@ -142,20 +150,27 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
       const testImage = makeTestImage();
 
       window.__wavrGradientTypes = GRADIENT_TYPES;
+      window.__wavrPresets = PRESET_CATALOG.map((entry) => entry.id);
       window.__wavrSnapshot = async (job, options) => {
         const { time, width, height } = options;
         let state: EngineState;
         if ("type" in job) {
           const layer = createLayer({
             gradientType: job.type,
+            colors: job.colors,
             imageData: job.type === "image" ? testImage : null,
+            ...job.layer,
           });
           state = { ...resolveConfig({ layers: [] }), layers: [layer] };
           if (layer.imageData) await textureReady(engine, layer.imageData);
+        } else if ("preset" in job) {
+          const entry = PRESET_CATALOG.find((candidate) => candidate.id === job.preset);
+          if (!entry) throw new Error(`snapshot: no preset "${job.preset}"`);
+          state = resolveConfig(entry.config);
         } else {
           state = resolveConfig(job.config);
         }
-        if (job.state) state = { ...state, ...job.state };
+        if ("state" in job && job.state) state = { ...state, ...job.state };
         if (options.state) state = { ...state, ...options.state } as EngineState;
         if (options.ripple) state = { ...state, rippleEnabled: true };
 

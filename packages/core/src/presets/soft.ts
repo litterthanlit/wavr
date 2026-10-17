@@ -38,17 +38,17 @@ export const northernGlow: GradientConfig = {
 export const liquidGlass: GradientConfig = {
   layers: [{
     type: "liquid",
-    colors: [[0.93, 0.96, 1], [0.46, 0.63, 0.86], [0.12, 0.16, 0.25], [0.86, 0.9, 0.94]],
+    colors: [[0.93, 0.96, 1], [0.46, 0.63, 0.86], [0.12, 0.16, 0.25], [0.7, 0.8, 0.9]],
     speed: 0.28,
     complexity: 5,
     scale: 1,
     distortion: 0.48,
     softness: 0.68,
   }],
-  brightness: 1.08,
-  saturation: 0.72,
-  glow: { enabled: true, intensity: 0.3, radius: 0.05 },
-  caustic: { enabled: true, intensity: 0.28 },
+  brightness: 1,
+  saturation: 0.85,
+  glow: { enabled: true, intensity: 0.15, radius: 0.05 },
+  caustic: { enabled: true, intensity: 0.12 },
   toneMapMode: 2,
 };
 

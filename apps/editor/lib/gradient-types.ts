@@ -7,68 +7,73 @@ import {
 export type GradientOption = {
   value: GradientType;
   label: string;
-  group: "Premium" | "Core" | "Graphic / Legacy" | "Media";
+  group: "Premium" | "Classic" | "Stylized" | "Media";
 };
 
+/** The strongest, calmest modes: the picker leads with these. */
 export const PREMIUM_GRADIENT_TYPES: GradientType[] = [
+  "mesh",
   "silk",
   "aurora",
   "liquid",
-  "softCells",
-  "grainflow",
   "prismGlass",
+  "grainflow",
+  "softCells",
   "neonTunnel",
 ];
 
+/**
+ * What Randomize picks from: modes that look good with any palette. Left out:
+ * aurora (the palette's first colour is its sky, so it needs a dark one), voronoi
+ * and softCells (read as flat tiles in a random palette), dither (needs two
+ * contrasting colours) and the rest of the stylized group.
+ */
 export const RANDOM_GRADIENT_TYPES: LayerParams["gradientType"][] = [
   "mesh",
+  "silk",
+  "liquid",
+  "grainflow",
   "prismGlass",
   "neonTunnel",
-  "silk",
-  "aurora",
-  "liquid",
-  "softCells",
-  "grainflow",
   "plasma",
-  "dither",
 ];
 
 export const COMMAND_GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = [
+  "mesh",
   "silk",
   "aurora",
   "liquid",
-  "softCells",
-  "grainflow",
   "prismGlass",
+  "grainflow",
+  "softCells",
   "neonTunnel",
-  "mesh",
-  "plasma",
-  "dither",
-  "radial",
   "linear",
+  "radial",
   "conic",
+  "plasma",
+  "voronoi",
+  "dither",
   "scanline",
   "glitch",
-  "voronoi",
 ];
 
 export const GRADIENT_OPTIONS: GradientOption[] = [
+  { value: "mesh", label: "Mesh", group: "Premium" },
   { value: "silk", label: "Silk", group: "Premium" },
   { value: "aurora", label: "Aurora", group: "Premium" },
   { value: "liquid", label: "Liquid", group: "Premium" },
-  { value: "softCells", label: "Soft Cells", group: "Premium" },
-  { value: "grainflow", label: "Grainflow", group: "Premium" },
   { value: "prismGlass", label: "Prism Glass", group: "Premium" },
+  { value: "grainflow", label: "Grainflow", group: "Premium" },
+  { value: "softCells", label: "Soft Cells", group: "Premium" },
   { value: "neonTunnel", label: "Neon Tunnel", group: "Premium" },
-  { value: "mesh", label: "Mesh", group: "Core" },
-  { value: "plasma", label: "Plasma", group: "Core" },
-  { value: "dither", label: "Dither", group: "Core" },
-  { value: "radial", label: "Radial", group: "Graphic / Legacy" },
-  { value: "linear", label: "Linear", group: "Graphic / Legacy" },
-  { value: "conic", label: "Conic", group: "Graphic / Legacy" },
-  { value: "scanline", label: "Scanline", group: "Graphic / Legacy" },
-  { value: "glitch", label: "Glitch", group: "Graphic / Legacy" },
-  { value: "voronoi", label: "Voronoi", group: "Graphic / Legacy" },
+  { value: "linear", label: "Linear", group: "Classic" },
+  { value: "radial", label: "Radial", group: "Classic" },
+  { value: "conic", label: "Conic", group: "Classic" },
+  { value: "plasma", label: "Plasma", group: "Classic" },
+  { value: "voronoi", label: "Voronoi", group: "Classic" },
+  { value: "dither", label: "Dither", group: "Stylized" },
+  { value: "scanline", label: "Scanline", group: "Stylized" },
+  { value: "glitch", label: "Glitch", group: "Stylized" },
   { value: "image", label: "Image", group: "Media" },
 ];
 

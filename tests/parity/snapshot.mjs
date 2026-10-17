@@ -7,6 +7,7 @@
 //                  [--mouse 0.4,0.6] [--stroke 0.2,0.5,0.8,0.5[,0.4]] [--ripple 0.5,0.5[,0.4]]
 //                  [--state mouseReact=1,trailEnabled=true]
 //                  [--scale 0.6] [--bench 20] [--scenes scenes.json]
+//                  [--palette sunset] [--layer scale=2,complexity=8] [--aspect 1.78] [--presets]
 //
 // --size makes square images; --width/--height override it (a non-square size
 // shows whether effects are circles). The pointer options stage the pointer for
@@ -25,6 +26,19 @@
 // the global effects. --bench N times N more captures of each frame and prints
 // the median (ms): relative numbers only, SwiftShader renders on the CPU
 // (--size 960 has the pixel count of a 1280x720 canvas).
+//
+// --palette swaps the palette of the gradient-type images (not the fixtures): a
+// name from PALETTES below, or comma-separated hex colours ("#ff6b6b,#4ecdc4").
+// The default is the editor's default four-colour palette.
+//
+// --aspect makes the images size * aspect wide (size stays the height), unless
+// --width is given.
+//
+// --presets adds one image per built-in preset (preset-<id>.png). Presets keep
+// their own palette, so --palette, --layer and --state do not apply to them.
+//
+// --layer overrides numeric layer parameters (speed, complexity, scale,
+// distortion, softness, ...) of the gradient-type images.
 //
 // outDir defaults to test-results/snapshots. Files are type-<gradient>.png and
 // fixture-<name>.png, plus manifest.json with the timings and pixel stats.
@@ -79,6 +93,37 @@ function parseState(text) {
   return state;
 }
 
+const PALETTES = {
+  sunset: ["#ff7a45", "#f2486b", "#8c33a6", "#1a0d40"],
+  ocean: ["#050d26", "#1a4db3", "#4db3e6", "#e6f2ff"],
+  pastel: ["#faf0e6", "#e6bfcc", "#b3bff2", "#ccf2e6"],
+  duo: ["#1a1a4d", "#e6808f"],
+  mono: ["#0d0d0d", "#6b6b6b", "#f2f2f2"],
+  night: ["#050a1f", "#0f9e8f", "#6354e6", "#c9f2dc"],
+  dusk: ["#14123b", "#5b3bd6", "#e0489a", "#ffb38a"],
+  ember: ["#1a0b2e", "#6a1b9a", "#ff5e7e", "#ffc27a"],
+};
+
+function parseHexPalette(spec) {
+  const hexes = PALETTES[spec] ?? spec.split(",");
+  return hexes.map((hex) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!m) throw new Error(`--palette: "${hex}" is not a #rrggbb colour (or one of ${Object.keys(PALETTES).join(", ")})`);
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  });
+}
+
+function parseOverrides(spec) {
+  return Object.fromEntries(
+    spec.split(",").filter(Boolean).map((pair) => {
+      const [key, value] = pair.split("=");
+      if (!key || !Number.isFinite(Number(value))) throw new Error(`"${pair}" is not key=number`);
+      return [key.trim(), Number(value)];
+    }),
+  );
+}
+
 function parseArgs(argv) {
   const options = {
     outDir: path.join(REPO_ROOT, "test-results/snapshots"),
@@ -94,6 +139,10 @@ function parseArgs(argv) {
     scale: 1,
     bench: 0,
     scenes: null,
+    colors: undefined,
+    layer: undefined,
+    aspect: 1,
+    presets: false,
   };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
@@ -114,11 +163,16 @@ function parseArgs(argv) {
     else if (arg === "--scale") options.scale = Number(argv[++i]);
     else if (arg === "--bench") options.bench = Number(argv[++i]);
     else if (arg === "--scenes") options.scenes = path.resolve(argv[++i]);
+    else if (arg === "--palette") options.colors = parseHexPalette(argv[++i]);
+    else if (arg === "--layer") options.layer = parseOverrides(argv[++i]);
+    else if (arg === "--aspect") options.aspect = Number(argv[++i]);
+    else if (arg === "--presets") options.presets = true;
     else if (arg === "--") continue;
     else positional.push(arg);
   }
   if (positional[0]) options.outDir = path.resolve(positional[0]);
-  options.width ??= options.size;
+  if (!(options.aspect > 0)) throw new Error("--aspect takes a positive number");
+  options.width ??= Math.round(options.size * options.aspect);
   options.height ??= options.size;
   const numeric = [options.time, options.size, options.width, options.height, options.scale, options.bench];
   if (!numeric.every(Number.isFinite)) {
@@ -172,14 +226,17 @@ async function main() {
     await page.goto(PAGE_URL, { waitUntil: "domcontentloaded" });
     await page.evaluate(() => window.__wavrSnapshotReady);
 
-    // One default layer per gradient type (the page has the canonical list), then the parity fixtures.
+    // One default layer per gradient type (the page has the canonical list), then the parity fixtures and, if asked, the presets.
     const types = await page.evaluate(() => window.__wavrGradientTypes);
+    const presets = options.presets ? await page.evaluate(() => window.__wavrPresets) : [];
     jobs = [
-      ...types.map((type) => ({ name: `type-${type}`, job: { type } })),
+      ...types.map((type) => ({ name: `type-${type}`, job: { type, colors: options.colors, layer: options.layer } })),
       ...readFixtures(),
       ...readScenes(options.scenes),
+      ...presets.map((preset) => ({ name: `preset-${preset}`, job: { preset } })),
     ].filter(
-      ({ name }) => !options.only || options.only.has(name) || options.only.has(name.replace(/^(type|fixture|scene)-/, "")),
+      ({ name }) =>
+        !options.only || options.only.has(name) || options.only.has(name.replace(/^(type|fixture|scene|preset)-/, "")),
     );
     if (jobs.length === 0) throw new Error("No images match --only");
 
@@ -232,6 +289,8 @@ async function main() {
         width: options.width,
         height: options.height,
         scale: options.scale,
+        palette: options.colors,
+        layer: options.layer,
         mouse: options.mouse,
         stroke: options.stroke,
         ripple: options.ripple,

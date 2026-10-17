@@ -319,9 +319,9 @@ describe("palette lookup in common.glsl", () => {
     expect(body.match(/texture(Lod)?\(/g)).toHaveLength(1);
     expect(body).toContain("t * u_paletteDomain.x + u_paletteDomain.y");
     expect(body).toContain("(u * (PALETTE_TEXELS - 1.0) + 0.5) / PALETTE_TEXELS");
-    // The per-pixel colour maths is gone.
+    // The per-pixel colour maths is gone: no colour-space conversion per lookup.
     expect(common).not.toContain("sampleColorAt");
     expect(common).not.toContain("linearToOklab");
-    expect(common).not.toContain("u_oklabEnabled");
+    expect(body).not.toContain("u_oklabEnabled");
   });
 });

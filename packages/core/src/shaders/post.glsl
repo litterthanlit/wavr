@@ -40,13 +40,35 @@ vec2 liquify(vec2 uv, float time, float intensity) {
 // Tone Mapping
 // ============================================================
 
-vec3 acesToneMap(vec3 x) {
-  float a = 2.51;
-  float b = 0.03;
-  float c = 2.43;
-  float d = 0.59;
-  float e = 0.14;
-  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+// Palettes and layer colours are display-referred (0..1, already sRGB), so a
+// tone map here must not re-expose them: a plain Reinhard c / (c + 1) sends 1.0
+// to 0.5 and halves every frame's brightness. Both curves keep an LDR frame
+// where it is and only compress what is above it (brightness over 1, caustics,
+// trails), so highlights roll off instead of clipping.
+
+// Identity up to `knee`, then eases toward 1.0 with the same slope at the join
+// (C2: tanh has no curvature at 0). Values far above the knee are capped so
+// tanh never sees an argument large enough to overflow on a driver.
+vec3 highlightShoulder(vec3 c, float knee) {
+  vec3 over = max(c - knee, 0.0) / (1.0 - knee);
+  return min(c, vec3(knee)) + (1.0 - knee) * tanh(min(over, vec3(10.0)));
+}
+
+// ACES filmic fit (Narkowicz) behind an exposure, so it is a contrast curve
+// rather than a brightness change: input is scaled by 0.4 and the result by
+// 1 / aces(0.4), which keeps white near 0.98 and mid-grey near 0.55, and deepens the
+// shadows. A shoulder at 0.9 then rolls off anything the curve pushed past white.
+vec3 acesFilmic(vec3 x) {
+  x *= 0.4;
+  vec3 aces = (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);
+  return highlightShoulder(aces * 1.8492, 0.9);
+}
+
+// 0 = none, 1 = highlight shoulder (the "Reinhard" mode), 2 = ACES filmic.
+vec3 applyToneMap(vec3 c) {
+  if (u_toneMapMode == 1) return highlightShoulder(c, 0.8);
+  if (u_toneMapMode == 2) return acesFilmic(c);
+  return c;
 }
 
 // ============================================================
@@ -370,11 +392,7 @@ void main() {
   }
 
   // Tone mapping
-  if (u_toneMapMode == 1) {
-    color = color / (color + 1.0);
-  } else if (u_toneMapMode == 2) {
-    color = acesToneMap(color);
-  }
+  color = applyToneMap(color);
 
   // Pixel sorting (glitch art — horizontal streak displacement by brightness)
   if (u_pixelSortEnabled) {
@@ -391,7 +409,7 @@ void main() {
       sortedUV.x = clamp(sortedUV.x, 0.0, 1.0);
       vec3 sortedColor = sampleScene(sortedUV);
       // Apply tone mapping to the re-sampled color too
-      sortedColor = sortedColor / (sortedColor + 1.0);
+      sortedColor = applyToneMap(sortedColor);
       color = mix(color, sortedColor, sortAmount * u_pixelSortIntensity);
     }
   }

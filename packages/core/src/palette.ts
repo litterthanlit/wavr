@@ -75,6 +75,16 @@ function linearToSrgb(c: number): number {
   return c >= 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : c * 12.92;
 }
 
+/**
+ * A stop in the space gradients blend raw stops in (`u_colorsMix`): Oklab when
+ * `oklab` is on, else the sRGB stop itself. Shaders convert back with
+ * mixSpaceToSrgb(), once per pixel instead of once per stop.
+ */
+export function toMixSpace(color: Rgb, oklab: boolean): Rgb {
+  if (!oklab) return color;
+  return linearToOklab(srgbToLinear(color[0]), srgbToLinear(color[1]), srgbToLinear(color[2]));
+}
+
 function linearToOklab(r: number, g: number, b: number): [number, number, number] {
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);

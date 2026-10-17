@@ -34,6 +34,7 @@ import {
   paletteDomain,
   paletteKeyMatches,
   setPaletteKey,
+  toMixSpace,
   type PaletteKey,
 } from "./palette";
 import { RenderScaleController, type RenderScaleOptions } from "./render-scale";
@@ -183,7 +184,7 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
   "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
   "u_pixelSortEnabled", "u_pixelSortIntensity", "u_pixelSortThreshold",
-  "u_domainWarp",
+  "u_domainWarp", "u_oklabEnabled", "u_colorBlend",
   "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
   // Image/texture uniforms
   "u_imageTexture", "u_distortionMap",
@@ -291,6 +292,8 @@ interface ProgramRecord {
   startedAt: number;
   uniforms: UniformMap;
   colorLocations: (WebGLUniformLocation | undefined)[];
+  /** `u_colorsMix[i]`: the stops in the space gradients blend them in (palette.ts toMixSpace). */
+  mixLocations: (WebGLUniformLocation | undefined)[];
 }
 
 export interface CaptureOptions {
@@ -668,6 +671,7 @@ export class GradientEngine {
       startedAt,
       uniforms: {},
       colorLocations: [],
+      mixLocations: [],
     };
     return record;
   }
@@ -719,6 +723,7 @@ export class GradientEngine {
     for (let i = 0; i < 8; i++) {
       const loc = gl.getUniformLocation(record.program, `u_colors[${i}]`);
       record.colorLocations.push(loc ?? undefined);
+      record.mixLocations.push(gl.getUniformLocation(record.program, `u_colorsMix[${i}]`) ?? undefined);
     }
     record.ready = true;
 
@@ -742,7 +747,7 @@ export class GradientEngine {
   private disposeProgram(record: ProgramRecord) {
     const gl = this.gl;
     for (const loc of Object.values(record.uniforms)) this.lastUniformValues.delete(loc);
-    for (const loc of record.colorLocations) {
+    for (const loc of [...record.colorLocations, ...record.mixLocations]) {
       if (loc) this.lastUniformValues.delete(loc);
     }
     for (const shader of record.shaders) {
@@ -1781,8 +1786,8 @@ export class GradientEngine {
     }
   }
 
-  /** The raw stops, for the gradients that read `u_colors` themselves. */
-  private setPalette(layer: LayerParams) {
+  /** The raw stops, for the gradients that read `u_colors` / `u_colorsMix` themselves. */
+  private setPalette(layer: LayerParams, oklab: boolean) {
     const record = this.active;
     if (!record) return;
     this.setf("u_softness", layer.softness);
@@ -1794,15 +1799,22 @@ export class GradientEngine {
       if (loc !== undefined && this.uniformChanged(loc, 3, color[0], color[1], color[2])) {
         this.gl.uniform3f(loc, color[0], color[1], color[2]);
       }
+      const mixLoc = record.mixLocations[i];
+      if (mixLoc !== undefined) {
+        const mix = toMixSpace(color, oklab);
+        if (this.uniformChanged(mixLoc, 3, mix[0], mix[1], mix[2])) {
+          this.gl.uniform3f(mixLoc, mix[0], mix[1], mix[2]);
+        }
+      }
     }
   }
 
-  private setLayerUniforms(layer: LayerParams) {
+  private setLayerUniforms(layer: LayerParams, oklab: boolean) {
     this.setf("u_speed", layer.speed);
     this.setf("u_complexity", layer.complexity);
     this.setf("u_scale", layer.scale);
     this.setf("u_distortion", layer.distortion);
-    this.setPalette(layer);
+    this.setPalette(layer, oklab);
     this.setf("u_layerOpacity", layer.opacity);
     // Parallax depth (per-layer)
     this.setf("u_layerDepth", layer.depth);
@@ -1897,6 +1909,9 @@ export class GradientEngine {
     this.setf("u_mousePresence", pointer.presence.value);
     this.setf("u_mouseReact", state.mouseReact);
     this.setf("u_domainWarp", state.domainWarp);
+    // For gradients that blend the raw stops themselves (mesh); the rest read the baked palette.
+    this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
+    this.setf("u_colorBlend", state.colorBlend);
     // Parallax
     this.seti("u_parallaxEnabled", state.parallaxEnabled ? 1 : 0);
     this.setf("u_parallaxStrength", state.parallaxStrength);
@@ -2062,7 +2077,7 @@ export class GradientEngine {
 
         this.useProgram(this.getLayerProgram(layer));
         this.setLayerGlobals(state, mvp);
-        this.setLayerUniforms(layer);
+        this.setLayerUniforms(layer, state.oklabEnabled);
         this.bindPalette(i, layer, state);
         this.set2f("u_compositeScale", compositeScaleX, compositeScaleY);
         this.seti("u_compositeEnabled", i === 0 ? 0 : 1);

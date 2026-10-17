@@ -202,12 +202,12 @@ describe("render scale", () => {
     // At a reduced render scale a pixel of the layer pass is bigger on screen, so a pattern laid out in
     // gl_FragCoord (halftone cells, scanlines, paper grain) would change size. FULL_RESOLUTION_GRADIENTS
     // is how the engine avoids that; a gradient added to this file with such a pattern must join it.
+    // A type can have several guarded blocks (its helpers get their own, ahead of it).
     const blocks = [...stripComments(parts.gradients).matchAll(/^#if WAVR_GRADIENT == (\d+)\n([\s\S]*?)^#endif/gm)];
-    expect(blocks.length).toBe(GRADIENT_TYPES.length);
-    const readers = GRADIENT_TYPES.filter((type) => {
-      const block = blocks.find((b) => Number(b[1]) === GRADIENT_TYPE_IDS[type]);
-      return block !== undefined && block[2].includes("gl_FragCoord");
-    });
+    expect(new Set(blocks.map((b) => Number(b[1]))).size).toBe(GRADIENT_TYPES.length);
+    const readers = GRADIENT_TYPES.filter((type) =>
+      blocks.some((b) => Number(b[1]) === GRADIENT_TYPE_IDS[type] && b[2].includes("gl_FragCoord")),
+    );
     expect(readers.length).toBeGreaterThan(0);
     for (const type of readers) expect(FULL_RESOLUTION_GRADIENTS.has(type), type).toBe(true);
     // And nothing on the list is there for no reason: a type of its own, not a typo.
@@ -243,8 +243,9 @@ describe("shader uniforms", () => {
   }
 
   it("every uniform a shader declares is listed in PROGRAM_UNIFORM_NAMES", () => {
-    // u_colors is an array; its elements are looked up as u_colors[i].
-    const missing = [...declared].filter((name) => name !== "u_colors" && !PROGRAM_UNIFORM_NAMES.includes(name));
+    // u_colors and u_colorsMix are arrays; their elements are looked up as u_colors[i].
+    const arrays = new Set(["u_colors", "u_colorsMix"]);
+    const missing = [...declared].filter((name) => !arrays.has(name) && !PROGRAM_UNIFORM_NAMES.includes(name));
     expect(missing, "uniforms the engine would never set").toEqual([]);
   });
 
