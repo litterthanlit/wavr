@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { DEFAULT_CONFIG, GradientConfig, MAX_URL_BYTES } from "@wavr/schema";
+import { DEFAULT_CONFIG, GradientConfig, MAX_URL_BYTES, encodeUrl } from "@wavr/schema";
 import { createLayer } from "@wavr/core";
 import {
   storeToConfig,
@@ -288,7 +288,7 @@ describe("oversized config guard", () => {
     mod.initializeUrlSync();
     // Trigger the subscriber via a store change, then flush the debounce.
     store.useGradientStore.setState({ brightness: 1.42 });
-    mod.__flushForTests();
+    await mod.__flushForTests();
 
     // replaceState must NOT have been called — oversize write was skipped.
     expect(replaceState).not.toHaveBeenCalled();
@@ -301,9 +301,106 @@ describe("oversized config guard", () => {
 
     // A second oversize attempt should not warn again (one-time guard).
     store.useGradientStore.setState({ brightness: 1.43 });
-    mod.__flushForTests();
+    await mod.__flushForTests();
     expect(warn).toHaveBeenCalledTimes(1);
 
     vi.doUnmock("@wavr/schema");
+  });
+});
+
+describe("lazy URL codec", () => {
+  const originalWindow = (globalThis as { window?: Window }).window;
+
+  function stubWindow(hash: string) {
+    const replaceState = vi.fn();
+    const pushState = vi.fn();
+    (globalThis as unknown as { window: Partial<Window> }).window = {
+      location: { hash, href: `http://localhost/editor${hash}` } as Location,
+      history: { replaceState, pushState } as unknown as History,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as Window;
+    return { replaceState, pushState };
+  }
+
+  // Fresh module instances, so the codec cache starts empty in every test.
+  async function freshModules() {
+    vi.resetModules();
+    const sync = await import("./url-sync");
+    const { useGradientStore: store } = await import("./store");
+    sync.__resetUrlSyncForTests();
+    return { sync, store };
+  }
+
+  afterEach(() => {
+    if (originalWindow !== undefined) {
+      (globalThis as unknown as { window: Window }).window = originalWindow;
+    } else {
+      delete (globalThis as { window?: Window }).window;
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("applies an empty hash synchronously without loading the codec", async () => {
+    stubWindow("");
+    const { sync, store } = await freshModules();
+    store.setState({ brightness: 1.7 });
+
+    const pending = sync.applyHashToStore();
+
+    // Reset happened before anything was awaited.
+    expect(store.getState().brightness).toBe(DEFAULT_CONFIG.brightness);
+    expect(sync.isUrlCodecLoaded()).toBe(false);
+    await pending;
+    expect(sync.isUrlCodecLoaded()).toBe(false);
+  });
+
+  it("waits for the codec to load before applying a shared hash", async () => {
+    const config = GradientConfig.parse({ ...DEFAULT_CONFIG, brightness: 1.42 });
+    stubWindow(`#${encodeUrl(config)}`);
+    const { sync, store } = await freshModules();
+    expect(sync.isUrlCodecLoaded()).toBe(false);
+
+    await sync.applyHashToStore();
+
+    expect(sync.isUrlCodecLoaded()).toBe(true);
+    expect(store.getState().brightness).toBeCloseTo(1.42);
+  });
+
+  it("applies a shared hash synchronously once the codec is loaded", async () => {
+    const config = GradientConfig.parse({ ...DEFAULT_CONFIG, saturation: 0.6 });
+    stubWindow(`#${encodeUrl(config)}`);
+    const { sync, store } = await freshModules();
+    await sync.loadUrlCodec();
+
+    void sync.applyHashToStore();
+
+    expect(store.getState().saturation).toBeCloseTo(0.6);
+  });
+
+  it("writes the URL after the codec loads, via replaceState", async () => {
+    const { replaceState } = stubWindow("");
+    const { sync, store } = await freshModules();
+    sync.initializeUrlSync();
+    expect(sync.isUrlCodecLoaded()).toBe(false);
+
+    store.setState({ brightness: 1.31 });
+    await sync.__flushForTests();
+
+    expect(sync.isUrlCodecLoaded()).toBe(true);
+    expect(replaceState).toHaveBeenCalledTimes(1);
+    const hash = replaceState.mock.calls[0]?.[2];
+    expect(typeof hash === "string" ? hash : "").toMatch(/^#s2\./);
+  });
+
+  it("falls back to the current URL when sharing before the codec is loaded", async () => {
+    stubWindow("#s2.abc");
+    const { sync, store } = await freshModules();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    expect(sync.getShareUrlV2(store.getState())).toBe("http://localhost/editor#s2.abc");
+
+    await sync.loadUrlCodec();
+    expect(sync.getShareUrlV2(store.getState())).toMatch(/#s2\./);
   });
 });

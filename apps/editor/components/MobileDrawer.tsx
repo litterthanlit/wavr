@@ -1,18 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import GradientPanel from "@/components/GradientPanel";
-import ScenePanel from "@/components/ScenePanel";
-import EffectsPanel from "@/components/EffectsPanel";
-import PresetsPanel from "@/components/PresetsPanel";
+import { LazyMobileDrawerBody, preloadMobileDrawerBody } from "@/components/lazy";
+import { useEverOpened } from "@/lib/useEverOpened";
 import type { SidebarTab } from "@/lib/types";
-
-const TABS: { id: SidebarTab; label: string }[] = [
-  { id: "gradient", label: "Gradient" },
-  { id: "scene", label: "Scene" },
-  { id: "effects", label: "Effects" },
-  { id: "presets", label: "Presets" },
-];
 
 interface MobileDrawerProps {
   activeTab: SidebarTab;
@@ -21,17 +12,23 @@ interface MobileDrawerProps {
 
 export default function MobileDrawer({ activeTab, onTabChange }: MobileDrawerProps) {
   const [open, setOpen] = useState(false);
+  // The drawer is hidden on desktop and closed on mobile until tapped, so its
+  // tabs and panels (a second copy of the sidebar) load on first open and stay
+  // mounted after that.
+  const bodyMounted = useEverOpened(open);
 
   return (
     <>
       <button
         onClick={() => setOpen(!open)}
+        onPointerDown={preloadMobileDrawerBody}
+        onFocus={preloadMobileDrawerBody}
         aria-label={open ? "Close controls" : "Open controls"}
         className="mobile-controls-button fixed bottom-4 right-4 z-40 w-10 h-10 rounded-full bg-accent text-white
           items-center justify-center shadow-lg transition-transform duration-150
           hover:scale-105 active:scale-95"
       >
-        {open ? "\u2715" : "\u2699"}
+        {open ? "✕" : "⚙"}
       </button>
 
       <div
@@ -44,24 +41,7 @@ export default function MobileDrawer({ activeTab, onTabChange }: MobileDrawerPro
             <div className="w-10 h-1 rounded-full bg-border-active" />
           </div>
 
-          <div className="sidebar-tabs">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                className={`sidebar-tab ${activeTab === tab.id ? "sidebar-tab-active" : ""}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {activeTab === "gradient" && <GradientPanel />}
-            {activeTab === "scene" && <ScenePanel />}
-            {activeTab === "effects" && <EffectsPanel />}
-            {activeTab === "presets" && <PresetsPanel />}
-          </div>
+          {bodyMounted && <LazyMobileDrawerBody activeTab={activeTab} onTabChange={onTabChange} />}
         </div>
       </div>
     </>

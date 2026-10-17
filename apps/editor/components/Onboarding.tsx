@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ONBOARDING_STORAGE_KEY } from "@/lib/onboarding";
 
 const STEPS = [
   {
@@ -29,14 +30,12 @@ const STEPS = [
   },
 ];
 
-const STORAGE_KEY = "wavr-onboarding-seen";
-
 export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const seen = localStorage.getItem(STORAGE_KEY);
+    const seen = localStorage.getItem(ONBOARDING_STORAGE_KEY);
     if (!seen) {
       requestAnimationFrame(() => setVisible(true));
     }
@@ -44,7 +43,7 @@ export default function Onboarding() {
 
   const dismiss = () => {
     setVisible(false);
-    localStorage.setItem(STORAGE_KEY, "true");
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
   };
 
   const next = () => {
