@@ -197,6 +197,20 @@ describe("parallel shader compilation", () => {
     expect(draws.length).toBeGreaterThan(drawn + 2);
   });
 
+  it("stops reporting a compile once it finishes, even for a type no longer drawn", () => {
+    const { engine, controls } = setup({ parallelCompile: true });
+    // Switch away from plasma before its compile finishes; nothing draws plasma again.
+    expect(engine.render(stateWith([layerOf("plasma")]))).toBe(false);
+    const silk = stateWith([layerOf("silk")]);
+    expect(engine.render(silk)).toBe(false);
+    expect(engine.isCompiling()).toBe(true);
+
+    controls.compileComplete = true;
+    expect(engine.render(silk)).toBe(true);
+    expect(engine.isCompiling()).toBe(false);
+    expect(engine.getMetrics().pendingPrograms).toBe(0);
+  });
+
   it("a skipped frame touches no render targets or frame state", () => {
     const { engine, controls, attachments, textureFormats, draws } = setup({ parallelCompile: true });
     const state = stateWith([layerOf("mesh")], { feedbackEnabled: true, trailEnabled: true, realBloomEnabled: true });

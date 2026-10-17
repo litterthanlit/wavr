@@ -710,14 +710,24 @@ export class GradientEngine {
     return this.programsReady(state.layers.filter((l) => l.visible));
   }
 
-  /** Whether any program is still compiling (so frames that need it are being skipped). Cheap enough to poll every frame. */
+  /**
+   * Whether any program is still compiling (so frames that need it are being
+   * skipped). Polls every pending program, including ones no frame needs any
+   * more (a type switched away from mid-compile), so they don't read as
+   * compiling forever. Non-blocking: pending programs only exist when the
+   * driver compiles in parallel. Cheap enough to call every frame.
+   */
   isCompiling(): boolean {
-    const pending = (record: ProgramRecord) => !record.ready && !record.error;
-    if (this.postProgram && pending(this.postProgram)) return true;
-    for (const record of this.layerPrograms.values()) {
-      if (pending(record)) return true;
+    let compiling = false;
+    for (const record of [this.postProgram, ...this.layerPrograms.values()]) {
+      if (!record || record.ready || record.error) continue;
+      try {
+        if (!this.isProgramReady(record)) compiling = true;
+      } catch {
+        // A failed compile is reported by render() if a frame needs it.
+      }
     }
-    return false;
+    return compiling;
   }
 
   /** Starts compiling what a frame of `layers` draws with (each layer's program, then post) and polls it. */
