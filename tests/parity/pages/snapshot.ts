@@ -7,19 +7,35 @@
 //
 //   window.__wavrSnapshotReady : Promise<void>
 //   window.__wavrGradientTypes : the gradient types, in GRADIENT_TYPES order
-//   window.__wavrSnapshot      : (job, timeSeconds, sizePx) => Promise<SnapshotResult>
+//   window.__wavrPresets       : the ids of the built-in presets (PRESET_CATALOG order)
+//   window.__wavrSnapshot      : (job, timeSeconds, sizePx, aspect = 1) => Promise<SnapshotResult>
+//                                (size is the height; the width is size * aspect)
 
 import {
   GRADIENT_TYPES,
   GradientEngine,
   createLayer,
   resolveConfig,
+  type EngineState,
   type GradientConfig,
   type GradientType,
+  type LayerParams,
 } from "@wavr/core";
+import { PRESET_CATALOG } from "@wavr/core/presets";
 
-/** A default layer of one gradient type (optionally with another palette), or a whole parity-fixture config. */
-export type SnapshotJob = { type: GradientType; colors?: [number, number, number][] } | { config: GradientConfig };
+/**
+ * A default layer of one gradient type, optionally with another palette and
+ * layer / global-state overrides, or a whole parity-fixture config.
+ */
+export type SnapshotJob =
+  | {
+      type: GradientType;
+      colors?: [number, number, number][];
+      layer?: Partial<LayerParams>;
+      state?: Partial<EngineState>;
+    }
+  | { config: GradientConfig }
+  | { preset: string };
 
 export interface SnapshotResult {
   /** PNG, top-down. */
@@ -40,7 +56,8 @@ declare global {
   interface Window {
     __wavrSnapshotReady: Promise<void>;
     __wavrGradientTypes: readonly GradientType[];
-    __wavrSnapshot: (job: SnapshotJob, time: number, size: number) => Promise<SnapshotResult>;
+    __wavrPresets: readonly string[];
+    __wavrSnapshot: (job: SnapshotJob, time: number, size: number, aspect?: number) => Promise<SnapshotResult>;
   }
 }
 
@@ -99,23 +116,29 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
       const testImage = makeTestImage();
 
       window.__wavrGradientTypes = GRADIENT_TYPES;
-      window.__wavrSnapshot = async (job, time, size) => {
+      window.__wavrPresets = PRESET_CATALOG.map((entry) => entry.id);
+      window.__wavrSnapshot = async (job, time, size, aspect = 1) => {
         let state;
         if ("type" in job) {
           const layer = createLayer({
             gradientType: job.type,
             colors: job.colors,
             imageData: job.type === "image" ? testImage : null,
+            ...job.layer,
           });
-          state = { ...resolveConfig({ layers: [] }), layers: [layer] };
+          state = { ...resolveConfig({ layers: [] }), layers: [layer], ...job.state };
           if (layer.imageData) await textureReady(engine, layer.imageData);
+        } else if ("preset" in job) {
+          const entry = PRESET_CATALOG.find((candidate) => candidate.id === job.preset);
+          if (!entry) throw new Error(`snapshot: no preset "${job.preset}"`);
+          state = resolveConfig(entry.config);
         } else {
           state = resolveConfig(job.config);
         }
 
         const readyBefore = engine.getMetrics().totalShaderCompileMs;
         const start = performance.now();
-        const frame = engine.captureImageData({ state, time, width: size, height: size });
+        const frame = engine.captureImageData({ state, time, width: Math.round(size * aspect), height: size });
         const captureMs = performance.now() - start;
         if (!frame) throw new Error("captureImageData returned null");
         const programsReadyMs = engine.getMetrics().totalShaderCompileMs - readyBefore;

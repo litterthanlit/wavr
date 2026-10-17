@@ -2,11 +2,22 @@
 // fixture at a fixed time to PNGs, so a change to the shaders or engine can be
 // looked at, or diffed against a run from another commit.
 //
-//   pnpm snapshots [outDir] [--only mesh,fixture-solid] [--time 1] [--size 512] [--palette sunset]
+//   pnpm snapshots [outDir] [--only mesh,fixture-solid] [--time 1] [--size 512]
+//                  [--palette sunset] [--layer scale=2,complexity=8] [--state domainWarp=0.5]
+//                  [--aspect 1.78] [--presets]
 //
 // --palette swaps the palette of the gradient-type images (not the fixtures): a
 // name from PALETTES below, or comma-separated hex colours ("#ff6b6b,#4ecdc4").
 // The default is the editor's default four-colour palette.
+//
+// --aspect makes the images size * aspect wide (size stays the height).
+//
+// --presets adds one image per built-in preset (preset-<id>.png). Presets keep
+// their own palette, so --palette, --layer and --state do not apply to them.
+//
+// --layer and --state override numeric layer parameters (speed, complexity,
+// scale, distortion, softness, ...) and global engine state (domainWarp,
+// toneMapMode, brightness, ...) of the gradient-type images.
 //
 // outDir defaults to test-results/snapshots. Files are type-<gradient>.png and
 // fixture-<name>.png, plus manifest.json with the timings and pixel stats.
@@ -38,6 +49,7 @@ const PALETTES = {
   pastel: ["#faf0e6", "#e6bfcc", "#b3bff2", "#ccf2e6"],
   duo: ["#1a1a4d", "#e6808f"],
   mono: ["#0d0d0d", "#6b6b6b", "#f2f2f2"],
+  night: ["#050a1f", "#0f9e8f", "#6354e6", "#c9f2dc"],
 };
 
 function parseHexPalette(spec) {
@@ -50,8 +62,28 @@ function parseHexPalette(spec) {
   });
 }
 
+function parseOverrides(spec) {
+  return Object.fromEntries(
+    spec.split(",").filter(Boolean).map((pair) => {
+      const [key, value] = pair.split("=");
+      if (!key || !Number.isFinite(Number(value))) throw new Error(`"${pair}" is not key=number`);
+      return [key.trim(), Number(value)];
+    }),
+  );
+}
+
 function parseArgs(argv) {
-  const options = { outDir: path.join(REPO_ROOT, "test-results/snapshots"), only: null, time: 1, size: 512, colors: undefined };
+  const options = {
+    outDir: path.join(REPO_ROOT, "test-results/snapshots"),
+    only: null,
+    time: 1,
+    size: 512,
+    colors: undefined,
+    layer: undefined,
+    state: undefined,
+    aspect: 1,
+    presets: false,
+  };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -59,12 +91,16 @@ function parseArgs(argv) {
     else if (arg === "--time") options.time = Number(argv[++i]);
     else if (arg === "--size") options.size = Number(argv[++i]);
     else if (arg === "--palette") options.colors = parseHexPalette(argv[++i]);
+    else if (arg === "--layer") options.layer = parseOverrides(argv[++i]);
+    else if (arg === "--state") options.state = parseOverrides(argv[++i]);
+    else if (arg === "--aspect") options.aspect = Number(argv[++i]);
+    else if (arg === "--presets") options.presets = true;
     else if (arg === "--") continue;
     else positional.push(arg);
   }
   if (positional[0]) options.outDir = path.resolve(positional[0]);
-  if (!Number.isFinite(options.time) || !Number.isFinite(options.size)) {
-    throw new Error("--time and --size take numbers");
+  if (!Number.isFinite(options.time) || !Number.isFinite(options.size) || !(options.aspect > 0)) {
+    throw new Error("--time, --size and --aspect take numbers");
   }
   return options;
 }
@@ -109,21 +145,25 @@ async function main() {
     await page.goto(PAGE_URL, { waitUntil: "domcontentloaded" });
     await page.evaluate(() => window.__wavrSnapshotReady);
 
-    // One default layer per gradient type (the page has the canonical list), then the parity fixtures.
+    // One default layer per gradient type (the page has the canonical list), then the parity fixtures and, if asked, the presets.
     const types = await page.evaluate(() => window.__wavrGradientTypes);
-    jobs = [...types.map((type) => ({ name: `type-${type}`, job: { type, colors: options.colors } })), ...readFixtures()].filter(
-      ({ name }) => !options.only || options.only.has(name) || options.only.has(name.replace(/^(type|fixture)-/, "")),
-    );
+    const presets = options.presets ? await page.evaluate(() => window.__wavrPresets) : [];
+    jobs = [
+      ...types.map((type) => ({ name: `type-${type}`, job: { type, colors: options.colors, layer: options.layer, state: options.state } })),
+      ...readFixtures(),
+      ...presets.map((preset) => ({ name: `preset-${preset}`, job: { preset } })),
+    ].filter(({ name }) => !options.only || options.only.has(name) || options.only.has(name.replace(/^(type|fixture|preset)-/, "")));
     if (jobs.length === 0) throw new Error("No images match --only");
 
     for (const [index, { name, job }] of jobs.entries()) {
       const label = `[${String(index + 1).padStart(2)}/${jobs.length}] ${name.padEnd(24)}`;
       const wallStart = Date.now();
       try {
-        const result = await page.evaluate(({ job, time, size }) => window.__wavrSnapshot(job, time, size), {
+        const result = await page.evaluate(({ job, time, size, aspect }) => window.__wavrSnapshot(job, time, size, aspect), {
           job,
           time: options.time,
           size: options.size,
+          aspect: options.aspect,
         });
         const file = path.join(options.outDir, `${name}.png`);
         fs.writeFileSync(file, Buffer.from(result.dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"));
@@ -149,7 +189,7 @@ async function main() {
 
   fs.writeFileSync(
     path.join(options.outDir, "manifest.json"),
-    JSON.stringify({ time: options.time, size: options.size, images: manifest }, null, 2),
+    JSON.stringify({ time: options.time, size: options.size, aspect: options.aspect, images: manifest }, null, 2),
   );
   console.log(
     `\n${jobs.length - failed}/${jobs.length} images in ${seconds(Date.now() - started)} -> ${path.relative(process.cwd(), options.outDir)}`,

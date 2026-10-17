@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
 import { RANDOM_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
+import { INITIAL_LAYER_PARAMS } from "./initial-scene";
 import {
   DEFAULT_SCENE_3D_STATE,
   cloneScene3D,
@@ -311,7 +312,7 @@ function deriveActiveLayerFields(layers: LayerParams[], activeLayerIndex: number
   };
 }
 
-const initialLayer = createLayer();
+const initialLayer = createLayer(INITIAL_LAYER_PARAMS);
 
 const DEFAULTS = {
   layers: [initialLayer],
