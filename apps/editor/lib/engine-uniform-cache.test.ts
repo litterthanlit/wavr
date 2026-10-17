@@ -22,6 +22,14 @@ const blue = createLayer({
   blendMode: "screen",
   colors: [[0, 0, 1], [0, 0, 0.5], [0.2, 0.2, 1]],
 });
+// Same gradient (so the same program) as `red`, different values.
+const green = createLayer({
+  gradientType: "mesh",
+  speed: 0.5,
+  scale: 3,
+  blendMode: "screen",
+  colors: [[0, 1, 0], [0, 0.5, 0], [0, 0.2, 0.1]],
+});
 
 describe("GradientEngine uniform uploads", () => {
   it("skips uniforms that did not change since the last frame", () => {
@@ -47,6 +55,22 @@ describe("GradientEngine uniform uploads", () => {
     expect(uniformCalls).toEqual(["u_vignette"]);
   });
 
+  it("skips unchanged uniforms across programs: each keeps its own cache", () => {
+    const { engine, uniformCalls } = setup();
+    const state = stateWith([red, blue]);
+    engine.render(state);
+    uniformCalls.length = 0;
+
+    // Two layer programs and the post program were all in use last frame.
+    engine.render(state);
+    expect(uniformCalls).toEqual([]);
+
+    engine.setElapsedTime(2);
+    engine.render(state);
+    // The clock is one uniform in each of the three programs.
+    expect(uniformCalls.filter((name) => name === "u_time")).toHaveLength(3);
+  });
+
   it("keeps per-layer values correct at every draw in multi-layer scenes", () => {
     const { engine, draws } = setup();
     const scenes = [
@@ -55,6 +79,8 @@ describe("GradientEngine uniform uploads", () => {
       stateWith([blue, red]),
       stateWith([red]),
       stateWith([red, blue], { bloomEnabled: true }),
+      stateWith([red, green, blue, green]),
+      stateWith([green, red]),
     ];
 
     for (const state of scenes) {
@@ -73,7 +99,7 @@ describe("GradientEngine uniform uploads", () => {
     }
   });
 
-  it("re-uploads everything after the program is replaced", () => {
+  it("re-uploads a replaced layer program's uniforms but not the untouched post program's", () => {
     const { engine, draws, uniformCalls } = setup();
     const state = stateWith([red], { vignette: 0.3 });
     engine.render(state);
@@ -85,10 +111,28 @@ describe("GradientEngine uniform uploads", () => {
     engine.render(state);
     // A fresh program starts with default uniform values, so the cache must
     // not skip anything that was uploaded to the old program.
+    expect(uniformCalls).toContain("u_colors[0]");
+    expect(uniformCalls).toContain("u_scale");
+    expect(uniformCalls).toContain("u_speed");
+    const [layerPass, postPass] = draws.slice(-2);
+    expect(layerPass.uniforms["u_colors[1]"]).toEqual(red.colors[1]);
+    // The post program is the same one, still holding its values.
+    expect(uniformCalls).not.toContain("u_vignette");
+    expect(postPass.uniforms.u_vignette).toBe(0.3);
+  });
+
+  it("re-uploads everything after every program is rebuilt", () => {
+    const { engine, draws, uniformCalls } = setup();
+    const state = stateWith([red], { vignette: 0.3 });
+    engine.render(state);
+
+    engine.initProgram();
+    uniformCalls.length = 0;
+    engine.render(state);
+
     expect(uniformCalls).toContain("u_vignette");
     expect(uniformCalls).toContain("u_colors[0]");
     const last = draws[draws.length - 1];
     expect(last.uniforms.u_vignette).toBe(0.3);
-    expect(last.uniforms["u_colors[1]"]).toEqual(red.colors[1]);
   });
 });

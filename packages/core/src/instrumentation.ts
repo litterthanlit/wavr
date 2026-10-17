@@ -11,12 +11,19 @@ export interface GpuResourceSummary {
 export interface EngineMetrics extends GpuResourceSummary {
   canvasWidth: number;
   canvasHeight: number;
+  /** Fraction of the canvas the layers of the last frame were drawn at (1 = full; see GradientEngine.setRenderScale). */
+  renderScale: number;
   maxPixelRatio: number;
   frameRateCap: number;
   lastCpuFrameMs: number;
   avgCpuFrameMs: number;
+  /** Time the most recently finished program took from submit to ready. */
   lastShaderCompileMs: number;
   totalShaderCompileMs: number;
+  /** Programs created but still compiling; frames that need one are skipped. */
+  pendingPrograms: number;
+  /** Programs created so far (layer programs, custom, post). */
+  programCount: number;
 }
 
 export function estimateTextureBytes(
@@ -57,12 +64,15 @@ export function createEmptyEngineMetrics(): EngineMetrics {
   return {
     canvasWidth: 0,
     canvasHeight: 0,
+    renderScale: 1,
     maxPixelRatio: 1.5,
     frameRateCap: 60,
     lastCpuFrameMs: 0,
     avgCpuFrameMs: 0,
     lastShaderCompileMs: 0,
     totalShaderCompileMs: 0,
+    pendingPrograms: 0,
+    programCount: 0,
     framebufferCount: 0,
     textureCount: 0,
     estimatedBytes: 0,

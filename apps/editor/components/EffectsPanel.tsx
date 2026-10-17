@@ -102,7 +102,7 @@ export default function EffectsPanel() {
       {/* Color */}
       <Section title="Color">
         <Toggle label="Oklab Blending" checked={store.oklabEnabled} onChange={(v) => store.setDiscrete({ oklabEnabled: v })} />
-        <Select label="Tone Mapping" value={String(store.toneMapMode)} options={[{ value: "0", label: "None" }, { value: "1", label: "Reinhard" }, { value: "2", label: "ACES Filmic" }]} onChange={(v) => store.setDiscrete({ toneMapMode: Number(v) })} />
+        <Select label="Tone Mapping" value={String(store.toneMapMode)} options={[{ value: "0", label: "None" }, { value: "1", label: "Soft highlights" }, { value: "2", label: "ACES Filmic" }]} onChange={(v) => store.setDiscrete({ toneMapMode: Number(v) })} />
         <Slider label="Color Blend" value={store.colorBlend} min={0} max={1} step={0.01} onChange={(v) => store.set({ colorBlend: v })} onCommit={() => store.commitSet()} />
         <Slider label="Chromatic Aberration" value={store.chromaticAberration} min={0} max={1} step={0.01} onChange={(v) => store.set({ chromaticAberration: v })} onCommit={() => store.commitSet()} />
       </Section>

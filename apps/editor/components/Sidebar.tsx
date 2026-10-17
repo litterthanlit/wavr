@@ -2,20 +2,28 @@
 
 import React from "react";
 import GradientPanel from "@/components/GradientPanel";
-import ScenePanel from "@/components/ScenePanel";
-import EffectsPanel from "@/components/EffectsPanel";
-import PresetsPanel from "@/components/PresetsPanel";
 import LayerPanel from "@/components/LayerPanel";
-import CustomGLSLPanel from "@/components/CustomGLSLPanel";
+import {
+  LazyScenePanel,
+  LazyEffectsPanel,
+  LazyPresetsPanel,
+  LazyCustomGLSLPanel,
+  preloadScenePanel,
+  preloadEffectsPanel,
+  preloadPresetsPanel,
+  preloadCustomGLSLPanel,
+} from "@/components/lazy";
 import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
 
-const TABS: { id: SidebarTab; label: string }[] = [
+// The Gradient tab is the default, so it ships eagerly; the rest load on demand
+// (and are prefetched on idle, see prefetchEditorChunks).
+const TABS: { id: SidebarTab; label: string; preload?: () => void }[] = [
   { id: "gradient", label: "Gradient" },
-  { id: "scene", label: "Scene" },
-  { id: "effects", label: "Effects" },
-  { id: "presets", label: "Presets" },
-  { id: "code", label: "Lab" },
+  { id: "scene", label: "Scene", preload: preloadScenePanel },
+  { id: "effects", label: "Effects", preload: preloadEffectsPanel },
+  { id: "presets", label: "Presets", preload: preloadPresetsPanel },
+  { id: "code", label: "Lab", preload: preloadCustomGLSLPanel },
 ];
 
 interface SidebarProps {
@@ -38,6 +46,8 @@ export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarPr
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
+            onPointerEnter={tab.preload}
+            onFocus={tab.preload}
             className={`sidebar-tab ${activeTab === tab.id ? "sidebar-tab-active" : ""}`}
           >
             {tab.label}
@@ -48,10 +58,10 @@ export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarPr
       {/* Tab content */}
       <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
         {activeTab === "gradient" && <GradientPanel />}
-        {activeTab === "scene" && <ScenePanel />}
-        {activeTab === "effects" && <EffectsPanel />}
-        {activeTab === "presets" && <PresetsPanel />}
-        {activeTab === "code" && <CustomGLSLPanel engineRef={engineRef} />}
+        {activeTab === "scene" && <LazyScenePanel />}
+        {activeTab === "effects" && <LazyEffectsPanel />}
+        {activeTab === "presets" && <LazyPresetsPanel />}
+        {activeTab === "code" && <LazyCustomGLSLPanel engineRef={engineRef} />}
       </div>
     </div>
   );

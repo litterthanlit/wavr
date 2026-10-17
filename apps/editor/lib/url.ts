@@ -7,38 +7,26 @@
  *   - `getShareUrl(state)` — returns a full shareable URL with a `#s2.…` hash.
  *   - `copyShareUrl(state)` — copies that URL to the clipboard and flushes
  *     `replaceState` so the hash matches the clipboard.
- *   - `encodeState(state)` — returns the V2 hash body (no leading `#`).
- *     Kept for `components/ExportModal.tsx` embed-code generation.
+ *
+ * `encodeState(state)` (the V2 hash body for embed snippets) lives in
+ * `url-codec.ts`, next to the codec it needs; this module is part of the
+ * editor's initial bundle and must stay free of it.
  *
  * Decoding is not re-exported — callers go through
  * `@/lib/url-sync::applyHashToStore` on mount / popstate.
  */
 
 import type { GradientState } from "./store";
-import { getShareUrlV2, storeToConfig } from "./url-sync";
-import { encodeUrl, GradientConfig } from "@wavr/schema";
-
-/**
- * Encode the current state to a URL hash body (no leading `#`). Used by
- * ExportModal to build embed snippets. On failure, returns an empty string
- * rather than throwing — callers get a harmless empty iframe.
- */
-export function encodeState(state: GradientState): string {
-  try {
-    const config = storeToConfig(state);
-    const parsed = GradientConfig.safeParse(config);
-    if (!parsed.success) return "";
-    return encodeUrl(parsed.data);
-  } catch {
-    return "";
-  }
-}
+import { getShareUrlV2, isUrlCodecLoaded, loadUrlCodec } from "./url-sync";
 
 export function getShareUrl(state: GradientState): string {
   return getShareUrlV2(state);
 }
 
-export function copyShareUrl(state: GradientState): Promise<void> {
+export async function copyShareUrl(state: GradientState): Promise<void> {
+  // The codec is normally loaded long before anyone clicks Share; awaiting only
+  // when it isn't keeps the clipboard write inside the click's call stack.
+  if (!isUrlCodecLoaded()) await loadUrlCodec().catch(() => undefined);
   const url = getShareUrlV2(state);
   // Ensure the hash on the current page matches what we just copied — useful
   // when the user clicks share mid-debounce.

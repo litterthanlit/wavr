@@ -40,13 +40,34 @@ function DitherCanvas() {
     canvas.width = W;
     canvas.height = H;
 
-    const chars = " .:-=+*#%@";
-    let frame = 0;
+    // Resizing reset the context state, so set the font once here.
+    ctx.font = "3px Geist Mono, monospace";
 
-    const draw = () => {
+    const chars = " .:-=+*#%@";
+    // Glyph alpha runs 0.08-0.20. 64 steps are indistinguishable from a
+    // continuous ramp and let us reuse the style strings instead of building
+    // (and re-parsing) one per glyph.
+    const ALPHA_STEPS = 64;
+    const styles = Array.from(
+      { length: ALPHA_STEPS },
+      (_, i) => `rgba(99, 91, 255, ${0.08 + (i / (ALPHA_STEPS - 1)) * 0.12})`,
+    );
+    // This is decoration behind the hero text: 30fps looks the same and costs
+    // half. `frame` advances by two per drawn frame, so the motion keeps the
+    // speed it had at 60fps.
+    const FRAME_INTERVAL_MS = 1000 / 30;
+    let frame = 0;
+    let raf = 0;
+    let lastDraw = -Infinity;
+
+    const draw = (now: number) => {
+      raf = requestAnimationFrame(draw);
+      // 1ms of slack so vsync jitter doesn't skip a frame we could have drawn.
+      if (now - lastDraw < FRAME_INTERVAL_MS - 1) return;
+      lastDraw = now;
+
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, W, H);
-      ctx.font = "3px Geist Mono, monospace";
 
       for (let y = 0; y < H; y += 4) {
         for (let x = 0; x < W; x += 3) {
@@ -56,17 +77,36 @@ function DitherCanvas() {
               0.5 +
             0.5;
           const idx = Math.floor(noise * (chars.length - 1));
-          const alpha = 0.08 + noise * 0.12;
-          ctx.fillStyle = `rgba(99, 91, 255, ${alpha})`;
+          // chars[0] is a space: nothing to draw.
+          if (idx === 0) continue;
+          ctx.fillStyle = styles[Math.round(noise * (ALPHA_STEPS - 1))];
           ctx.fillText(chars[idx], x, y);
         }
       }
-      frame++;
-      requestAnimationFrame(draw);
+      frame += 2;
     };
 
-    const id = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(id);
+    const stop = () => {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
+
+    // Only animate while the hero is on screen. Cancelling the *latest* frame
+    // matters on unmount: the loop used to keep running after navigating to the
+    // editor, redrawing ~2k glyphs per frame on a detached canvas.
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        if (!raf) raf = requestAnimationFrame(draw);
+      } else {
+        stop();
+      }
+    });
+    observer.observe(canvas);
+
+    return () => {
+      observer.disconnect();
+      stop();
+    };
   }, []);
 
   return (

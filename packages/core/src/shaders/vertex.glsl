@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 
-in vec2 a_position;
+layout(location = 0) in vec2 a_position;
 out vec2 v_uv;
 
 // Mesh distortion uniforms (Phase 7)
@@ -12,7 +12,9 @@ uniform float u_meshSpeed;
 uniform float u_time;
 uniform mat4 u_mvp;
 uniform vec2 u_mouseSmooth;
+uniform float u_mousePresence;
 uniform float u_mouseReact;
+uniform vec2 u_resolution;
 
 // Cheap sin-based noise (v1 — upgrade to simplex later)
 float cheapNoise(vec2 p, float freq) {
@@ -31,10 +33,17 @@ void main() {
     float animOffset = u_time * u_meshSpeed;
     float disp = cheapNoise(pos.xy + animOffset, u_meshFrequency) * 0.5;
 
-    // Mouse-reactive: vertices near mouse get extra displacement
-    vec2 mousePos = u_mouseSmooth * 2.0 - 1.0; // convert 0-1 to -1..1
-    float mouseDist = length(pos.xy - mousePos);
-    float mouseInfluence = exp(-mouseDist * 3.0) * u_mouseReact;
+    // Mouse-reactive: vertices under the pointer get extra displacement. The
+    // distance is measured on screen, from where the undisplaced vertex lands
+    // to the pointer, in aspect-correct canvas heights, so the lift is a circle
+    // under the cursor whatever the camera does. The falloff is C1 and reaches
+    // exactly zero, and presence scales it so nothing lifts while the pointer
+    // is away.
+    vec4 flatClip = u_mvp * vec4(pos.xy, 0.0, 1.0);
+    vec2 toMouse = (flatClip.xy / flatClip.w - (u_mouseSmooth * 2.0 - 1.0))
+                 * vec2(u_resolution.x / u_resolution.y, 1.0) * 0.5;
+    float reach = max(1.0 - dot(toMouse, toMouse) / (0.3 * 0.3), 0.0);
+    float mouseInfluence = reach * reach * u_mouseReact * u_mousePresence;
 
     pos.z = (disp + mouseInfluence * 0.3) * u_meshDisplacement;
 

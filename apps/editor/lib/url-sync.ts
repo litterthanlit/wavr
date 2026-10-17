@@ -19,20 +19,60 @@
  *
  * Silent on failure (spec §6): never throw into the subscriber, log to dev
  * console only, leave the hash untouched on parse/encode error.
+ *
+ * Only the pure adapters and `DEFAULT_CONFIG` are bundled here. Everything that
+ * needs zod (decode, validate, encode) goes through `url-codec.ts`, loaded on
+ * demand by `loadUrlCodec()`; see that file for why. The empty-hash path (a
+ * fresh editor with no shared state) never needs it.
  */
 
 import {
-  GradientConfig,
-  encodeUrl,
-  tryDecodeUrl,
-  MAX_URL_BYTES,
   DEFAULT_CONFIG,
+  type GradientConfig,
   type Shape3DKind,
   type GradientType,
   type BlendMode as SchemaBlendMode,
 } from "@wavr/schema";
 import { createLayer, type LayerParams, type BlendMode as CoreBlendMode } from "@wavr/core";
 import { useGradientStore, type GradientState } from "./store";
+import { INITIAL_LAYER_PARAMS } from "./initial-scene";
+
+// ---------- lazy codec ---------------------------------------------------
+
+type UrlCodec = typeof import("./url-codec");
+
+let codec: UrlCodec | null = null;
+let codecLoad: Promise<UrlCodec> | null = null;
+
+/** True once `loadUrlCodec()` has resolved, so the sync code paths can run. */
+export function isUrlCodecLoaded(): boolean {
+  return codec !== null;
+}
+
+/**
+ * Load the zod-backed codec (once). Resolves immediately if a route already
+ * bundled it statically, e.g. /embed. A failed load can be retried.
+ */
+export function loadUrlCodec(): Promise<UrlCodec> {
+  if (!codecLoad) {
+    codecLoad = import("./url-codec").then(
+      (loaded) => {
+        codec = loaded;
+        return loaded;
+      },
+      (error: unknown) => {
+        codecLoad = null;
+        throw error;
+      },
+    );
+  }
+  return codecLoad;
+}
+
+/** Fire-and-forget `loadUrlCodec()` for hover/idle warm-ups. */
+export function preloadUrlCodec(): void {
+  loadUrlCodec().catch(() => undefined);
+}
 
 // ---------- module-scope state -------------------------------------------
 
@@ -385,18 +425,23 @@ function layerConfigToParams(l: GradientConfig["layers"][number]): LayerParams {
  * current page's origin+pathname joined with `#<encoded>` — no `s=` prefix
  * (see spec §11: naked V2 prefix).
  *
- * On encode failure (oversized config or parse error), returns the current
- * `window.location.href` as a best-effort fallback.
+ * On encode failure (oversized config or parse error), or if the codec isn't
+ * loaded yet, returns the current `window.location.href` as a best-effort
+ * fallback. `copyShareUrl` loads the codec first.
  */
 export function getShareUrlV2(state: GradientState): string {
+  if (!codec) {
+    console.info("[wavr] share URL: codec not loaded, returning current URL");
+    return typeof window !== "undefined" ? window.location.href : "";
+  }
   try {
     const config = storeToConfig(state);
-    const parsed = GradientConfig.safeParse(config);
+    const parsed = codec.GradientConfig.safeParse(config);
     if (!parsed.success) {
       console.info("[wavr] share URL: GradientConfig invalid, returning current URL");
       return typeof window !== "undefined" ? window.location.href : "";
     }
-    const encoded = encodeUrl(parsed.data);
+    const encoded = codec.encodeUrl(parsed.data);
     if (typeof window === "undefined") return `#${encoded}`;
     const url = new URL(window.location.href);
     url.hash = encoded;
@@ -417,19 +462,40 @@ export function getShareUrlV2(state: GradientState): string {
  * - Silent on failure (spec §6). One dev console.info on decode error.
  * - On V1 detection, logs dropped keys + rewrites the hash to V2 via
  *   `history.replaceState` so subsequent edits use the new format.
- * - On empty hash (via popstate to "#"), resets store to DEFAULT_CONFIG.
+ * - On empty hash (on mount, or via popstate to "#"), resets the schema-owned
+ *   slice to DEFAULT_CONFIG with the editor's initial scene as its layer, so
+ *   /editor opens on that scene rather than on the schema's bare baseline.
+ *
+ * An empty hash is applied synchronously. A hash that needs decoding is applied
+ * synchronously too once the codec is loaded; otherwise it waits for the codec
+ * (the returned promise settles after the store is updated). The editor starts
+ * fetching the codec when the page loads with a hash, so this normally lands
+ * before the first frame.
  */
-export function applyHashToStore(): void {
-  if (typeof window === "undefined") return;
+export function applyHashToStore(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
 
   const rawHash = window.location.hash;
   // Treat empty or bare "#" as "reset to default".
   if (!rawHash || rawHash === "#") {
-    applyConfig(DEFAULT_CONFIG);
-    return;
+    applyConfig({ ...DEFAULT_CONFIG, layers: [layerParamsToConfig(createLayer(INITIAL_LAYER_PARAMS))] });
+    return Promise.resolve();
   }
 
-  const result = tryDecodeUrl(rawHash);
+  if (!codec) {
+    // Re-read the hash once loaded: it may have changed again while waiting.
+    return loadUrlCodec().then(
+      () => applyHashToStore(),
+      (e: unknown) => console.info("[wavr] URL codec failed to load:", e),
+    );
+  }
+
+  applyEncodedHash(codec, rawHash);
+  return Promise.resolve();
+}
+
+function applyEncodedHash(c: UrlCodec, rawHash: string): void {
+  const result = c.tryDecodeUrl(rawHash);
   if (!result.ok) {
     console.info("[wavr] URL hash decode failed:", result.error);
     return;
@@ -448,7 +514,7 @@ export function applyHashToStore(): void {
   // use the new format. migrated=true for V1-legacy path only.
   if (result.migrated) {
     try {
-      const v2 = encodeUrl(result.config);
+      const v2 = c.encodeUrl(result.config);
       applyingFromUrl = true;
       try {
         window.history.replaceState(null, "", `#${v2}`);
@@ -481,14 +547,27 @@ function applyConfig(config: GradientConfig): void {
  *   `GradientConfig.safeParse`, encodes via `encodeUrl`.
  * - Skips on parse failure or oversize (one-time warn each).
  * - Uses `history.pushState` if `pushNextWrite` is set, else `replaceState`.
+ *
+ * Synchronous once the codec is loaded (the idle warm-up makes that the normal
+ * case); until then it waits for the codec and writes the then-current state.
+ * The beforeunload flush can't wait, so an edit made before the codec has
+ * loaded is not mirrored to the URL if the tab closes first.
  */
-function writeNow(): void {
+function writeNow(): Promise<void> {
+  if (codec) {
+    writeEncoded(codec);
+    return Promise.resolve();
+  }
+  return loadUrlCodec().then(writeEncoded, () => undefined);
+}
+
+function writeEncoded(c: UrlCodec): void {
   if (typeof window === "undefined") return;
   if (applyingFromUrl) return;
 
   const state = useGradientStore.getState();
   const config = storeToConfig(state);
-  const parsed = GradientConfig.safeParse(config);
+  const parsed = c.GradientConfig.safeParse(config);
   if (!parsed.success) {
     if (!warnedParseFailed) {
       warnedParseFailed = true;
@@ -499,14 +578,14 @@ function writeNow(): void {
 
   let encoded: string;
   try {
-    encoded = encodeUrl(parsed.data);
+    encoded = c.encodeUrl(parsed.data);
   } catch (e) {
     // encodeUrl throws on MAX_URL_BYTES breach or schema mismatch.
     const msg = e instanceof Error ? e.message : String(e);
     if (!warnedOversized && msg.includes("MAX_URL_BYTES")) {
       warnedOversized = true;
       console.warn(
-        `[wavr] URL sync skipped — encoded config exceeds ${MAX_URL_BYTES} bytes. Save as a preset instead.`,
+        `[wavr] URL sync skipped — encoded config exceeds ${c.MAX_URL_BYTES} bytes. Save as a preset instead.`,
       );
     } else {
       console.info("[wavr] URL encode failed:", msg);
@@ -515,11 +594,11 @@ function writeNow(): void {
   }
 
   // Double-check the ceiling in case encodeUrl is mocked (test).
-  if (encoded.length > MAX_URL_BYTES) {
+  if (encoded.length > c.MAX_URL_BYTES) {
     if (!warnedOversized) {
       warnedOversized = true;
       console.warn(
-        `[wavr] URL sync skipped — encoded config is ${encoded.length} bytes, exceeds ${MAX_URL_BYTES}. Save as a preset instead.`,
+        `[wavr] URL sync skipped — encoded config is ${encoded.length} bytes, exceeds ${c.MAX_URL_BYTES}. Save as a preset instead.`,
       );
     }
     return;
@@ -541,17 +620,16 @@ function scheduleWrite(): void {
   if (debounceTimer !== null) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
-    writeNow();
+    void writeNow();
   }, 200);
 }
 
-/** Synchronously flush any pending write. Used by beforeunload. */
-function flushWrite(): void {
-  if (debounceTimer !== null) {
-    clearTimeout(debounceTimer);
-    debounceTimer = null;
-    writeNow();
-  }
+/** Flush any pending write now. Used by beforeunload. */
+function flushWrite(): Promise<void> {
+  if (debounceTimer === null) return Promise.resolve();
+  clearTimeout(debounceTimer);
+  debounceTimer = null;
+  return writeNow();
 }
 
 // ---------- public init --------------------------------------------------
@@ -572,10 +650,10 @@ export function initializeUrlSync(): () => void {
   });
 
   const onPopState = (): void => {
-    applyHashToStore();
+    void applyHashToStore();
   };
   const onBeforeUnload = (): void => {
-    flushWrite();
+    void flushWrite();
   };
 
   window.addEventListener("popstate", onPopState);
@@ -604,7 +682,7 @@ export function __resetUrlSyncForTests(): void {
   initialized = false;
 }
 
-/** Trigger a write for tests without waiting for debounce. */
-export function __flushForTests(): void {
-  flushWrite();
+/** Trigger a write for tests without waiting for debounce. Resolves once it has run. */
+export function __flushForTests(): Promise<void> {
+  return flushWrite();
 }

@@ -9,8 +9,11 @@
 // frame clears the backbuffer when preserveDrawingBuffer is false — every
 // fixture then hashed identically. captureFrame() is the follow-up the spec
 // called out (engine.renderNow + readPixels in the same turn).
+//
+// __wavrReady also compiles the layer program of every gradient type (see the
+// warmup loop), so it rejects if any shader fails to compile.
 
-import { createGradient, type GradientConfig, type GradientHandle } from "@wavr/core";
+import { GRADIENT_TYPES, createGradient, type GradientConfig, type GradientHandle } from "@wavr/core";
 
 declare global {
   interface Window {
@@ -94,6 +97,30 @@ const ready = (async () => {
   handle.setSpeed(0);
   handle.pause();
   log("engine:paused");
+
+  // Layer programs compile lazily, one per gradient type, so a shader that
+  // fails to compile only shows when something draws that type. Draw every
+  // type once before declaring ready: captureFrame() waits for the program to
+  // link and throws with the info log if it didn't, which fails __wavrReady
+  // (and so the parity run) instead of surfacing mid-suite or never.
+  for (const type of GRADIENT_TYPES) {
+    const started = performance.now();
+    handle.update({
+      layers: [
+        {
+          type,
+          colors: [
+            [0, 0, 0],
+            [1, 1, 1],
+          ],
+          speed: 0,
+        },
+      ],
+    });
+    handle.pause();
+    handle.captureFrame();
+    log(`warmup:${type} ${Math.round(performance.now() - started)}ms`);
+  }
   log("exposing __wavrRender");
 
   window.__wavrRender = async (config: GradientConfig, time: number): Promise<Uint8Array> => {

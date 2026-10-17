@@ -9,7 +9,7 @@ import {
   pngExportSize, type FrameSource, type SceneCaptureFn,
 } from "@/lib/export";
 import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
-import { encodeState } from "@/lib/url";
+import { encodeState } from "@/lib/url-codec";
 import {
   getRuntimeEmbedFidelityReport,
   sceneDocumentToJson,
@@ -199,6 +199,14 @@ export default function ExportModal({
     softness: store.softness as number,
     brightness: store.brightness,
     saturation: store.saturation,
+    hueShift: store.hueShift,
+    domainWarp: store.domainWarp,
+    colorBlend: store.colorBlend,
+    oklabEnabled: store.oklabEnabled,
+    toneMapMode: store.toneMapMode,
+    mouseReact: store.mouseReact,
+    debandEnabled: store.debandEnabled,
+    debandStrength: store.debandStrength,
   };
 
   const stateHash = encodeState(store);
@@ -210,6 +218,10 @@ export default function ExportModal({
     keyframeCount: store.keyframes.length,
     audioEnabled: store.audioEnabled,
     customGLSL: store.customGLSL,
+    mouseReact: store.mouseReact,
+    rippleEnabled: store.rippleEnabled,
+    trailEnabled: store.trailEnabled,
+    parallaxEnabled: store.parallaxEnabled,
   });
   const runtimeReport = getRuntimeEmbedFidelityReport(store);
   const shareUrl = typeof window !== "undefined"

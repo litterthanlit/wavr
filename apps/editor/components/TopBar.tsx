@@ -4,6 +4,13 @@ import { useState } from "react";
 import { useGradientStore, canUndo, canRedo } from "@/lib/store";
 import { useTheme } from "@/lib/useTheme";
 import { copyShareUrl } from "@/lib/url";
+import { preloadUrlCodec } from "@/lib/url-sync";
+import {
+  preloadExportModal,
+  preloadProjectsModal,
+  preloadSceneGalleryModal,
+  preloadShortcutsModal,
+} from "@/components/lazy";
 
 interface TopBarProps {
   onScenes: () => void;
@@ -36,7 +43,12 @@ export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects
 
       {/* Center: Playback + Utils */}
       <div className="flex items-center gap-2">
-        <button onClick={onScenes} className="topbar-btn topbar-btn-accent">
+        <button
+          onClick={onScenes}
+          onPointerEnter={preloadSceneGalleryModal}
+          onFocus={preloadSceneGalleryModal}
+          className="topbar-btn topbar-btn-accent"
+        >
           Scenes
         </button>
         <button onClick={randomize} className="topbar-btn">
@@ -46,7 +58,13 @@ export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects
           {playing ? "Pause" : "Play"}
         </button>
         <div className="topbar-divider" />
-        <button onClick={onShowShortcuts} aria-label="Keyboard shortcuts" className="topbar-btn">
+        <button
+          onClick={onShowShortcuts}
+          onPointerEnter={preloadShortcutsModal}
+          onFocus={preloadShortcutsModal}
+          aria-label="Keyboard shortcuts"
+          className="topbar-btn"
+        >
           ?
         </button>
         <button onClick={cycleTheme} aria-label={`Theme: ${themeLabel}`} className="topbar-btn">
@@ -62,15 +80,27 @@ export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects
             setLinkCopied(true);
             setTimeout(() => setLinkCopied(false), 2000);
           }}
+          onPointerEnter={preloadUrlCodec}
+          onFocus={preloadUrlCodec}
           className="topbar-btn"
         >
           {linkCopied ? "Copied!" : "Share"}
         </button>
-        <button onClick={onProjects} className="topbar-btn">
+        <button
+          onClick={onProjects}
+          onPointerEnter={preloadProjectsModal}
+          onFocus={preloadProjectsModal}
+          className="topbar-btn"
+        >
           Projects
         </button>
         <div className="topbar-divider" />
-        <button onClick={onExport} className="topbar-btn">
+        <button
+          onClick={onExport}
+          onPointerEnter={preloadExportModal}
+          onFocus={preloadExportModal}
+          className="topbar-btn"
+        >
           Export
         </button>
       </div>

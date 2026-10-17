@@ -15,3 +15,9 @@ export const publishedTypesMatchCore: [
   Equal<Published.MaskBlendMode, Core.MaskBlendMode>,
   Equal<Published.TextMaskAlign, Core.TextMaskAlign>,
 ] = [true, true, true, true, true, true];
+
+// The pointer methods of the handle, which WavrGradient calls on what createGradient returns.
+type PointerMethods = "setMouse" | "setPointerActive" | "triggerRipple";
+export const publishedHandleMatchesCore: [
+  Equal<Pick<Published.GradientHandle, PointerMethods>, Pick<Core.GradientHandle, PointerMethods>>,
+] = [true];

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
 import { RANDOM_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
+import { INITIAL_LAYER_PARAMS } from "./initial-scene";
 import {
   DEFAULT_SCENE_3D_STATE,
   cloneScene3D,
@@ -20,9 +21,22 @@ import { markPushPoint } from "./url-sync";
 
 export type PerformanceMode = "auto" | "quality" | "battery";
 
+/**
+ * How sharp the layers are drawn (GradientEngine.setRenderScale): a fixed
+ * fraction of the canvas, or one the engine adapts between 1 and `minScale`
+ * to hold `targetFps`. The global effects and exports are always full size.
+ * The floor stays at 0.6 because masks and text masks are drawn at this scale
+ * too (the engine keeps text masks at 0.8 or above), and below that edges that
+ * are hard in the gradient start to show steps.
+ */
+export type RenderScaleSetting =
+  | { mode: "fixed"; scale: number }
+  | { mode: "adaptive"; minScale: number; targetFps: number };
+
 export interface EditorPerformanceSettings {
   maxPixelRatio: number;
   maxFrameRate: number;
+  renderScale: RenderScaleSetting;
   sceneDprCap: number;
   sceneMaxFps: number;
   realBloom: "preserve" | "off";
@@ -36,6 +50,7 @@ export function getEditorPerformanceSettings(mode: PerformanceMode): EditorPerfo
       return {
         maxPixelRatio: 2,
         maxFrameRate: 60,
+        renderScale: { mode: "fixed", scale: 1 },
         sceneDprCap: 2,
         sceneMaxFps: 60,
         realBloom: "preserve",
@@ -46,6 +61,7 @@ export function getEditorPerformanceSettings(mode: PerformanceMode): EditorPerfo
       return {
         maxPixelRatio: 1,
         maxFrameRate: 30,
+        renderScale: { mode: "fixed", scale: 0.75 },
         sceneDprCap: 1,
         sceneMaxFps: 30,
         realBloom: "off",
@@ -57,6 +73,7 @@ export function getEditorPerformanceSettings(mode: PerformanceMode): EditorPerfo
       return {
         maxPixelRatio: 1.5,
         maxFrameRate: 45,
+        renderScale: { mode: "adaptive", minScale: 0.6, targetFps: 45 },
         sceneDprCap: 1.5,
         sceneMaxFps: 45,
         realBloom: "preserve",
@@ -311,7 +328,7 @@ function deriveActiveLayerFields(layers: LayerParams[], activeLayerIndex: number
   };
 }
 
-const initialLayer = createLayer();
+const initialLayer = createLayer(INITIAL_LAYER_PARAMS);
 
 const DEFAULTS = {
   layers: [initialLayer],

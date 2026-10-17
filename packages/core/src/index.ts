@@ -1,5 +1,7 @@
-export { GradientEngine, GRADIENT_TYPE_IDS, fitSize } from "./engine";
+export { GradientEngine, GRADIENT_TYPE_IDS, FULL_RESOLUTION_GRADIENTS, TEXT_MASK_MIN_SCALE, fitSize } from "./engine";
 export { createGradient } from "./create";
+export { attachPointer } from "./attach-pointer";
+export type { AttachPointerOptions, PointerTarget } from "./attach-pointer";
 export type { EngineState, CaptureOptions } from "./engine";
 export type { LayerParams, GradientType, BlendMode, ImageBlendMode, MaskParams, MaskShape, MaskBlendMode, TextMaskAlign } from "./layers";
 export { createLayer, defaultSoftnessForGradientType, DEFAULT_LAYER, DEFAULT_MASK, MAX_LAYERS } from "./layers";
@@ -22,3 +24,31 @@ export {
   summarizeGpuResources,
 } from "./instrumentation";
 export type { EngineMetrics, GpuResourceSample, GpuResourceSummary } from "./instrumentation";
+export { SHADER_PARTS } from "./shader-sources";
+export type { ShaderParts } from "./shader-sources";
+export {
+  MAX_POINTER_SPEED,
+  MAX_POINTER_STEP,
+  POINTER_OMEGA,
+  PRESENCE_OMEGA_IN,
+  PRESENCE_OMEGA_OUT,
+  SNAP_PRESENCE,
+} from "./pointer";
+export {
+  PALETTE_SIZE,
+  MAX_PALETTE_COLORS,
+  bakePalette,
+  effectiveBlend,
+  paletteDomain,
+  paletteReach,
+} from "./palette";
+export {
+  DEFAULT_MIN_RENDER_SCALE,
+  RenderScaleController,
+  createRenderScaleConfig,
+  initialRenderScaleState,
+  percentile,
+  renderScaleLevels,
+  stepRenderScale,
+} from "./render-scale";
+export type { RenderScaleConfig, RenderScaleOptions, RenderScaleState } from "./render-scale";

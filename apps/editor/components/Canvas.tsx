@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { GradientEngine, type EngineMetrics } from "@wavr/core";
+import { GradientEngine, attachPointer, type EngineMetrics } from "@wavr/core";
 import {
   useGradientStore,
   GradientState,
   getEditorPerformanceSettings,
 } from "@/lib/store";
 import { normalizeTimelineTime, type PlaybackMode } from "@/lib/timeline";
-import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
+import { applyEnginePerformanceSettings, applyTimeline, withPerformanceMode } from "@/lib/frame-state";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
 import Toast from "@/components/ui/Toast";
 
@@ -64,11 +64,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const [metrics, setMetrics] = useState<EngineMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [contextLost, setContextLost] = useState(false);
+  const [compiling, setCompiling] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const degradedRef = useRef(false);
   const textCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastTextParamsRef = useRef<string>("");
-  const lowFpsStartRef = useRef<number | null>(null);
   const initErrorRef = useRef<string | null>(null);
   const textMaskParamsKey = useGradientStore((state) => {
     const layer = state.layers[state.activeLayerIndex];
@@ -84,24 +84,6 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       align: layer.textMaskAlign,
     });
   });
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !engineRef.current) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = 1.0 - (e.clientY - rect.top) / rect.height;
-    engineRef.current.setMouse(x, y);
-  }, []);
-
-  const handleClick = useCallback((e: MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !engineRef.current) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = 1.0 - (e.clientY - rect.top) / rect.height;
-    engineRef.current.triggerRipple(x, y);
-  }, []);
 
   const syncTextMaskTexture = useCallback(() => {
     const engine = engineRef.current;
@@ -191,9 +173,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     }
     engineRef.current = engine;
     const applyPerformanceMode = () => {
-      const settings = getEditorPerformanceSettings(useGradientStore.getState().performanceMode);
-      engine.setMaxPixelRatio(settings.maxPixelRatio);
-      engine.setMaxFrameRate(settings.maxFrameRate);
+      applyEnginePerformanceSettings(engine, getEditorPerformanceSettings(useGradientStore.getState().performanceMode));
     };
     applyPerformanceMode();
     onCanvasReady?.(canvas);
@@ -224,6 +204,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     const handleContextRestored = () => {
       try {
         engine.initProgram();
+        // initProgram dropped the text mask texture along with everything else.
+        lastTextParamsRef.current = "";
         resize();
         startEngineLoop();
         setContextLost(false);
@@ -236,23 +218,34 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       setFps(newFps);
       setMetrics(engine.getMetrics());
 
-      if (degradedRef.current) return;
+      // In auto mode the engine lowers its render scale on its own when frames
+      // run late (and raises it again later). The user's settings are not
+      // touched; tell them once why the picture may be softer.
+      if (!degradedRef.current && engine.getRenderScale() < 1 && useGradientStore.getState().performanceMode === "auto") {
+        degradedRef.current = true;
+        setToastMsg("Lowered render resolution to keep playback smooth");
+      }
+    };
 
-      if (newFps < 30) {
-        if (lowFpsStartRef.current === null) {
-          lowFpsStartRef.current = performance.now();
-        } else if (performance.now() - lowFpsStartRef.current > 2000) {
-          degradedRef.current = true;
-          const state = useGradientStore.getState();
-          const updates: Partial<typeof state> = {};
-          if (state.complexity > 1) updates.complexity = state.complexity - 1;
-          if (Object.keys(updates).length > 0) {
-            useGradientStore.getState().set(updates);
-            setToastMsg("Reduced quality for performance");
-          }
+    // Gradient types compile the first time they are drawn. Frames are skipped
+    // until then (the last one stays on screen); only hint at it when a
+    // compile takes noticeable time.
+    let compilingSince = 0;
+    let compilingShown = false;
+    const trackCompiling = () => {
+      if (!engine.isCompiling()) {
+        compilingSince = 0;
+        if (compilingShown) {
+          compilingShown = false;
+          setCompiling(false);
         }
-      } else {
-        lowFpsStartRef.current = null;
+        return;
+      }
+      const now = performance.now();
+      if (compilingSince === 0) compilingSince = now;
+      if (!compilingShown && now - compilingSince > 300) {
+        compilingShown = true;
+        setCompiling(true);
       }
     };
 
@@ -261,6 +254,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     let lastSyncedTimelinePosition = timelineSampleTime;
     let lastTimelineCursorSync = 0;
     const getFrameState = () => {
+      trackCompiling();
       const state = useGradientStore.getState();
 
       // Advance timeline position and apply interpolated params
@@ -309,7 +303,8 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     const startEngineLoop = () => {
       lastTimelineUpdate = performance.now();
-      engine.startLoop(getFrameState, handleFps);
+      // A shader that fails to compile surfaces here, from the first frame that needs it.
+      engine.startLoop(getFrameState, handleFps, (err) => setError(err.message));
     };
 
     const handleVisibilityChange = () => {
@@ -322,9 +317,9 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
     canvas.addEventListener("webglcontextlost", handleContextLost);
     canvas.addEventListener("webglcontextrestored", handleContextRestored);
-    window.addEventListener("mousemove", handleMouseMove);
+    // The pointer reacts while it is over the canvas, not anywhere on the page.
+    const detachPointer = attachPointer(canvas, engine, { ripple: true });
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    canvas.addEventListener("click", handleClick);
 
     const unsubscribePerformance = useGradientStore.subscribe((state, prev) => {
       if (state.performanceMode !== prev.performanceMode) {
@@ -340,13 +335,12 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       canvas.removeEventListener("webglcontextlost", handleContextLost);
       canvas.removeEventListener("webglcontextrestored", handleContextRestored);
       resizeObserver.disconnect();
-      window.removeEventListener("mousemove", handleMouseMove);
+      detachPointer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      canvas.removeEventListener("click", handleClick);
       unsubscribePerformance();
       engine.destroy();
     };
-  }, [handleMouseMove, handleClick, onCanvasReady, onEngineReady, syncTextMaskTexture]);
+  }, [onCanvasReady, onEngineReady, syncTextMaskTexture]);
 
   // Reduced motion: pause by default
   useEffect(() => {
@@ -381,11 +375,17 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
           <p className="text-text-secondary text-sm">Recovering WebGL context...</p>
         </div>
       )}
+      {compiling && !contextLost && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <p className="rounded bg-base/70 px-2 py-1 text-xs text-text-secondary">Compiling shader...</p>
+        </div>
+      )}
       <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded hidden lg:block">
         {fps} FPS
         {metrics && (
           <> · {metrics.lastCpuFrameMs.toFixed(1)}ms CPU · {metrics.framebufferCount} FBO · {formatBytes(metrics.estimatedBytes)}</>
         )}
+        {metrics && metrics.renderScale < 1 && <> · {Math.round(metrics.renderScale * 100)}% res</>}
       </div>
       <Toast
         message={toastMsg ?? ""}
