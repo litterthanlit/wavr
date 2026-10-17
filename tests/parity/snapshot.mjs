@@ -50,6 +50,8 @@ const PALETTES = {
   duo: ["#1a1a4d", "#e6808f"],
   mono: ["#0d0d0d", "#6b6b6b", "#f2f2f2"],
   night: ["#050a1f", "#0f9e8f", "#6354e6", "#c9f2dc"],
+  dusk: ["#14123b", "#5b3bd6", "#e0489a", "#ffb38a"],
+  ember: ["#1a0b2e", "#6a1b9a", "#ff5e7e", "#ffc27a"],
 };
 
 function parseHexPalette(spec) {

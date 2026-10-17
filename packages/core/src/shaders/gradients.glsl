@@ -16,7 +16,8 @@
 //   end colours never appear and everything comes out the average of the lot.
 // - Never add white. Brightness comes from the palette; depth comes from
 //   multiplying by satin() light, which only ever deepens or lifts the colour.
-// - No pixel-scale patterns, and nothing that jumps in time.
+// - No pixel-scale patterns (grainflow's grain is white noise sized from the canvas
+//   height, so it is the same in a 4x export), and nothing that jumps in time.
 // Mouse interaction is mouseWarp() in layer.glsl, not here.
 
 // ============================================================
@@ -35,7 +36,7 @@ vec3 meshGradient(vec2 uv, float time) {
   vec2 p = centeredUV(uv) * u_scale;
   float warp = u_distortion + u_domainWarp * 0.6;
   // The sheet itself is gently warped (one low octave).
-  p += 0.3 * warp * vec2(
+  p += (0.1 + 0.4 * warp) * vec2(
     snoise(p * 0.8 + vec2(time * 0.05, 3.1)),
     snoise(p * 0.8 + vec2(7.3, -time * 0.05))
   );
@@ -138,7 +139,7 @@ vec3 voronoiGradient(vec2 uv, float time) {
   vec3 c = cellular(p, time * 0.5);
   float t = c.z + (c.x - 0.35) * 0.35;
   float seam = smoothstep(0.0, 0.05 + 0.2 * u_softness, c.y - c.x);
-  return foldedColor(spread01(t, 1.0)) * mix(0.8, 1.0, seam);
+  return foldedColor(t) * mix(0.8, 1.0, seam);
 }
 #endif
 
@@ -374,9 +375,11 @@ vec3 scanlineGradient(vec2 uv, float time) {
   vec3 color = mix(bg, blockColor * 0.4, halo * inBlock * 0.55);
   color = mix(color, bar, colMask * blockMask);
 
-  // Scanlines: a fixed number per canvas height, so they match at any size.
+  // Scanlines: a fixed number per canvas height, so they match at any size. They
+  // fade out where a period gets under about 3 px, rather than alias into moire.
   float lines = 0.5 + 0.5 * sin(p.y * 240.0 * 3.14159);
-  return color * mix(0.8, 1.0, lines);
+  float visible = smoothstep(1.5, 4.0, u_resolution.y / 120.0);
+  return color * mix(1.0, mix(0.8, 1.0, lines), visible);
 }
 #endif
 
