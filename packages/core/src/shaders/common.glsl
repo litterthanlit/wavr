@@ -371,12 +371,53 @@ vec3 getGradientColor(float t) {
   return color;
 }
 
+// ============================================================
+// Gradient field helpers
+// ============================================================
+// The gradient functions turn a smooth scalar field into a palette position.
+// These keep that mapping free of seams, flat plateaus and added white.
+
 float soft01(float v) {
   return smoothstep(0.02, 0.98, clamp(v, 0.0, 1.0));
 }
 
 float signedTo01(float v) {
   return clamp(v * 0.5 + 0.5, 0.0, 1.0);
+}
+
+// Centred, aspect-corrected coordinates: one unit is the canvas height, so
+// forms stay round on any viewport.
+vec2 centeredUV(vec2 uv) {
+  return (uv - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0);
+}
+
+// Mirrored wrap: 0 -> 1 -> 0 -> 1, where fract() would jump from 1 straight back
+// to 0 (a hard seam in the palette). The palette is flat at both ends, so the
+// fold leaves no crease either. Period 2, so anything that must close on itself
+// (an angle) has to advance by a multiple of 2 per turn.
+float pingPong(float x) {
+  return 1.0 - abs(1.0 - 2.0 * fract(x * 0.5));
+}
+
+// Keeps coordinates inside the canvas by folding them back smoothly (a sine
+// that is nearly the identity near the middle and has a zero slope where it
+// turns), so a layout built for one canvas repeats, mirrored, when the scale
+// zooms out past it, with no crease where it folds.
+vec2 softFold(vec2 p) {
+  vec2 h = vec2(0.62 * u_resolution.x / u_resolution.y, 0.62);
+  return h * sin(p / h);
+}
+
+// Contrast about the middle. Noise clusters around 0.5 and rarely reaches the
+// ends of the palette, so a raw field comes out as its average colour. Follow
+// with pingPong() so the stretched tails fold back instead of clamping flat.
+float spread01(float v, float gain) {
+  return 0.5 + (v - 0.5) * gain;
+}
+
+// A palette colour for a field that may leave 0..1.
+vec3 foldedColor(float x) {
+  return getGradientColor(pingPong(x));
 }
 
 vec2 softDomainWarp(vec2 p, float time, float amount) {
@@ -388,12 +429,45 @@ vec2 softDomainWarp(vec2 p, float time, float amount) {
   return p + q * amount;
 }
 
-vec3 finishSoftGradient(float field, float lift) {
-  float t = soft01(field);
-  vec3 color = getGradientColor(t);
-  float sheen = smoothstep(0.55, 0.98, t) * lift * (0.2 + u_softness * 0.5);
-  color += sheen;
-  return color;
+// Satin light on a height field. The field's own screen-space slope (derivatives,
+// so no extra evaluations) says whether a point faces a light in the upper left:
+// +1 lifts toward it, -1 turns away, 0 is flat. Soft-signed, so it never goes
+// harsh. The slope is per canvas height, so it looks the same at any resolution.
+float satin(float height, float relief) {
+  vec2 slope = vec2(dFdx(height), dFdy(height)) * (u_resolution.y * relief);
+  float lit = dot(slope, vec2(-0.6, 0.8));
+  return lit / (1.0 + abs(lit));
+}
+
+// Multiplier for a colour under satin light. Shadowed folds deepen the colour,
+// lit ones lift it a little; flat areas keep the palette colour as it is, and
+// since it only scales the colour it never pushes it toward white.
+float satinShade(float satinLight, float strength) {
+  return 1.0 + strength * (0.32 * min(satinLight, 0.0) + 0.12 * max(satinLight, 0.0));
+}
+
+// Palette colour at `t` (0..1), lit like satin by the slope of `height`.
+vec3 satinColor(float t, float height, float relief) {
+  return getGradientColor(t) * satinShade(satin(height, relief), 1.0);
+}
+
+// The soft modes' palette lookup: an S-curve on the field (so colours hold in
+// the middle of a form and change at its edges), lit like satin by `relief`.
+vec3 finishSoftGradient(float field, float relief) {
+  return satinColor(smoothstep(0.0, 1.0, clamp(field, 0.0, 1.0)), field, relief);
+}
+
+// White noise, one value per `cell` pixels. The cell grows with the canvas
+// (about 540 px of height per grain), so grain looks the same in a 4x export as
+// on screen. An integer hash: no sine, so no pattern, and no drift between GPUs.
+float grain01(vec2 fragCoord) {
+  float cell = max(1.0, floor(u_resolution.y / 540.0 + 0.5));
+  uvec2 q = uvec2(floor(fragCoord / cell)) * uvec2(1597334673u, 3812015801u);
+  uint n = (q.x ^ q.y) * 1597334673u;
+  n ^= n >> 15u;
+  n *= 2246822519u;
+  n ^= n >> 13u;
+  return float(n >> 8u) * (1.0 / 16777216.0);
 }
 
 float hash(vec2 p) {
@@ -435,6 +509,34 @@ vec2 voronoi(vec2 p) {
     }
   }
   return vec2(sqrt(md), dot(mr, normalize(mr)));
+}
+
+// Cellular noise whose feature points drift inside their cells, so the cells
+// morph rather than slide. x = distance to the nearest point, y = to the second
+// nearest (y - x is 0 on a border), z = a random 0..1 value of the nearest cell.
+vec3 cellular(vec2 p, float time) {
+  vec2 n = floor(p);
+  vec2 f = fract(p);
+  float d1 = 8.0;
+  float d2 = 8.0;
+  float id = 0.0;
+  for (int j = -1; j <= 1; j++) {
+    for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 h = hash22(n + g);
+      vec2 o = 0.5 + 0.38 * sin(time + 6.2831 * h);
+      vec2 r = g + o - f;
+      float d = dot(r, r);
+      if (d < d1) {
+        d2 = d1;
+        d1 = d;
+        id = hash(n + g + 17.3);
+      } else if (d < d2) {
+        d2 = d;
+      }
+    }
+  }
+  return vec3(sqrt(d1), sqrt(d2), id);
 }
 
 // ============================================================
