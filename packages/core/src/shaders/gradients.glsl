@@ -4,26 +4,21 @@
 // a branch in computeGradient() at the bottom.
 
 // ============================================================
-// Gradient Modes — each with physics-matched mouse interaction
+// Gradient Modes (mouse interaction is mouseWarp() in layer.glsl, not here)
 // ============================================================
 
 
 #if WAVR_GRADIENT == 0
 vec3 meshGradient(vec2 uv, float time) {
-  // Mesh: fluid displacement — mouse pushes colors like water
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = fluidDisplace(p, u_mouseReact);
-  }
   p *= u_scale;
   int octaves = int(u_complexity);
 
-  // Layered fBm with velocity-influenced turbulence
-  float velMag = length(u_mouseVelocity) * u_mouseReact * 0.004;
+  // Layered fBm
   float warp = u_distortion + u_domainWarp * 0.5;
   float n1 = fbm(p + vec2(time * 0.3, time * 0.2), octaves);
-  float n2 = fbm(p + vec2(n1 * warp + time * 0.1 + velMag, n1 * warp - time * 0.15), octaves);
-  float n3 = fbm(p + vec2(n2 * warp * 0.8 + velMag * 0.5, n2 * warp * 0.8 + time * 0.05), octaves);
+  float n2 = fbm(p + vec2(n1 * warp + time * 0.1, n1 * warp - time * 0.15), octaves);
+  float n3 = fbm(p + vec2(n2 * warp * 0.8, n2 * warp * 0.8 + time * 0.05), octaves);
   // Extra warping layers when domain warp is active
   float colorVal;
   if (u_domainWarp > 0.01) {
@@ -39,25 +34,15 @@ vec3 meshGradient(vec2 uv, float time) {
 
 #if WAVR_GRADIENT == 1
 vec3 radialGradient(vec2 uv, float time) {
-  // Radial: ripple waves emanate from mouse position
   vec2 center = vec2(0.5);
   vec2 p = (uv - center) * u_scale;
   float dist = length(p);
   float angle = atan(p.y, p.x);
 
-  // Mouse creates ripple interference — multiple rings, speed-responsive
-  float mouseRipple = 0.0;
-  if (u_mouseReact > 0.0) {
-    mouseRipple = rippleEffect(uv, time) * u_mouseReact * (u_distortion + 0.3);
-    // Second harmonic ripple for richness
-    float dist2 = length(uv - u_mouseSmooth);
-    mouseRipple += sin(dist2 * 35.0 - time * 7.0) * smoothstep(0.6, 0.0, dist2) * u_mouseReact * 0.2;
-  }
-
   float wave = sin(dist * u_complexity * 3.14159 - time * 2.0 + angle * 2.0) * u_distortion;
-  float n = fbm(vec2(dist + wave + mouseRipple, angle + time * 0.2) * 2.0, int(u_complexity));
+  float n = fbm(vec2(dist + wave, angle + time * 0.2) * 2.0, int(u_complexity));
 
-  float colorVal = dist + n * u_distortion + mouseRipple * 0.7;
+  float colorVal = dist + n * u_distortion;
   colorVal = fract(colorVal);
   return getGradientColor(colorVal);
 }
@@ -65,11 +50,7 @@ vec3 radialGradient(vec2 uv, float time) {
 
 #if WAVR_GRADIENT == 2
 vec3 linearGradient(vec2 uv, float time) {
-  // Linear: magnet pull warps the gradient toward cursor
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = magnetDisplace(p, u_mouseReact);
-  }
   p *= u_scale;
 
   float base = p.x + p.y * 0.5;
@@ -83,13 +64,7 @@ vec3 linearGradient(vec2 uv, float time) {
 
 #if WAVR_GRADIENT == 3
 vec3 conicGradient(vec2 uv, float time) {
-  // Conic: vortex swirl at mouse — spins the whole gradient
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    // Double-apply: vortex swirl + gravity lens for dramatic rotation
-    p = vortexDisplace(p, u_mouseReact);
-    p = gravityDisplace(p, u_mouseReact * 0.5);
-  }
 
   vec2 center = vec2(0.5);
   vec2 pp = (p - center) * u_scale;
@@ -106,22 +81,7 @@ vec3 conicGradient(vec2 uv, float time) {
 
 #if WAVR_GRADIENT == 4
 vec3 plasmaGradient(vec2 uv, float time) {
-  // Plasma: mouse creates interference patterns like a stone in water
   vec2 p = uv * u_scale * 3.0;
-
-  // Mouse interference: strong overlapping wave rings from cursor
-  float mouseWave = 0.0;
-  if (u_mouseReact > 0.0) {
-    vec2 toMouse = uv * u_scale * 3.0 - u_mouseSmooth * u_scale * 3.0;
-    float mDist = length(toMouse);
-    float speed = length(u_mouseVelocity);
-    // Primary wave: big expanding rings
-    mouseWave = sin(mDist * 5.0 - time * 4.0) * u_mouseReact;
-    mouseWave *= smoothstep(3.0, 0.0, mDist);
-    // Secondary interference from velocity
-    mouseWave += sin(mDist * 8.0 - time * 6.0) * u_mouseReact * 0.4 * smoothstep(2.0, 0.0, mDist);
-    mouseWave *= (1.0 + speed * 0.01);
-  }
 
   float v = 0.0;
   v += sin(p.x * u_complexity + time);
@@ -130,7 +90,6 @@ vec3 plasmaGradient(vec2 uv, float time) {
   float cx = p.x + 0.5 * sin(time * 0.3);
   float cy = p.y + 0.5 * cos(time * 0.4);
   v += sin(sqrt(cx * cx + cy * cy + 1.0) * u_complexity);
-  v += mouseWave;
 
   float colorVal = v * 0.25 + 0.5;
   colorVal += fbm(p * 0.5 + time * 0.1, int(min(u_complexity, 4.0))) * u_distortion * 0.3;
@@ -142,12 +101,7 @@ vec3 plasmaGradient(vec2 uv, float time) {
 
 #if WAVR_GRADIENT == 9
 vec3 voronoiGradient(vec2 uv, float time) {
-  // Voronoi: gravity lens — cells warp and bend around cursor
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = gravityDisplace(p, u_mouseReact);
-    p = fluidDisplace(p, u_mouseReact * 0.3); // subtle push on top
-  }
   p *= u_scale * 4.0;
 
   // Animate cell positions
@@ -173,9 +127,6 @@ vec3 voronoiGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 10
 vec3 silkGradient(vec2 uv, float time) {
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = fluidDisplace(p, u_mouseReact * 0.55);
-  }
   p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0) + 0.5;
   p *= u_scale * 1.35;
 
@@ -196,9 +147,6 @@ vec3 silkGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 11
 vec3 auroraGradient(vec2 uv, float time) {
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = gravityDisplace(p, u_mouseReact * 0.35);
-  }
   p *= u_scale;
   float drift = time * 0.13;
 
@@ -217,9 +165,6 @@ vec3 auroraGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 12
 vec3 liquidGradient(vec2 uv, float time) {
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = fluidDisplace(p, u_mouseReact * 0.7);
-  }
   p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0) + 0.5;
   p *= u_scale * 1.35;
   p = softDomainWarp(p, time, u_distortion * 1.15 + u_softness * 0.35);
@@ -247,10 +192,6 @@ vec3 liquidGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 13
 vec3 softCellsGradient(vec2 uv, float time) {
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = gravityDisplace(p, u_mouseReact * 0.45);
-    p = fluidDisplace(p, u_mouseReact * 0.15);
-  }
   p *= u_scale * 3.2;
   p = softDomainWarp(p, time, u_distortion * 1.35 + u_softness * 0.45);
 
@@ -265,9 +206,6 @@ vec3 softCellsGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 14
 vec3 grainflowGradient(vec2 uv, float time) {
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = magnetDisplace(p, u_mouseReact * 0.35);
-  }
   p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0) + 0.5;
   p *= u_scale * 1.55;
   p = softDomainWarp(p, time, u_distortion * 1.15 + u_softness * 0.42);
@@ -291,9 +229,6 @@ vec3 grainflowGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 15
 vec3 prismGlassGradient(vec2 uv, float time) {
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = gravityDisplace(p, u_mouseReact * 0.42);
-  }
   p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0);
   p *= u_scale * 1.25;
   p = softDomainWarp(p + 0.5, time, u_distortion * 1.25 + u_softness * 0.35) - 0.5;
@@ -314,9 +249,6 @@ vec3 prismGlassGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 16
 vec3 neonTunnelGradient(vec2 uv, float time) {
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = vortexDisplace(p, u_mouseReact * 0.48);
-  }
   p = (p - 0.5) * vec2(u_resolution.x / u_resolution.y, 1.0);
   p *= u_scale;
   p = softDomainWarp(p + 0.5, time, u_distortion * 0.8 + u_softness * 0.22) - 0.5;
@@ -341,11 +273,7 @@ vec3 neonTunnelGradient(vec2 uv, float time) {
 
 #if WAVR_GRADIENT == 5
 vec3 ditherGradient(vec2 uv, float time) {
-  // Mouse: magnet pull — dots cluster toward cursor
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = magnetDisplace(p, u_mouseReact);
-  }
 
   // Build luminance field: blend between clean gradient and organic noise
   // Low complexity (1) = clean directional dissolution (image 2 style)
@@ -383,9 +311,6 @@ vec3 ditherGradient(vec2 uv, float time) {
   vec2 cellCenterUV = (cellId + 0.5) * cellSize / u_resolution;
   // Re-evaluate luminance at cell center
   vec2 cp = cellCenterUV;
-  if (u_mouseReact > 0.0) {
-    cp = magnetDisplace(cp, u_mouseReact);
-  }
   float cellClean = 1.0 - cp.y;
   vec2 cnp = cp * u_scale * 2.0;
   float cn1 = fbm(cnp + vec2(time * 0.25, time * 0.18), octaves);
@@ -423,11 +348,7 @@ vec3 ditherGradient(vec2 uv, float time) {
 
 #if WAVR_GRADIENT == 6
 vec3 scanlineGradient(vec2 uv, float time) {
-  // Mouse: gravity lens — bends columns around cursor
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = gravityDisplace(p, u_mouseReact);
-  }
 
   // Number of vertical columns driven by complexity
   float numColumns = floor(u_complexity * 3.0 + 2.0); // 5–26 columns
@@ -503,11 +424,7 @@ vec3 scanlineGradient(vec2 uv, float time) {
 
 #if WAVR_GRADIENT == 7
 vec3 glitchGradient(vec2 uv, float time) {
-  // Mouse: vortex — data corruption spiral near cursor
   vec2 p = uv;
-  if (u_mouseReact > 0.0) {
-    p = vortexDisplace(p, u_mouseReact);
-  }
 
   // Mode blend: low complexity = vertical slit-scan, high = horizontal data mosh
   float moshMix = clamp((u_complexity - 1.0) / 7.0, 0.0, 1.0);
@@ -642,18 +559,6 @@ vec3 glitchGradient(vec2 uv, float time) {
 #if WAVR_GRADIENT == 8
 vec3 imageGradient(vec2 uv, float time) {
   vec2 imgUV = (uv - 0.5) / u_imageScale + 0.5 + u_imageOffset;
-
-  // Apply mouse displacement before sampling — fluid push on image
-  if (u_mouseReact > 0.01) {
-    vec2 mouseDir = imgUV - u_mouseSmooth;
-    float mouseDist = length(mouseDir);
-    float mouseRadius = 0.5 + u_mouseReact * 0.3;
-    float influence = smoothstep(mouseRadius, 0.0, mouseDist);
-    influence *= influence;
-    float speed = length(u_mouseVelocity);
-    imgUV += (mouseDir / (mouseDist + 0.001)) * influence * 0.12 * u_mouseReact;
-    imgUV += u_mouseVelocity * influence * 0.02 * (1.0 + speed * 0.002);
-  }
 
   return texture(u_imageTexture, clamp(imgUV, 0.0, 1.0)).rgb;
 }

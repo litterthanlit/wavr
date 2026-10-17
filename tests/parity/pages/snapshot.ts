@@ -18,8 +18,8 @@ import {
   type GradientType,
 } from "@wavr/core";
 
-/** A default layer of one gradient type, or a whole parity-fixture config. */
-export type SnapshotJob = { type: GradientType } | { config: GradientConfig };
+/** A default layer of one gradient type (optionally with another palette), or a whole parity-fixture config. */
+export type SnapshotJob = { type: GradientType; colors?: [number, number, number][] } | { config: GradientConfig };
 
 export interface SnapshotResult {
   /** PNG, top-down. */
@@ -104,6 +104,7 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
         if ("type" in job) {
           const layer = createLayer({
             gradientType: job.type,
+            colors: job.colors,
             imageData: job.type === "image" ? testImage : null,
           });
           state = { ...resolveConfig({ layers: [] }), layers: [layer] };

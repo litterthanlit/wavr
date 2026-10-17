@@ -2,7 +2,11 @@
 // fixture at a fixed time to PNGs, so a change to the shaders or engine can be
 // looked at, or diffed against a run from another commit.
 //
-//   pnpm snapshots [outDir] [--only mesh,fixture-solid] [--time 1] [--size 512]
+//   pnpm snapshots [outDir] [--only mesh,fixture-solid] [--time 1] [--size 512] [--palette sunset]
+//
+// --palette swaps the palette of the gradient-type images (not the fixtures): a
+// name from PALETTES below, or comma-separated hex colours ("#ff6b6b,#4ecdc4").
+// The default is the editor's default four-colour palette.
 //
 // outDir defaults to test-results/snapshots. Files are type-<gradient>.png and
 // fixture-<name>.png, plus manifest.json with the timings and pixel stats.
@@ -28,14 +32,33 @@ const REPO_ROOT = path.resolve(HERE, "../..");
 const FIXTURES_DIR = path.join(REPO_ROOT, "packages/schema/test/fixtures/parity");
 const PAGE_URL = pathToFileURL(path.join(HERE, "pages/snapshot.html")).toString();
 
+const PALETTES = {
+  sunset: ["#ff7a45", "#f2486b", "#8c33a6", "#1a0d40"],
+  ocean: ["#050d26", "#1a4db3", "#4db3e6", "#e6f2ff"],
+  pastel: ["#faf0e6", "#e6bfcc", "#b3bff2", "#ccf2e6"],
+  duo: ["#1a1a4d", "#e6808f"],
+  mono: ["#0d0d0d", "#6b6b6b", "#f2f2f2"],
+};
+
+function parseHexPalette(spec) {
+  const hexes = PALETTES[spec] ?? spec.split(",");
+  return hexes.map((hex) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!m) throw new Error(`--palette: "${hex}" is not a #rrggbb colour (or one of ${Object.keys(PALETTES).join(", ")})`);
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  });
+}
+
 function parseArgs(argv) {
-  const options = { outDir: path.join(REPO_ROOT, "test-results/snapshots"), only: null, time: 1, size: 512 };
+  const options = { outDir: path.join(REPO_ROOT, "test-results/snapshots"), only: null, time: 1, size: 512, colors: undefined };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--only") options.only = new Set(argv[++i].split(",").filter(Boolean));
     else if (arg === "--time") options.time = Number(argv[++i]);
     else if (arg === "--size") options.size = Number(argv[++i]);
+    else if (arg === "--palette") options.colors = parseHexPalette(argv[++i]);
     else if (arg === "--") continue;
     else positional.push(arg);
   }
@@ -88,7 +111,7 @@ async function main() {
 
     // One default layer per gradient type (the page has the canonical list), then the parity fixtures.
     const types = await page.evaluate(() => window.__wavrGradientTypes);
-    jobs = [...types.map((type) => ({ name: `type-${type}`, job: { type } })), ...readFixtures()].filter(
+    jobs = [...types.map((type) => ({ name: `type-${type}`, job: { type, colors: options.colors } })), ...readFixtures()].filter(
       ({ name }) => !options.only || options.only.has(name) || options.only.has(name.replace(/^(type|fixture)-/, "")),
     );
     if (jobs.length === 0) throw new Error("No images match --only");
