@@ -488,13 +488,15 @@ vec2 voronoi(vec2 p) {
 
 // Cellular noise whose feature points drift inside their cells, so the cells
 // morph rather than slide. x = distance to the nearest point, y = to the second
-// nearest (y - x is 0 on a border), z = a random 0..1 value of the nearest cell.
-vec3 cellular(vec2 p, float time) {
+// nearest (y - x is 0 on a border), z = a random 0..1 value of the nearest cell;
+// `id2` is that value for the second nearest, to blend across the border.
+vec3 cellular(vec2 p, float time, out float id2) {
   vec2 n = floor(p);
   vec2 f = fract(p);
   float d1 = 8.0;
   float d2 = 8.0;
   float id = 0.0;
+  id2 = 0.0;
   for (int j = -1; j <= 1; j++) {
     for (int i = -1; i <= 1; i++) {
       vec2 g = vec2(float(i), float(j));
@@ -504,10 +506,12 @@ vec3 cellular(vec2 p, float time) {
       float d = dot(r, r);
       if (d < d1) {
         d2 = d1;
+        id2 = id;
         d1 = d;
         id = hash(n + g + 17.3);
       } else if (d < d2) {
         d2 = d;
+        id2 = hash(n + g + 17.3);
       }
     }
   }

@@ -132,10 +132,17 @@ vec3 plasmaGradient(vec2 uv, float time) {
 vec3 voronoiGradient(vec2 uv, float time) {
   vec2 p = centeredUV(uv) * u_scale * (1.6 + 0.5 * u_complexity);
   p += u_distortion * 0.5 * vec2(snoise(p * 0.35 + vec2(time * 0.05, 1.7)), snoise(p * 0.35 + vec2(4.1, -time * 0.05)));
-  vec3 c = cellular(p, time * 0.5);
-  float t = c.z + (c.x - 0.35) * 0.35;
-  float seam = smoothstep(0.0, 0.05 + 0.2 * u_softness, c.y - c.x);
-  return foldedColor(t) * mix(0.8, 1.0, seam);
+  float id2;
+  vec3 c = cellular(p, time * 0.5, id2);
+  float edge = c.y - c.x; // 0 on a border
+  // Each cell has its own colour, so the colour steps at a border. Blend the two
+  // cells over about a pixel and a half (half each on the border itself), so the
+  // step stays anti-aliased at any render scale.
+  float aa = max(fwidth(edge), 1e-4) * 1.5;
+  float own = 0.5 + 0.5 * smoothstep(0.0, aa, edge);
+  vec3 col = mix(foldedColor(id2 + (c.y - 0.35) * 0.35), foldedColor(c.z + (c.x - 0.35) * 0.35), own);
+  float seam = smoothstep(0.0, max(0.05 + 0.2 * u_softness, aa), edge);
+  return col * mix(0.8, 1.0, seam);
 }
 #endif
 
