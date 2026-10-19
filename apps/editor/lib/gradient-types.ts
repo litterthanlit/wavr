@@ -98,6 +98,11 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
   { value: "image", label: "Image", group: "Media" },
 ];
 
+/** The picker's name for a type ("Liquid Chrome"), for anywhere a type is shown. */
+export function gradientTypeLabel(type: LayerParams["gradientType"]): string {
+  return GRADIENT_OPTIONS.find((option) => option.value === type)?.label ?? type;
+}
+
 export function defaultSoftnessForType(type: LayerParams["gradientType"]): number {
   return defaultSoftnessForGradientType(type);
 }

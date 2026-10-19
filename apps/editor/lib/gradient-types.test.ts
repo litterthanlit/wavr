@@ -16,6 +16,7 @@ import {
   GRADIENT_OPTIONS,
   PREMIUM_GRADIENT_TYPES,
   RANDOM_GRADIENT_TYPES,
+  gradientTypeLabel,
 } from "./gradient-types";
 import { INITIAL_LAYER_PARAMS } from "./initial-scene";
 
@@ -41,6 +42,11 @@ describe("gradient types", () => {
   it("every type has exactly one editor option", () => {
     const optionValues = GRADIENT_OPTIONS.map((option) => option.value);
     expect([...optionValues].sort()).toEqual([...GRADIENT_TYPES].sort());
+  });
+
+  it("types are shown by their picker name", () => {
+    expect(gradientTypeLabel("liquidChrome")).toBe("Liquid Chrome");
+    expect(gradientTypeLabel("softCells")).toBe("Soft Cells");
   });
 
   it("the picker leads with the premium modes and keeps the stylized ones apart", () => {
