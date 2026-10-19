@@ -16,7 +16,8 @@ export type GradientType =
   | "mesh" | "radial" | "linear" | "conic" | "plasma"
   | "dither" | "scanline" | "glitch" | "image" | "voronoi"
   | "silk" | "aurora" | "liquid" | "softCells" | "grainflow"
-  | "prismGlass" | "neonTunnel";
+  | "prismGlass" | "neonTunnel" | "liquidChrome" | "iridescentFoil"
+  | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb";
 
 export interface MaskParams {
   shape: MaskShape;

@@ -4,6 +4,12 @@ import type { GradientConfig } from "@wavr/core";
 export const presets: Record<string, GradientConfig> = allPresets;
 
 export const PRESET_OPTIONS: { id: string; label: string }[] = [
+  { id: "liquidChrome", label: "Liquid Chrome" },
+  { id: "horizonGlow", label: "Horizon Glow" },
+  { id: "inkSmoke", label: "Ink Smoke" },
+  { id: "plasmaOrb", label: "Plasma Orb" },
+  { id: "iridescentFoil", label: "Iridescent Foil" },
+  { id: "lightLeak", label: "Light Leak" },
   { id: "aurora", label: "Aurora" },
   { id: "sunset", label: "Sunset" },
   { id: "midnight", label: "Midnight" },

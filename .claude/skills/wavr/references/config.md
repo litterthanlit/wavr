@@ -24,9 +24,13 @@ export const wavrConfig: GradientConfig = {
 
 `mesh` `radial` `linear` `conic` `plasma` `dither` `scanline` `glitch` `voronoi` `silk` `aurora` `liquid` `softCells` `grainflow` `prismGlass` `neonTunnel`
 
+Light modes: `liquidChrome` `horizonGlow` `inkSmoke` `plasmaOrb` `iridescentFoil` `lightLeak`. They read the palette as light, darkest stop first and brightest last, so give them a dark-to-light palette (or start from their presets).
+
 Skip `image` unless the user supplies a texture.
 
 ## Presets (`@wavr/gradient/presets`)
+
+Light: `liquidChrome` `goldChrome` `horizonGlow` `iceHorizon` `inkSmoke` `roseSmoke` `plasmaOrb` `limeOrb` `iridescentFoil` `midnightFoil` `lightLeak` `violetLeak`
 
 Classic: `aurora` `sunset` `midnight` `candy` `ocean` `lava` `cyber` `monochrome`
 

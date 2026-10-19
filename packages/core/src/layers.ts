@@ -26,9 +26,45 @@ export function defaultSoftnessForGradientType(type: GradientType): number {
       return 0.7;
     case "neonTunnel":
       return 0.56;
+    case "horizonGlow":
+    case "lightLeak":
+    case "plasmaOrb":
+      return 0.5;
     default:
       return 0;
   }
+}
+
+/**
+ * The light modes ("Light gradients" in gradients.glsl) read the palette as a
+ * light ramp, the deepest shadow first and the brightest light last. These are
+ * their curated palettes, the ones their presets open with.
+ */
+export const LIGHT_GRADIENT_PALETTES = {
+  liquidChrome: [[0.02, 0.024, 0.031], [0.106, 0.122, 0.153], [0.357, 0.392, 0.447], [0.667, 0.714, 0.784], [0.933, 0.957, 1]],
+  iridescentFoil: [[0.039, 0.031, 0.075], [0.725, 0.655, 1], [1, 0.663, 0.741], [0.635, 0.925, 0.847], [0.953, 0.933, 0.98]],
+  horizonGlow: [[0.016, 0.02, 0.047], [0.114, 0.137, 0.475], [0.482, 0.322, 0.878], [1, 0.769, 0.631]],
+  lightLeak: [[0.008, 0.004, 0.008], [0.173, 0.031, 0.098], [0.584, 0.086, 0.161], [1, 0.29, 0.11], [1, 0.647, 0.18], [1, 0.945, 0.824]],
+  inkSmoke: [[0.016, 0.02, 0.047], [0.055, 0.082, 0.212], [0.204, 0.275, 0.71], [0.608, 0.698, 1], [0.945, 0.957, 1]],
+  plasmaOrb: [[0.047, 0.055, 0.267], [0.169, 0.275, 1], [0.545, 0.302, 1], [1, 0.31, 0.627], [1, 0.816, 0.761]],
+} satisfies Partial<Record<GradientType, [number, number, number][]>>;
+
+export type LightGradientType = keyof typeof LIGHT_GRADIENT_PALETTES;
+
+export function isLightGradientType(type: GradientType): type is LightGradientType {
+  return Object.prototype.hasOwnProperty.call(LIGHT_GRADIENT_PALETTES, type);
+}
+
+/**
+ * Whether a palette runs the way the light modes read it: a dark first stop and
+ * a clearly lighter last one (luma of the sRGB values).
+ */
+export function isLightRampPalette(colors: readonly (readonly number[])[]): boolean {
+  const first = colors[0];
+  const last = colors[colors.length - 1];
+  if (!first || !last || colors.length < 2) return false;
+  const luma = (c: readonly number[]) => 0.2126 * (c[0] ?? 0) + 0.7152 * (c[1] ?? 0) + 0.0722 * (c[2] ?? 0);
+  return luma(first) <= 0.2 && luma(last) >= luma(first) + 0.35;
 }
 
 export interface MaskParams {
