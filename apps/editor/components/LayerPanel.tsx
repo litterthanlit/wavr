@@ -3,6 +3,7 @@
 import { useGradientStore } from "@/lib/store";
 import { MAX_LAYERS, BlendMode, LayerParams } from "@wavr/core";
 import Slider from "@/components/ui/Slider";
+import { gradientTypeLabel } from "@/lib/gradient-types";
 
 const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[] }[] = [
   {
@@ -132,8 +133,8 @@ export default function LayerPanel() {
             </div>
 
             {/* Layer type label */}
-            <span className="text-[10px] text-text-tertiary capitalize flex-1">
-              {layer.gradientType}
+            <span className="text-[10px] text-text-tertiary flex-1">
+              {gradientTypeLabel(layer.gradientType)}
             </span>
 
             {/* Remove button */}

@@ -4,7 +4,11 @@ export { attachPointer } from "./attach-pointer";
 export type { AttachPointerOptions, PointerTarget } from "./attach-pointer";
 export type { EngineState, CaptureOptions } from "./engine";
 export type { LayerParams, GradientType, BlendMode, ImageBlendMode, MaskParams, MaskShape, MaskBlendMode, TextMaskAlign } from "./layers";
-export { createLayer, defaultSoftnessForGradientType, DEFAULT_LAYER, DEFAULT_MASK, MAX_LAYERS } from "./layers";
+export {
+  createLayer, defaultSoftnessForGradientType, DEFAULT_LAYER, DEFAULT_MASK, MAX_LAYERS,
+  LIGHT_GRADIENT_PALETTES, isLightGradientType, isLightRampPalette,
+} from "./layers";
+export type { LightGradientType } from "./layers";
 export {
   GRADIENT_TYPES,
   BLEND_MODES,

@@ -16,6 +16,8 @@
 //   end colours never appear and everything comes out the average of the lot.
 // - Never add white. Brightness comes from the palette; depth comes from
 //   multiplying by satin() light, which only ever deepens or lifts the colour.
+//   (The light gradients below are the exception: highlights and hot cores
+//   there may burn toward white.)
 // - No pixel-scale patterns (grainflow's grain is white noise sized from the canvas
 //   height, so it is the same in a 4x export), and nothing that jumps in time.
 // Mouse interaction is mouseWarp() in layer.glsl, not here.
@@ -304,6 +306,566 @@ vec3 neonTunnelGradient(vec2 uv, float time) {
 #endif
 
 // ============================================================
+// Light gradients
+// ============================================================
+// Light on a surface or in the dark: a mirror, a film, a planet's limb, a leak,
+// smoke, a glass orb. Their palette is a light ramp, from the deepest shadow (the
+// first stop) to the brightest light (the last), so they need a palette that
+// starts dark and ends light (their presets have one). Specular highlights and
+// hot cores past the last stop may mix toward white, the one exception to the
+// house rules above.
+
+// liquidChrome: flowing mirror metal. A smooth, slow height field (domain-warped
+// simplex, a few broad folds) lit as a perfect mirror: the surface normal reflects
+// the view vector into a fake studio (dark floor, bright horizon strip, soft sky)
+// whose tones are palette positions. The horizon strip snakes along the folds; a
+// tight specular streak rides the crests.
+#if WAVR_GRADIENT == 17
+float chromeHeight(vec2 p, float time) {
+  float f = 0.16 + 0.11 * u_complexity;
+  time *= 0.35;
+  vec2 q = p * f * vec2(0.8, 1.15);
+  vec2 w = vec2(snoise(q * 0.9 + vec2(0.0, time * 0.05)),
+                snoise(q * 0.9 + vec2(5.2, 1.3 - time * 0.04)));
+  q += (0.25 + 1.0 * u_distortion) * w;
+  float h = snoise(q + vec2(time * 0.04, 0.0));
+  h += 0.18 * snoise(q * 1.8 + w * 0.6 + vec2(3.7, time * 0.06));
+  return h / f;
+}
+
+float chromeBand(float y, float centre, float lo, float hi) {
+  return smoothstep(centre - lo, centre, y) * (1.0 - smoothstep(centre, centre + hi, y));
+}
+
+// Studio environment along the reflected direction's elevation `y` (tilted
+// horizon already folded in); returns a palette position (0 = darkest stop,
+// 1 = lightest). `a` is the edge softness of the one hard edge.
+float chromeStudio(float y, float rx, float a) {
+  // overall vertical ramp: graphite floor, steel sky
+  float base = 0.045 + 0.40 * pow(smoothstep(-1.0, 0.9, y), 1.35) + 0.06 * smoothstep(-0.5, 0.5, rx);
+  // a dim floor-reflection strip
+  float floorStrip = 0.20 * chromeBand(y, -0.42, 0.10, 0.16);
+  // the horizon strip: hard lower edge, soft upper shoulder
+  float strip = smoothstep(-0.02 - a, -0.02 + a, y) * (1.0 - smoothstep(0.04, 0.22, y));
+  // a broad softbox overhead
+  float box = chromeBand(y, 0.62, 0.20, 0.22) * smoothstep(-0.9, -0.2, rx) * 0.38;
+  return clamp(mix(base + floorStrip + box, 1.0, strip), 0.0, 1.0);
+}
+
+// The studio box-filtered over the pixel's footprint in y (five taps), so edges
+// that sweep past faster than a pixel blur instead of stitching.
+float chromeEnv(vec3 r) {
+  float y = r.y + 0.14 * r.x;
+  float fw = fwidth(y);
+  float a = 0.012 + 0.3 * fw + 0.30 * u_softness;
+  float s = 0.0;
+  for (int i = -2; i <= 2; i++) s += chromeStudio(y + float(i) * 0.3 * fw, r.x, a);
+  return s * 0.2;
+}
+#endif
+
+#if WAVR_GRADIENT == 17
+vec3 liquidChromeGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv) * u_scale;
+  float e = 0.006;
+  float hx0 = chromeHeight(p - vec2(e, 0.0), time);
+  float hx1 = chromeHeight(p + vec2(e, 0.0), time);
+  float hy0 = chromeHeight(p - vec2(0.0, e), time);
+  float hy1 = chromeHeight(p + vec2(0.0, e), time);
+  vec2 g = vec2(hx1 - hx0, hy1 - hy0) / (2.0 * e);
+  float relief = 0.8 + 0.8 * u_distortion;
+  vec3 n = normalize(vec3(-g * relief, 1.0));
+  vec3 v = vec3(0.0, 0.0, 1.0);
+  vec3 r = reflect(-v, n);
+  float s = chromeEnv(r);
+  vec3 col = getGradientColor(s);
+  // tight specular streak from a key light (softness widens it toward satin)
+  vec3 l = normalize(vec3(-0.45, 0.55, 0.7));
+  float d = dot(n, normalize(l + v));
+  float sc = mix(1.0 / 300.0, 1.0 / 30.0, u_softness);
+  float sc2 = sc + 0.9 * fwidth(d);
+  float spec = exp(-(1.0 - d) / sc2) * (sc / sc2);
+  col += spec * getGradientColor(1.0);
+  return col;
+}
+#endif
+
+// iridescentFoil: holographic thin-film foil. A broad, gently folded metallised
+// sheet reflecting a soft studio. The reflection is tinted by a thin film: the
+// palette position is the film thickness (a slow field across the sheet) plus the
+// viewing angle (the height of the reflected ray), so colour shifts across the
+// folds along with the light instead of sitting on them.
+#if WAVR_GRADIENT == 18
+float foilHeight(vec2 p, float time) {
+  float f = 0.14 + 0.08 * u_complexity;
+  time *= 0.42;
+  vec2 q = p * f * vec2(0.85, 1.1);
+  vec2 w = vec2(snoise(q * 0.9 + vec2(0.0, time * 0.05)),
+                snoise(q * 0.9 + vec2(5.2, 1.3 - time * 0.04)));
+  q += (0.25 + 0.9 * u_distortion) * w;
+  float h = snoise(q + vec2(time * 0.04, 0.0));
+  h += 0.15 * snoise(q * 1.9 + w * 0.6 + vec2(3.7, time * 0.06));
+  return h / f;
+}
+
+// Brightness of the soft studio along elevation y: dark floor, a bright
+// horizon band with a crisp lower edge, a gently darker sky.
+float foilStudio(float y, float a) {
+  float floorTone = 0.04 + 0.22 * smoothstep(-0.9, -0.05, y);
+  float band = smoothstep(-0.03 - a, -0.03 + a, y) * (1.0 - smoothstep(0.02, 0.5, y));
+  float sky = 0.42 - 0.16 * smoothstep(0.2, 1.0, y);
+  return clamp(mix(floorTone, sky, smoothstep(-0.03 - a, -0.03 + a, y)) + 0.62 * band, 0.0, 1.0);
+}
+#endif
+
+#if WAVR_GRADIENT == 18
+vec3 iridescentFoilGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv) * u_scale;
+  float e = 0.006;
+  float hx0 = foilHeight(p - vec2(e, 0.0), time);
+  float hx1 = foilHeight(p + vec2(e, 0.0), time);
+  float hy0 = foilHeight(p - vec2(0.0, e), time);
+  float hy1 = foilHeight(p + vec2(0.0, e), time);
+  vec2 g = vec2(hx1 - hx0, hy1 - hy0) / (2.0 * e);
+  vec3 n = normalize(vec3(-g * (0.45 + 0.7 * u_distortion), 1.0));
+  vec3 v = vec3(0.0, 0.0, 1.0);
+  vec3 r = reflect(-v, n);
+
+  // soft studio, box-filtered over the pixel footprint like liquidChrome
+  float y = r.y + 0.12 * r.x;
+  float fw = fwidth(y);
+  float a = 0.02 + 0.3 * fw + 0.30 * u_softness;
+  float L = 0.0;
+  for (int i = -2; i <= 2; i++) L += foilStudio(y + float(i) * 0.3 * fw, a);
+  L = smoothstep(0.10, 0.85, L * 0.2);
+
+  // thin film: thickness field + viewing angle, through a sine (no crease)
+  float tau = 0.5 + 0.5 * snoise(p * 0.38 + vec2(2.0, time * 0.03));
+  float phi = 2.0 * tau + 1.5 * clamp(y, -1.0, 1.0);
+  vec3 film = getGradientColor(0.25 + 0.75 * (0.5 - 0.5 * cos(3.14159 * phi)));
+  vec3 dark = getGradientColor(0.0);
+
+  // the brightest part of the studio is pearl-white; film shows as it falls off,
+  // and darker film is also deeper (saturated) rather than a muddy brown
+  vec3 pearl = getGradientColor(1.0);
+  vec3 tint = getGradientColor(0.25);
+  vec3 deep = pow(mix(film, tint, 0.55 * (1.0 - L)), vec3(1.0 + 1.3 * (1.0 - L)));
+  vec3 col = mix(dark, mix(deep, pearl, 0.35 * smoothstep(0.75, 1.0, L)), L);
+  vec3 l = normalize(vec3(-0.45, 0.55, 0.7));
+  float d = dot(n, normalize(l + v));
+  float sc = mix(1.0 / 260.0, 1.0 / 30.0, u_softness);
+  float sc2 = sc + 0.9 * fwidth(d);
+  col += exp(-(1.0 - d) / sc2) * (sc / sc2) * mix(film, vec3(1.0), 0.7);
+  return col;
+}
+#endif
+
+// horizonGlow: a huge dark planet below the frame, lit along its upper limb by a
+// thin crisp rim, with atmospheric scattering fading up into a dark sky.
+// One evaluation per pixel: a planet SDF, three scale-height exponentials, one
+// 3-octave fbm for the drifting variation, one hashed star cell.
+#if WAVR_GRADIENT == 19
+// Light -> colour. `i` is emitted light (can exceed 1). The palette runs from the
+// sky's ink to the lightest stop; past the end it burns toward white.
+vec3 horizonGlowTone(float i, float tint) {
+  float t = pow(1.0 - exp(-i * 1.1), 1.18);
+  vec3 c = getGradientColor(clamp(t + tint, 0.0, 1.0));
+  vec3 hot = mix(getGradientColor(1.0), vec3(1.0), 0.7);
+  return mix(c, hot, smoothstep(1.1, 3.4, i));
+}
+
+// A sparse field of faint, crisp stars. Cells are sized in pixels from
+// u_resolution.y so a 4K export has the same stars, just sharper.
+float horizonGlowStars(vec2 uv, float time) {
+  float px = u_resolution.y / 540.0;
+  float cellPx = 52.0 * px;
+  vec2 g = uv * u_resolution / cellPx;
+  vec2 cell = floor(g);
+  vec2 h = hash22(cell + 31.7);
+  float present = step(clamp(0.82 - 0.1 * u_complexity, 0.0, 0.9), hash(cell + 9.1));
+  vec2 pos = 0.18 + 0.64 * h;
+  vec2 d = (fract(g) - pos) * cellPx;
+  float sigma = 0.6 * px;
+  float core = exp(-dot(d, d) / (2.0 * sigma * sigma));
+  float mag = pow(hash(cell + 3.3), 4.0);
+  float twinkle = 0.8 + 0.2 * sin(time * 1.1 + h.x * 40.0);
+  return present * core * (0.28 + 1.1 * mag) * twinkle;
+}
+#endif
+
+#if WAVR_GRADIENT == 19
+vec3 horizonGlowGradient(vec2 uv, float time) {
+  // One "pixel" in canvas heights, as at 540 lines: crisp edges keep the same share
+  // of the frame in a 4K export (and never get thinner than a device pixel).
+  float px = max(1.0 / u_resolution.y, 1.0 / 540.0);
+  vec2 p = centeredUV(uv);
+
+  // The planet: top of the limb sits low in the frame, centre far below it.
+  float R = 2.1 * u_scale;
+  float topY = -0.20;
+  vec2 c = vec2(0.0, topY - R);
+  vec2 q = p - c;
+  float d = length(q) - R;                          // + sky, - planet
+  float s = atan(q.x, q.y) * R;                     // arc length along the limb, 0 = top
+
+  // Where the sun sits on the limb: drifts slowly, never jumps.
+  float s0 = 0.22 + 0.24 * sin(time * 0.23) + 0.06 * sin(time * 0.61 + 1.3);
+  float along = (s - s0) / 0.85;
+  float lit = exp(-along * along);                  // 1 at the bright spot
+  float wide0 = exp(-pow(along * 0.5, 2.0));
+
+  // Drifting variation inside the glow: clouds of scatter creeping along the limb.
+  float wob = u_distortion;
+  vec2 np = vec2(s * 1.7 - time * 0.16, d * 3.4 - time * 0.07);
+  float n = fbm(np + vec2(0.0, 4.0), 3);
+  // Plumes: the glow climbs higher in some stretches of the limb than others.
+  float plume = snoise(vec2(s * 1.9 - time * 0.11, 5.0 + time * 0.045));
+  float hgt = max(d, 0.0) * (1.0 + 0.35 * wob * n) / (1.0 + 0.9 * wob * plume * (0.3 + 0.7 * wide0))
+            * (1.0 + 0.06 * sin(time * 0.31));
+
+  // Atmospheric scattering: a tight inner layer, a mid one, a broad faint one.
+  float spread = mix(0.85, 1.2, clamp(u_softness, 0.0, 1.0));
+  float inner = exp(-hgt / (0.016 * spread));
+  float mid = exp(-hgt / (0.072 * spread));
+  float outer = exp(-hgt / (0.26 * spread));
+  float wide = exp(-pow(along * 0.62, 2.0));
+  // A halo around the sun's point on the limb: the one place the sky goes warm.
+  vec2 sunP = c + R * vec2(sin(s0 / R), cos(s0 / R));
+  float sd = length(p - sunP);
+  float halo = exp(-sd * sd / 0.075) * 0.55 + exp(-sd / 0.07) * 0.35;
+  // Airglow: a faint, thin veil riding parallel to the limb.
+  float veil = exp(-pow((hgt - 0.05) / 0.011, 2.0)) * (0.10 + 0.08 * n) * (0.3 + 0.7 * wide);
+  float atmos = veil + 0.80 * inner * (0.25 + 0.75 * lit)
+              + 0.85 * mid * (0.22 + 0.78 * lit)
+              + 0.62 * outer * (0.10 + 0.90 * wide)
+              + halo * (0.6 + 0.4 * smoothstep(0.0, 0.1, d));
+  atmos *= 1.0 + 0.7 * wob * n * (0.4 + 0.6 * lit);
+
+  // The rim: a thin, crisp line right on the limb, strongest where the sun is.
+  float aa = 1.1 * px;
+  float rimW = mix(1.0, 2.4, clamp(u_softness, 0.0, 1.0)) * 1.15 * px;
+  float skyMask = smoothstep(-aa, aa, d);
+  float rimLine = exp(-max(d, 0.0) / rimW) * skyMask;
+  float rim = rimLine * (0.18 + 3.4 * pow(lit, 1.3));
+
+  // An anamorphic streak through the hot spot, hugging the limb.
+  float streak = exp(-abs(d) / (3.5 * px)) * exp(-abs(s - s0) / 0.30) * 0.9 * lit;
+
+  // Limb glow just inside the disc: the atmosphere seen edge-on.
+  float limb = exp(-max(-d, 0.0) / (4.0 * px)) * (1.0 - skyMask) * lit * 0.5;
+  // Faint earthshine on the planet body, deeper toward the limb.
+  float body = (1.0 - skyMask) * exp(max(d, -0.4) / 0.11) * 0.05 * (0.4 + 0.6 * lit);
+
+  float I = atmos * skyMask + rim + streak + limb + body;
+
+  // Colour drifts with height and along the limb: cooler up, warmer at the sun.
+  float tint = -0.06 * smoothstep(0.0, 0.6, d) + 0.05 * (lit - 0.5) + 0.07 * exp(-sd * sd / 0.12);
+  vec3 col = horizonGlowTone(I, tint);
+
+  // Stars, only in dark sky.
+  float dark = 1.0 - smoothstep(0.015, 0.16, atmos);
+  float stars = horizonGlowStars(uv, time) * skyMask * dark * smoothstep(0.0, 0.1, d);
+  col += stars * mix(getGradientColor(1.0), vec3(1.0), 0.6);
+
+  return col;
+}
+#endif
+
+// lightLeak: a near-black frame with warm light bleeding in over the film edge.
+// The big leak off the right edge is a curtain of light hugging the border (its
+// depth and brightness torn by slow 1D noise along the edge, so it pushes in as
+// ragged tongues) with a hot, horizontally stretched (anamorphic) core on it; a
+// smaller leak sits past the lower-left corner. The plane is domain-warped by
+// slow smooth noise so every boundary is organic. The core burns out toward the
+// palette's lightest stop inside a crimson halation skirt, and one crisp, level
+// anamorphic line runs through it. Made for heavy film grain (its presets set
+// it). Two snoise for the warp, two for the curtain, one 3-octave fbm, one smear
+// snoise, a handful of exp(); the light is summed and tone-mapped through the
+// palette like a heat ramp.
+#if WAVR_GRADIENT == 20
+vec2 lightLeakWarp(vec2 p, float time) {
+  return vec2(snoise(p * 1.25 + vec2(time * 0.045, 3.0)),
+              snoise(p * 1.25 + vec2(8.0, -time * 0.04)));
+}
+
+// One stretched lobe: core, body and skirt of light around `centre`.
+float lightLeakLobe(vec2 p, vec2 centre, vec2 stretch, float tilt) {
+  vec2 d = p - centre;
+  float c = cos(tilt);
+  float s = sin(tilt);
+  vec2 e = vec2(c * d.x - s * d.y, s * d.x + c * d.y) / stretch;
+  float r = length(e);
+  float hot = 2.3 * exp(-pow(r / 0.14, 1.8));
+  float body = 0.95 * exp(-pow(r / 0.34, 1.25));
+  float skirt = 0.12 * exp(-r / 0.80);
+  return hot + body + skirt;
+}
+#endif
+
+#if WAVR_GRADIENT == 20
+vec3 lightLeakGradient(vec2 uv, float time) {
+  float aspect = u_resolution.x / u_resolution.y;
+  // One "pixel" in canvas heights, as at 540 lines: the crisp line keeps the same
+  // share of the frame in a 4K export (and never gets thinner than a device pixel).
+  float px = max(1.0 / u_resolution.y, 1.0 / 540.0);
+  vec2 p = centeredUV(uv);
+  float wobAmt = 0.45 + 1.1 * u_distortion;
+  float S = u_scale;
+
+  // Smooth domain warp: organic, slowly drifting boundaries (no spikes).
+  vec2 pw = p + 0.15 * wobAmt * lightLeakWarp(p, time);
+  // A coarser field makes the light swell and recede in patches.
+  float leakPatch = fbm(p * 0.9 + vec2(-time * 0.04, time * 0.03) + 11.0, 3);
+
+  float edge = 0.5 * aspect;
+  float swellA = 1.0 + 0.10 * sin(time * 0.33) + 0.05 * sin(time * 0.87 + 1.0);
+  float yA = 0.24 + 0.06 * sin(time * 0.21);
+  vec2 cA = vec2(edge + 0.05, yA);
+
+  // The curtain: light hugging the right border, deeper and brighter in some
+  // stretches than others (1D noise along the edge), always strongest at the edge.
+  float inward = max(edge - pw.x, 0.0);
+  float n1 = snoise(vec2(pw.y * 2.6 + 2.0, time * 0.05));
+  float n2 = snoise(vec2(pw.y * 5.5 - 6.0, time * 0.07));
+  float depth = (0.16 + 0.20 * (0.5 + 0.5 * n1)) * S;
+  float strength = 0.34 + 0.50 * (0.5 + 0.5 * n2);
+  float curtain = strength * exp(-pow(inward / depth, 0.85)) * (0.70 + 0.30 * smoothstep(-0.9, 0.3, -abs(pw.y - 0.05)));
+
+  // Leak A: the hot core on the curtain, with an amber lobe below and a redder
+  // one high up.
+  float I = swellA * (
+      1.05 * lightLeakLobe(pw, cA, vec2(0.80, 0.44) * S, 0.06)
+    + 0.46 * lightLeakLobe(pw, vec2(edge + 0.10, -0.26 + 0.05 * sin(time * 0.17 + 2.0)), vec2(0.66, 0.28) * S, -0.18)
+    + 0.34 * lightLeakLobe(pw, vec2(edge - 0.02, 0.74), vec2(0.50, 0.22) * S, 0.25)
+    + curtain);
+
+  // Leak B: past the lower-left corner, smaller and redder, out of phase.
+  float swellB = 1.0 + 0.12 * sin(time * 0.29 + 2.4);
+  I += swellB * (
+      0.70 * lightLeakLobe(pw, vec2(-edge - 0.05, -0.56), vec2(0.90, 0.50) * S, -0.35)
+    + 0.26 * lightLeakLobe(pw, vec2(-edge - 0.12, -0.12), vec2(0.56, 0.28) * S, 0.2));
+
+  I *= 0.9 + 0.22 * (0.5 + 0.5 * leakPatch);
+  // Light dragged sideways through the lens: soft level streaks across the whole
+  // leak (blurred, never hairline), strongest where the light is.
+  float drag = snoise(vec2(p.x * 1.1 + 5.0, p.y * 14.0 + time * 0.05));
+  I *= 1.0 + 0.055 * drag * smoothstep(0.05, 0.6, I);
+
+  // Where the main core really lands on screen (the warp has pushed it): the
+  // straight optical line is laid on that point, un-warped, as a lens would.
+  vec2 core = cA - 0.15 * wobAmt * lightLeakWarp(cA, time);
+  vec2 dc = p - core;
+  float reachA = max(-dc.x, 0.0);
+  float inFrame = smoothstep(0.0, 0.03, edge - p.x);
+
+  // Streak: a short soft smear plus one crisp, perfectly level anamorphic line.
+  float sn = snoise(vec2(dc.y * 15.0 + 7.0, time * 0.07));
+  float smear = pow(0.5 + 0.5 * sn, 3.0);
+  I += smear * 0.20 * exp(-reachA / 0.20) * exp(-pow(dc.y / 0.28, 2.0)) * inFrame;
+  I += 1.2 * exp(-pow(dc.y / (1.1 * px), 2.0)) * exp(-reachA / 0.40) * inFrame;
+
+  // Film base fog.
+  I += 0.006;
+
+  // Light through a heat ramp: black, plum, crimson, orange, amber, cream; past
+  // that it burns out to white. The curve keeps faint light near black so most of
+  // the frame stays negative space.
+  float t = pow(1.0 - exp(-I * 1.15), 1.3);
+  vec3 col = getGradientColor(clamp(t, 0.0, 1.0));
+  vec3 hot = mix(getGradientColor(1.0), vec3(1.0), 0.55);
+  col = mix(col, hot, smoothstep(1.7, 4.2, I));
+  return col;
+}
+#endif
+
+// inkSmoke: a plume of ink or incense smoke in dark water. Fine strands leave a
+// point at the lower left and fan out as they rise; the whole plume is read at
+// a point carried along a curl (divergence-free) flow whose strength grows with
+// height, so the strands start straight and end up folding, curling and
+// shearing like something advected, not like cloud fbm. Soft veils and darker
+// sheets sit in the same flow for depth.
+// Palette convention: stop 0 = the water, the last stop = the brightest strand.
+#if WAVR_GRADIENT == 21
+// Curl of a scalar noise potential: a velocity field with no sources or sinks.
+vec2 inkSmokeCurl(vec2 q) {
+  float e = 0.06;
+  float n0 = snoise(q);
+  float nx = snoise(q + vec2(e, 0.0));
+  float ny = snoise(q + vec2(0.0, e));
+  return vec2(ny - n0, -(nx - n0)) / e;
+}
+
+// Carry the point p along the flow: big slow eddies first, then smaller ones.
+vec2 inkSmokeAdvect(vec2 p, float time, float amount) {
+  float h = smoothstep(-0.55, 0.55, p.y);
+  float a = amount * (0.12 + 0.88 * h);
+  vec2 q = p;
+  q.x += 0.04 * sin(p.y * 2.6 + time * 0.35) * (0.3 + h);
+  q += a * 0.17 * inkSmokeCurl(q * 1.1 + vec2(1.3, time * 0.05));
+  q += a * 0.045 * inkSmokeCurl(q * 2.2 + vec2(7.1, -time * 0.07) + 3.0);
+  q += a * 0.012 * inkSmokeCurl(q * 4.6 + vec2(-2.4, 5.5 + time * 0.09));
+  return q;
+}
+#endif
+
+#if WAVR_GRADIENT == 21
+vec3 inkSmokeGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv) * u_scale;
+  float cx = clamp((u_complexity - 1.0) / 6.0, 0.0, 1.0);
+  float amount = 0.40 + 1.2 * u_distortion;
+
+  vec2 q = inkSmokeAdvect(p, time, amount);
+
+  // The plume's spine runs from a source at the lower left up and to the right;
+  // strands fan out from it with height.
+  float hq = clamp(q.y + 0.60, 0.0, 1.8);
+  float spread = 0.10 + 0.90 * smoothstep(0.0, 1.3, hq);
+  float spine = -0.50 + 0.55 * pow(hq, 1.15);
+  float r = (q.x - spine) / spread;
+
+  // Strands: thin lines at whole numbers of r, each with its own brightness
+  // and its own stretches of life along its length.
+  float Fs = 4.5 + 3.5 * cx;
+  float sx = r * Fs;
+  float id = floor(sx + 0.5);
+  float d = abs(sx - id);
+  float fwx = max(fwidth(sx), 1e-4);
+  float thick = 0.5 + 0.5 * snoise(vec2(id * 1.7, q.y * 0.7));
+  float wpx = mix(0.7, 1.9, thick);
+  float line = exp(-(d / (fwx * wpx)) * (d / (fwx * wpx)));
+  float hw = min(0.09 + 3.0 * fwx, 0.22);
+  float halo = exp(-(d / hw) * (d / hw)) * 0.34;
+  // Strands closer than a few pixels blur into one soft band instead of aliasing.
+  float vis = 1.0 - smoothstep(0.12, 0.34, fwx);
+  line = mix(0.30, line, vis);
+  halo = mix(0.30, halo, vis);
+  // A wide, faint sheet around each strand: where strands crowd these merge into smoke.
+  // (its strength varies smoothly across strands, so no seam where one strand hands over to the next)
+  float wideAmp = 0.25 + 0.75 * smoothstep(-0.3, 0.6, snoise(vec2(sx * 0.42, q.y * 0.9 + time * 0.03)));
+  float wide = exp(-(d / 0.40) * (d / 0.40)) * wideAmp;
+  float hid = hash(vec2(id, 7.3));
+  float life = smoothstep(-0.30, 0.50, snoise(vec2(id * 3.7, q.y * 1.1 + time * 0.04)) + 0.25 * snoise(vec2(id * 1.3, q.y * 3.1)));
+  float strand = (line + halo) * (0.25 + 0.75 * hid * hid) * life;
+  // The plume thins out at its flanks and at the top.
+  float flank = exp(-pow(abs(r) / 1.15, 2.4));
+  float tip = 1.0 - smoothstep(0.85, 1.55, hq);
+  float strandLight = strand * flank * (0.35 + 0.65 * tip);
+  float smoke = wide * flank * (0.3 + 0.7 * tip);
+
+  // Veils: soft translucent sheets stretched along the flow, and darker sheets.
+  float vA = snoise(vec2(r * 0.9, q.y * 0.55) + vec2(4.0, time * 0.02));
+  float vB = snoise(vec2(r * 2.0, q.y * 1.2) + vec2(0.0, 9.0));
+  float veil = smoothstep(-0.2, 0.8, vA * 0.7 + vB * 0.3) * flank * (0.3 + 0.7 * tip);
+  float darkSheet = smoothstep(0.0, 0.7, snoise(vec2(r * 1.2, q.y * 0.8) + vec2(-5.0, 2.0)));
+
+  vec3 water = mix(getGradientColor(0.0), getGradientColor(0.07), smoothstep(0.5, -0.5, p.y));
+  vec3 col = water;
+  col += getGradientColor(0.18 + 0.42 * veil) * pow(veil, 1.4) * (1.0 - 0.55 * darkSheet) * 1.5;
+  col += getGradientColor(0.22 + 0.45 * smoke) * smoke * (1.0 - 0.6 * darkSheet) * 1.15;
+  float b = clamp(strandLight * 1.6, 0.0, 1.4);
+  col += getGradientColor(0.40 + 0.60 * clamp(b, 0.0, 1.0)) * b * (1.0 - 0.35 * darkSheet) * 1.7;
+  return col;
+}
+#endif
+
+// plasmaOrb: a glass-like sphere on a dark field. The sphere normal comes from
+// the disc (z = sqrt(1 - r^2)); inside, a swirling palette gradient is evaluated
+// on the 3D sphere point, so it rotates around the orb like a planet instead of
+// sliding on a plane. Over it: a Fresnel rim, a soft specular and a bounce of
+// light in the lower right; outside it a halo that carries the colour of the
+// limb into the dark. The edge is a pixel-exact antialiased disc.
+#if WAVR_GRADIENT == 22
+mat2 plasmaOrbRot(float a) {
+  float c = cos(a);
+  float s = sin(a);
+  return mat2(c, -s, s, c);
+}
+
+// The swirl: x = position on the palette ramp, y = how much light there is.
+vec2 plasmaOrbField(vec3 P, float time) {
+  // Differential rotation: each latitude turns at its own pace, so the
+  // swirl winds into a helix as it goes round.
+  P.xz = plasmaOrbRot(time * 0.25 + 1.1 * P.y) * P.xz;
+  P.yz = plasmaOrbRot(0.5) * P.yz;
+  float sc = 0.45 + 0.2 * u_complexity;
+  // A flow field bends the sample point (low frequency, so the bend is broad).
+  vec3 w = vec3(
+    snoise(P.xy * 0.9 + vec2(P.z * 1.3, time * 0.06)),
+    snoise(P.yz * 0.9 + vec2(P.x * 1.3, 5.2 - time * 0.05)),
+    snoise(P.zx * 0.9 + vec2(P.y * 1.3, 9.1 + time * 0.04))
+  );
+  P += (0.3 + 1.0 * u_distortion) * 0.55 * w;
+  float f = snoise(P.xy * sc + P.z * vec2(1.7, 2.3))
+          + 0.3 * snoise(P.yz * sc * 2.1 + P.x * vec2(3.1, 1.3) + 4.0);
+  // Light gathers in broad lobes, with thin filaments through them.
+  float lobes = 0.5 + 0.5 * snoise(P.zx * sc * 0.9 + P.y * vec2(1.1, 1.9) + 7.0);
+  float fil = 1.0 - abs(snoise(P.xy * sc * 1.5 + P.z * vec2(2.3, 0.7) + 11.0));
+  float density = lobes * (0.6 + 0.4 * mix(pow(fil, 2.0), 1.0, u_softness * 0.6));
+  return vec2(0.5 + 0.5 * f, density);
+}
+#endif
+
+#if WAVR_GRADIENT == 22
+vec3 plasmaOrbGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv);
+  float breathe = 1.0 + 0.012 * sin(time * 0.9);
+  float R = 0.33 * u_scale * breathe;
+  p -= 0.012 * vec2(sin(time * 0.31), cos(time * 0.27));
+  vec2 q = p / R;
+  float r = length(q);
+  float px = 1.0 / (R * u_resolution.y);       // one pixel in disc units
+  float inside = 1.0 - smoothstep(1.0 - 1.2 * px, 1.0 + 1.2 * px, r);
+
+  // The sphere point (clamped to the limb outside).
+  vec2 qc = r > 1.0 ? q / r : q;
+  float z = sqrt(max(1.0 - dot(qc, qc), 0.0));
+  vec3 n = vec3(qc, z);
+
+  vec2 fd = plasmaOrbField(n, time);
+  vec3 swirl = getGradientColor(pingPong(fd.x));
+
+  // Outside the orb, the halo takes a slow, smooth colour round the limb
+  // (the swirl itself would smear into spokes).
+  vec2 limb = normalize(qc + 1e-5);
+  float hl = 0.5 + 0.5 * snoise(limb * 0.9 + vec2(time * 0.05, 3.0));
+  vec3 haloCol = getGradientColor(pingPong(0.2 + 0.6 * hl));
+
+  // Interior: light carried by the swirl, brightest through the middle.
+  float depth = pow(z, 0.7);
+  // Where there is little light the colour sinks toward the palette's deep
+  // first stop rather than to black, so the shadows stay blue, not brown.
+  vec3 shadow0 = getGradientColor(0.0);
+  vec3 shadow = shadow0 * mix(0.55, 0.12, smoothstep(0.1, 0.6, dot(shadow0, vec3(0.2126, 0.7152, 0.0722))));
+  vec3 body = mix(shadow, swirl * 1.2, smoothstep(0.05, 0.75, fd.y)) * (0.55 + 0.6 * depth);
+  vec3 lightTint = mix(vec3(1.0), haloCol, 0.45);
+
+  vec3 L = normalize(vec3(-0.45, 0.62, 0.64));
+  vec3 Hh = normalize(L + vec3(0.0, 0.0, 1.0));
+  float nh = max(dot(n, Hh), 0.0);
+  float spec = pow(nh, 220.0) * 1.3 + pow(nh, 30.0) * 0.16;
+  float fres = pow(1.0 - z, 3.0);
+  // Environment glint hugging the rim on the lit side, a crisp thin line at the edge.
+  float lit = smoothstep(-0.1, 0.85, dot(normalize(qc + 1e-5), L.xy / length(L.xy)));
+  float glint = pow(1.0 - z, 5.0) * lit;
+  // Light that crosses the sphere and leaves low on the far side.
+  float bounce = pow(max(dot(n, normalize(vec3(0.5, -0.55, 0.25))), 0.0), 3.0) * smoothstep(0.2, 0.9, 1.0 - z) * 0.5;
+
+  // A glow from inside, strongest at the centre, and a thin bright line right at the edge.
+  float coreGlow = pow(z, 4.0);
+  float edge = pow(1.0 - z, 10.0);
+  vec3 orb = body + swirl * coreGlow * 0.35 + lightTint * (spec + 0.7 * fres + 0.9 * glint + 0.8 * edge * (0.4 + 0.6 * lit)) + swirl * bounce;
+  orb = orb / (1.0 + 0.35 * orb);
+
+  // Outside: a tight glow at the limb and a wide, faint one.
+  float d = max(r - 1.0, 0.0);
+  float halo = 0.5 * exp(-d * 7.0) + 0.14 * exp(-d * 2.2);
+  vec3 outside = shadow * 0.07 + haloCol * halo * 0.8;
+
+  return mix(outside, orb, inside);
+}
+#endif
+
+// ============================================================
 // Dither / Halftone Gradient
 // ============================================================
 
@@ -488,6 +1050,18 @@ vec3 computeGradient(vec2 uv, float time) {
   return prismGlassGradient(uv, time);
 #elif WAVR_GRADIENT == 16
   return neonTunnelGradient(uv, time);
+#elif WAVR_GRADIENT == 17
+  return liquidChromeGradient(uv, time);
+#elif WAVR_GRADIENT == 18
+  return iridescentFoilGradient(uv, time);
+#elif WAVR_GRADIENT == 19
+  return horizonGlowGradient(uv, time);
+#elif WAVR_GRADIENT == 20
+  return lightLeakGradient(uv, time);
+#elif WAVR_GRADIENT == 21
+  return inkSmokeGradient(uv, time);
+#elif WAVR_GRADIENT == 22
+  return plasmaOrbGradient(uv, time);
 #else
 #error Unknown WAVR_GRADIENT
 #endif

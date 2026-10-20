@@ -1,4 +1,16 @@
 import {
+  liquidChrome as coreLiquidChrome,
+  goldChrome as coreGoldChrome,
+  horizonGlow as coreHorizonGlow,
+  iceHorizon as coreIceHorizon,
+  inkSmoke as coreInkSmoke,
+  roseSmoke as coreRoseSmoke,
+  plasmaOrb as corePlasmaOrb,
+  limeOrb as coreLimeOrb,
+  iridescentFoil as coreIridescentFoil,
+  midnightFoil as coreMidnightFoil,
+  lightLeak as coreLightLeak,
+  violetLeak as coreVioletLeak,
   aurora as coreAurora,
   sunset as coreSunset,
   midnight as coreMidnight,
@@ -34,6 +46,18 @@ import {
 } from "@wavr/core/presets";
 import type { GradientConfig } from "./types";
 
+export const liquidChrome = coreLiquidChrome as GradientConfig;
+export const goldChrome = coreGoldChrome as GradientConfig;
+export const horizonGlow = coreHorizonGlow as GradientConfig;
+export const iceHorizon = coreIceHorizon as GradientConfig;
+export const inkSmoke = coreInkSmoke as GradientConfig;
+export const roseSmoke = coreRoseSmoke as GradientConfig;
+export const plasmaOrb = corePlasmaOrb as GradientConfig;
+export const limeOrb = coreLimeOrb as GradientConfig;
+export const iridescentFoil = coreIridescentFoil as GradientConfig;
+export const midnightFoil = coreMidnightFoil as GradientConfig;
+export const lightLeak = coreLightLeak as GradientConfig;
+export const violetLeak = coreVioletLeak as GradientConfig;
 export const aurora = coreAurora as GradientConfig;
 export const sunset = coreSunset as GradientConfig;
 export const midnight = coreMidnight as GradientConfig;

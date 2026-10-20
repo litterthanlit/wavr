@@ -9,6 +9,7 @@ export const GRADIENT_TYPES = [
   "mesh", "radial", "linear", "conic", "plasma",
   "dither", "scanline", "glitch", "voronoi", "image",
   "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
+  "liquidChrome", "iridescentFoil", "horizonGlow", "lightLeak", "inkSmoke", "plasmaOrb",
 ] as const;
 export type GradientType = (typeof GRADIENT_TYPES)[number];
 

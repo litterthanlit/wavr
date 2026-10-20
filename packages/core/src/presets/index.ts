@@ -1,3 +1,7 @@
+export {
+  liquidChrome, goldChrome, horizonGlow, iceHorizon, inkSmoke, roseSmoke,
+  plasmaOrb, limeOrb, iridescentFoil, midnightFoil, lightLeak, violetLeak,
+} from "./light";
 export { silkEditorial, northernGlow, liquidGlass, velvetCells, grainFlow } from "./soft";
 export { aurora, sunset, midnight, candy, ocean, lava, cyber, monochrome } from "./classic";
 export { newspaper, stipple, dissolve, morse } from "./dither";

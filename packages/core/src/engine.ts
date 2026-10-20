@@ -136,6 +136,12 @@ export const GRADIENT_TYPE_IDS: Readonly<Record<LayerParams["gradientType"], num
   grainflow: 14,
   prismGlass: 15,
   neonTunnel: 16,
+  liquidChrome: 17,
+  iridescentFoil: 18,
+  horizonGlow: 19,
+  lightLeak: 20,
+  inkSmoke: 21,
+  plasmaOrb: 22,
 };
 
 const IMAGE_BLEND_MODE_MAP: Record<ImageBlendMode, number> = {

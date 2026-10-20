@@ -1,4 +1,5 @@
 import { GradientConfig } from "../types";
+import * as light from "./light";
 import * as soft from "./soft";
 import * as classic from "./classic";
 import * as dither from "./dither";
@@ -8,7 +9,7 @@ import * as cinematic from "./cinematic";
 import * as nature from "./nature";
 import * as abstract from "./abstract";
 
-export type PresetCategory = "soft" | "classic" | "dither" | "scanline" | "glitch" | "cinematic" | "nature" | "abstract";
+export type PresetCategory = "light" | "soft" | "classic" | "dither" | "scanline" | "glitch" | "cinematic" | "nature" | "abstract";
 
 export interface PresetEntry {
   /** Export name in @wavr/core/presets. */
@@ -20,6 +21,7 @@ export interface PresetEntry {
 
 /** Categories in display order. */
 export const PRESET_CATEGORIES: { id: PresetCategory; label: string }[] = [
+  { id: "light", label: "Light" },
   { id: "soft", label: "Soft" },
   { id: "classic", label: "Classic" },
   { id: "dither", label: "Dither" },
@@ -32,6 +34,18 @@ export const PRESET_CATEGORIES: { id: PresetCategory; label: string }[] = [
 
 /** Every preset with its display name, in display order. */
 export const PRESET_CATALOG: PresetEntry[] = [
+  { id: "liquidChrome", name: "Liquid Chrome", category: "light", config: light.liquidChrome },
+  { id: "goldChrome", name: "Gold Chrome", category: "light", config: light.goldChrome },
+  { id: "horizonGlow", name: "Horizon Glow", category: "light", config: light.horizonGlow },
+  { id: "iceHorizon", name: "Ice Horizon", category: "light", config: light.iceHorizon },
+  { id: "inkSmoke", name: "Ink Smoke", category: "light", config: light.inkSmoke },
+  { id: "roseSmoke", name: "Rose Smoke", category: "light", config: light.roseSmoke },
+  { id: "plasmaOrb", name: "Plasma Orb", category: "light", config: light.plasmaOrb },
+  { id: "limeOrb", name: "Lime Orb", category: "light", config: light.limeOrb },
+  { id: "iridescentFoil", name: "Iridescent Foil", category: "light", config: light.iridescentFoil },
+  { id: "midnightFoil", name: "Midnight Foil", category: "light", config: light.midnightFoil },
+  { id: "lightLeak", name: "Light Leak", category: "light", config: light.lightLeak },
+  { id: "violetLeak", name: "Violet Leak", category: "light", config: light.violetLeak },
   { id: "silkEditorial", name: "Silk Editorial", category: "soft", config: soft.silkEditorial },
   { id: "northernGlow", name: "Northern Glow", category: "soft", config: soft.northernGlow },
   { id: "liquidGlass", name: "Liquid Glass", category: "soft", config: soft.liquidGlass },

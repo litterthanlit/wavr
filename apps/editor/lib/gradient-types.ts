@@ -12,6 +12,12 @@ export type GradientOption = {
 
 /** The strongest, calmest modes: the picker leads with these. */
 export const PREMIUM_GRADIENT_TYPES: GradientType[] = [
+  "liquidChrome",
+  "horizonGlow",
+  "inkSmoke",
+  "plasmaOrb",
+  "iridescentFoil",
+  "lightLeak",
   "mesh",
   "silk",
   "aurora",
@@ -24,7 +30,10 @@ export const PREMIUM_GRADIENT_TYPES: GradientType[] = [
 
 /**
  * What Randomize picks from: modes that look good with any palette. Left out:
- * aurora (the palette's first colour is its sky, so it needs a dark one), voronoi
+ * aurora (the palette's first colour is its sky, so it needs a dark one), the
+ * light modes (liquidChrome, iridescentFoil, horizonGlow, lightLeak, inkSmoke,
+ * plasmaOrb: the palette runs from shadow to the brightest light, so it has to
+ * start dark and end light), voronoi
  * and softCells (read as flat tiles in a random palette), dither (needs two
  * contrasting colours) and the rest of the stylized group.
  */
@@ -39,6 +48,12 @@ export const RANDOM_GRADIENT_TYPES: LayerParams["gradientType"][] = [
 ];
 
 export const COMMAND_GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = [
+  "liquidChrome",
+  "horizonGlow",
+  "inkSmoke",
+  "plasmaOrb",
+  "iridescentFoil",
+  "lightLeak",
   "mesh",
   "silk",
   "aurora",
@@ -58,6 +73,12 @@ export const COMMAND_GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image
 ];
 
 export const GRADIENT_OPTIONS: GradientOption[] = [
+  { value: "liquidChrome", label: "Liquid Chrome", group: "Premium" },
+  { value: "horizonGlow", label: "Horizon Glow", group: "Premium" },
+  { value: "inkSmoke", label: "Ink Smoke", group: "Premium" },
+  { value: "plasmaOrb", label: "Plasma Orb", group: "Premium" },
+  { value: "iridescentFoil", label: "Iridescent Foil", group: "Premium" },
+  { value: "lightLeak", label: "Light Leak", group: "Premium" },
   { value: "mesh", label: "Mesh", group: "Premium" },
   { value: "silk", label: "Silk", group: "Premium" },
   { value: "aurora", label: "Aurora", group: "Premium" },
@@ -76,6 +97,11 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
   { value: "glitch", label: "Glitch", group: "Stylized" },
   { value: "image", label: "Image", group: "Media" },
 ];
+
+/** The picker's name for a type ("Liquid Chrome"), for anywhere a type is shown. */
+export function gradientTypeLabel(type: LayerParams["gradientType"]): string {
+  return GRADIENT_OPTIONS.find((option) => option.value === type)?.label ?? type;
+}
 
 export function defaultSoftnessForType(type: LayerParams["gradientType"]): number {
   return defaultSoftnessForGradientType(type);

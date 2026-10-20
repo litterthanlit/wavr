@@ -6,7 +6,14 @@ import Select from "@/components/ui/Select";
 import Slider from "@/components/ui/Slider";
 import ColorInput from "@/components/ui/ColorInput";
 import Toggle from "@/components/ui/Toggle";
-import { LayerParams, MaskParams, TextMaskAlign } from "@wavr/core";
+import {
+  LIGHT_GRADIENT_PALETTES,
+  LayerParams,
+  MaskParams,
+  TextMaskAlign,
+  isLightGradientType,
+  isLightRampPalette,
+} from "@wavr/core";
 import { GRADIENT_OPTIONS, defaultSoftnessForType } from "@/lib/gradient-types";
 
 const MASK_SHAPE_OPTIONS = [
@@ -252,6 +259,25 @@ export default function GradientPanel() {
             });
           }}
         />
+        {/* The light modes read the palette as darkest-to-brightest; offer theirs when it doesn't run that way. */}
+        {isLightGradientType(store.gradientType) && !isLightRampPalette(store.colors) && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+            <p className="text-[11px] leading-snug text-text-tertiary">
+              Reads the palette as light: darkest colour first, brightest last.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isLightGradientType(store.gradientType)) return;
+                const palette = LIGHT_GRADIENT_PALETTES[store.gradientType];
+                store.setDiscrete({ colors: palette.map((c) => [...c] as [number, number, number]) });
+              }}
+              className="shrink-0 text-xs text-text-secondary hover:text-accent transition-colors"
+            >
+              Use its palette
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Image Source — shown when type is "image" */}
