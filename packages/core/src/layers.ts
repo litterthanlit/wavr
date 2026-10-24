@@ -29,7 +29,12 @@ export function defaultSoftnessForGradientType(type: GradientType): number {
     case "horizonGlow":
     case "lightLeak":
     case "plasmaOrb":
+    case "halo":
       return 0.5;
+    case "aperture":
+      return 0.8;
+    case "lightWall":
+      return 0.6;
     default:
       return 0;
   }
@@ -47,9 +52,33 @@ export const LIGHT_GRADIENT_PALETTES = {
   lightLeak: [[0.008, 0.004, 0.008], [0.173, 0.031, 0.098], [0.584, 0.086, 0.161], [1, 0.29, 0.11], [1, 0.647, 0.18], [1, 0.945, 0.824]],
   inkSmoke: [[0.016, 0.02, 0.047], [0.055, 0.082, 0.212], [0.204, 0.275, 0.71], [0.608, 0.698, 1], [0.945, 0.957, 1]],
   plasmaOrb: [[0.047, 0.055, 0.267], [0.169, 0.275, 1], [0.545, 0.302, 1], [1, 0.31, 0.627], [1, 0.816, 0.761]],
+  halo: [[0, 0, 0], [0.11, 0.04, 0.17], [0.36, 0.15, 0.4], [0.69, 0.29, 0.45], [0.94, 0.6, 0.58], [1, 0.93, 0.95]],
 } satisfies Partial<Record<GradientType, [number, number, number][]>>;
 
 export type LightGradientType = keyof typeof LIGHT_GRADIENT_PALETTES;
+
+/**
+ * The light fields ("Light fields" in gradients.glsl) that read the palette by
+ * role rather than as one ramp: their curated palettes (the ones their presets
+ * open with) and what the stops are. Halo, a light field too, reads its palette
+ * as a light ramp, so it is a light gradient above.
+ */
+export const LIGHT_FIELD_PALETTES = {
+  aperture: [[0.253, 0.261, 0.41], [0.392, 0.506, 1], [0.625, 0.509, 0.998], [0.827, 0.568, 0.998], [0.864, 0.732, 1]],
+  lightWall: [[0.55, 0.36, 0.85], [0.86, 0.24, 0.58], [0.82, 0.72, 1], [0.96, 0.34, 0.44], [0.93, 0.48, 0.86]],
+} satisfies Partial<Record<GradientType, [number, number, number][]>>;
+
+export type LightFieldType = keyof typeof LIGHT_FIELD_PALETTES;
+
+/** How each light field reads its stops, for the palette editor. */
+export const LIGHT_FIELD_PALETTE_ROLES: Record<LightFieldType, string> = {
+  aperture: "First colour is the wall; the rest are the light in the opening, from its core to its rim.",
+  lightWall: "First colour is the glass's own glow; the rest are the lights behind it.",
+};
+
+export function isLightFieldType(type: GradientType): type is LightFieldType {
+  return Object.prototype.hasOwnProperty.call(LIGHT_FIELD_PALETTES, type);
+}
 
 export function isLightGradientType(type: GradientType): type is LightGradientType {
   return Object.prototype.hasOwnProperty.call(LIGHT_GRADIENT_PALETTES, type);

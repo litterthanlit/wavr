@@ -1,4 +1,5 @@
 import { GradientConfig } from "../types";
+import * as lightFields from "./light-fields";
 import * as light from "./light";
 import * as soft from "./soft";
 import * as classic from "./classic";
@@ -9,7 +10,7 @@ import * as cinematic from "./cinematic";
 import * as nature from "./nature";
 import * as abstract from "./abstract";
 
-export type PresetCategory = "light" | "soft" | "classic" | "dither" | "scanline" | "glitch" | "cinematic" | "nature" | "abstract";
+export type PresetCategory = "lightFields" | "light" | "soft" | "classic" | "dither" | "scanline" | "glitch" | "cinematic" | "nature" | "abstract";
 
 export interface PresetEntry {
   /** Export name in @wavr/core/presets. */
@@ -21,6 +22,7 @@ export interface PresetEntry {
 
 /** Categories in display order. */
 export const PRESET_CATEGORIES: { id: PresetCategory; label: string }[] = [
+  { id: "lightFields", label: "Light Fields" },
   { id: "light", label: "Light" },
   { id: "soft", label: "Soft" },
   { id: "classic", label: "Classic" },
@@ -34,6 +36,14 @@ export const PRESET_CATEGORIES: { id: PresetCategory; label: string }[] = [
 
 /** Every preset with its display name, in display order. */
 export const PRESET_CATALOG: PresetEntry[] = [
+  { id: "aperture", name: "Aperture", category: "lightFields", config: lightFields.aperture },
+  { id: "cobaltAperture", name: "Cobalt Aperture", category: "lightFields", config: lightFields.cobaltAperture },
+  { id: "duskAperture", name: "Dusk Aperture", category: "lightFields", config: lightFields.duskAperture },
+  { id: "ganzfeld", name: "Ganzfeld", category: "lightFields", config: lightFields.ganzfeld },
+  { id: "halo", name: "Halo", category: "lightFields", config: lightFields.halo },
+  { id: "iceHalo", name: "Ice Halo", category: "lightFields", config: lightFields.iceHalo },
+  { id: "lightWall", name: "Light Wall", category: "lightFields", config: lightFields.lightWall },
+  { id: "lagoonWall", name: "Lagoon Wall", category: "lightFields", config: lightFields.lagoonWall },
   { id: "liquidChrome", name: "Liquid Chrome", category: "light", config: light.liquidChrome },
   { id: "goldChrome", name: "Gold Chrome", category: "light", config: light.goldChrome },
   { id: "horizonGlow", name: "Horizon Glow", category: "light", config: light.horizonGlow },

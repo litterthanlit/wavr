@@ -7,10 +7,13 @@ import Slider from "@/components/ui/Slider";
 import ColorInput from "@/components/ui/ColorInput";
 import Toggle from "@/components/ui/Toggle";
 import {
+  LIGHT_FIELD_PALETTES,
+  LIGHT_FIELD_PALETTE_ROLES,
   LIGHT_GRADIENT_PALETTES,
   LayerParams,
   MaskParams,
   TextMaskAlign,
+  isLightFieldType,
   isLightGradientType,
   isLightRampPalette,
 } from "@wavr/core";
@@ -276,6 +279,27 @@ export default function GradientPanel() {
             >
               Use its palette
             </button>
+          </div>
+        )}
+        {/* The aperture and light wall read the palette by role; say which, and offer theirs. */}
+        {isLightFieldType(store.gradientType) && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+            <p className="text-[11px] leading-snug text-text-tertiary">
+              {LIGHT_FIELD_PALETTE_ROLES[store.gradientType]}
+            </p>
+            {JSON.stringify(store.colors) !== JSON.stringify(LIGHT_FIELD_PALETTES[store.gradientType]) && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isLightFieldType(store.gradientType)) return;
+                  const palette = LIGHT_FIELD_PALETTES[store.gradientType];
+                  store.setDiscrete({ colors: palette.map((c) => [...c] as [number, number, number]) });
+                }}
+                className="shrink-0 text-xs text-text-secondary hover:text-accent transition-colors"
+              >
+                Use its palette
+              </button>
+            )}
           </div>
         )}
       </div>

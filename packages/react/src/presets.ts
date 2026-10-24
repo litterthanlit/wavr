@@ -1,4 +1,12 @@
 import {
+  aperture as coreAperture,
+  cobaltAperture as coreCobaltAperture,
+  duskAperture as coreDuskAperture,
+  ganzfeld as coreGanzfeld,
+  halo as coreHalo,
+  iceHalo as coreIceHalo,
+  lightWall as coreLightWall,
+  lagoonWall as coreLagoonWall,
   liquidChrome as coreLiquidChrome,
   goldChrome as coreGoldChrome,
   horizonGlow as coreHorizonGlow,
@@ -46,6 +54,14 @@ import {
 } from "@wavr/core/presets";
 import type { GradientConfig } from "./types";
 
+export const aperture = coreAperture as GradientConfig;
+export const cobaltAperture = coreCobaltAperture as GradientConfig;
+export const duskAperture = coreDuskAperture as GradientConfig;
+export const ganzfeld = coreGanzfeld as GradientConfig;
+export const halo = coreHalo as GradientConfig;
+export const iceHalo = coreIceHalo as GradientConfig;
+export const lightWall = coreLightWall as GradientConfig;
+export const lagoonWall = coreLagoonWall as GradientConfig;
 export const liquidChrome = coreLiquidChrome as GradientConfig;
 export const goldChrome = coreGoldChrome as GradientConfig;
 export const horizonGlow = coreHorizonGlow as GradientConfig;

@@ -159,6 +159,11 @@ uniform float u_liquifyScale;
 uniform bool u_debandEnabled;
 uniform float u_debandStrength;
 
+// [post] Cinematic bloom: the bloom pyramid's top level, linear light (engine.ts renderBloomPyramid)
+uniform bool u_realBloomEnabled;
+uniform float u_realBloomGain;  // strength / the pyramid's level count
+uniform sampler2D u_bloomTexture;
+
 // ============================================================
 // Simplex Noise 2D
 // ============================================================
@@ -430,6 +435,85 @@ vec3 satinColor(float t, float height, float relief) {
 // the middle of a form and change at its edges), lit like satin by `relief`.
 vec3 finishSoftGradient(float field, float relief) {
   return satinColor(smoothstep(0.0, 1.0, clamp(field, 0.0, 1.0)), field, relief);
+}
+
+// ============================================================
+// Light (the light-field gradients)
+// ============================================================
+// Light adds, blurs and spills in linear light, not in sRGB, so the light
+// fields convert their stops with srgbToLinear(), work there, and come back
+// through lightToDisplay().
+
+vec3 srgbToLinear(vec3 c) {
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
+vec3 linearToSrgb(vec3 c) {
+  c = max(c, 0.0);
+  return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
+}
+
+// erf(x), within 2e-4 (Winitzki's approximation).
+float erfApprox(float x) {
+  float x2 = x * x;
+  float t = x2 * (1.2732395 + 0.147 * x2) / (1.0 + 0.147 * x2);
+  return sign(x) * sqrt(1.0 - exp(-t));
+}
+
+// A uniformly lit box of half size `halfSize`, centred on the origin, seen
+// through a Gaussian blur of `sigma` (per axis): the exact convolution, a
+// product of two erfs. 1 deep inside a box much larger than sigma, falling off
+// around it as light spreading in two dimensions does, so a glow of any radius
+// costs the same and never bands or rings.
+float blurredBox(vec2 p, vec2 halfSize, vec2 sigma) {
+  vec2 s = 0.70710678 / sigma;
+  vec2 a = (p + halfSize) * s;
+  vec2 b = (p - halfSize) * s;
+  return 0.25 * (erfApprox(a.x) - erfApprox(b.x)) * (erfApprox(a.y) - erfApprox(b.y));
+}
+
+// The stops as light: position `x` in stops (0 = the first stop, count - 1 =
+// the last), linear. A Catmull-Rom curve through the raw stops: it passes
+// through each one without pausing there, so light changes continuously
+// instead of banding at every stop, and the layer's softness (which blurs the
+// baked palette) leaves the stops themselves alone. `first` and `last` bound
+// the stops the curve may use.
+vec3 lightStop(int i, int first, int last) {
+  return srgbToLinear(u_colors[clamp(i, first, last)]);
+}
+
+vec3 lightStops(float x, int first, int last) {
+  x = clamp(x, float(first), float(last));
+  int i = int(floor(x));
+  float f = x - float(i);
+  vec3 p0 = lightStop(i - 1, first, last);
+  vec3 p1 = lightStop(i, first, last);
+  vec3 p2 = lightStop(i + 1, first, last);
+  vec3 p3 = lightStop(i + 2, first, last);
+  vec3 c = p1 + 0.5 * f * (p2 - p0 + f * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3 + f * (3.0 * (p1 - p2) + p3 - p0)));
+  return max(c, 0.0);
+}
+
+// The whole ramp as light, t = 0 (the first stop) to 1 (the last).
+vec3 lightRamp(float t) {
+  int last = max(u_colorCount - 1, 0);
+  return lightStops(t * float(last), 0, last);
+}
+
+// Linear light to display sRGB. Light below the knee passes through, so a
+// palette colour shows as picked (a channel at 1 comes back within two 8-bit
+// levels). Above it the brightest channel rolls off toward 1 on a short C1
+// shoulder, and the light that no longer fits bleaches the colour toward white,
+// keeping its hue, as bright coloured light does on film and in the eye.
+vec3 lightToDisplay(vec3 c) {
+  c = max(c, 0.0);
+  float m = max(max(c.r, c.g), c.b);
+  const float KNEE = 0.94;
+  if (m > KNEE) {
+    float shoulder = KNEE + (1.0 - KNEE) * tanh(min((m - KNEE) / (1.0 - KNEE), 10.0));
+    c = mix(c * (shoulder / m), vec3(shoulder), 1.0 - shoulder / m);
+  }
+  return linearToSrgb(c);
 }
 
 // White noise, one value per `cell` pixels. The cell grows with the canvas

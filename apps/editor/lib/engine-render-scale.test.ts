@@ -308,23 +308,31 @@ describe("render scale", () => {
       const start = draws.length;
       engine.render(state);
 
-      // Composite 2 + feedback 2 + bloom scene 1 at canvas size; trail 2 + bloom blur 2 at a quarter.
-      expect(texturesOfSize(100, 50)).toHaveLength(2 + 2 + 1);
-      expect(texturesOfSize(25, 12)).toHaveLength(2 + 2);
-      expect(texturesOfSize(50, 25)).toEqual([]);
+      // Composite 2 + feedback 2 at canvas size, trail 2 at a quarter, and the bloom pyramid
+      // from half the canvas down (50x25, 25x12, 12x6, 6x3), whatever the layer scale.
+      expect(texturesOfSize(100, 50)).toHaveLength(2 + 2);
+      expect(texturesOfSize(25, 12)).toHaveLength(2 + 1);
+      expect(texturesOfSize(50, 25)).toHaveLength(1);
+      expect(texturesOfSize(12, 6)).toHaveLength(1);
+      expect(texturesOfSize(6, 3)).toHaveLength(1);
 
-      const viewports = draws.slice(start).map((d) => d.viewport);
-      // 2 layers at the layer scale, post, then bloom: extract, blur x2 at 1/4, composite.
+      const passes = draws.slice(start);
+      // 2 layers at the layer scale, the pyramid down and back up, then the post pass.
       // (The trail is stepped on pointer time by updateTrail(), not by render().)
-      expect(viewports).toEqual([
+      expect(passes.map((d) => d.viewport)).toEqual([
         [0, 0, 50, 25],
         [0, 0, 50, 25],
-        [0, 0, 100, 50],
+        [0, 0, 50, 25],
         [0, 0, 25, 12],
+        [0, 0, 12, 6],
+        [0, 0, 6, 3],
+        [0, 0, 12, 6],
         [0, 0, 25, 12],
-        [0, 0, 25, 12],
+        [0, 0, 50, 25],
         [0, 0, 100, 50],
       ]);
+      // The first pass down reads only the drawn corner of the scene.
+      expect(passes[2].uniforms.u_sourceScale).toEqual([0.5, 0.5]);
       expect(frame(state)).toBeDefined();
 
       // The trail draws at a quarter of the canvas whatever the layer scale.

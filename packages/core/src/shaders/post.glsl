@@ -261,6 +261,16 @@ void main() {
     color = vec3(cR.r, cG.g, cB.b);
   }
 
+  // Cinematic bloom: the light of the scene's bright parts, spread at every
+  // scale by the bloom pyramid, added back in linear light like an exposure:
+  // 1 - (1 - c) e^-bloom adds `bloom` where the scene is dark and eases into
+  // white, never past it, where it is bright, so a glow never clips to a flat
+  // patch, and where there is no bloom the scene is untouched.
+  if (u_realBloomEnabled) {
+    vec3 bloom = textureLod(u_bloomTexture, uv, 0.0).rgb * u_realBloomGain;
+    color = linearToSrgb(1.0 - (1.0 - min(srgbToLinear(color), 1.0)) * exp(-bloom));
+  }
+
   // Hue shift
   if (abs(u_hueShift) > 0.01) {
     color = rotateHue(color, u_hueShift * 6.28318 / 360.0);

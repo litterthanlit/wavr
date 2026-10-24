@@ -12,6 +12,9 @@ export type GradientOption = {
 
 /** The strongest, calmest modes: the picker leads with these. */
 export const PREMIUM_GRADIENT_TYPES: GradientType[] = [
+  "aperture",
+  "halo",
+  "lightWall",
   "liquidChrome",
   "horizonGlow",
   "inkSmoke",
@@ -32,8 +35,9 @@ export const PREMIUM_GRADIENT_TYPES: GradientType[] = [
  * What Randomize picks from: modes that look good with any palette. Left out:
  * aurora (the palette's first colour is its sky, so it needs a dark one), the
  * light modes (liquidChrome, iridescentFoil, horizonGlow, lightLeak, inkSmoke,
- * plasmaOrb: the palette runs from shadow to the brightest light, so it has to
- * start dark and end light), voronoi
+ * plasmaOrb, halo: the palette runs from shadow to the brightest light, so it
+ * has to start dark and end light), the aperture and light wall (their first
+ * colour is the wall or the glass, the rest the light), voronoi
  * and softCells (read as flat tiles in a random palette), dither (needs two
  * contrasting colours) and the rest of the stylized group.
  */
@@ -48,6 +52,9 @@ export const RANDOM_GRADIENT_TYPES: LayerParams["gradientType"][] = [
 ];
 
 export const COMMAND_GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = [
+  "aperture",
+  "halo",
+  "lightWall",
   "liquidChrome",
   "horizonGlow",
   "inkSmoke",
@@ -73,6 +80,9 @@ export const COMMAND_GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image
 ];
 
 export const GRADIENT_OPTIONS: GradientOption[] = [
+  { value: "aperture", label: "Aperture", group: "Premium" },
+  { value: "halo", label: "Halo", group: "Premium" },
+  { value: "lightWall", label: "Light Wall", group: "Premium" },
   { value: "liquidChrome", label: "Liquid Chrome", group: "Premium" },
   { value: "horizonGlow", label: "Horizon Glow", group: "Premium" },
   { value: "inkSmoke", label: "Ink Smoke", group: "Premium" },
