@@ -19,6 +19,7 @@ import {
   DownloadIcon,
   FolderIcon,
   HelpIcon,
+  LayersIcon,
   MonitorIcon,
   MoonIcon,
   MoreIcon,
@@ -92,6 +93,7 @@ export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects
           onClick={onScenes}
           onPointerEnter={preloadSceneGalleryModal}
           onFocus={preloadSceneGalleryModal}
+          className="max-sm:hidden"
         >
           Scenes
         </Button>
@@ -162,6 +164,9 @@ export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects
             <Button variant="ghost" size="sm" iconOnly aria-label="More" icon={<MoreIcon />} className={NARROW} />
           }
         >
+          <MenuItem icon={<LayersIcon />} onSelect={onScenes}>
+            Scenes
+          </MenuItem>
           <MenuItem icon={<ShareIcon />} onSelect={share}>
             Share link
           </MenuItem>

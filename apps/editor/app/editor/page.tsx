@@ -204,6 +204,7 @@ export default function EditorPage() {
               {scene3DEnabled && (
                 <Scene3DCanvas onCanvasReady={handleSceneCanvasReady} onCaptureReady={handleSceneCaptureReady} />
               )}
+              <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
             </div>
             <Timeline />
           </main>
@@ -249,7 +250,6 @@ export default function EditorPage() {
             }}
           />
         )}
-        <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
         {onboardingNeeded && <LazyOnboarding />}
         <Toaster />
       </div>

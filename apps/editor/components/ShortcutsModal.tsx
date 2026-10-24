@@ -1,65 +1,44 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Dialog, DialogContent } from "@/components/litt/dialog";
+import { Kbd } from "@/components/litt/kbd";
 
 interface ShortcutsModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const SHORTCUTS = [
-  { key: "\u2318/Ctrl + K", action: "Open command palette" },
-  { key: "Space", action: "Play / Pause" },
-  { key: "R", action: "Randomize" },
-  { key: "E", action: "Export" },
-  { key: "Esc", action: "Close modal" },
-  { key: "1 / 2 / 3", action: "Switch tab" },
-  { key: "\u2318/Ctrl + Z", action: "Undo" },
-  { key: "\u2318/Ctrl + Shift + Z", action: "Redo" },
-  { key: "?", action: "Toggle this overlay" },
+/** What the editor page's key handler does (app/editor/page.tsx). */
+const SHORTCUTS: { keys: string[]; action: string }[] = [
+  { keys: ["⌘K"], action: "Search commands" },
+  { keys: ["Space"], action: "Play or pause" },
+  { keys: ["R"], action: "Randomize" },
+  { keys: ["E"], action: "Export" },
+  { keys: ["P"], action: "Projects" },
+  { keys: ["1", "2", "3", "4", "5"], action: "Switch panel" },
+  { keys: ["⌘Z"], action: "Undo" },
+  { keys: ["⇧⌘Z"], action: "Redo" },
+  { keys: ["Esc"], action: "Close a dialog" },
+  { keys: ["?"], action: "Show these shortcuts" },
 ];
 
 export default function ShortcutsModal({ open, onClose }: ShortcutsModalProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (open) panelRef.current?.focus();
-  }, [open]);
-
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Keyboard shortcuts"
-        tabIndex={-1}
-        className="relative bg-base border border-border rounded-xl p-6 w-[340px] shadow-2xl focus:outline-none"
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-sm font-medium text-text-primary">Keyboard Shortcuts</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close shortcuts"
-            className="text-text-tertiary hover:text-text-primary text-lg transition-colors"
-          >
-            x
-          </button>
-        </div>
-        <div className="flex flex-col gap-2">
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent title="Keyboard shortcuts" description="On Windows and Linux, Ctrl stands in for ⌘.">
+        <dl className="flex flex-col">
           {SHORTCUTS.map((s) => (
-            <div key={s.key} className="flex justify-between items-center">
-              <span className="text-xs text-text-secondary">{s.action}</span>
-              <kbd className="font-mono text-[11px] text-text-tertiary bg-surface border border-border rounded px-1.5 py-0.5">
-                {s.key}
-              </kbd>
+            <div key={s.action} className="flex items-center justify-between gap-4 border-b border-litt-line py-2 last:border-b-0">
+              <dt className="text-litt-small text-litt-fg-muted">{s.action}</dt>
+              <dd className="flex gap-1">
+                {s.keys.map((key) => (
+                  <Kbd key={key}>{key}</Kbd>
+                ))}
+              </dd>
             </div>
           ))}
-        </div>
-      </div>
-    </div>
+        </dl>
+      </DialogContent>
+    </Dialog>
   );
 }

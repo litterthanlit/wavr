@@ -10,7 +10,8 @@ import {
 import { normalizeTimelineTime, type PlaybackMode } from "@/lib/timeline";
 import { applyEnginePerformanceSettings, applyTimeline, withPerformanceMode } from "@/lib/frame-state";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
-import Toast from "@/components/ui/Toast";
+import { toast } from "@/components/litt/toast";
+import { ErrorState } from "@/components/litt/states";
 
 // Shared audio analyzer instance (persists across re-renders)
 let sharedAnalyzer: AudioAnalyzer | null = null;
@@ -65,7 +66,6 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const [error, setError] = useState<string | null>(null);
   const [contextLost, setContextLost] = useState(false);
   const [compiling, setCompiling] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const degradedRef = useRef(false);
   const textCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastTextParamsRef = useRef<string>("");
@@ -223,7 +223,10 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       // touched; tell them once why the picture may be softer.
       if (!degradedRef.current && engine.getRenderScale() < 1 && useGradientStore.getState().performanceMode === "auto") {
         degradedRef.current = true;
-        setToastMsg("Lowered render resolution to keep playback smooth");
+        toast({
+          title: "Lowered the render resolution",
+          description: "Auto performance keeps playback smooth. Exports render at full size.",
+        });
       }
     };
 
@@ -352,46 +355,42 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
   if (error) {
     return (
-      <div className="relative flex-1 h-full overflow-hidden flex items-center justify-center bg-root">
-        <div className="text-center max-w-sm px-4">
-          <p className="text-text-primary text-sm font-medium mb-2">Unable to render</p>
-          <p className="text-text-tertiary text-xs">{error}</p>
-          <p className="text-text-tertiary text-xs mt-1">
-            Please use a modern browser (Chrome, Firefox, Edge, Safari 15+).
-          </p>
-        </div>
+      <div className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-litt-canvas p-6">
+        <ErrorState title="Unable to render" className="max-w-sm">
+          {error} Please use a modern browser (Chrome, Firefox, Edge, Safari 15+).
+        </ErrorState>
       </div>
     );
   }
 
   return (
-    <div className="relative flex-1 h-full overflow-hidden">
+    <div className="relative h-full flex-1 overflow-hidden">
       <canvas
         ref={canvasRef}
         className="block"
       />
+      {/* Notes over the canvas float, so they are glass pills (litt: glass is for floating surfaces). */}
       {contextLost && (
-        <div className="absolute inset-0 flex items-center justify-center bg-root/80">
-          <p className="text-text-secondary text-sm">Recovering WebGL context...</p>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p role="status" className="litt-glass rounded-litt-control px-3 py-1 text-litt-small text-litt-fg">
+            Recovering the WebGL context…
+          </p>
         </div>
       )}
       {compiling && !contextLost && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p className="rounded bg-base/70 px-2 py-1 text-xs text-text-secondary">Compiling shader...</p>
+          <p role="status" className="litt-glass rounded-litt-control px-3 py-1 text-litt-small text-litt-fg">
+            Compiling shader…
+          </p>
         </div>
       )}
-      <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded hidden lg:block">
+      <div className="litt-glass absolute bottom-3 left-3 hidden rounded-litt-control px-2 py-0.5 font-litt-mono text-litt-caption font-normal text-litt-fg-muted lg:block">
         {fps} FPS
         {metrics && (
           <> · {metrics.lastCpuFrameMs.toFixed(1)}ms CPU · {metrics.framebufferCount} FBO · {formatBytes(metrics.estimatedBytes)}</>
         )}
         {metrics && metrics.renderScale < 1 && <> · {Math.round(metrics.renderScale * 100)}% res</>}
       </div>
-      <Toast
-        message={toastMsg ?? ""}
-        visible={toastMsg !== null}
-        onDismiss={() => setToastMsg(null)}
-      />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ONBOARDING_STORAGE_KEY } from "@/lib/onboarding";
+import { Button } from "@/components/litt/button";
 
 const STEPS = [
   {
@@ -9,7 +10,7 @@ const STEPS = [
     desc: "Create animated gradients with real-time controls. Move your mouse over the canvas to interact with the gradient.",
   },
   {
-    title: "Gradient Controls",
+    title: "Gradient controls",
     desc: "Use the Gradient tab in the sidebar to change type, colors, speed, and distortion. Try Domain Warp in mesh mode for deeper organic patterns.",
   },
   {
@@ -21,11 +22,11 @@ const STEPS = [
     desc: "Add up to 4 layers at the top of the sidebar. Each layer has its own gradient type, colors, and blend mode.",
   },
   {
-    title: "Export & Share",
+    title: "Export and share",
     desc: "Click Export to download as PNG, CSS, video, or embed code. Click Share to copy a shareable link.",
   },
   {
-    title: "Keyboard Shortcuts",
+    title: "Keyboard shortcuts",
     desc: "Press ? to see all shortcuts. Space to play/pause, R to randomize, Cmd+Z to undo.",
   },
 ];
@@ -59,38 +60,28 @@ export default function Onboarding() {
   const current = STEPS[step];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
-      <div className="pointer-events-auto bg-base border border-border rounded-xl p-5 w-[340px] shadow-2xl">
-        <div className="flex justify-between items-start mb-3">
-          <h3 className="text-sm font-medium text-text-primary">{current.title}</h3>
-          <button
-            onClick={dismiss}
-            className="text-text-tertiary hover:text-text-primary text-xs transition-colors"
-          >
+    <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center p-4">
+      {/* It floats over the canvas, so it is glass; Next stays secondary so Export keeps the view's one accent fill. */}
+      <section
+        aria-labelledby="onboarding-title"
+        className="litt-glass pointer-events-auto flex w-[22rem] max-w-full flex-col gap-4 rounded-litt-surface p-6"
+      >
+        <div className="flex flex-col gap-1">
+          <p className="font-litt-mono text-litt-caption font-normal text-litt-fg-subtle">
+            {step + 1} of {STEPS.length}
+          </p>
+          <h3 id="onboarding-title" className="text-litt-body font-litt-title text-litt-fg">{current.title}</h3>
+          <p className="text-litt-small text-litt-fg-muted">{current.desc}</p>
+        </div>
+        <div className="flex justify-end gap-3">
+          <Button variant="ghost" size="sm" onClick={dismiss}>
             Skip
-          </button>
+          </Button>
+          <Button size="sm" onClick={next}>
+            {step === STEPS.length - 1 ? "Get started" : "Next"}
+          </Button>
         </div>
-        <p className="text-xs text-text-secondary leading-relaxed mb-4">{current.desc}</p>
-        <div className="flex justify-between items-center">
-          <div className="flex gap-1">
-            {STEPS.map((_, i) => (
-              <div
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                  i === step ? "bg-accent" : "bg-elevated"
-                }`}
-              />
-            ))}
-          </div>
-          <button
-            onClick={next}
-            className="px-4 py-1.5 text-xs text-white bg-accent hover:bg-accent/80
-              rounded-md transition-all duration-150"
-          >
-            {step === STEPS.length - 1 ? "Get Started" : "Next"}
-          </button>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }
