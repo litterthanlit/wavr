@@ -76,7 +76,7 @@ Per-layer params (type, colors, speed, masks, images, …) live on each layer. G
 - **Lazy UI:**
   - The initial bundle is the canvas, top bar, layer panel, Gradient tab and timeline. Everything else (other tabs, modals, command palette, onboarding, mobile drawer body) is a `next/dynamic` import in `components/lazy.tsx`, which also exports `preload*` helpers for hover/focus and `prefetchEditorChunks` (one chunk per idle slot).
   - New modals and tabs go there. Mount a modal with `useEverOpened(open)` so it loads on first open and stays mounted afterwards.
-- **Initial scene:** `lib/initial-scene.ts` is what `/editor` opens on; `url-sync.ts` applies it for an empty hash. Core and schema defaults are separate (old URLs depend on them).
+- **Initial scene:** `lib/initial-scene.ts` is what `/editor` opens on; `url-sync.ts` applies it for an empty hash. It is the Aperture preset spelled out (no preset import in the initial bundle): the layer plus its grain, tone map and cinematic bloom (`INITIAL_EFFECTS`, spread into the store's defaults); `initial-scene.test.ts` keeps it equal to the preset. Core and schema defaults are separate (old URLs depend on them), and a config without `realBloom` loads with bloom off, as the engine reads it.
 - **Frame state:** `lib/frame-state.ts` (`applyTimeline`, `withPerformanceMode`, `applyEnginePerformanceSettings`) builds the per-frame state and applies the performance mode (`getEditorPerformanceSettings`: pixel ratio, frame cap, render scale; auto = adaptive 0.6–1). It's shared by `Canvas.tsx` and export, so exports match the live view. Nothing silently lowers the user's settings for speed.
 - **Export:**
   - `lib/export.ts` handles PNG (1×/2×/4×) and GIF, both rendered offscreen at exact times.

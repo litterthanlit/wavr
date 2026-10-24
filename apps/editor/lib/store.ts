@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
 import { RANDOM_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
-import { INITIAL_LAYER_PARAMS } from "./initial-scene";
+import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
 import {
   DEFAULT_SCENE_3D_STATE,
   cloneScene3D,
@@ -339,7 +339,6 @@ const DEFAULTS = {
   noiseEnabled: false,
   noiseIntensity: 0.3,
   noiseScale: 1.0,
-  grain: 0.0,
   mouseReact: 0.5,
   bloomEnabled: false,
   bloomIntensity: 0.3,
@@ -370,7 +369,6 @@ const DEFAULTS = {
   feedbackEnabled: false,
   feedbackDecay: 0.5,
   oklabEnabled: true,
-  toneMapMode: 1,
   rippleEnabled: false,
   rippleIntensity: 0.5,
   glowEnabled: false,
@@ -384,9 +382,10 @@ const DEFAULTS = {
   trailEnabled: false,
   trailLength: 0.96,
   trailWidth: 0.05,
-  realBloomEnabled: false,
   debandEnabled: true,
   debandStrength: 1.0,
+  // The opening scene's own grain, tone map and bloom.
+  ...INITIAL_EFFECTS,
   audioEnabled: false,
   audioSource: "mic" as const,
   audioBassTarget: "distortion",

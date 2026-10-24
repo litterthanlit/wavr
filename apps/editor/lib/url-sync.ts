@@ -35,7 +35,7 @@ import {
 } from "@wavr/schema";
 import { createLayer, type LayerParams, type BlendMode as CoreBlendMode } from "@wavr/core";
 import { useGradientStore, type GradientState } from "./store";
-import { INITIAL_LAYER_PARAMS } from "./initial-scene";
+import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
 
 // ---------- lazy codec ---------------------------------------------------
 
@@ -392,9 +392,10 @@ export function configToStorePatch(config: GradientConfig): Partial<GradientStat
     patch.trailLength = config.trail.length;
     patch.trailWidth = config.trail.width;
   }
-  if (config.realBloom) {
-    patch.realBloomEnabled = config.realBloom.enabled;
-  }
+  // Absent means off, as the engine reads it (resolveConfig), not "keep the
+  // store's": the opening scene turns cinematic bloom on, and a config written
+  // without it (a preset, a hand-made URL) must not pick that up.
+  patch.realBloomEnabled = config.realBloom?.enabled ?? false;
   if (config.deband) {
     patch.debandEnabled = config.deband.enabled;
     patch.debandStrength = config.deband.strength;
@@ -463,8 +464,9 @@ export function getShareUrlV2(state: GradientState): string {
  * - On V1 detection, logs dropped keys + rewrites the hash to V2 via
  *   `history.replaceState` so subsequent edits use the new format.
  * - On empty hash (on mount, or via popstate to "#"), resets the schema-owned
- *   slice to DEFAULT_CONFIG with the editor's initial scene as its layer, so
- *   /editor opens on that scene rather than on the schema's bare baseline.
+ *   slice to DEFAULT_CONFIG with the editor's initial scene as its layer and
+ *   its effects (grain, tone map, cinematic bloom), so /editor opens on that
+ *   scene rather than on the schema's bare baseline.
  *
  * An empty hash is applied synchronously. A hash that needs decoding is applied
  * synchronously too once the codec is loaded; otherwise it waits for the codec
@@ -478,7 +480,14 @@ export function applyHashToStore(): Promise<void> {
   const rawHash = window.location.hash;
   // Treat empty or bare "#" as "reset to default".
   if (!rawHash || rawHash === "#") {
-    applyConfig({ ...DEFAULT_CONFIG, layers: [layerParamsToConfig(createLayer(INITIAL_LAYER_PARAMS))] });
+    applyConfig({
+      ...DEFAULT_CONFIG,
+      layers: [layerParamsToConfig(createLayer(INITIAL_LAYER_PARAMS))],
+      grain: INITIAL_EFFECTS.grain,
+      toneMapMode: INITIAL_EFFECTS.toneMapMode,
+      // DEFAULT_CONFIG has no realBloom, which reads as off.
+      realBloom: { enabled: INITIAL_EFFECTS.realBloomEnabled },
+    });
     return Promise.resolve();
   }
 
