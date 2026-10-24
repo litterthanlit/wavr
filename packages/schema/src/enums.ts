@@ -36,3 +36,8 @@ export type MaskBlendMode = (typeof MASK_BLEND_MODES)[number];
 
 export const TEXT_MASK_ALIGNS = ["left", "center", "right"] as const;
 export type TextMaskAlign = (typeof TEXT_MASK_ALIGNS)[number];
+
+// The RGB space a scene's colour values are read in and its canvas presents
+// in. Named as the browser names them (PredefinedColorSpace).
+export const COLOR_PROFILES = ["srgb", "display-p3"] as const;
+export type ColorProfile = (typeof COLOR_PROFILES)[number];

@@ -6,6 +6,12 @@ import { getAudioAnalyzer } from "@/components/Canvas";
 import Toggle from "@/components/ui/Toggle";
 import Slider from "@/components/ui/Slider";
 import Select from "@/components/ui/Select";
+import { useWideGamutDisplay } from "@/lib/useWideGamutDisplay";
+
+const COLOR_PROFILE_OPTIONS = [
+  { value: "srgb", label: "sRGB" },
+  { value: "display-p3", label: "Display P3 (wide gamut)" },
+];
 
 const AUDIO_TARGETS = [
   { value: "distortion", label: "Distortion" },
@@ -41,6 +47,7 @@ function Section({ title, defaultOpen = false, children }: { title: string; defa
 
 export default function EffectsPanel() {
   const store = useGradientStore();
+  const wideGamut = useWideGamutDisplay();
 
   return (
     <div className="flex flex-col gap-1 p-4">
@@ -103,6 +110,13 @@ export default function EffectsPanel() {
       <Section title="Color">
         <Toggle label="Oklab Blending" checked={store.oklabEnabled} onChange={(v) => store.setDiscrete({ oklabEnabled: v })} />
         <Select label="Tone Mapping" value={String(store.toneMapMode)} options={[{ value: "0", label: "None" }, { value: "1", label: "Soft highlights" }, { value: "2", label: "ACES Filmic" }]} onChange={(v) => store.setDiscrete({ toneMapMode: Number(v) })} />
+        <Select label="Color Profile" value={store.colorProfile} options={COLOR_PROFILE_OPTIONS} onChange={(v) => store.setDiscrete({ colorProfile: v as typeof store.colorProfile })} />
+        {store.colorProfile === "display-p3" && (
+          <p className="text-[11px] leading-snug text-text-tertiary">
+            Every colour is read as Display P3, a wider gamut than sRGB: richer, more saturated light on P3 screens.
+            {wideGamut === false && " This screen shows sRGB, so here you see the nearest sRGB colours."}
+          </p>
+        )}
         <Slider label="Color Blend" value={store.colorBlend} min={0} max={1} step={0.01} onChange={(v) => store.set({ colorBlend: v })} onCommit={() => store.commitSet()} />
         <Slider label="Chromatic Aberration" value={store.chromaticAberration} min={0} max={1} step={0.01} onChange={(v) => store.set({ chromaticAberration: v })} onCommit={() => store.commitSet()} />
       </Section>

@@ -18,7 +18,8 @@
 //                      0.4 s) and the frame is taken as it arrives, so the
 //                      velocity-driven effects and the trail show
 //   --ripple x,y[,age] a click there `age` seconds ago (default 0.4), ripple on
-//   --state k=v,...    overrides engine state fields (numbers and true/false)
+//   --state k=v,...    overrides engine state fields (numbers, true/false, or a
+//                      word such as colorProfile=display-p3)
 // Without a pointer option the pointer is absent: no mouse effect at all.
 //
 // --scale draws the layers at that fraction of the size, as the live view does
@@ -87,8 +88,8 @@ function parseState(text) {
   for (const pair of String(text).split(",").filter(Boolean)) {
     const [key, value] = pair.split("=");
     if (!key || value === undefined) throw new Error("--state takes key=value pairs");
-    state[key] = value === "true" ? true : value === "false" ? false : Number(value);
-    if (typeof state[key] === "number" && !Number.isFinite(state[key])) throw new Error(`--state ${key}: not a number`);
+    const number = Number(value);
+    state[key] = value === "true" ? true : value === "false" ? false : Number.isFinite(number) ? number : value;
   }
   return state;
 }

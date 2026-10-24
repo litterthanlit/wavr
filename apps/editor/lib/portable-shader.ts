@@ -1,4 +1,4 @@
-import { GRADIENT_TYPE_IDS, SHADER_PARTS, type ShaderParts } from "@wavr/core";
+import { GRADIENT_TYPE_IDS, SHADER_PARTS, type ColorProfile, type ShaderParts } from "@wavr/core";
 
 /**
  * The fragment shader of the portable code exports (React component, web
@@ -42,6 +42,8 @@ export interface PortableState {
   oklabEnabled?: boolean;
   /** 0 = none, 1 = highlight shoulder, 2 = ACES (default 1). */
   toneMapMode?: number;
+  /** "display-p3": the colours are Display P3, and the canvas presents them so (default "srgb"). */
+  colorProfile?: ColorProfile;
   /** Pointer reactivity, 0..1. 0 (the default here) leaves the pointer code out. */
   mouseReact?: number;
   /** Anti-banding noise (default on, strength 1 = half a level either way). */
@@ -67,6 +69,8 @@ export interface PortableSettings {
   colorBlend: number;
   oklab: boolean;
   toneMapMode: number;
+  /** The colours are Display P3 values. */
+  displayP3: boolean;
   mouseReact: number;
   /** Strength of the anti-banding noise in 8-bit levels, 0 = off. */
   deband: number;
@@ -102,6 +106,7 @@ export function resolvePortableSettings(state: PortableState): PortableSettings 
     colorBlend: clamp(finite(state.colorBlend, 0), 0, 1),
     oklab: state.oklabEnabled !== false,
     toneMapMode: toneMapMode >= 0 && toneMapMode <= 2 ? toneMapMode : 1,
+    displayP3: state.colorProfile === "display-p3",
     mouseReact: clamp(finite(state.mouseReact, 0), 0, 1),
     deband: state.debandEnabled === false ? 0 : Math.max(0, finite(state.debandStrength, 1)),
   };
@@ -309,6 +314,10 @@ function constantDeclarations(s: PortableSettings): Record<string, { name: strin
       name: "TONE_MAP_MODE",
       declaration: `const int TONE_MAP_MODE = ${s.toneMapMode}; // 0 none, 1 highlight shoulder, 2 ACES filmic`,
     },
+    u_displayP3: {
+      name: "DISPLAY_P3",
+      declaration: `const bool DISPLAY_P3 = ${s.displayP3}; // the colours are Display P3`,
+    },
   };
 }
 
@@ -316,7 +325,7 @@ function constantDeclarations(s: PortableSettings): Record<string, { name: strin
 const CONSTANT_GROUPS: { comment: string; names: string[] }[] = [
   { comment: "Look: edit and reload", names: ["SPEED", "SCALE", "COMPLEXITY", "DISTORTION", "SOFTNESS", "DOMAIN_WARP", "COLOR_BLEND", "COLOR_COUNT"] },
   { comment: "Pointer: 0 switches it off", names: ["MOUSE_REACT"] },
-  { comment: "Colour grade", names: ["BRIGHTNESS", "SATURATION", "HUE_SHIFT", "TONE_MAP_MODE", "DEBAND"] },
+  { comment: "Colour grade", names: ["BRIGHTNESS", "SATURATION", "HUE_SHIFT", "TONE_MAP_MODE", "DISPLAY_P3", "DEBAND"] },
 ];
 
 /** A GLSL float literal with at most 3 decimals: 0.4, 1.0, -0.25. */

@@ -1,4 +1,4 @@
-import type { BlendMode, GradientType, ImageBlendMode, MaskBlendMode, MaskParams, TextMaskAlign } from "./layers";
+import type { BlendMode, ColorProfile, GradientType, ImageBlendMode, MaskBlendMode, MaskParams, TextMaskAlign } from "./layers";
 
 /** RGB color as normalized floats [0-1, 0-1, 0-1] */
 export type RGBColor = [number, number, number];
@@ -74,6 +74,11 @@ export interface GradientConfig {
   };
   oklabEnabled?: boolean;
   toneMapMode?: number;
+  /**
+   * "display-p3" reads every colour as Display P3 and presents on a wide-gamut
+   * canvas: more saturated colour on P3 screens. Default "srgb".
+   */
+  colorProfile?: ColorProfile;
   ripple?: { enabled: boolean; intensity: number };
   glow?: { enabled: boolean; intensity: number; radius: number };
   caustic?: { enabled: boolean; intensity: number };

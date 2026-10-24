@@ -30,6 +30,10 @@ Light fields (coloured light in a space, after light installations; mixed in lin
 
 Skip `image` unless the user supplies a texture.
 
+## Wide gamut
+
+`colorProfile: "display-p3"` reads every colour value as Display P3 and renders to a P3 canvas: the same numbers come out more saturated on wide-gamut screens (recent Macs, iPhones, many phones), and browsers without P3 show them as sRGB. Default `"srgb"`. Use it for vivid light (the light fields) and pick colours with that in mind: `[0, 0.85, 0.9]` in P3 is an aqua sRGB can't reach.
+
 ## Presets (`@wavr/gradient/presets`)
 
 Light fields: `aperture` `cobaltAperture` `duskAperture` `ganzfeld` `halo` `iceHalo` `lightWall` `lagoonWall`

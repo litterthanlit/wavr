@@ -75,14 +75,60 @@ function linearToSrgb(c: number): number {
   return c >= 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : c * 12.92;
 }
 
+// Display P3 shares sRGB's transfer curve (srgbToLinear / linearToSrgb serve
+// both); the two differ in their primaries, by these matrices between their
+// linear values (D65 white in both, CSS Color 4). Oklab is defined on linear
+// sRGB, so a P3 stop goes through P3_TO_SRGB on the way in and SRGB_TO_P3 on
+// the way out; linear sRGB outside 0..1 is just a colour sRGB can't show.
+const P3_TO_SRGB = [
+  [1.2249401, -0.2249404, 0],
+  [-0.0420569, 1.0420571, 0],
+  [-0.0196376, -0.0786361, 1.0982735],
+] as const;
+const SRGB_TO_P3 = [
+  [0.8224621, 0.177538, 0],
+  [0.0331941, 0.9668058, 0],
+  [0.0170827, 0.0723974, 0.9105199],
+] as const;
+
+function applyMatrix(m: typeof P3_TO_SRGB | typeof SRGB_TO_P3, r: number, g: number, b: number): [number, number, number] {
+  return [
+    m[0][0] * r + m[0][1] * g + m[0][2] * b,
+    m[1][0] * r + m[1][1] * g + m[1][2] * b,
+    m[2][0] * r + m[2][1] * g + m[2][2] * b,
+  ];
+}
+
+/**
+ * A Display P3 colour as the nearest sRGB one (channels clipped, as browsers
+ * show P3 on an sRGB screen): for a fallback where P3 can't be shown.
+ */
+export function displayP3ToSrgb(color: Rgb): [number, number, number] {
+  const lin = applyMatrix(P3_TO_SRGB, srgbToLinear(color[0]), srgbToLinear(color[1]), srgbToLinear(color[2]));
+  return [
+    linearToSrgb(Math.min(Math.max(lin[0], 0), 1)),
+    linearToSrgb(Math.min(Math.max(lin[1], 0), 1)),
+    linearToSrgb(Math.min(Math.max(lin[2], 0), 1)),
+  ];
+}
+
+/** A stop's linear sRGB, from sRGB or (displayP3) Display P3 values. */
+function stopToLinearSrgb(c: Rgb, displayP3: boolean): [number, number, number] {
+  const r = srgbToLinear(c[0]);
+  const g = srgbToLinear(c[1]);
+  const b = srgbToLinear(c[2]);
+  return displayP3 ? applyMatrix(P3_TO_SRGB, r, g, b) : [r, g, b];
+}
+
 /**
  * A stop in the space gradients blend raw stops in (`u_colorsMix`): Oklab when
- * `oklab` is on, else the sRGB stop itself. Shaders convert back with
- * mixSpaceToSrgb(), once per pixel instead of once per stop.
+ * `oklab` is on, else the stop itself. `displayP3`: the stop is Display P3
+ * values. Shaders convert back with mixSpaceToRgb(), once per pixel instead of
+ * once per stop.
  */
-export function toMixSpace(color: Rgb, oklab: boolean): Rgb {
+export function toMixSpace(color: Rgb, oklab: boolean, displayP3 = false): Rgb {
   if (!oklab) return color;
-  return linearToOklab(srgbToLinear(color[0]), srgbToLinear(color[1]), srgbToLinear(color[2]));
+  return linearToOklab(...stopToLinearSrgb(color, displayP3));
 }
 
 function linearToOklab(r: number, g: number, b: number): [number, number, number] {
@@ -110,8 +156,11 @@ function oklabToLinear(L: number, a: number, b: number): [number, number, number
   ];
 }
 
-/** Colour at position `t` along the stops (smoothstep between neighbours); `t` is clamped to [0, 1]. */
-function sampleStops(stops: readonly Rgb[], labs: readonly Rgb[] | null, t: number, out: number[]) {
+/**
+ * Colour at position `t` along the stops (smoothstep between neighbours); `t`
+ * is clamped to [0, 1]. Out of Oklab, `displayP3` gives Display P3 values.
+ */
+function sampleStops(stops: readonly Rgb[], labs: readonly Rgb[] | null, t: number, out: number[], displayP3: boolean) {
   const last = stops.length - 1;
   const scaled = clamp01(t) * last;
   const index = Math.floor(scaled);
@@ -122,11 +171,12 @@ function sampleStops(stops: readonly Rgb[], labs: readonly Rgb[] | null, t: numb
   if (labs) {
     const a = labs[index];
     const b = labs[next];
-    const lin = oklabToLinear(
+    const srgb = oklabToLinear(
       a[0] + (b[0] - a[0]) * frac,
       a[1] + (b[1] - a[1]) * frac,
       a[2] + (b[2] - a[2]) * frac,
     );
+    const lin = displayP3 ? applyMatrix(SRGB_TO_P3, srgb[0], srgb[1], srgb[2]) : srgb;
     out[0] = linearToSrgb(Math.max(lin[0], 0));
     out[1] = linearToSrgb(Math.max(lin[1], 0));
     out[2] = linearToSrgb(Math.max(lin[2], 0));
@@ -143,19 +193,19 @@ function sampleStops(stops: readonly Rgb[], labs: readonly Rgb[] | null, t: numb
  * Bakes a layer's palette: RGBA float texels (alpha 1), texel i at
  * t = -reach + (1 + 2 * reach) * i / (PALETTE_SIZE - 1), each the colour
  * getGradientColor(t) used to compute. `blend` is effectiveBlend(); `oklab`
- * interpolates the stops in Oklab instead of sRGB. Writes into `out` when
+ * interpolates the stops in Oklab instead of directly. Writes into `out` when
  * given (PALETTE_SIZE * 4 floats), so a caller can reuse one buffer.
+ * `displayP3`: the stops are Display P3 values, and so is the table.
  */
 export function bakePalette(
   colors: readonly Rgb[],
   oklab: boolean,
   blend: number,
   out: Float32Array = new Float32Array(PALETTE_SIZE * 4),
+  displayP3 = false,
 ): Float32Array {
   const stops = colors.length === 0 ? [[0, 0, 0] as Rgb] : colors.slice(0, MAX_PALETTE_COLORS);
-  const labs = oklab
-    ? stops.map((c): Rgb => linearToOklab(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])))
-    : null;
+  const labs = oklab ? stops.map((c): Rgb => linearToOklab(...stopToLinearSrgb(c, displayP3))) : null;
 
   const reach = paletteReach(blend);
   const span = 1 + 2 * reach;
@@ -170,13 +220,13 @@ export function bakePalette(
     let b = 0;
     if (blended) {
       for (const [offset, weight] of TAPS) {
-        sampleStops(stops, labs, t + offset * spread, tap);
+        sampleStops(stops, labs, t + offset * spread, tap, displayP3);
         r += tap[0] * weight;
         g += tap[1] * weight;
         b += tap[2] * weight;
       }
     } else {
-      sampleStops(stops, labs, t, tap);
+      sampleStops(stops, labs, t, tap, displayP3);
       [r, g, b] = tap;
     }
     out[i * 4] = r;
@@ -198,16 +248,23 @@ export interface PaletteKey {
   count: number;
   oklab: boolean;
   blend: number;
+  displayP3: boolean;
 }
 
 export function createPaletteKey(): PaletteKey {
-  return { colors: [], count: -1, oklab: false, blend: 0 };
+  return { colors: [], count: -1, oklab: false, blend: 0, displayP3: false };
 }
 
 /** Whether `key` describes exactly this palette. */
-export function paletteKeyMatches(key: PaletteKey, colors: readonly Rgb[], oklab: boolean, blend: number): boolean {
+export function paletteKeyMatches(
+  key: PaletteKey,
+  colors: readonly Rgb[],
+  oklab: boolean,
+  blend: number,
+  displayP3 = false,
+): boolean {
   const count = Math.min(colors.length, MAX_PALETTE_COLORS);
-  if (key.count !== count || key.oklab !== oklab || key.blend !== blend) return false;
+  if (key.count !== count || key.oklab !== oklab || key.blend !== blend || key.displayP3 !== displayP3) return false;
   for (let i = 0; i < count; i++) {
     const c = colors[i];
     const k = i * 3;
@@ -217,11 +274,12 @@ export function paletteKeyMatches(key: PaletteKey, colors: readonly Rgb[], oklab
 }
 
 /** Makes `key` describe this palette. */
-export function setPaletteKey(key: PaletteKey, colors: readonly Rgb[], oklab: boolean, blend: number) {
+export function setPaletteKey(key: PaletteKey, colors: readonly Rgb[], oklab: boolean, blend: number, displayP3 = false) {
   const count = Math.min(colors.length, MAX_PALETTE_COLORS);
   key.count = count;
   key.oklab = oklab;
   key.blend = blend;
+  key.displayP3 = displayP3;
   for (let i = 0; i < count; i++) {
     const c = colors[i];
     key.colors[i * 3] = c[0];

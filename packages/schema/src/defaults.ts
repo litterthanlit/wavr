@@ -34,4 +34,5 @@ export const DEFAULT_CONFIG: GradientConfig = {
   mouseReact: 0.5,
   oklabEnabled: true,
   toneMapMode: 1,
+  colorProfile: "srgb",
 };

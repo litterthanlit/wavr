@@ -344,6 +344,7 @@ export default function GradientPanel() {
               <ColorInput
                 key={i}
                 color={color}
+                colorProfile={store.colorProfile}
                 onChange={(c) => store.setColor(i, c)}
                 onCommit={() => store.commitSet()}
                 onRemove={() => store.removeColor(i)}

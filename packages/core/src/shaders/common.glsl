@@ -13,8 +13,9 @@ uniform float u_speed;          // post: the last visible layer's, like the pale
 uniform float u_softness;
 uniform vec3 u_colors[8];       // the raw stops, for gradients that don't blend them
 uniform int u_colorCount;
-uniform vec3 u_colorsMix[8];    // the stops in blend space: Oklab when u_oklabEnabled, else sRGB
+uniform vec3 u_colorsMix[8];    // the stops in blend space: Oklab when u_oklabEnabled, else as given
 uniform bool u_oklabEnabled;
+uniform bool u_displayP3;       // the scene's colour values are Display P3, not sRGB (colorProfile)
 uniform float u_colorBlend;
 uniform sampler2D u_paletteTexture; // baked getGradientColor, see "Palette" below
 uniform vec2 u_paletteDomain;       // post: the last visible layer's palette
@@ -329,18 +330,24 @@ vec2 compositeUV(vec2 uv, vec2 targetSize) {
 // colour past the ends; u_paletteDomain maps t to a coordinate along it.
 const float PALETTE_TEXELS = 512.0;
 
-// Back from u_colorsMix space to sRGB, once per pixel for gradients that blend
-// the stops themselves (mesh). The forward conversion is done on the CPU.
-vec3 mixSpaceToSrgb(vec3 c) {
+// Back from u_colorsMix space to the scene's RGB (sRGB, or Display P3 under
+// u_displayP3), once per pixel for gradients that blend the stops themselves
+// (mesh). The forward conversion is done on the CPU (palette.ts toMixSpace).
+vec3 mixSpaceToRgb(vec3 c) {
   if (!u_oklabEnabled) return c;
   float l = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
   float m = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
   float s = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
-  vec3 lin = max(vec3(
+  vec3 lin = vec3(
      4.0767416621 * l * l * l - 3.3077115913 * m * m * m + 0.2309699292 * s * s * s,
     -1.2684380046 * l * l * l + 2.6097574011 * m * m * m - 0.3413193965 * s * s * s,
     -0.0041960863 * l * l * l - 0.7034186147 * m * m * m + 1.7076147010 * s * s * s
-  ), vec3(0.0));
+  );
+  // Linear sRGB (which leaves 0..1 for a P3 colour) to linear Display P3.
+  if (u_displayP3) {
+    lin = mat3(0.8224621, 0.0331941, 0.0170827, 0.1775380, 0.9668058, 0.0723974, 0.0, 0.0, 0.9105199) * lin;
+  }
+  lin = max(lin, vec3(0.0));
   return mix(lin * 12.92, 1.055 * pow(lin, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), lin));
 }
 
@@ -442,7 +449,8 @@ vec3 finishSoftGradient(float field, float relief) {
 // ============================================================
 // Light adds, blurs and spills in linear light, not in sRGB, so the light
 // fields convert their stops with srgbToLinear(), work there, and come back
-// through lightToDisplay().
+// through lightToDisplay(). Display P3 uses the same transfer curve, so these
+// serve a P3 scene's values as they are (linear light sums in any primaries).
 
 vec3 srgbToLinear(vec3 c) {
   return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));

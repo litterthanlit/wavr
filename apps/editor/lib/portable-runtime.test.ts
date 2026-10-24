@@ -173,6 +173,23 @@ describe.each<PortableLanguage>(["js", "ts"])("generated runtime (%s)", (languag
       expect(dither.last().u_colors).toEqual(base.colors.flat());
       expect(dither.last()).not.toHaveProperty("u_colorsMix");
     });
+
+    it("keeps a Display P3 palette in P3 and presents the canvas so", () => {
+      const stops = RAINBOW.slice(0, 5);
+      const p3 = launch({ colors: stops, colorProfile: "display-p3" }, language);
+      const { colors, oklab, softness, colorBlend } = p3.settings;
+      const upload = p3.fake.uploads.find((u) => u.call === "texImage2D" && u.format === "RGBA16F");
+      const expected = bakePalette(colors, oklab, effectiveBlend(colorBlend, softness), undefined, true);
+      expect(maxDifference(upload?.data ?? [], expected)).toBeLessThan(1e-6);
+      expect(p3.fake.context.drawingBufferColorSpace).toBe("display-p3");
+
+      const mesh = launch({ gradientType: "mesh", colors: stops, colorProfile: "display-p3" }, language);
+      mesh.step(100);
+      expect(mesh.last().u_colorsMix).toEqual(stops.flatMap((c) => [...toMixSpace(c, true, true)]));
+
+      // An sRGB export leaves the canvas as it is.
+      expect(launch({ colors: stops }, language).fake.context.drawingBufferColorSpace).toBe("srgb");
+    });
   });
 
   describe("drawing", () => {

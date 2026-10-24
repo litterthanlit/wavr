@@ -159,6 +159,7 @@ export function storeToConfig(state: GradientState): GradientConfig {
     mouseReact: state.mouseReact,
     oklabEnabled: state.oklabEnabled,
     toneMapMode: state.toneMapMode,
+    colorProfile: state.colorProfile,
     // Effect groups. Always emit so store state round-trips (disabled-with-
     // tweaked-intensity is preserved). Schema tolerates presence.
     noise: {
@@ -300,6 +301,7 @@ export function configToStorePatch(config: GradientConfig): Partial<GradientStat
     mouseReact: config.mouseReact,
     oklabEnabled: config.oklabEnabled,
     toneMapMode: config.toneMapMode,
+    colorProfile: config.colorProfile,
   };
 
   // Effect groups: flatten back to triples. Each group is optional on the

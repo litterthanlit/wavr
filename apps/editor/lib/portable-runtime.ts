@@ -60,9 +60,15 @@ export function portableModule(settings: PortableSettings, language: PortableLan
 const toLinear = (c${t(": number")}) => (c >= 0.04045 ? Math.pow((c + 0.055) / 1.055, 2.4) : c / 12.92);
 const toSrgb = (c${t(": number")}) => (c >= 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : c * 12.92);
 const toOklab = (c${t(": number[]")}) => {
-  const r = toLinear(c[0]);
+${settings.displayP3 ? `  // The colours are Display P3; Oklab is defined on linear sRGB.
+  const pr = toLinear(c[0]);
+  const pg = toLinear(c[1]);
+  const pb = toLinear(c[2]);
+  const r = 1.2249401 * pr - 0.2249404 * pg;
+  const g = -0.0420569 * pr + 1.0420571 * pg;
+  const b = -0.0196376 * pr - 0.0786361 * pg + 1.0982735 * pb;` : `  const r = toLinear(c[0]);
   const g = toLinear(c[1]);
-  const b = toLinear(c[2]);
+  const b = toLinear(c[2]);`}
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
   const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
@@ -79,11 +85,19 @@ const fromOklab = (lab${t(": number[]")}) => {
   const l3 = l * l * l;
   const m3 = m * m * m;
   const s3 = s * s * s;
+${settings.displayP3 ? `  const r = 4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3;
+  const g = -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3;
+  const b = -0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3;
+  // Back to Display P3.
   return [
+    0.8224621 * r + 0.177538 * g,
+    0.0331941 * r + 0.9668058 * g,
+    0.0170827 * r + 0.0723974 * g + 0.9105199 * b,
+  ].map((c) => toSrgb(Math.max(c, 0)));` : `  return [
     4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3,
     -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3,
     -0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3,
-  ].map((c) => toSrgb(Math.max(c, 0)));
+  ].map((c) => toSrgb(Math.max(c, 0)));`}
 };
 const mixStops = COLORS.map((c) => (OKLAB ? toOklab(c) : c));
 // The texture covers t from -REACH to 1 + REACH: how far the blend still moves the colour past the ends.
@@ -203,7 +217,9 @@ const spring = (s${t(": { value: number; velocity: number }")}, target${t(": num
 function startWavr(canvas${t(": HTMLCanvasElement")}, scrollLinked${t(": boolean")})${t(": (() => void) | undefined")} {
   const gl = canvas.getContext("webgl2", { alpha: false, antialias: false });
   if (!gl) return undefined;
-
+${settings.displayP3 ? `  // The colours are Display P3: present them so where the browser can (elsewhere they show as sRGB).
+  if ("drawingBufferColorSpace" in gl) gl.drawingBufferColorSpace = "display-p3";
+` : ""}
   const compile = (type${t(": number")}, source${t(": string")}) => {
     const shader = gl.createShader(type)${bang};
     gl.shaderSource(shader, source);
@@ -288,7 +304,7 @@ ${pointer ? `    canvas.removeEventListener("pointerenter", aim);
   };
 }`;
 
-  return `// The palette, r g b in 0..1. Edit the colours and the gradient follows.
+  return `// The palette, ${settings.displayP3 ? "Display P3 " : ""}r g b in 0..1. Edit the colours and the gradient follows.
 const COLORS${t(": number[][]")} = [
 ${colors}
 ];

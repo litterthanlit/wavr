@@ -5,6 +5,7 @@ import {
   MAX_PALETTE_COLORS,
   PALETTE_SIZE,
   bakePalette,
+  displayP3ToSrgb,
   effectiveBlend,
   paletteDomain,
   paletteReach,
@@ -13,6 +14,7 @@ import {
   createPaletteKey,
   paletteKeyMatches,
   setPaletteKey,
+  toMixSpace,
 } from "../../../packages/core/src/palette";
 
 type V3 = [number, number, number];
@@ -303,6 +305,50 @@ describe("palette cache key", () => {
     const changedTail = many.map((c) => [...c] as V3);
     changedTail[9][0] = 0.99;
     expect(paletteKeyMatches(key, changedTail, true, 0)).toBe(true);
+  });
+});
+
+describe("Display P3", () => {
+  const texel = (table: Float32Array, i: number): V3 => [table[i * 4], table[i * 4 + 1], table[i * 4 + 2]];
+
+  it("converts P3 to sRGB as Chromium does (clipping what sRGB can't show)", () => {
+    // Chromium drew P3 (100, 200, 120) onto an sRGB canvas as (45, 203, 111).
+    const srgb = displayP3ToSrgb([100 / 255, 200 / 255, 120 / 255]).map((c) => c * 255);
+    srgb.forEach((c, i) => expect(Math.abs(c - [45, 203, 111][i])).toBeLessThan(0.5));
+    displayP3ToSrgb([1, 0, 0]).forEach((c, i) => expect(c).toBeCloseTo([1, 0, 0][i], 9));
+    const grey = displayP3ToSrgb([0.5, 0.5, 0.5]);
+    grey.forEach((c) => expect(c).toBeCloseTo(0.5, 5));
+  });
+
+  it("bakes P3 stops back to themselves through Oklab", () => {
+    const stops: V3[] = [[0.1, 0.2, 0.9], [0.9, 0.3, 0.2], [0.2, 0.85, 0.9]];
+    const table = bakePalette(stops, true, 0, undefined, true);
+    // Texels 0, 255.5 and 511 are t = 0, 0.5 and 1: the three stops.
+    for (const [index, stop] of [[0, stops[0]], [PALETTE_SIZE - 1, stops[2]]] as [number, V3][]) {
+      texel(table, index).forEach((c, i) => expect(c).toBeCloseTo(stop[i], 5));
+    }
+    toMixSpace(stops[1], true, true).forEach((c, i) => expect(c).not.toBeCloseTo(toMixSpace(stops[1], true)[i], 3));
+  });
+
+  it("blends in Oklab between the colours the P3 values are, not as if they were sRGB", () => {
+    // Muted colours, inside sRGB too: the P3 bake, converted to sRGB, is the
+    // sRGB bake of the same colours (to well within an 8-bit level; the
+    // tables are float32).
+    const p3: V3[] = [[0.4, 0.45, 0.5], [0.6, 0.5, 0.4], [0.45, 0.55, 0.45]];
+    const viaP3 = bakePalette(p3, true, 0.3, undefined, true);
+    const viaSrgb = bakePalette(p3.map(displayP3ToSrgb), true, 0.3);
+    for (let i = 0; i < PALETTE_SIZE; i += 37) {
+      const converted = displayP3ToSrgb(texel(viaP3, i));
+      converted.forEach((c, k) => expect(c).toBeCloseTo(texel(viaSrgb, i)[k], 3));
+    }
+  });
+
+  it("is part of the cache key", () => {
+    const key = createPaletteKey();
+    const stops: V3[] = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]];
+    setPaletteKey(key, stops, true, 0.2, true);
+    expect(paletteKeyMatches(key, stops, true, 0.2, true)).toBe(true);
+    expect(paletteKeyMatches(key, stops, true, 0.2)).toBe(false);
   });
 });
 

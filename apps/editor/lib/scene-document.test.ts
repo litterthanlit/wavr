@@ -54,6 +54,7 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     feedbackDecay: 0.5,
     oklabEnabled: true,
     toneMapMode: 1,
+    colorProfile: "srgb",
     rippleEnabled: false,
     rippleIntensity: 0.5,
     glowEnabled: false,

@@ -8,6 +8,7 @@ export const DESCRIPTIONS = {
   // Primitives
   "RGBColor": "Linear RGB color, each channel 0–1.",
   "ColorSpace": "Color space the RGBColor values are authored in. 'linear' is the current convention.",
+  "ColorProfile": "RGB space colour values are read in and the canvas presents in: 'srgb' or 'display-p3' (wide gamut).",
   "GradientType": "Base shader that generates this layer. `image` requires a companion imageData payload (EditorState.layerExtensions).",
   "BlendMode": "Photoshop-compatible layer blend mode. Ports 1:1 from packages/core/src/layers.ts.",
   "Shape3DKind": "Projection surface for the 3D-shape effect.",
@@ -41,6 +42,7 @@ export const DESCRIPTIONS = {
   "GradientConfig.mouseReact": "How strongly mouse position modulates animation.",
   "GradientConfig.oklabEnabled": "Blend colors in OKLab space for more perceptual gradients.",
   "GradientConfig.toneMapMode": "Tone mapping: 0=none, 1=soft highlights (unchanged below 0.8, rolls off brighter values), 2=ACES filmic, 3=reserved (renders as none).",
+  "GradientConfig.colorProfile": "'display-p3' reads every colour value as Display P3 and renders to a wide-gamut canvas: more saturated colour on P3 screens (browsers without P3 canvases show the same values as sRGB). 'srgb' (default) is unchanged.",
 
   // Effect groups — noun-phrase descriptors
   "NoiseEffect": "Fractal-noise overlay added to the composited gradient.",

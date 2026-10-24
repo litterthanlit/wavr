@@ -3,14 +3,8 @@
 import { useState } from "react";
 import { useGradientStore } from "@/lib/store";
 import { PRESETS, CATEGORY_ORDER, CATEGORY_LABELS, PresetCategory } from "@/lib/presets";
+import { cssColor } from "@/lib/css-color";
 
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (n: number) =>
-    Math.round(n * 255)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
 
 export default function PresetsPanel() {
   const loadPreset = useGradientStore((s) => s.loadPreset);
@@ -68,7 +62,7 @@ export default function PresetsPanel() {
                       className="h-16 w-full"
                       style={{
                         background: `linear-gradient(135deg, ${preset.data.colors!
-                          .map((c) => rgbToHex(...c))
+                          .map((c) => cssColor(c, preset.data.colorProfile))
                           .join(", ")})`,
                       }}
                     />
