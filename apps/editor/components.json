@@ -2,6 +2,12 @@
   "style": "new-york",
   "rsc": true,
   "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true
+  },
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",
@@ -9,5 +15,8 @@
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
-  "iconLibrary": "lucide"
+  "iconLibrary": "lucide",
+  "registries": {
+    "@litt": "https://littmd.vercel.app/r/{name}.json"
+  }
 }

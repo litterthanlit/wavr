@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // LiftKit generated files
     "src/**",
+    // litt.md registry items: tested upstream, installed with `shadcn add`,
+    // never edited here (see CLAUDE.md, Editor).
+    "components/litt/**",
+    "lib/litt/**",
   ]),
 ]);
 
