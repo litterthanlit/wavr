@@ -4,6 +4,7 @@ export type {
   AnimateOptions,
   BlendMode,
   ClickTrigger,
+  ColorProfile,
   EasingFunction,
   EventTriggers,
   GradientConfig,

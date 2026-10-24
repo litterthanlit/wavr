@@ -147,6 +147,13 @@ describe("portable fragment shader", () => {
     expect(shaderFor("mesh", { colors: [[1, 0, 0], [0, 0, 1]] })).toContain("uniform vec3 u_colorsMix[2];");
   });
 
+  it("fixes the colour profile as a constant where the gradient blends the stops itself", () => {
+    expect(shaderFor("mesh")).toContain("const bool DISPLAY_P3 = false;");
+    expect(shaderFor("mesh", { colorProfile: "display-p3" })).toContain("const bool DISPLAY_P3 = true;");
+    expect(shaderFor("mesh", { colorProfile: "display-p3" })).not.toContain("u_displayP3");
+    expect(shaderFor("aurora", { colorProfile: "display-p3" })).not.toContain("DISPLAY_P3");
+  });
+
   describe("the pointer", () => {
     // mouse.glsl names a warp style per gradient: read that table independently of the export.
     const table = new Map<number, string>();

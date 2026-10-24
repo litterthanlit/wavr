@@ -8,6 +8,17 @@ import {
 } from "../src";
 
 describe("WavrSceneDocument", () => {
+  it("presents a Display P3 scene on a P3 canvas, and reads it back", () => {
+    const p3 = GradientConfig.parse({ ...DEFAULT_CONFIG, colorProfile: "display-p3" });
+    const document = sceneDocumentFromGradientConfig(p3);
+    expect(document.canvas.colorSpace).toBe("display-p3");
+    expect(gradientConfigFromSceneDocument(document).colorProfile).toBe("display-p3");
+
+    const srgb = sceneDocumentFromGradientConfig(GradientConfig.parse(DEFAULT_CONFIG));
+    expect(srgb.canvas.colorSpace).toBe(DEFAULT_CONFIG.colorSpace);
+    expect(gradientConfigFromSceneDocument(srgb).colorProfile).toBe("srgb");
+  });
+
   it("wraps the current GradientConfig in a canonical scene document", () => {
     const config = GradientConfig.parse({
       ...DEFAULT_CONFIG,

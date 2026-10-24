@@ -248,7 +248,8 @@ export function sceneDocumentFromGradientConfig(
     canvas: {
       width: options.canvas?.width ?? 1440,
       height: options.canvas?.height ?? 900,
-      colorSpace: options.canvas?.colorSpace ?? config.colorSpace,
+      // A Display P3 scene presents on a P3 canvas.
+      colorSpace: options.canvas?.colorSpace ?? (config.colorProfile === "display-p3" ? "display-p3" : config.colorSpace),
       background: options.canvas?.background ?? "transparent",
     },
     globals: globalsFromConfig(config),
@@ -279,6 +280,7 @@ export function gradientConfigFromSceneDocument(input: WavrSceneDocument): Gradi
   const base = GradientConfig.parse({
     ...DEFAULT_CONFIG,
     ...document.globals,
+    colorProfile: document.canvas.colorSpace === "display-p3" ? "display-p3" : "srgb",
     layers,
   });
 

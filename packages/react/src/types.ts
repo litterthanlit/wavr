@@ -20,6 +20,9 @@ export type GradientType =
   | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb"
   | "aperture" | "halo" | "lightWall";
 
+/** The RGB space colour values are read in and the canvas presents in. */
+export type ColorProfile = "srgb" | "display-p3";
+
 export interface MaskParams {
   shape: MaskShape;
   position: [number, number];
@@ -104,6 +107,11 @@ export interface GradientConfig {
   };
   oklabEnabled?: boolean;
   toneMapMode?: number;
+  /**
+   * "display-p3" reads every colour as Display P3 and presents on a wide-gamut
+   * canvas: more saturated colour on P3 screens. Default "srgb".
+   */
+  colorProfile?: ColorProfile;
   ripple?: { enabled: boolean; intensity: number };
   glow?: { enabled: boolean; intensity: number; radius: number };
   caustic?: { enabled: boolean; intensity: number };

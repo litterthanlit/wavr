@@ -7,7 +7,7 @@ import {
   assembleLayerSource,
   assemblePostSource,
 } from "./shader-sources";
-import { BlendMode, ImageBlendMode, LayerParams, MaskBlendMode, MaskShape } from "./layers";
+import { BlendMode, ColorProfile, ImageBlendMode, LayerParams, MaskBlendMode, MaskShape } from "./layers";
 import {
   createEmptyEngineMetrics,
   summarizeGpuResources,
@@ -90,6 +90,8 @@ export interface EngineState {
   meshSpeed: number;
   oklabEnabled: boolean;
   toneMapMode: number;
+  /** The RGB space colour values are read in and the canvas presents in. */
+  colorProfile: ColorProfile;
   rippleEnabled: boolean;
   rippleIntensity: number;
   glowEnabled: boolean;
@@ -193,7 +195,7 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
   "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
   "u_pixelSortEnabled", "u_pixelSortIntensity", "u_pixelSortThreshold",
-  "u_domainWarp", "u_oklabEnabled", "u_colorBlend",
+  "u_domainWarp", "u_oklabEnabled", "u_displayP3", "u_colorBlend",
   "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
   // Image/texture uniforms
   "u_imageTexture", "u_distortionMap",
@@ -264,6 +266,14 @@ function bloomNormalization(levels: number): number {
   let sum = 0;
   for (let i = 0; i < levels; i++) sum += Math.pow(BLOOM_LEVEL_FALLOFF, i);
   return 1 / sum;
+}
+
+/**
+ * The texture cache key of a picture uploaded for a scene in `profile`: it is
+ * converted into the profile's colours on upload, so each profile keeps its own.
+ */
+function imageTextureKey(dataURL: string, profile: ColorProfile): string {
+  return profile === "srgb" ? dataURL : `${profile}:${dataURL}`;
 }
 
 /** One level of the bloom pyramid. */
@@ -467,6 +477,7 @@ export class GradientEngine {
   private trailHeight = 0;
 
   // Image texture cache
+  /** Uploaded pictures and distortion maps, by imageTextureKey(). */
   private textureCache: Map<string, WebGLTexture> = new Map();
   private textureSizes: Map<string, { width: number; height: number }> = new Map();
   private pendingLoads: Set<string> = new Set();
@@ -488,6 +499,8 @@ export class GradientEngine {
    * post pass always draws the full canvas and upsamples). Fixed, or chosen by
    * the controller while one is set. See layerPassScale() for when it applies.
    */
+  /** The colour space the canvas presents in (drawingBufferColorSpace), as last set by render(). */
+  private canvasProfile: ColorProfile = "srgb";
   private renderScale = 1;
   private renderScaleController: RenderScaleController | null = null;
   /** Set while capturing: the scale to draw at instead of the live one. */
@@ -1481,17 +1494,24 @@ export class GradientEngine {
     this.trailIndex = write;
   }
 
-  loadImageTexture(dataURL: string): WebGLTexture | null {
-    if (this.textureCache.has(dataURL)) {
-      return this.textureCache.get(dataURL)!;
+  /**
+   * The texture of a picture, uploaded on first use (null until it has loaded).
+   * `profile`: the colour space its colours are converted into on upload, the
+   * scene's for a picture; a distortion map is data, not colour, and stays as
+   * it is ("srgb", the browser's default).
+   */
+  loadImageTexture(dataURL: string, profile: ColorProfile = "srgb"): WebGLTexture | null {
+    const key = imageTextureKey(dataURL, profile);
+    if (this.textureCache.has(key)) {
+      return this.textureCache.get(key)!;
     }
-    if (this.pendingLoads.has(dataURL)) {
+    if (this.pendingLoads.has(key)) {
       return null;
     }
-    this.pendingLoads.add(dataURL);
+    this.pendingLoads.add(key);
     const img = new Image();
     img.onload = () => {
-      this.pendingLoads.delete(dataURL);
+      this.pendingLoads.delete(key);
       const gl = this.gl;
       let source: TexImageSource = img;
       let uploadWidth = img.width;
@@ -1510,15 +1530,18 @@ export class GradientEngine {
       const tex = gl.createTexture()!;
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      // Where the browser can't convert on upload, the picture goes in as it is.
+      if ("unpackColorSpace" in gl) gl.unpackColorSpace = profile;
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      if ("unpackColorSpace" in gl) gl.unpackColorSpace = "srgb";
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.bindTexture(gl.TEXTURE_2D, null);
-      this.textureCache.set(dataURL, tex);
-      this.textureSizes.set(dataURL, { width: uploadWidth, height: uploadHeight });
+      this.textureCache.set(key, tex);
+      this.textureSizes.set(key, { width: uploadWidth, height: uploadHeight });
     };
     img.src = dataURL;
     return null;
@@ -1573,10 +1596,10 @@ export class GradientEngine {
     return { success: true };
   }
 
-  cleanupTextures(layers: LayerParams[]) {
+  cleanupTextures(layers: LayerParams[], profile: ColorProfile = this.canvasProfile) {
     const referenced = new Set<string>();
     for (const layer of layers) {
-      if (layer.imageData) referenced.add(layer.imageData);
+      if (layer.imageData) referenced.add(imageTextureKey(layer.imageData, profile));
       if (layer.distortionMapData) referenced.add(layer.distortionMapData);
     }
     for (const [key, tex] of this.textureCache) {
@@ -1747,8 +1770,9 @@ export class GradientEngine {
     }
 
     this.bindTexture(UNIT_PALETTE, entry.texture);
-    if (!entry.allocated || !paletteKeyMatches(entry.key, layer.colors, state.oklabEnabled, blend)) {
-      bakePalette(layer.colors, state.oklabEnabled, blend, this.paletteData);
+    const displayP3 = state.colorProfile === "display-p3";
+    if (!entry.allocated || !paletteKeyMatches(entry.key, layer.colors, state.oklabEnabled, blend, displayP3)) {
+      bakePalette(layer.colors, state.oklabEnabled, blend, this.paletteData, displayP3);
       if (entry.allocated) {
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, PALETTE_SIZE, 1, gl.RGBA, gl.FLOAT, this.paletteData);
       } else {
@@ -1760,7 +1784,7 @@ export class GradientEngine {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         entry.allocated = true;
       }
-      setPaletteKey(entry.key, layer.colors, state.oklabEnabled, blend);
+      setPaletteKey(entry.key, layer.colors, state.oklabEnabled, blend, displayP3);
       const domain = paletteDomain(blend);
       entry.domainScale = domain.scale;
       entry.domainBias = domain.bias;
@@ -1776,7 +1800,7 @@ export class GradientEngine {
   }
 
   /** The raw stops, for the gradients that read `u_colors` / `u_colorsMix` themselves. */
-  private setPalette(layer: LayerParams, oklab: boolean) {
+  private setPalette(layer: LayerParams, oklab: boolean, displayP3: boolean) {
     const record = this.active;
     if (!record) return;
     this.setf("u_softness", layer.softness);
@@ -1790,7 +1814,7 @@ export class GradientEngine {
       }
       const mixLoc = record.mixLocations[i];
       if (mixLoc !== undefined) {
-        const mix = toMixSpace(color, oklab);
+        const mix = toMixSpace(color, oklab, displayP3);
         if (this.uniformChanged(mixLoc, 3, mix[0], mix[1], mix[2])) {
           this.gl.uniform3f(mixLoc, mix[0], mix[1], mix[2]);
         }
@@ -1798,18 +1822,18 @@ export class GradientEngine {
     }
   }
 
-  private setLayerUniforms(layer: LayerParams, oklab: boolean) {
+  private setLayerUniforms(layer: LayerParams, oklab: boolean, profile: ColorProfile) {
     this.setf("u_speed", layer.speed);
     this.setf("u_complexity", layer.complexity);
     this.setf("u_scale", layer.scale);
     this.setf("u_distortion", layer.distortion);
-    this.setPalette(layer, oklab);
+    this.setPalette(layer, oklab, profile === "display-p3");
     this.setf("u_layerOpacity", layer.opacity);
     // Parallax depth (per-layer)
     this.setf("u_layerDepth", layer.depth);
 
     // Image texture
-    const imageTex = layer.imageData ? this.loadImageTexture(layer.imageData) : null;
+    const imageTex = layer.imageData ? this.loadImageTexture(layer.imageData, profile) : null;
     if (imageTex) {
       this.bindTexture(UNIT_IMAGE, imageTex);
       this.setf("u_hasImage", 1.0);
@@ -1900,6 +1924,7 @@ export class GradientEngine {
     this.setf("u_domainWarp", state.domainWarp);
     // For gradients that blend the raw stops themselves (mesh); the rest read the baked palette.
     this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
+    this.seti("u_displayP3", state.colorProfile === "display-p3" ? 1 : 0);
     this.setf("u_colorBlend", state.colorBlend);
     // Parallax
     this.seti("u_parallaxEnabled", state.parallaxEnabled ? 1 : 0);
@@ -1994,6 +2019,18 @@ export class GradientEngine {
   }
 
   /**
+   * Presents the canvas in `profile`: its values are read as Display P3 or
+   * sRGB. A browser without drawingBufferColorSpace shows them as sRGB (the
+   * same hues, a little less saturated than meant).
+   */
+  private applyCanvasProfile(profile: ColorProfile) {
+    if (profile === this.canvasProfile) return;
+    this.canvasProfile = profile;
+    const gl = this.gl;
+    if ("drawingBufferColorSpace" in gl) gl.drawingBufferColorSpace = profile;
+  }
+
+  /**
    * Draws `state` into `output` (the canvas by default) and returns whether it
    * did. It doesn't while a program the frame needs is still compiling; the
    * canvas then keeps the last frame that was presented.
@@ -2010,6 +2047,7 @@ export class GradientEngine {
 
     const visibleLayers = state.layers.filter((l) => l.visible);
     if (!this.programsReady(visibleLayers)) return false;
+    this.applyCanvasProfile(state.colorProfile);
 
     // Trail field (before the main render — writes to its own targets)
     this.updateTrail(state);
@@ -2066,7 +2104,7 @@ export class GradientEngine {
 
         this.useProgram(this.getLayerProgram(layer));
         this.setLayerGlobals(state, mvp);
-        this.setLayerUniforms(layer, state.oklabEnabled);
+        this.setLayerUniforms(layer, state.oklabEnabled, state.colorProfile);
         this.bindPalette(i, layer, state);
         this.set2f("u_compositeScale", compositeScaleX, compositeScaleY);
         this.seti("u_compositeEnabled", i === 0 ? 0 : 1);
@@ -2389,7 +2427,8 @@ export class GradientEngine {
         canvas.height = height;
       }
       const pixels = this.capturePixels(state, options.renderScale);
-      return new ImageData(flipRowsRGBA(pixels, width, height), width, height);
+      // Tagged with the scene's profile, so a 2D canvas or PNG reads its values as meant.
+      return new ImageData(flipRowsRGBA(pixels, width, height), width, height, { colorSpace: state.colorProfile });
     } finally {
       this.elapsedTime = liveTime;
       if (resized) {

@@ -3,7 +3,7 @@ export { createGradient } from "./create";
 export { attachPointer } from "./attach-pointer";
 export type { AttachPointerOptions, PointerTarget } from "./attach-pointer";
 export type { EngineState, CaptureOptions } from "./engine";
-export type { LayerParams, GradientType, BlendMode, ImageBlendMode, MaskParams, MaskShape, MaskBlendMode, TextMaskAlign } from "./layers";
+export type { LayerParams, GradientType, BlendMode, ColorProfile, ImageBlendMode, MaskParams, MaskShape, MaskBlendMode, TextMaskAlign } from "./layers";
 export {
   createLayer, defaultSoftnessForGradientType, DEFAULT_LAYER, DEFAULT_MASK, MAX_LAYERS,
   LIGHT_GRADIENT_PALETTES, isLightGradientType, isLightRampPalette,
@@ -13,6 +13,7 @@ export type { LightGradientType, LightFieldType } from "./layers";
 export {
   GRADIENT_TYPES,
   BLEND_MODES,
+  COLOR_PROFILES,
   IMAGE_BLEND_MODES,
   MASK_SHAPES,
   MASK_BLEND_MODES,
@@ -43,6 +44,7 @@ export {
   PALETTE_SIZE,
   MAX_PALETTE_COLORS,
   bakePalette,
+  displayP3ToSrgb,
   effectiveBlend,
   paletteDomain,
   paletteReach,

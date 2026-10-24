@@ -93,7 +93,9 @@ function parsePairs(flag, text) {
     text.split(",").filter(Boolean).map((pair) => {
       const [key, value] = pair.split("=");
       if (!key || value === undefined) throw new Error(`${flag} takes key=value pairs`);
-      return [key, value === "true" ? true : value === "false" ? false : Number(value)];
+      // A value that isn't a number or true/false is a string (colorProfile=display-p3).
+      const number = Number(value);
+      return [key, value === "true" ? true : value === "false" ? false : Number.isFinite(number) ? number : value];
     }),
   );
 }
@@ -219,6 +221,7 @@ async function main() {
       colorBlend: engine.colorBlend,
       oklabEnabled: engine.oklabEnabled,
       toneMapMode: engine.toneMapMode,
+      colorProfile: engine.colorProfile,
       mouseReact: engine.mouseReact,
       debandEnabled: engine.debandEnabled,
       debandStrength: engine.debandStrength,

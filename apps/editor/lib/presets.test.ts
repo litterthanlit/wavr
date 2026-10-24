@@ -32,6 +32,7 @@ const SAMPLES: { [K in keyof typeof CONFIG_FIELD_STATE_KEYS]: GradientConfig[K] 
   meshDistortion: { enabled: true, displacement: 0.77, frequency: 3.3, speed: 0.95 },
   oklabEnabled: false,
   toneMapMode: 2,
+  colorProfile: "display-p3",
   ripple: { enabled: true, intensity: 0.73 },
   glow: { enabled: true, intensity: 0.64, radius: 0.11 },
   caustic: { enabled: true, intensity: 0.58 },

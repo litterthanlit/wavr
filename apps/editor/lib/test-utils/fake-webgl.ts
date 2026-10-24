@@ -27,6 +27,12 @@ export interface TextureUpload {
   data: number[] | null;
 }
 
+/** A texImage2D from an image source (no dimensions), with the colour space it was converted into. */
+export interface ImageUpload {
+  texture: Handle | null;
+  unpackColorSpace: string;
+}
+
 export interface ProgramInfo {
   handle: Handle;
   vertexSource: string;
@@ -74,6 +80,7 @@ export function createFakeGL(options: FakeGLOptions = {}) {
   const textureFormats = new Map<Handle, string>(); // texture → internal format
   const textureSizes = new Map<Handle, { width: number; height: number }>(); // texture → storage size
   const uploads: TextureUpload[] = [];
+  const imageUploads: ImageUpload[] = [];
   const deletedTextures: Handle[] = [];
   let viewport: [number, number, number, number] = [0, 0, 0, 0];
   const uniformsByProgram = new Map<Handle | null, Record<string, UniformValue>>();
@@ -223,6 +230,8 @@ export function createFakeGL(options: FakeGLOptions = {}) {
           height,
           data: ArrayBuffer.isView(pixels) ? Array.from(pixels as unknown as ArrayLike<number>) : null,
         });
+      } else {
+        imageUploads.push({ texture: tex, unpackColorSpace: String(context.unpackColorSpace) });
       }
     },
     // (target, level, xoffset, yoffset, width, height, format, type, pixels)
@@ -261,7 +270,9 @@ export function createFakeGL(options: FakeGLOptions = {}) {
   };
 
   const canvas = { width: 16, height: 8 } as unknown as HTMLCanvasElement;
-  const gl = new Proxy({ canvas } as Record<string, unknown>, {
+  // Plain properties of the context: reads and writes go straight to this object.
+  const context: Record<string, unknown> = { canvas, drawingBufferColorSpace: "srgb", unpackColorSpace: "srgb" };
+  const gl = new Proxy(context, {
     get(target, prop: string) {
       if (prop in target) return target[prop];
       if (prop in methods) return methods[prop];
@@ -283,6 +294,9 @@ export function createFakeGL(options: FakeGLOptions = {}) {
     textureFormats,
     textureSizes,
     uploads,
+    imageUploads,
+    /** The context's own properties (drawingBufferColorSpace, unpackColorSpace). */
+    context,
     deletedTextures,
     uniformCalls,
     programs,

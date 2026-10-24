@@ -1,4 +1,5 @@
-import { GRADIENT_TYPE_IDS, fitSize, type CaptureOptions, type EngineState } from "@wavr/core";
+import { GRADIENT_TYPE_IDS, displayP3ToSrgb, fitSize, type CaptureOptions, type ColorProfile, type EngineState } from "@wavr/core";
+import { cssColor } from "./css-color";
 import { encodeGif } from "./gif";
 import type { GifWorkerRequest, GifWorkerResponse } from "./gif.worker";
 import { compactCode, indentCode, portableModule } from "./portable-runtime";
@@ -103,11 +104,16 @@ export interface FrameSource {
 /** Renders the 3D overlay right now and returns its canvas (see Scene3DCanvas). */
 export type SceneCaptureFn = () => HTMLCanvasElement;
 
+/**
+ * A 2D canvas holding `frame`, in the frame's colour space: a Display P3 frame
+ * stays P3 (a PNG of it carries a P3 profile), and drawing it onto an sRGB
+ * canvas converts it, as the GIF export does.
+ */
 function imageDataToCanvas(frame: ImageData): HTMLCanvasElement | null {
   const canvas = document.createElement("canvas");
   canvas.width = frame.width;
   canvas.height = frame.height;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { colorSpace: frame.colorSpace });
   if (!ctx) return null;
   ctx.putImageData(frame, 0, 0);
   return canvas;
@@ -207,23 +213,24 @@ export function exportPNG({
   });
 }
 
+/**
+ * A plain CSS approximation: the palette as an animated linear gradient. A
+ * Display P3 palette is written twice, as its nearest sRGB colours and then as
+ * P3, so browsers that can show P3 do and the others keep the first.
+ */
 export function exportCSS(
   colors: [number, number, number][],
-  textMask?: { enabled: boolean; content: string; fontSize: number; fontWeight: number; letterSpacing: number; align: string }
+  textMask?: { enabled: boolean; content: string; fontSize: number; fontWeight: number; letterSpacing: number; align: string },
+  colorProfile: ColorProfile = "srgb",
 ): string {
-  const hexColors = colors.map(([r, g, b]) => {
-    const toHex = (n: number) =>
-      Math.round(n * 255)
-        .toString(16)
-        .padStart(2, "0");
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  });
-
-  const stops = hexColors.join(", ");
+  const p3 = colorProfile === "display-p3";
+  const srgbStops = (p3 ? colors.map(displayP3ToSrgb) : colors).map((c) => cssColor(c)).join(", ");
+  const background = `background: linear-gradient(135deg, ${srgbStops});`
+    + (p3 ? `\n  background: linear-gradient(135deg, ${colors.map((c) => cssColor(c, "display-p3")).join(", ")});` : "");
 
   if (textMask?.enabled && textMask.content) {
     return `.wavr-gradient-text {
-  background: linear-gradient(135deg, ${stops});
+  ${background}
   background-size: 400% 400%;
   animation: wavr-shift 8s ease infinite;
   -webkit-background-clip: text;
@@ -243,7 +250,7 @@ export function exportCSS(
   }
 
   return `.wavr-gradient {
-  background: linear-gradient(135deg, ${stops});
+  ${background}
   background-size: 400% 400%;
   animation: wavr-shift 8s ease infinite;
 }
@@ -560,8 +567,9 @@ export async function exportGIF({
   const frameCount = Math.max(1, Math.round((durationMs / 1000) * fps));
   const startTime = frameSource.getElapsedTime();
 
+  // sRGB: a GIF has no colour profile, so a P3 frame is converted as it is drawn in.
   const scaled = document.createElement("canvas");
-  const ctx = scaled.getContext("2d", { willReadFrequently: true });
+  const ctx = scaled.getContext("2d", { willReadFrequently: true, colorSpace: "srgb" });
   if (!ctx) throw new Error("Canvas 2D is not available");
   ctx.imageSmoothingQuality = "high";
 

@@ -4,6 +4,7 @@ import { useGradientStore } from "@/lib/store";
 import { MAX_LAYERS, BlendMode, LayerParams } from "@wavr/core";
 import Slider from "@/components/ui/Slider";
 import { gradientTypeLabel } from "@/lib/gradient-types";
+import { cssColor } from "@/lib/css-color";
 
 const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[] }[] = [
   {
@@ -61,12 +62,6 @@ const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[
     ],
   },
 ];
-
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (n: number) =>
-    Math.round(n * 255).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
 
 export default function LayerPanel() {
   const store = useGradientStore();
@@ -127,7 +122,7 @@ export default function LayerPanel() {
                 <div
                   key={ci}
                   className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: rgbToHex(...c) }}
+                  style={{ backgroundColor: cssColor(c, store.colorProfile) }}
                 />
               ))}
             </div>

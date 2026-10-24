@@ -1,9 +1,13 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import type { ColorProfile } from "@wavr/core";
+import { cssColor } from "@/lib/css-color";
 
 interface ColorInputProps {
   color: [number, number, number];
+  /** How the scene reads the colour: the swatch and picker show it that way (the hex is its values either way). */
+  colorProfile?: ColorProfile;
   onChange: (color: [number, number, number]) => void;
   onCommit?: () => void;
   onRemove?: () => void;
@@ -53,10 +57,6 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
   }
 }
 
-function hueToRgbHex(h: number): string {
-  const [r, g, b] = hsvToRgb(h, 1, 1);
-  return rgbToHex(r, g, b);
-}
 
 // --- Drag helper ---
 
@@ -90,8 +90,9 @@ function useDrag(onDrag: (x: number, y: number) => void) {
 
 // --- Picker popup ---
 
-function ColorPicker({ color, onChange, onCommit, onClose }: {
+function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
   color: [number, number, number];
+  colorProfile: ColorProfile;
   onChange: (c: [number, number, number]) => void;
   onCommit?: () => void;
   onClose: () => void;
@@ -147,7 +148,7 @@ function ColorPicker({ color, onChange, onCommit, onClose }: {
       <div
         ref={svRef}
         className="picker-sv"
-        style={{ backgroundColor: hueToRgbHex(hsv[0]) }}
+        style={{ backgroundColor: cssColor(hsvToRgb(hsv[0], 1, 1), colorProfile) }}
         onPointerDown={onSvPointerDown}
         onPointerMove={onSvPointerMove}
         onPointerUp={onSvPointerUp}
@@ -204,7 +205,7 @@ function ColorPicker({ color, onChange, onCommit, onClose }: {
 
 // --- Main export ---
 
-export default function ColorInput({ color, onChange, onCommit, onRemove, canRemove }: ColorInputProps) {
+export default function ColorInput({ color, colorProfile = "srgb", onChange, onCommit, onRemove, canRemove }: ColorInputProps) {
   const [open, setOpen] = useState(false);
   const hex = rgbToHex(...color);
 
@@ -212,7 +213,7 @@ export default function ColorInput({ color, onChange, onCommit, onRemove, canRem
     <div className="color-input-row group" style={{ position: "relative" }}>
       <button
         className="color-swatch"
-        style={{ backgroundColor: hex }}
+        style={{ backgroundColor: cssColor(color, colorProfile) }}
         onClick={() => setOpen(!open)}
       />
       <input
@@ -233,6 +234,7 @@ export default function ColorInput({ color, onChange, onCommit, onRemove, canRem
       {open && (
         <ColorPicker
           color={color}
+          colorProfile={colorProfile}
           onChange={onChange}
           onCommit={onCommit}
           onClose={() => setOpen(false)}

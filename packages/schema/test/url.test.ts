@@ -64,6 +64,7 @@ function randomConfig(rand: () => number): GC {
     mouseReact: rand(),
     oklabEnabled: rand() > 0.5,
     toneMapMode: Math.floor(rand() * 4),
+    colorProfile: rand() > 0.5 ? "display-p3" : "srgb",
   };
 
   // Randomly enable a few effect groups with mid-range params.
@@ -316,5 +317,13 @@ describe("strip-defaults", () => {
     const decoded = decodeUrl(encodeUrl(config));
     expect(decoded.brightness).toBe(1.5);
     expect(decoded.hueShift).toBe(45);
+  });
+
+  it("leaves the sRGB colour profile out, so URLs from before it decode as sRGB", () => {
+    expect(decodeUrl(encodeUrl(DEFAULT_CONFIG)).colorProfile).toBe("srgb");
+    expect(GradientConfig.parse({ version: "2.0.0", layers: DEFAULT_CONFIG.layers }).colorProfile).toBe("srgb");
+    const p3: GC = { ...DEFAULT_CONFIG, colorProfile: "display-p3" };
+    expect(encodeUrl(p3)).not.toBe(encodeUrl(DEFAULT_CONFIG));
+    expect(decodeUrl(encodeUrl(p3)).colorProfile).toBe("display-p3");
   });
 });

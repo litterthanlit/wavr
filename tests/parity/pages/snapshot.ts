@@ -242,11 +242,13 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
         }
         const pixels = data.length / 4;
 
-        // A 2D canvas, not the WebGL one, turns the pixels into a PNG.
+        // A 2D canvas, not the WebGL one, turns the pixels into a PNG. In the
+        // frame's colour space: a P3 frame keeps its values (the PNG is tagged
+        // P3) instead of being converted to sRGB.
         const out = document.createElement("canvas");
         out.width = frame.width;
         out.height = frame.height;
-        out.getContext("2d")!.putImageData(frame, 0, 0);
+        out.getContext("2d", { colorSpace: frame.colorSpace })!.putImageData(frame, 0, 0);
 
         return {
           dataUrl: out.toDataURL("image/png"),

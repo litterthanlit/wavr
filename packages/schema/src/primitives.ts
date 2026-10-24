@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { d } from "./descriptions.gen";
-import { BLEND_MODES, GRADIENT_TYPES } from "./enums";
+import { BLEND_MODES, COLOR_PROFILES, GRADIENT_TYPES } from "./enums";
 
 // Convention: primitives never carry defaults. Defaults are applied at the
 // use site (e.g. LayerConfig.blendMode defaults to "normal", Shape3DEffect.shape
@@ -19,6 +19,9 @@ export type RGBColor = z.infer<typeof RGBColor>;
 
 export const ColorSpace = d("ColorSpace", z.enum(["linear", "oklab"]));
 export type ColorSpace = z.infer<typeof ColorSpace>;
+
+export const ColorProfile = d("ColorProfile", z.enum(COLOR_PROFILES));
+export type ColorProfile = z.infer<typeof ColorProfile>;
 
 export const GradientType = d("GradientType", z.enum(GRADIENT_TYPES));
 export type GradientType = z.infer<typeof GradientType>;

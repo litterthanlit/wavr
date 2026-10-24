@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { LayerParams, BlendMode, createLayer, MAX_LAYERS } from "@wavr/core";
+import { LayerParams, BlendMode, ColorProfile, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
 import { RANDOM_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
 import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
@@ -128,6 +128,8 @@ export interface GradientState {
   // Shader quality (Phase 11)
   oklabEnabled: boolean;
   toneMapMode: number;
+  /** The RGB space colour values are read in and the canvas presents in. */
+  colorProfile: ColorProfile;
   rippleEnabled: boolean;
   rippleIntensity: number;
   glowEnabled: boolean;
@@ -369,6 +371,7 @@ const DEFAULTS = {
   feedbackEnabled: false,
   feedbackDecay: 0.5,
   oklabEnabled: true,
+  colorProfile: "srgb" as ColorProfile,
   rippleEnabled: false,
   rippleIntensity: 0.5,
   glowEnabled: false,
@@ -538,10 +541,15 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     rawSet({ layers: newLayers, colors: newColors });
   },
 
-  loadPreset: (preset) => {
+  loadPreset: (input) => {
     markPushPoint();
     flushPending();
     const current = useGradientStore.getState();
+    // Colours come with the profile they are read in: a patch that brings
+    // colours (a preset, a scene, a project saved before profiles) without
+    // naming one is sRGB, whatever the scene it is loaded over.
+    const bringsColors = Array.isArray(input.layers) || input.colors !== undefined;
+    const preset = bringsColors && input.colorProfile === undefined ? { ...input, colorProfile: "srgb" as const } : input;
     pushHistory(takeSnapshot(current));
     if (Array.isArray(preset.layers)) {
       const nextLayers = preset.layers.map((layer) => createLayer(layer));

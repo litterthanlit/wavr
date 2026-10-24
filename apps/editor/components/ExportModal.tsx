@@ -8,6 +8,7 @@ import {
   generateEmbedConfig, generateEmbedSnippet, getPortableExportWarnings, downloadTextFile,
   pngExportSize, type FrameSource, type SceneCaptureFn,
 } from "@/lib/export";
+import { displayP3ToSrgb } from "@wavr/core";
 import { applyTimeline, withPerformanceMode } from "@/lib/frame-state";
 import { encodeState } from "@/lib/url-codec";
 import {
@@ -204,6 +205,7 @@ export default function ExportModal({
     colorBlend: store.colorBlend,
     oklabEnabled: store.oklabEnabled,
     toneMapMode: store.toneMapMode,
+    colorProfile: store.colorProfile,
     mouseReact: store.mouseReact,
     debandEnabled: store.debandEnabled,
     debandStrength: store.debandStrength,
@@ -473,13 +475,13 @@ export default function ExportModal({
                     letterSpacing: layer.textMaskLetterSpacing,
                     align: layer.textMaskAlign,
                   } : undefined;
-                  await copyToClipboard(exportCSS(colors, textMask));
+                  await copyToClipboard(exportCSS(colors, textMask, store.colorProfile));
                 }}
               />
               <ExportButton
                 title="Tailwind CSS"
                 desc="Utility classes + config snippet"
-                action={async () => { await copyToClipboard(exportTailwindCSS(colors, store.speed as number)); }}
+                action={async () => { await copyToClipboard(exportTailwindCSS(store.colorProfile === "display-p3" ? colors.map(displayP3ToSrgb) : colors, store.speed as number)); }}
               />
               <ExportButton
                 title="React Component"

@@ -6,6 +6,7 @@ export { LayerConfig } from "./layer";
 export {
   RGBColor,
   ColorSpace,
+  ColorProfile,
   GradientType,
   BlendMode,
   Shape3DKind,

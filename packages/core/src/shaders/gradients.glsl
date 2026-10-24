@@ -62,7 +62,7 @@ vec3 meshGradient(vec2 uv, float time) {
     acc += w * u_colorsMix[i % u_colorCount];
     wsum += w;
   }
-  return mixSpaceToSrgb(acc / wsum);
+  return mixSpaceToRgb(acc / wsum);
 }
 #endif
 

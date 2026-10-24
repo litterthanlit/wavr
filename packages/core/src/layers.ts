@@ -1,5 +1,6 @@
 import type {
   BlendMode,
+  ColorProfile,
   GradientType,
   ImageBlendMode,
   MaskBlendMode,
@@ -8,7 +9,7 @@ import type {
 } from "@wavr/schema/enums";
 
 // Canonical lists live in @wavr/schema/enums; re-exported for engine users.
-export type { BlendMode, GradientType, ImageBlendMode, MaskBlendMode, MaskShape, TextMaskAlign };
+export type { BlendMode, ColorProfile, GradientType, ImageBlendMode, MaskBlendMode, MaskShape, TextMaskAlign };
 
 export function defaultSoftnessForGradientType(type: GradientType): number {
   switch (type) {

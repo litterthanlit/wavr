@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { d } from "./descriptions.gen";
-import { ColorSpace } from "./primitives";
+import { ColorProfile, ColorSpace } from "./primitives";
 import { LayerConfig } from "./layer";
 import {
   NoiseEffect,
@@ -43,6 +43,7 @@ export const GradientConfig = d(
     mouseReact: d("GradientConfig.mouseReact", z.number().min(0).max(1)).default(0.5),
     oklabEnabled: d("GradientConfig.oklabEnabled", z.boolean()).default(true),
     toneMapMode: d("GradientConfig.toneMapMode", z.number().int().min(0).max(3)).default(1),
+    colorProfile: d("GradientConfig.colorProfile", ColorProfile).default("srgb"),
 
     noise: NoiseEffect.optional(),
     bloom: BloomEffect.optional(),

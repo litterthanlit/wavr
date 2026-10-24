@@ -1,5 +1,5 @@
 import { GradientState, type PerformanceMode } from "./store";
-import { LayerParams } from "@wavr/core";
+import { ColorProfile, LayerParams } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
 import { cloneScene3D, type Scene3DState } from "./scene3d";
 import { sceneDocumentToStorePatch, storeToSceneDocument } from "./scene-document";
@@ -61,6 +61,8 @@ export interface ProjectState {
   feedbackDecay: number;
   oklabEnabled: boolean;
   toneMapMode: number;
+  /** Absent in projects saved before colour profiles: sRGB. */
+  colorProfile?: ColorProfile;
   rippleEnabled: boolean;
   rippleIntensity: number;
   glowEnabled: boolean;
@@ -152,6 +154,7 @@ export function exportProjectState(state: GradientState): ProjectState {
     feedbackDecay: state.feedbackDecay as number,
     oklabEnabled: state.oklabEnabled as boolean,
     toneMapMode: state.toneMapMode as number,
+    colorProfile: state.colorProfile as ColorProfile,
     rippleEnabled: state.rippleEnabled as boolean,
     rippleIntensity: state.rippleIntensity as number,
     glowEnabled: state.glowEnabled as boolean,
