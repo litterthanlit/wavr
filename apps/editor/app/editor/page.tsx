@@ -22,6 +22,8 @@ import { hasSeenOnboarding } from "@/lib/onboarding";
 import { useEverOpened } from "@/lib/useEverOpened";
 import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
+import { TooltipProvider } from "@/components/litt/tooltip";
+import { Toaster } from "@/components/litt/toast";
 import type { SceneCapture } from "@/components/Scene3DCanvas";
 
 // A shared link carries its state in the hash. Start fetching the decoder as
@@ -85,8 +87,17 @@ export default function EditorPage() {
         return;
       }
 
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      // Sliders, switches, tabs and buttons are focusable controls: Space and
+      // the arrows belong to the one that has focus, not to playback.
+      if (
+        (e.key === " " || e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End") &&
+        target.closest("button, [role='slider'], [role='switch'], [role='tab'], [role='radio'], [role='option']")
+      ) {
+        return;
+      }
 
       if (isMeta && e.shiftKey && e.key === "z") {
         e.preventDefault();
@@ -174,72 +185,74 @@ export default function EditorPage() {
   }, []);
 
   return (
-    <div className="h-screen w-screen bg-root flex items-center justify-center">
-    <div className="h-[90vh] w-[90vw] flex flex-col rounded-xl overflow-hidden border border-border shadow-2xl">
-      <TopBar
-        onScenes={() => setScenesOpen(true)}
-        onExport={() => setExportOpen(true)}
-        onShowShortcuts={() => setShortcutsOpen(true)}
-        onProjects={() => setProjectsOpen(true)}
-      />
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-w-0 flex flex-col min-h-0">
-          <div className="relative flex flex-1 min-h-0 overflow-hidden">
-            <Canvas
-              onCanvasReady={handleCanvasReady}
-              onEngineReady={handleEngineReady}
-            />
-            {scene3DEnabled && (
-              <Scene3DCanvas onCanvasReady={handleSceneCanvasReady} onCaptureReady={handleSceneCaptureReady} />
-            )}
-          </div>
-          <Timeline />
+    <TooltipProvider>
+      <div className="flex h-dvh w-screen flex-col overflow-hidden bg-litt-canvas font-litt-sans text-litt-body text-litt-fg [font-synthesis-weight:none]">
+        <TopBar
+          onScenes={() => setScenesOpen(true)}
+          onExport={() => setExportOpen(true)}
+          onShowShortcuts={() => setShortcutsOpen(true)}
+          onProjects={() => setProjectsOpen(true)}
+          onSearch={() => setPaletteOpen(true)}
+        />
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="relative flex min-h-0 flex-1 overflow-hidden">
+              <Canvas
+                onCanvasReady={handleCanvasReady}
+                onEngineReady={handleEngineReady}
+              />
+              {scene3DEnabled && (
+                <Scene3DCanvas onCanvasReady={handleSceneCanvasReady} onCaptureReady={handleSceneCaptureReady} />
+              )}
+            </div>
+            <Timeline />
+          </main>
+          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
         </div>
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
+        {exportMounted && (
+          <LazyExportModal
+            open={exportOpen}
+            onClose={() => setExportOpen(false)}
+            canvasRef={canvasElRef}
+            sceneCanvasRef={sceneCanvasElRef}
+            sceneCaptureRef={sceneCaptureRef}
+            engineRef={engineRef}
+          />
+        )}
+        {shortcutsMounted && (
+          <LazyShortcutsModal
+            open={shortcutsOpen}
+            onClose={() => setShortcutsOpen(false)}
+          />
+        )}
+        {projectsMounted && (
+          <LazyProjectsModal
+            open={projectsOpen}
+            onClose={() => setProjectsOpen(false)}
+          />
+        )}
+        {scenesMounted && (
+          <LazySceneGalleryModal
+            open={scenesOpen}
+            onClose={() => setScenesOpen(false)}
+          />
+        )}
+        {paletteMounted && (
+          <LazyCommandPalette
+            open={paletteOpen}
+            onOpenChange={setPaletteOpen}
+            ui={{
+              openExport: () => setExportOpen(true),
+              openProjects: () => setProjectsOpen(true),
+              openShortcuts: () => setShortcutsOpen(true),
+              setTab: setActiveTab,
+            }}
+          />
+        )}
+        <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
+        {onboardingNeeded && <LazyOnboarding />}
+        <Toaster />
       </div>
-      {exportMounted && (
-        <LazyExportModal
-          open={exportOpen}
-          onClose={() => setExportOpen(false)}
-          canvasRef={canvasElRef}
-          sceneCanvasRef={sceneCanvasElRef}
-          sceneCaptureRef={sceneCaptureRef}
-          engineRef={engineRef}
-        />
-      )}
-      {shortcutsMounted && (
-        <LazyShortcutsModal
-          open={shortcutsOpen}
-          onClose={() => setShortcutsOpen(false)}
-        />
-      )}
-      {projectsMounted && (
-        <LazyProjectsModal
-          open={projectsOpen}
-          onClose={() => setProjectsOpen(false)}
-        />
-      )}
-      {scenesMounted && (
-        <LazySceneGalleryModal
-          open={scenesOpen}
-          onClose={() => setScenesOpen(false)}
-        />
-      )}
-      {paletteMounted && (
-        <LazyCommandPalette
-          open={paletteOpen}
-          onOpenChange={setPaletteOpen}
-          ui={{
-            openExport: () => setExportOpen(true),
-            openProjects: () => setProjectsOpen(true),
-            openShortcuts: () => setShortcutsOpen(true),
-            setTab: setActiveTab,
-          }}
-        />
-      )}
-      <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
-      {onboardingNeeded && <LazyOnboarding />}
-    </div>
-    </div>
+    </TooltipProvider>
   );
 }

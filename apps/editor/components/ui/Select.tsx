@@ -1,5 +1,8 @@
 "use client";
 
+import { SelectField } from "@/components/litt/select";
+import { Combobox } from "@/components/litt/combobox";
+
 interface SelectProps {
   label: string;
   value: string;
@@ -7,46 +10,24 @@ interface SelectProps {
   onChange: (value: string) => void;
 }
 
+/**
+ * One value from a list. A flat list is litt's Select; a grouped one (gradient
+ * types, blend modes) is long enough to search, so it is litt's Combobox.
+ */
 export default function Select({ label, value, options, onChange }: SelectProps) {
-  const groups = options.reduce<Record<string, typeof options>>((acc, option) => {
-    const group = option.group ?? "";
-    acc[group] = [...(acc[group] ?? []), option];
-    return acc;
-  }, {});
-  const groupNames = Object.keys(groups);
-
-  return (
-    <div className="select-wrapper">
-      <span className="select-label">{label}</span>
-      <select
+  if (options.some((option) => option.group)) {
+    return (
+      <Combobox
+        label={label}
+        size="sm"
+        options={options}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="select-input"
-      >
-        {groupNames.length === 1 && groupNames[0] === ""
-          ? options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))
-          : groupNames.map((group) =>
-              group ? (
-                <optgroup key={group} label={group}>
-                  {groups[group].map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : (
-                groups[group].map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))
-              )
-            )}
-      </select>
-    </div>
-  );
+        // A field left empty clears the pick; the panels always need a value.
+        onValueChange={(next) => {
+          if (next) onChange(next);
+        }}
+      />
+    );
+  }
+  return <SelectField label={label} size="sm" options={options} value={value} onValueChange={onChange} />;
 }

@@ -6,6 +6,13 @@ import Select from "@/components/ui/Select";
 import Slider from "@/components/ui/Slider";
 import ColorInput from "@/components/ui/ColorInput";
 import Toggle from "@/components/ui/Toggle";
+import PanelSection, { PanelSubsection } from "@/components/ui/PanelSection";
+import { Button } from "@/components/litt/button";
+import { Callout } from "@/components/litt/callout";
+import { FileDrop } from "@/components/litt/file-drop";
+import { TextField } from "@/components/litt/input";
+import { Media } from "@/components/litt/media";
+import { PlusIcon, TrashIcon } from "@/components/litt/icons";
 import {
   LIGHT_FIELD_PALETTES,
   LIGHT_FIELD_PALETTE_ROLES,
@@ -75,6 +82,8 @@ function resizeAndLoadImage(file: File): Promise<string> {
   });
 }
 
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
 function ImageUpload({
   label,
   imageData,
@@ -86,72 +95,31 @@ function ImageUpload({
   onUpload: (dataURL: string) => void;
   onRemove: () => void;
 }) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleFile = async (file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    const dataURL = await resizeAndLoadImage(file);
-    onUpload(dataURL);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
+  const handleFiles = async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+    onUpload(await resizeAndLoadImage(file));
   };
 
   if (imageData) {
     return (
-      <div className="relative group">
-        {/* eslint-disable-next-line @next/next/no-img-element -- previews are local data URLs from user uploads */}
-        <img
-          src={imageData}
-          alt={label}
-          className="w-full h-24 object-cover rounded-md border border-border"
-        />
-        <button
-          onClick={onRemove}
-          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-surface/80 text-text-secondary
-            hover:bg-error hover:text-white text-xs flex items-center justify-center
-            opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          ×
-        </button>
+      <div className="flex flex-col gap-2">
+        <Media src={imageData} alt={label} ratio={16 / 9} radius="surface" />
+        <Button variant="ghost" size="sm" icon={<TrashIcon />} onClick={onRemove} className="self-start">
+          Remove image
+        </Button>
       </div>
     );
   }
 
   return (
-    <>
-      <div
-        onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
-        onClick={() => inputRef.current?.click()}
-        className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer
-          hover:border-accent hover:bg-accent/5 transition-colors"
-      >
-        <p className="text-xs text-text-tertiary">
-          Drop image or click to upload
-        </p>
-        <p className="text-[10px] text-text-tertiary mt-1">PNG, JPG, WebP</p>
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleFile(file);
-        }}
-      />
-    </>
-  );
-}
-
-function SectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="section-title">{children}</span>
+    <FileDrop
+      label={label}
+      accept={IMAGE_TYPES}
+      multiple={false}
+      onFiles={handleFiles}
+      hint="PNG, JPG or WebP"
+    />
   );
 }
 
@@ -165,8 +133,7 @@ function MaskControls({
   onUpdate: (field: string, value: number | boolean | string | [number, number]) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <span className="text-[10px] font-medium text-text-tertiary">{label}</span>
+    <PanelSubsection title={label}>
       <Select
         label="Shape"
         value={mask.shape}
@@ -195,7 +162,7 @@ function MaskControls({
             onCommit={() => useGradientStore.getState().commitSet()} />
           <Toggle label="Invert" checked={mask.invert} onChange={(v) => onUpdate("invert", v)} />
           {mask.shape === "roundedRect" && (
-            <Slider label="Corner Radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
+            <Slider label="Corner radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
               onChange={(v) => onUpdate("cornerRadius", v)}
               onCommit={() => useGradientStore.getState().commitSet()} />
           )}
@@ -205,16 +172,16 @@ function MaskControls({
               onCommit={() => useGradientStore.getState().commitSet()} />
           )}
           {mask.shape === "star" && (
-            <Slider label="Inner Radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
+            <Slider label="Inner radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
               onChange={(v) => onUpdate("starInnerRadius", v)}
               onCommit={() => useGradientStore.getState().commitSet()} />
           )}
-          <Slider label="Noise Edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
+          <Slider label="Noise edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
             onChange={(v) => onUpdate("noiseDistortion", v)}
             onCommit={() => useGradientStore.getState().commitSet()} />
         </>
       )}
-    </div>
+    </PanelSubsection>
   );
 }
 
@@ -246,12 +213,11 @@ export default function GradientPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-4">
+    <div className="flex flex-col px-4 pb-6">
       {/* Type */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Type</SectionHeader>
+      <PanelSection title="Type">
         <Select
-          label="Gradient Type"
+          label="Gradient type"
           value={store.gradientType}
           options={GRADIENT_OPTIONS}
           onChange={(v) => {
@@ -264,52 +230,49 @@ export default function GradientPanel() {
         />
         {/* The light modes read the palette as darkest-to-brightest; offer theirs when it doesn't run that way. */}
         {isLightGradientType(store.gradientType) && !isLightRampPalette(store.colors) && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-            <p className="text-[11px] leading-snug text-text-tertiary">
-              Reads the palette as light: darkest colour first, brightest last.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                if (!isLightGradientType(store.gradientType)) return;
-                const palette = LIGHT_GRADIENT_PALETTES[store.gradientType];
-                store.setDiscrete({ colors: palette.map((c) => [...c] as [number, number, number]) });
-              }}
-              className="shrink-0 text-xs text-text-secondary hover:text-accent transition-colors"
-            >
-              Use its palette
-            </button>
-          </div>
+          <Callout
+            title="Reads the palette as light"
+            description="Darkest colour first, brightest last."
+            action={
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (!isLightGradientType(store.gradientType)) return;
+                  const palette = LIGHT_GRADIENT_PALETTES[store.gradientType];
+                  store.setDiscrete({ colors: palette.map((c) => [...c] as [number, number, number]) });
+                }}
+              >
+                Use its palette
+              </Button>
+            }
+          />
         )}
         {/* The aperture and light wall read the palette by role; say which, and offer theirs. */}
         {isLightFieldType(store.gradientType) && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-            <p className="text-[11px] leading-snug text-text-tertiary">
-              {LIGHT_FIELD_PALETTE_ROLES[store.gradientType]}
-            </p>
-            {JSON.stringify(store.colors) !== JSON.stringify(LIGHT_FIELD_PALETTES[store.gradientType]) && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isLightFieldType(store.gradientType)) return;
-                  const palette = LIGHT_FIELD_PALETTES[store.gradientType];
-                  store.setDiscrete({ colors: palette.map((c) => [...c] as [number, number, number]) });
-                }}
-                className="shrink-0 text-xs text-text-secondary hover:text-accent transition-colors"
-              >
-                Use its palette
-              </button>
-            )}
-          </div>
+          <Callout
+            title="Reads the palette by role"
+            description={LIGHT_FIELD_PALETTE_ROLES[store.gradientType]}
+            action={
+              JSON.stringify(store.colors) !== JSON.stringify(LIGHT_FIELD_PALETTES[store.gradientType]) ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!isLightFieldType(store.gradientType)) return;
+                    const palette = LIGHT_FIELD_PALETTES[store.gradientType];
+                    store.setDiscrete({ colors: palette.map((c) => [...c] as [number, number, number]) });
+                  }}
+                >
+                  Use its palette
+                </Button>
+              ) : undefined
+            }
+          />
         )}
-      </div>
+      </PanelSection>
 
       {/* Image Source — shown when type is "image" */}
       {isImageType && (
-        <>
-          <div className="border-t border-border" />
-          <div className="flex flex-col gap-3">
-            <SectionHeader>Image Source</SectionHeader>
+        <PanelSection title="Image source">
             <ImageUpload
               label="Color image"
               imageData={activeLayer.imageData}
@@ -329,42 +292,33 @@ export default function GradientPanel() {
                   onCommit={() => store.commitSet()} />
               </>
             )}
-          </div>
-        </>
+        </PanelSection>
       )}
-
-      <div className="border-t border-border" />
 
       {/* Colors — hidden when type is "image" */}
       {!isImageType && (
         <>
-          <div className="flex flex-col gap-2">
-            <SectionHeader>Colors</SectionHeader>
-            {(store.colors as [number, number, number][]).map((color, i) => (
-              <ColorInput
-                key={i}
-                color={color}
-                onChange={(c) => store.setColor(i, c)}
-                onCommit={() => store.commitSet()}
-                onRemove={() => store.removeColor(i)}
-                canRemove={store.colors.length > 2}
-              />
-            ))}
-            {store.colors.length < 8 && (
-              <button
-                onClick={() => store.addColor()}
-                className="text-xs text-text-tertiary hover:text-accent transition-colors py-1"
-              >
-                + Add Color
-              </button>
-            )}
-          </div>
-
-          <div className="border-t border-border" />
+          <PanelSection title="Colors">
+            <div className="flex flex-wrap items-center gap-2">
+              {(store.colors as [number, number, number][]).map((color, i) => (
+                <ColorInput
+                  key={i}
+                  label={`Color ${i + 1}`}
+                  color={color}
+                  onChange={(c) => store.setColor(i, c)}
+                  onCommit={() => store.commitSet()}
+                  onRemove={() => store.removeColor(i)}
+                  canRemove={store.colors.length > 2}
+                />
+              ))}
+              {store.colors.length < 8 && (
+                <Button variant="ghost" size="sm" iconOnly aria-label="Add color" icon={<PlusIcon />} onClick={() => store.addColor()} />
+              )}
+            </div>
+          </PanelSection>
 
           {/* Texture Overlay — for non-image types */}
-          <div className="flex flex-col gap-3">
-            <SectionHeader>Texture Overlay</SectionHeader>
+          <PanelSection title="Texture overlay">
             <ImageUpload
               label="Blend image"
               imageData={activeLayer.imageData}
@@ -374,7 +328,7 @@ export default function GradientPanel() {
             {activeLayer.imageData && (
               <>
                 <Select
-                  label="Blend Mode"
+                  label="Blend mode"
                   value={activeLayer.imageBlendMode}
                   options={[
                     { value: "normal", label: "Normal" },
@@ -385,25 +339,22 @@ export default function GradientPanel() {
                   ]}
                   onChange={(v) => store.setLayerParam({ imageBlendMode: v as LayerParams["imageBlendMode"] })}
                 />
-                <Slider label="Blend Opacity" value={activeLayer.imageBlendOpacity} min={0} max={1} step={0.01}
+                <Slider label="Blend opacity" value={activeLayer.imageBlendOpacity} min={0} max={1} step={0.01}
                   onChange={(v) => updateLayerField("imageBlendOpacity", v)}
                   onCommit={() => store.commitSet()} />
-                <Slider label="Image Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01}
+                <Slider label="Image scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01}
                   onChange={(v) => updateLayerField("imageScale", v)}
                   onCommit={() => store.commitSet()} />
               </>
             )}
-          </div>
-
-          <div className="border-t border-border" />
+          </PanelSection>
         </>
       )}
 
       {/* Distortion Map — available for all types */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Distortion Map</SectionHeader>
+      <PanelSection title="Distortion map">
         <Toggle
-          label="Enable Distortion Map"
+          label="Enable distortion map"
           checked={activeLayer.distortionMapEnabled}
           onChange={(v) => store.setLayerParam({ distortionMapEnabled: v })}
         />
@@ -422,15 +373,12 @@ export default function GradientPanel() {
             )}
           </>
         )}
-      </div>
-
-      <div className="border-t border-border" />
+      </PanelSection>
 
       {/* Mask */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Mask</SectionHeader>
+      <PanelSection title="Mask">
         <Toggle
-          label="Enable Mask"
+          label="Enable mask"
           checked={activeLayer.maskEnabled}
           onChange={(v) => {
             const updates: Partial<LayerParams> = { maskEnabled: v };
@@ -453,10 +401,9 @@ export default function GradientPanel() {
                   onUpdate={(field, value) => updateMask("mask2", field, value)}
                 />
                 {activeLayer.mask2.shape !== "none" && (
-                  <div className="flex flex-col gap-3">
-                    <span className="text-[10px] font-medium text-text-tertiary">Combine</span>
+                  <PanelSubsection title="Combine">
                     <Select
-                      label="Blend Mode"
+                      label="Blend mode"
                       value={activeLayer.maskBlendMode}
                       options={MASK_BLEND_OPTIONS}
                       onChange={(v) => store.setLayerParam({ maskBlendMode: v as LayerParams["maskBlendMode"] })}
@@ -466,21 +413,18 @@ export default function GradientPanel() {
                         onChange={(v) => updateLayerField("maskSmoothness", v)}
                         onCommit={() => store.commitSet()} />
                     )}
-                  </div>
+                  </PanelSubsection>
                 )}
               </>
             )}
           </>
         )}
-      </div>
-
-      <div className="border-t border-border" />
+      </PanelSection>
 
       {/* Text Mask */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Text Mask</SectionHeader>
+      <PanelSection title="Text mask">
         <Toggle
-          label="Enable Text Mask"
+          label="Enable text mask"
           checked={activeLayer.textMaskEnabled}
           onChange={(v) => {
             // Mutually exclusive with shape mask
@@ -491,24 +435,19 @@ export default function GradientPanel() {
         />
         {activeLayer.textMaskEnabled && (
           <>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium text-text-tertiary">Text</span>
-              <input
-                type="text"
-                value={activeLayer.textMaskContent}
+            <TextField
+              label="Text"
+              size="sm"
+              value={activeLayer.textMaskContent}
                 onChange={(e) => {
                   const newLayers = store.layers.map((l, i) =>
                     i === store.activeLayerIndex ? { ...l, textMaskContent: e.target.value } : l
                   );
                   store.set({ layers: newLayers } as Partial<typeof store>);
                 }}
-                onBlur={() => store.commitSet()}
-                placeholder="Enter text..."
-                className="w-full px-2 py-1.5 text-xs bg-surface border border-border rounded-md
-                  text-text-primary placeholder:text-text-tertiary focus:outline-none
-                  focus:border-accent transition-colors"
-              />
-            </div>
+              onBlur={() => store.commitSet()}
+              placeholder="Enter text…"
+            />
             <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1}
               onChange={(v) => updateLayerField("textMaskFontSize", v)}
               onCommit={() => store.commitSet()} />
@@ -526,32 +465,26 @@ export default function GradientPanel() {
             />
           </>
         )}
-      </div>
-
-      <div className="border-t border-border" />
+      </PanelSection>
 
       {/* Animation */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Animation</SectionHeader>
+      <PanelSection title="Animation">
         <Slider label="Speed" value={store.speed} min={0} max={2} step={0.01} onChange={(v) => store.set({ speed: v })} onCommit={() => store.commitSet()} />
         <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} onCommit={() => store.commitSet()} />
         <Slider label="Scale" value={store.scale} min={0.2} max={4} step={0.01} onChange={(v) => store.set({ scale: v })} onCommit={() => store.commitSet()} />
         <Slider label="Distortion" value={store.distortion} min={0} max={1} step={0.01} onChange={(v) => store.set({ distortion: v })} onCommit={() => store.commitSet()} />
         <Slider label="Softness" value={store.softness} min={0} max={1} step={0.01} onChange={(v) => store.set({ softness: v })} onCommit={() => store.commitSet()} />
         {(store.gradientType === "mesh" || store.gradientType === "silk" || store.gradientType === "aurora") && (
-          <Slider label="Domain Warp" value={store.domainWarp} min={0} max={1} step={0.01} onChange={(v) => store.set({ domainWarp: v })} onCommit={() => store.commitSet()} />
+          <Slider label="Domain warp" value={store.domainWarp} min={0} max={1} step={0.01} onChange={(v) => store.set({ domainWarp: v })} onCommit={() => store.commitSet()} />
         )}
-      </div>
-
-      <div className="border-t border-border" />
+      </PanelSection>
 
       {/* Appearance */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Appearance</SectionHeader>
+      <PanelSection title="Appearance">
         <Slider label="Brightness" value={store.brightness} min={0.1} max={2} step={0.01} onChange={(v) => store.set({ brightness: v })} onCommit={() => store.commitSet()} />
         <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} onChange={(v) => store.set({ saturation: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Hue Shift" value={store.hueShift} min={0} max={360} step={1} onChange={(v) => store.set({ hueShift: v })} onCommit={() => store.commitSet()} />
-      </div>
+        <Slider label="Hue shift" value={store.hueShift} min={0} max={360} step={1} onChange={(v) => store.set({ hueShift: v })} onCommit={() => store.commitSet()} />
+      </PanelSection>
     </div>
   );
 }

@@ -3,6 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useGradientStore } from "@/lib/store";
 import { GradientEngine } from "@wavr/core";
+import { Textarea } from "@/components/litt/input";
+import { Button } from "@/components/litt/button";
+import { Tag } from "@/components/litt/tag";
+import PanelSection from "@/components/ui/PanelSection";
 
 const DEFAULT_TEMPLATE = `  vec2 p = uv * u_scale;
   float n = fbm(p + vec2(time * 0.3, time * 0.2), int(u_complexity));
@@ -68,51 +72,43 @@ export default function CustomGLSLPanel({ engineRef }: CustomGLSLPanelProps) {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
-          Shader Lab
-        </span>
-        <button
-          onClick={handleReset}
-          className="text-[10px] text-text-tertiary hover:text-accent transition-colors"
-        >
-          Reset
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-[10px] text-text-tertiary font-mono">
-          vec3 custom(vec2 uv, float time) &#123;
-        </span>
-        <textarea
+    <div className="flex flex-col px-4 pb-6">
+      <PanelSection title="Shader lab">
+        <div className="flex items-center justify-between gap-2">
+          <Tag status={status.ok ? (status.message === "Ready" ? "neutral" : "success") : "danger"}>
+            {status.ok ? (status.message === "Ready" ? "Ready" : "Compiled") : "Error"}
+          </Tag>
+          <Button variant="ghost" size="sm" onClick={handleReset}>
+            Reset
+          </Button>
+        </div>
+        <Textarea
+          label="Gradient body"
+          help={<code className="font-litt-mono">vec3 custom(vec2 uv, float time) &#123; … &#125;</code>}
+          error={status.ok ? undefined : <span className="font-litt-mono break-all">{status.message}</span>}
           value={code}
           onChange={(e) => handleChange(e.target.value)}
           spellCheck={false}
-          className="w-full h-48 px-3 py-2 text-[11px] font-mono leading-relaxed
-            bg-surface border border-border rounded-md text-text-primary
-            focus:outline-none focus:border-accent transition-colors resize-y"
+          mono
+          size="sm"
+          rows={12}
         />
-        <span className="text-[10px] text-text-tertiary font-mono">&#125;</span>
-      </div>
+      </PanelSection>
 
-      {/* Compile status */}
-      <div className={`flex items-center gap-2 text-[10px] ${status.ok ? "text-green-500" : "text-red-400"}`}>
-        <span className={`inline-block w-1.5 h-1.5 rounded-full ${status.ok ? "bg-green-500" : "bg-red-400"}`} />
-        <span className="font-mono break-all">{status.message}</span>
-      </div>
-
-      {/* Reference */}
-      <div className="flex flex-col gap-2 text-[10px] text-text-tertiary">
-        <span className="font-medium">Available uniforms:</span>
-        <span className="font-mono leading-relaxed">
-          u_time, u_resolution, u_mouse, u_colors[8], u_colorCount, u_speed, u_complexity, u_scale, u_distortion
-        </span>
-        <span className="font-medium mt-1">Available functions:</span>
-        <span className="font-mono leading-relaxed">
-          snoise(vec2), fbm(vec2, int), getGradientColor(float), hash(vec2), curlNoise(vec2, float)
-        </span>
-      </div>
+      <PanelSection title="Reference">
+        <div className="flex flex-col gap-1">
+          <h4 className="text-litt-small font-litt-title text-litt-fg">Uniforms</h4>
+          <p className="font-litt-mono text-litt-caption font-normal text-litt-fg-muted">
+            u_time, u_resolution, u_mouse, u_colors[8], u_colorCount, u_speed, u_complexity, u_scale, u_distortion
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <h4 className="text-litt-small font-litt-title text-litt-fg">Functions</h4>
+          <p className="font-litt-mono text-litt-caption font-normal text-litt-fg-muted">
+            snoise(vec2), fbm(vec2, int), getGradientColor(float), hash(vec2), curlNoise(vec2, float)
+          </p>
+        </div>
+      </PanelSection>
     </div>
   );
 }

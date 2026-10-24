@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useGradientStore, canUndo, canRedo } from "@/lib/store";
-import { useTheme } from "@/lib/useTheme";
+import { useTheme, type Theme } from "@/lib/useTheme";
 import { copyShareUrl } from "@/lib/url";
 import { preloadUrlCodec } from "@/lib/url-sync";
 import {
@@ -11,98 +10,186 @@ import {
   preloadSceneGalleryModal,
   preloadShortcutsModal,
 } from "@/components/lazy";
+import { Button } from "@/components/litt/button";
+import { Tooltip } from "@/components/litt/tooltip";
+import { Kbd } from "@/components/litt/kbd";
+import { Menu, MenuItem, MenuRadioGroup, MenuRadioItem, MenuSeparator } from "@/components/litt/menu";
+import { toast } from "@/components/litt/toast";
+import {
+  DownloadIcon,
+  FolderIcon,
+  HelpIcon,
+  MonitorIcon,
+  MoonIcon,
+  MoreIcon,
+  PauseIcon,
+  PlayIcon,
+  RedoIcon,
+  SearchIcon,
+  ShareIcon,
+  SparkleIcon,
+  SunIcon,
+  UndoIcon,
+} from "@/components/litt/icons";
 
 interface TopBarProps {
   onScenes: () => void;
   onExport: () => void;
   onShowShortcuts: () => void;
   onProjects: () => void;
+  onSearch: () => void;
 }
 
-export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects }: TopBarProps) {
+const THEMES: { value: Theme; label: string; icon: React.ReactNode }[] = [
+  { value: "system", label: "Auto", icon: <MonitorIcon /> },
+  { value: "light", label: "Light", icon: <SunIcon /> },
+  { value: "dark", label: "Dark", icon: <MoonIcon /> },
+];
+
+/* The bar's own actions fold into a menu below the sidebar breakpoint, where there is no room for them. */
+const WIDE = "max-[900px]:hidden";
+const NARROW = "min-[901px]:hidden";
+
+export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects, onSearch }: TopBarProps) {
   const store = useGradientStore();
   const { playing, randomize, set, undo, redo } = store;
-  const { theme, cycleTheme } = useTheme();
-  const [linkCopied, setLinkCopied] = useState(false);
+  const { theme, setTheme, cycleTheme } = useTheme();
+  const current = THEMES.find((t) => t.value === theme) ?? THEMES[0];
 
-  const themeLabel = theme === "system" ? "Auto" : theme === "light" ? "Light" : "Dark";
+  const share = async () => {
+    await copyShareUrl(store);
+    toast({ title: "Link copied", description: "The link opens this scene as it is now.", tone: "success" });
+  };
 
   return (
-    <header className="topbar">
-      {/* Left: Logo + History */}
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-[13px] font-bold text-text-primary tracking-[0.15em] mr-1">WAVR</span>
-        <div className="topbar-divider" />
-        <button onClick={undo} disabled={!canUndo()} aria-label="Undo" className="topbar-btn">
-          &#8592;
-        </button>
-        <button onClick={redo} disabled={!canRedo()} aria-label="Redo" className="topbar-btn">
-          &#8594;
-        </button>
+    <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-litt-line bg-litt-surface-1 px-3">
+      <div className="flex items-center gap-1">
+        <span className="mr-2 font-litt-title text-litt-body text-litt-fg">Wavr</span>
+        <Tooltip content="Undo" shortcut="⌘Z">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Undo" icon={<UndoIcon />} onClick={undo} disabled={!canUndo()} />
+        </Tooltip>
+        <Tooltip content="Redo" shortcut="⇧⌘Z">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Redo" icon={<RedoIcon />} onClick={redo} disabled={!canRedo()} />
+        </Tooltip>
       </div>
 
-      {/* Center: Playback + Utils */}
-      <div className="flex items-center gap-2">
-        <button
+      <div className="flex items-center gap-1">
+        <Tooltip content={playing ? "Pause" : "Play"} shortcut="Space">
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={playing ? "Pause" : "Play"}
+            icon={playing ? <PauseIcon /> : <PlayIcon />}
+            onClick={() => set({ playing: !playing })}
+          />
+        </Tooltip>
+        <Tooltip content="Randomize" shortcut="R">
+          <Button variant="ghost" size="sm" iconOnly aria-label="Randomize" icon={<SparkleIcon />} onClick={randomize} />
+        </Tooltip>
+        <Button
+          size="sm"
           onClick={onScenes}
           onPointerEnter={preloadSceneGalleryModal}
           onFocus={preloadSceneGalleryModal}
-          className="topbar-btn topbar-btn-accent"
         >
           Scenes
-        </button>
-        <button onClick={randomize} className="topbar-btn">
-          Randomize
-        </button>
-        <button onClick={() => set({ playing: !playing })} className="topbar-btn" style={{ minWidth: 56 }}>
-          {playing ? "Pause" : "Play"}
-        </button>
-        <div className="topbar-divider" />
-        <button
-          onClick={onShowShortcuts}
-          onPointerEnter={preloadShortcutsModal}
-          onFocus={preloadShortcutsModal}
-          aria-label="Keyboard shortcuts"
-          className="topbar-btn"
-        >
-          ?
-        </button>
-        <button onClick={cycleTheme} aria-label={`Theme: ${themeLabel}`} className="topbar-btn">
-          {themeLabel}
-        </button>
+        </Button>
       </div>
 
-      {/* Right: Actions */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={async () => {
-            await copyShareUrl(store);
-            setLinkCopied(true);
-            setTimeout(() => setLinkCopied(false), 2000);
-          }}
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<SearchIcon />}
+          onClick={onSearch}
+          aria-label="Search commands"
+          className={WIDE}
+        >
+          <span className="flex items-center gap-2">
+            Search <Kbd>⌘K</Kbd>
+          </span>
+        </Button>
+        <Tooltip content="Keyboard shortcuts" shortcut="?">
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Keyboard shortcuts"
+            icon={<HelpIcon />}
+            onClick={onShowShortcuts}
+            onPointerEnter={preloadShortcutsModal}
+            onFocus={preloadShortcutsModal}
+            className={WIDE}
+          />
+        </Tooltip>
+        <Tooltip content={`Theme: ${current.label}`}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={`Theme: ${current.label}`}
+            icon={current.icon}
+            onClick={cycleTheme}
+            className={WIDE}
+          />
+        </Tooltip>
+        <div className={`mx-1 h-4 w-px bg-litt-line ${WIDE}`} />
+        <Button
+          size="sm"
+          icon={<ShareIcon />}
+          onClick={share}
           onPointerEnter={preloadUrlCodec}
           onFocus={preloadUrlCodec}
-          className="topbar-btn"
+          className={WIDE}
         >
-          {linkCopied ? "Copied!" : "Share"}
-        </button>
-        <button
+          Share
+        </Button>
+        <Button
+          size="sm"
+          icon={<FolderIcon />}
           onClick={onProjects}
           onPointerEnter={preloadProjectsModal}
           onFocus={preloadProjectsModal}
-          className="topbar-btn"
+          className={WIDE}
         >
           Projects
-        </button>
-        <div className="topbar-divider" />
-        <button
+        </Button>
+        <Menu
+          label="More"
+          align="end"
+          trigger={
+            <Button variant="ghost" size="sm" iconOnly aria-label="More" icon={<MoreIcon />} className={NARROW} />
+          }
+        >
+          <MenuItem icon={<ShareIcon />} onSelect={share}>
+            Share link
+          </MenuItem>
+          <MenuItem icon={<FolderIcon />} onSelect={onProjects}>
+            Projects
+          </MenuItem>
+          <MenuItem icon={<SearchIcon />} onSelect={onSearch}>
+            Commands
+          </MenuItem>
+          <MenuSeparator />
+          <MenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as Theme)}>
+            {THEMES.map((t) => (
+              <MenuRadioItem key={t.value} value={t.value}>
+                {`${t.label} theme`}
+              </MenuRadioItem>
+            ))}
+          </MenuRadioGroup>
+        </Menu>
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<DownloadIcon />}
           onClick={onExport}
           onPointerEnter={preloadExportModal}
           onFocus={preloadExportModal}
-          className="topbar-btn"
         >
           Export
-        </button>
+        </Button>
       </div>
     </header>
   );

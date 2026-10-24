@@ -3,6 +3,7 @@
 import React from "react";
 import GradientPanel from "@/components/GradientPanel";
 import LayerPanel from "@/components/LayerPanel";
+import PanelTabs from "@/components/PanelTabs";
 import {
   LazyScenePanel,
   LazyEffectsPanel,
@@ -16,16 +17,6 @@ import {
 import { GradientEngine } from "@wavr/core";
 import type { SidebarTab } from "@/lib/types";
 
-// The Gradient tab is the default, so it ships eagerly; the rest load on demand
-// (and are prefetched on idle, see prefetchEditorChunks).
-const TABS: { id: SidebarTab; label: string; preload?: () => void }[] = [
-  { id: "gradient", label: "Gradient" },
-  { id: "scene", label: "Scene", preload: preloadScenePanel },
-  { id: "effects", label: "Effects", preload: preloadEffectsPanel },
-  { id: "presets", label: "Presets", preload: preloadPresetsPanel },
-  { id: "code", label: "Lab", preload: preloadCustomGLSLPanel },
-];
-
 interface SidebarProps {
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
@@ -34,35 +25,28 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarProps) {
   return (
-    <div className="sidebar">
+    <aside
+      aria-label="Controls"
+      className="flex h-full w-[clamp(336px,30vw,420px)] min-w-0 shrink-0 flex-col overflow-hidden border-l border-litt-line bg-litt-surface-1 max-[900px]:hidden"
+    >
       {/* Layer panel (always visible) */}
-      <div className="border-b border-border shrink-0">
+      <div className="shrink-0 border-b border-litt-line">
         <LayerPanel />
       </div>
 
-      {/* Tab bar */}
-      <div className="sidebar-tabs">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            onPointerEnter={tab.preload}
-            onFocus={tab.preload}
-            className={`sidebar-tab ${activeTab === tab.id ? "sidebar-tab-active" : ""}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-        {activeTab === "gradient" && <GradientPanel />}
-        {activeTab === "scene" && <LazyScenePanel />}
-        {activeTab === "effects" && <LazyEffectsPanel />}
-        {activeTab === "presets" && <LazyPresetsPanel />}
-        {activeTab === "code" && <LazyCustomGLSLPanel engineRef={engineRef} />}
-      </div>
-    </div>
+      {/* The Gradient tab is the default, so it ships eagerly; the rest load on demand
+          (and are prefetched on idle, see prefetchEditorChunks). */}
+      <PanelTabs
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+        tabs={[
+          { id: "gradient", label: "Gradient", panel: <GradientPanel /> },
+          { id: "scene", label: "Scene", panel: <LazyScenePanel />, preload: preloadScenePanel },
+          { id: "effects", label: "Effects", panel: <LazyEffectsPanel />, preload: preloadEffectsPanel },
+          { id: "presets", label: "Presets", panel: <LazyPresetsPanel />, preload: preloadPresetsPanel },
+          { id: "code", label: "Lab", panel: <LazyCustomGLSLPanel engineRef={engineRef} />, preload: preloadCustomGLSLPanel },
+        ]}
+      />
+    </aside>
   );
 }

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 /* Pin the rem base (previously set by the removed LiftKit stylesheet). */
 :root {
   font-size: 16px;

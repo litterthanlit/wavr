@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useGradientStore } from "@/lib/store";
-import { PRESETS, CATEGORY_ORDER, CATEGORY_LABELS, PresetCategory } from "@/lib/presets";
+import { PRESETS, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/presets";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/litt/accordion";
 
 function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) =>
@@ -14,76 +14,49 @@ function rgbToHex(r: number, g: number, b: number): string {
 
 export default function PresetsPanel() {
   const loadPreset = useGradientStore((s) => s.loadPreset);
-  const [collapsed, setCollapsed] = useState<Set<PresetCategory>>(new Set());
-
-  const toggleCategory = (cat: PresetCategory) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return next;
-    });
-  };
+  const categories = CATEGORY_ORDER.filter((cat) => PRESETS.some((p) => p.category === cat));
 
   return (
-    <div className="flex flex-col gap-1 p-4">
-      {CATEGORY_ORDER.map((cat) => {
+    <Accordion type="multiple" defaultValue={categories} className="mx-4 mt-2 mb-6">
+      {categories.map((cat) => {
         const catPresets = PRESETS.filter((p) => p.category === cat);
-        if (catPresets.length === 0) return null;
-        const isCollapsed = collapsed.has(cat);
-
         return (
-          <div key={cat}>
-            <button
-              onClick={() => toggleCategory(cat)}
-              className="flex items-center gap-1.5 w-full py-2 text-left"
-            >
-              <svg
-                className={`w-3 h-3 text-text-tertiary transition-transform duration-150 ${
-                  isCollapsed ? "" : "rotate-90"
-                }`}
-                viewBox="0 0 12 12"
-                fill="currentColor"
-              >
-                <path d="M4 2l4 4-4 4z" />
-              </svg>
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
+          <AccordionItem key={cat} value={cat}>
+            <AccordionTrigger>
+              <span className="flex items-baseline justify-between gap-3 pr-2">
                 {CATEGORY_LABELS[cat]}
+                <span className="font-litt-mono text-litt-caption font-normal text-litt-fg-subtle">{catPresets.length}</span>
               </span>
-              <span className="text-[10px] text-text-tertiary ml-auto">
-                {catPresets.length}
-              </span>
-            </button>
-
-            {!isCollapsed && (
-              <div className="grid grid-cols-2 gap-2 pb-3">
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="grid grid-cols-2 gap-2">
                 {catPresets.map((preset) => (
                   <button
                     key={preset.name}
+                    type="button"
                     onClick={() => loadPreset(preset.data)}
-                    className="flex flex-col rounded-lg border border-border hover:border-border-active overflow-hidden
-                      transition-all duration-150 hover:scale-[1.02] group"
+                    className="group flex cursor-pointer flex-col gap-2 rounded-litt-surface border border-litt-line bg-litt-surface-1 p-1 pb-2 text-left transition-colors duration-(--litt-dur-instant) ease-litt hover:border-litt-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-litt-focus"
                   >
-                    <div
-                      className="h-16 w-full"
+                    <span
+                      aria-hidden="true"
+                      className="h-16 w-full rounded-litt-control"
+                      // The thumbnail is the preset's own palette: user data, not chrome.
                       style={{
                         background: `linear-gradient(135deg, ${preset.data.colors!
                           .map((c) => rgbToHex(...c))
                           .join(", ")})`,
                       }}
                     />
-                    <div className="py-1.5 px-2 bg-surface w-full">
-                      <span className="text-[11px] text-text-secondary group-hover:text-text-primary transition-colors">
-                        {preset.name}
-                      </span>
-                    </div>
+                    <span className="truncate px-2 text-litt-small text-litt-fg-muted transition-colors duration-(--litt-dur-instant) ease-litt group-hover:text-litt-fg">
+                      {preset.name}
+                    </span>
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </AccordionContent>
+          </AccordionItem>
         );
       })}
-    </div>
+    </Accordion>
   );
 }

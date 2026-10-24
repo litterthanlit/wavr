@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore, useCallback } from "react";
 
-type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system";
 
 const STORAGE_KEY = "wavr-theme";
 
