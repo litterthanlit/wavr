@@ -4,6 +4,7 @@
 > **Blocks:** Step 1 completion in HANDOFF.md
 > **Depends on:** existing editor state (store, TopBar, Sidebar, presets).
 > **Related:** spec 0003 (URL-state) — palette actions go through the same store paths, no URL-sync changes.
+> **Update:** the palette is now drawn by litt.md's `CommandMenu` (`components/litt/command-menu.tsx`) instead of cmdk. The registry in `lib/commands.ts` is unchanged; search matches the label as a substring, and `keywords` are no longer searched.
 
 ---
 

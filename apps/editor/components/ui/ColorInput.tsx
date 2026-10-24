@@ -21,7 +21,8 @@ function rgbToHex([r, g, b]: [number, number, number]): string {
 }
 
 function hexToRgb(hex: string): [number, number, number] {
-  const value = parseHex(hex) ?? "#000000";
+  const value = parseHex(hex);
+  if (!value) return [0, 0, 0];
   return [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16) / 255) as [number, number, number];
 }
 
@@ -39,7 +40,7 @@ export default function ColorInput({ label, color, onChange, onCommit, onRemove,
           type="button"
           aria-label={`${label}, ${describeColor(hex)}`}
           className="size-litt-control-sm cursor-pointer rounded-litt-control shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--litt-fg)_12%,transparent)] transition-[scale] duration-(--litt-dur-instant) ease-litt active:scale-(--litt-press-scale)"
-          // litt-allow: the chip is filled with the user's color, not chrome.
+          // The chip is filled with the user's color, not chrome.
           style={{ backgroundColor: hex }}
         />
       </PopoverTrigger>
