@@ -5,7 +5,9 @@ import {
   DEFAULT_LAYER,
   GRADIENT_TYPES,
   GRADIENT_TYPE_IDS,
+  LIGHT_FIELD_PALETTES,
   LIGHT_GRADIENT_PALETTES,
+  isLightFieldType,
   isLightGradientType,
   isLightRampPalette,
 } from "@wavr/core";
@@ -87,8 +89,15 @@ describe("gradient types", () => {
     }
   });
 
-  it("the palette hint stays quiet on the opening scene and shows on a bright first colour", () => {
-    expect(isLightRampPalette(INITIAL_LAYER_PARAMS.colors ?? [])).toBe(true);
+  it("the opening scene is a light field on its own palette, so the panel offers no swap", () => {
+    const type = INITIAL_LAYER_PARAMS.gradientType ?? "mesh";
+    expect(isLightFieldType(type)).toBe(true);
+    expect(isLightGradientType(type)).toBe(false);
+    if (isLightFieldType(type)) expect(INITIAL_LAYER_PARAMS.colors).toEqual(LIGHT_FIELD_PALETTES[type]);
+  });
+
+  it("the light-ramp hint shows on a bright first colour", () => {
+    expect(isLightRampPalette(LIGHT_GRADIENT_PALETTES.horizonGlow)).toBe(true);
     expect(isLightRampPalette(DEFAULT_LAYER.colors)).toBe(false);
     expect(isLightRampPalette([[0, 0, 0]])).toBe(false);
   });

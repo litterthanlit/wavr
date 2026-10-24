@@ -10,6 +10,7 @@ export const GRADIENT_TYPES = [
   "dither", "scanline", "glitch", "voronoi", "image",
   "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
   "liquidChrome", "iridescentFoil", "horizonGlow", "lightLeak", "inkSmoke", "plasmaOrb",
+  "aperture", "halo", "lightWall",
 ] as const;
 export type GradientType = (typeof GRADIENT_TYPES)[number];
 

@@ -166,11 +166,38 @@ describe("GradientEngine render passes", () => {
     expect(post.boundTextures.get(4)).toBeTruthy();
   });
 
-  it("runs cinematic bloom even when feedback is enabled", () => {
-    const { engine, draws } = setup();
+  it("builds the cinematic bloom pyramid between the layer passes and the post pass, which adds it", () => {
+    const { engine, draws, attachments, feedbackLoops } = setup();
     engine.render(stateWith({ feedbackEnabled: true, realBloomEnabled: true }));
-    // Layer pass + post pass + extract, horizontal blur, vertical blur, composite.
-    expect(draws).toHaveLength(6);
+    // Layer pass, the pyramid (a 16x8 canvas has levels of 8x4 and 4x2: two passes down, one up), post pass.
+    expect(draws.map((d) => d.viewport.slice(2))).toEqual([[16, 8], [8, 4], [4, 2], [8, 4], [16, 8]]);
+    const [layer, down0, down1, up, post] = draws;
+    // The first pass down reads the composited scene and keeps only its light; the next passes it all on.
+    expect(down0.boundTextures.get(0)).toBe(attachments.get(layer.target!));
+    expect(down0.uniforms.u_threshold).toBeGreaterThan(0);
+    expect(down1.boundTextures.get(0)).toBe(attachments.get(down0.target!));
+    expect(down1.uniforms.u_threshold).toBe(0);
+    // Back up: the narrower level, blurred into the wider one.
+    expect(up.target).toBe(down0.target);
+    expect(up.boundTextures.get(0)).toBe(attachments.get(down1.target!));
+    // The post pass (into the feedback target) adds the top level, from unit 8.
+    expect(post.target).not.toBeNull();
+    expect(post.uniforms.u_realBloomEnabled).toBe(1);
+    expect(post.uniforms.u_realBloomGain).toBeGreaterThan(0);
+    expect(post.uniforms.u_bloomTexture).toBe(8);
+    expect(post.boundTextures.get(8)).toBe(attachments.get(down0.target!));
+    expect(feedbackLoops).toEqual([]);
+  });
+
+  it("leaves cinematic bloom out when it is off, and frees the pyramid", () => {
+    const { engine, draws, deletedTextures, attachments } = setup();
+    engine.render(stateWith({ realBloomEnabled: true }));
+    const top = attachments.get(draws[1].target!);
+    const start = draws.length;
+    engine.render(stateWith({ realBloomEnabled: false }));
+    expect(draws.length - start).toBe(2);
+    expect(draws[draws.length - 1].uniforms.u_realBloomEnabled).toBe(0);
+    expect(deletedTextures).toContain(top);
   });
 
   it("clears the target when no layer is visible, without compiling anything", () => {

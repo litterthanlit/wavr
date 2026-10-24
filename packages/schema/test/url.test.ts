@@ -27,6 +27,7 @@ function randomConfig(rand: () => number): GC {
     "dither", "scanline", "glitch", "voronoi",
     "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
     "liquidChrome", "iridescentFoil", "horizonGlow", "lightLeak", "inkSmoke", "plasmaOrb",
+    "aperture", "halo", "lightWall",
   ] as const;
   const BLEND_MODES = ["normal", "multiply", "screen", "overlay", "difference", "colorDodge"] as const;
 

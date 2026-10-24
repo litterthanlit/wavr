@@ -8,7 +8,7 @@ import {
   __resetUrlSyncForTests,
 } from "./url-sync";
 import { useGradientStore, type GradientState } from "./store";
-import { INITIAL_LAYER_PARAMS } from "./initial-scene";
+import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
 import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 
 // Build a realistic store state on top of the live store defaults. We mutate
@@ -172,10 +172,13 @@ describe("storeToConfig / configToStorePatch", () => {
     const defaults = useGradientStore.getState();
 
     // Only fields that are in both buckets should match. `brightness` etc
-    // default to 1 in both; radialBlur default is 0 in both.
+    // default to 1 in both; radialBlur default is 0 in both. Grain, tone map
+    // and cinematic bloom are the opening scene's own (initial-scene.ts),
+    // which differ from the schema baseline on purpose.
     expect(patch.brightness).toBe(defaults.brightness);
     expect(patch.saturation).toBe(defaults.saturation);
-    expect(patch.grain).toBe(defaults.grain);
+    expect(defaults.grain).toBe(INITIAL_EFFECTS.grain);
+    expect(patch.grain).toBe(0);
     expect(patch.vignette).toBe(defaults.vignette);
     expect(patch.chromaticAberration).toBe(defaults.chromaticAberration);
     expect(patch.hueShift).toBe(defaults.hueShift);
@@ -183,13 +186,18 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(patch.radialBlurAmount).toBe(defaults.radialBlurAmount);
     expect(patch.mouseReact).toBe(defaults.mouseReact);
     expect(patch.oklabEnabled).toBe(defaults.oklabEnabled);
-    expect(patch.toneMapMode).toBe(defaults.toneMapMode);
+    expect(defaults.toneMapMode).toBe(INITIAL_EFFECTS.toneMapMode);
+    expect(patch.toneMapMode).toBe(1);
 
     // DEFAULT_CONFIG has no effect groups set, so the patch omits triples
-    // rather than overwriting the store's existing values.
+    // rather than overwriting the store's existing values...
     expect(patch.noiseEnabled).toBeUndefined();
     expect(patch.bloomEnabled).toBeUndefined();
     expect(patch.threeDEnabled).toBeUndefined();
+    // ...except cinematic bloom: absent reads as off, as in the engine, so a
+    // config without it doesn't inherit the opening scene's.
+    expect(defaults.realBloomEnabled).toBe(true);
+    expect(patch.realBloomEnabled).toBe(false);
   });
 
   it("shape3d string → number mapping covers all five kinds", () => {
@@ -422,15 +430,25 @@ describe("empty hash", () => {
     (globalThis as unknown as { window: Partial<Window> }).window = {
       location: { hash: "" } as Location,
     } as unknown as Window;
-    useGradientStore.setState({ layers: [createLayer({ gradientType: "plasma" })] });
+    useGradientStore.setState({
+      layers: [createLayer({ gradientType: "plasma" })],
+      grain: 0.5,
+      toneMapMode: 2,
+      realBloomEnabled: !INITIAL_EFFECTS.realBloomEnabled,
+    });
 
     // An empty hash applies synchronously; there's no codec to wait for.
     void applyHashToStore();
 
-    const [layer] = useGradientStore.getState().layers;
+    const state = useGradientStore.getState();
+    const [layer] = state.layers;
     expect(layer.gradientType).toBe(INITIAL_LAYER_PARAMS.gradientType);
     expect(layer.colors).toEqual(INITIAL_LAYER_PARAMS.colors);
     expect(DEFAULT_CONFIG.layers[0].type).not.toBe(layer.gradientType);
+    // ...with its effects, including the cinematic bloom DEFAULT_CONFIG doesn't mention.
+    expect(state.grain).toBe(INITIAL_EFFECTS.grain);
+    expect(state.toneMapMode).toBe(INITIAL_EFFECTS.toneMapMode);
+    expect(state.realBloomEnabled).toBe(INITIAL_EFFECTS.realBloomEnabled);
   });
 
   it("the initial scene is a valid config", () => {

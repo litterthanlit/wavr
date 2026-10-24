@@ -866,6 +866,270 @@ vec3 plasmaOrbGradient(vec2 uv, float time) {
 #endif
 
 // ============================================================
+// Light fields
+// ============================================================
+// Coloured light in a space, after light installations: an opening of light in
+// a wall, a luminous ring in the dark, a backlit wall. These add light rather
+// than walk a palette: they work in linear light, where light sums, blurs and
+// spills as it does in a room (common.glsl, "Light"), and every glow is in
+// closed form (blurredBox(), exponentials) rather than a blur pass, so it is
+// exact at any radius and the code exports carry it. Stops mix in linear light
+// too (two lights overlapping), whatever the Oklab switch says. The result
+// reaches the display through lightToDisplay(), where light past white bleaches
+// toward white, so like the light gradients these may burn toward white.
+
+// Aperture: a knife-edged opening in a wall, filled with light. The first stop
+// is the wall; the others are the light in the opening, from its deep core
+// (stop 1) out to its rim (the last stop), so the light seems to come from the
+// edges: pale where they are, deepening to a saturated core. Softness widens
+// the passage from rim to core. Distortion is the haze in the room: it softens
+// and rounds the opening and spills its light onto the wall. Complexity sets
+// the proportions (a tall slit at 1, square at 4, a wide band at 8) and scale
+// the size. The light breathes and drifts, slowly; the opening stays put.
+#if WAVR_GRADIENT == 23
+// Width over height of the opening: 0.42 at complexity 1, 1 at 4, 3.2 at 8.
+float apertureAspect() {
+  return exp2((clamp(u_complexity, 1.0, 8.0) - 4.0) * 0.42);
+}
+
+// The light at depth `k` into the opening: 0 on the rim (the last stop), 1 in
+// the core (stop 1).
+vec3 apertureLight(float k) {
+  int last = max(u_colorCount - 1, 0);
+  int first = min(1, last);
+  return lightStops(mix(float(last), float(first), clamp(k, 0.0, 1.0)), first, last);
+}
+
+// min(a, b), rounded where they are within about k of each other.
+float apertureSmin(float a, float b, float k) {
+  return min(a, b) - k * log(1.0 + exp(-abs(a - b) / k));
+}
+#endif
+
+#if WAVR_GRADIENT == 23
+vec3 apertureGradient(vec2 uv, float time) {
+  float px = 1.0 / u_resolution.y;
+  vec2 p = centeredUV(uv);
+  float haze = clamp(u_distortion, 0.0, 1.0);
+  float soft = clamp(u_softness, 0.0, 1.0);
+
+  vec2 halfSize = vec2(apertureAspect(), 1.0) * 0.32 * u_scale;
+  float minHalf = min(halfSize.x, halfSize.y);
+
+  // The opening: a knife edge, anti-aliased over about a pixel. Haze softens
+  // and rounds it, as fog does an edge seen through it.
+  float d = sdRoundedBox(p, halfSize, minHalf * 0.45 * haze * haze);
+  float edgeSigma = 0.6 * px + 0.012 * haze;
+  float open = 0.5 - 0.5 * erfApprox(d / (1.41421 * edgeSigma));
+
+  // Light comes in from every edge and falls off exponentially into the
+  // opening, so near a corner the light of two edges adds up: the corners run
+  // pale and the iso-lines round off. `depth` is how deep a point sits in that
+  // light (the two edges' depths smoothly combined; negative in a corner lit
+  // from both sides). Softness lengthens the falloff: at 1 the colour follows
+  // the light itself, from the rim stop at the edge toward the core; at 0 the
+  // rim holds its colour, then turns to the core over a short passage.
+  float breathe = 0.6 * sin(time * 0.21) + 0.4 * sin(time * 0.13 + 1.7);
+  vec2 drift = 0.09 * minHalf * vec2(sin(time * 0.17), cos(time * 0.11 + 0.6));
+  vec2 inset = halfSize - abs(p - drift);
+  float lambda = mix(0.06, 0.34, soft) * minHalf * (1.0 + 0.28 * breathe);
+  float depth = apertureSmin(inset.x, inset.y, lambda);
+  float rim = mix(0.36, 0.3, soft) * minHalf * (1.0 + 0.22 * breathe);
+  float crisp = smoothstep(rim - 0.07 * minHalf, rim + 0.07 * minHalf, depth);
+  float falloff = 1.0 - exp(-max(depth, 0.0) / lambda);
+  vec3 light = apertureLight(mix(crisp, falloff, smoothstep(0.1, 0.9, soft)));
+  // The lip runs a little hot, and a corner lit from both sides hotter still;
+  // lightToDisplay pales them toward white.
+  light *= 1.0 + 0.1 * exp(-abs(depth) / (0.02 * minHalf)) + 0.6 * clamp(-depth / lambda, 0.0, 1.0);
+  // ...and the whole field glows a little brighter and dimmer, slowly.
+  light *= 1.0 + 0.07 * sin(time * 0.29 + 0.8);
+
+  // The wall, falling off a little toward the corners of the frame (a room,
+  // not a flat card).
+  vec2 v = p / vec2(0.5 * u_resolution.x / u_resolution.y, 0.5);
+  vec3 wall = srgbToLinear(u_colors[0]) * (1.0 - 0.1 * smoothstep(0.3, 1.6, dot(v, v)));
+  vec3 col = lightToDisplay(mix(wall, light, open));
+
+  // Haze scatters the opening's light into the room: around it the wall takes
+  // on its colour (a mix, not an addition, so pink light in a cyan room turns
+  // the wall around it violet), and in front of it the light is veiled a
+  // little. The glow is the exact blur of the opening, normalised to its middle
+  // and wider along the opening's long side, as in a lit fog.
+  vec2 spread = (0.9 * halfSize + 0.08) * mix(0.35, 1.0, haze);
+  float glow = blurredBox(p, halfSize, spread) / blurredBox(vec2(0.0), halfSize, spread);
+  vec3 mean = lightToDisplay(mix(apertureLight(1.0), apertureLight(0.0), 0.35));
+  return mix(col, mean, haze * mix(0.82 * min(glow, 1.0), 0.3, open));
+}
+#endif
+
+// Halo: a loop of light hanging in a dark, hazy room, seen from a little above,
+// so it reads as an ellipse. The palette is a light ramp: the room (first stop),
+// the haze, the glow, the hot core (last). A thin luminous ring is brightest
+// where we look along it, at the two ends of the ellipse (limb brightening:
+// the light per unit of screen length is 1 / sqrt(sin^2 + cos^2 tilt cos^2) of
+// the angle round it), so the ends burn white. Around the line, a glow and a
+// wide haze; the glow is dispersed (red reaches a little further out than blue)
+// so the edges fringe like light through glass, and the near, lower arc is
+// softer and warmer than the far one. Fine vertical striations cross the glow,
+// as a spinning blade of LEDs leaves them in a long exposure, faded out before
+// they would alias. Complexity adds fainter echo loops (two from 3, three from
+// 6), distortion lets the loop sway out of round, softness widens the glow.
+#if WAVR_GRADIENT == 24
+// A soft profile across the line: Gaussian near the middle, a gentler tail.
+float haloProfile(float d, float w) {
+  float x = abs(d) / w;
+  return exp(-x * x * 0.7 - x * 0.3);
+}
+
+// One loop. Returns the core line and the glow (each r g b: red sits a little
+// outside blue, so the edges fringe) through `core` and `glow`; x = the haze,
+// y = how far inside the loop the point is (0..1), z = how far toward the
+// near, out-of-focus arc. `blur` widens everything (the echo loops are out of
+// focus).
+vec3 haloLoop(vec2 p, float a, float cosTilt, float time, float soft, float wobble, float blur,
+              float px, out vec3 core, out vec3 glow) {
+  float b = a * cosTilt;
+  vec2 q = p / vec2(a, b);
+  float r = length(q) + 1e-5;
+  vec2 dir = q / r;
+  float onLoop = smoothstep(0.3, 0.9, r);  // 0 in the middle, where the direction means nothing
+  // Sway: the loop bends out of round by a slow noise read on the unit circle,
+  // so there is no seam where the angle wraps.
+  float target = 1.0 + 0.08 * wobble * snoise(dir * 0.9 + vec2(time * 0.07, 3.0 - time * 0.05));
+  // Signed distance to the swaying ellipse in canvas heights, positive outside:
+  // to first order (the radial excess over the gradient of r) near the loop,
+  // easing toward the middle to a measure that doesn't depend on direction
+  // (the first-order one jumps there).
+  float d = (r - target) * mix(b, 1.0 / length(dir / vec2(a, b)), onLoop);
+  float s = dir.y;
+  float c = dir.x;
+  // Limb brightening, and an emission that drifts slowly round the loop; both
+  // eased out toward the middle, where the angle round the loop means nothing.
+  float limb = mix(1.0, 1.0 / sqrt(s * s + cosTilt * cosTilt * c * c), onLoop);
+  float ang = atan(dir.y, dir.x);
+  float emit = 0.75 + 0.25 * onLoop * sin(ang + time * 0.23) * sin(ang * 2.0 - time * 0.11 + 1.0);
+  // The near (lower) arc is out of focus: wider, dimmer and warmer.
+  float near = smoothstep(0.1, -0.9, s) * onLoop;
+  float defocus = blur * (1.0 + 1.1 * near);
+  float coreW = max(mix(0.008, 0.014, soft) * defocus, 1.2 * px);
+  float glowW = mix(0.034, 0.06, soft) * defocus;
+  // Dispersion belongs to the loop in focus; the echoes are just soft light.
+  float shift = (0.006 + 0.006 * soft) * defocus / (blur * blur);
+  float energy = limb * emit / defocus;
+  core = vec3(haloProfile(d - 0.4 * shift, coreW), haloProfile(d, coreW), haloProfile(d + 0.4 * shift, coreW))
+       * energy * limb;
+  glow = vec3(haloProfile(d - shift, glowW), haloProfile(d, glowW), haloProfile(d + shift, glowW)) * energy;
+  float haze = haloProfile(d, mix(0.055, 0.09, soft) * sqrt(blur)) * mix(limb, 1.0, 0.5) * emit;
+  return vec3(haze, smoothstep(0.02, -0.08, d) * (0.55 + 0.45 * r), near);
+}
+#endif
+
+#if WAVR_GRADIENT == 24
+vec3 haloGradient(vec2 uv, float time) {
+  float px = 1.0 / u_resolution.y;
+  vec2 p = centeredUV(uv) - vec2(0.0, 0.01 * sin(time * 0.17));
+  float soft = clamp(u_softness, 0.0, 1.0);
+  float wobble = 0.15 + 0.85 * clamp(u_distortion, 0.0, 1.0);
+  float a = 0.31 * u_scale;
+  int loops = 1 + int(u_complexity >= 3.0) + int(u_complexity >= 6.0);
+
+  vec3 col = lightRamp(0.0);
+  vec3 hazeCol = lightRamp(0.58);
+  vec3 innerCol = lightRamp(0.45);
+  vec3 glowCol = lightRamp(0.8);
+  vec3 coreCol = lightRamp(1.0);
+
+  // Striations: about 110 per canvas height, so the same in a 4x export, and
+  // faded out where they would come closer than about 4 pixels.
+  float sx = (p.x + 0.003 * sin(p.y * 37.0 + time * 0.3)) * 110.0 + time * 0.4;
+  float stripes = cos(6.28318 * sx) * (1.0 - smoothstep(0.2, 0.32, fwidth(sx)));
+
+  for (int i = 0; i < 3; i++) {
+    if (i >= loops) break;
+    float fi = float(i);
+    // Echo loops: higher up, more open, tilted, softer and fainter.
+    float tiltAngle = 0.06 * fi * sin(time * 0.13 + fi);
+    mat2 rot = mat2(cos(tiltAngle), sin(tiltAngle), -sin(tiltAngle), cos(tiltAngle));
+    vec2 lp = rot * (p - vec2(0.0, 0.06 * fi));
+    float cosTilt = (0.34 + 0.05 * sin(time * 0.19 + fi * 2.0)) * (1.0 + 0.3 * fi);
+    vec3 core;
+    vec3 glow;
+    vec3 l = haloLoop(lp, a * (1.0 + 0.05 * fi), cosTilt, time + fi * 7.0, soft, wobble, 1.0 + 2.0 * fi, px, core, glow);
+    float weight = i == 0 ? 1.0 : 0.22 / fi;
+    // Striations on the main loop only, where its far arc is in focus.
+    float striated = i == 0 ? 1.0 + 0.45 * stripes * clamp(glow.g * 1.5, 0.0, 1.0) * clamp(1.0 + lp.y / (0.3 * a), 0.0, 1.0) : 1.0;
+    col += weight * (
+        hazeCol * l.x * 0.2
+      + innerCol * l.y * 0.11
+      + mix(glowCol, hazeCol, max(min(fi, 1.0) * 0.6, l.z)) * glow * 0.5 * striated
+      + coreCol * core * 0.9 * striated);
+  }
+  return lightToDisplay(col);
+}
+#endif
+
+// Light wall: coloured light seen through a wall of frosted glass panels. The
+// first stop is the glass's own glow; each other stop lights soft, wide clouds
+// behind the glass that drift sideways past each other and breathe. They add
+// as light does, so where clouds overlap the wall burns pale. The panels meet
+// at hairline seams (the same share of the frame in a 4x export, never
+// thinner than a pixel) and each lets through a slightly different amount of
+// light. Complexity adds clouds, softness makes
+// them larger and vaguer, distortion bends them out of round, scale zooms the
+// wall, panels included.
+#if WAVR_GRADIENT == 25
+vec3 lightWallGradient(vec2 uv, float time) {
+  float px = 1.0 / u_resolution.y;
+  float aspect = u_resolution.x / u_resolution.y;
+  vec2 p = centeredUV(uv) / u_scale;
+  float soft = clamp(u_softness, 0.0, 1.0);
+  float warp = clamp(u_distortion, 0.0, 1.0);
+  int last = max(u_colorCount - 1, 0);
+  int lights = max(last, 1);
+
+  // The light behind the glass, bent by slow noise stretched along the wall so
+  // the clouds are not ellipses.
+  vec2 q = p + (0.06 + 0.22 * warp) * vec2(
+    snoise(p * vec2(0.55, 1.5) + vec2(time * 0.03, 1.0)),
+    0.5 * snoise(p * vec2(0.45, 1.3) + vec2(4.0, -time * 0.025)));
+  vec3 light = srgbToLinear(u_colors[0]) * 0.5;
+  int n = clamp(int(u_complexity) + 4, 5, 12);
+  float size = mix(0.1, 0.2, soft);
+  // Clouds wrap round a strip wider than the frame, fading out before they
+  // reach its ends, so none appears or vanishes in sight.
+  float span = aspect / u_scale + 3.0;
+  for (int i = 0; i < 12; i++) {
+    if (i >= n) break;
+    float fi = float(i);
+    vec2 h = hash22(vec2(fi, 3.7));
+    float dir = mod(fi, 2.0) < 1.0 ? 1.0 : -0.7;
+    float x = mod(h.x * span + time * (0.025 + 0.03 * h.y) * dir, span) - 0.5 * span;
+    float y = (h.y - 0.5) * 0.8 + 0.06 * sin(time * 0.11 + fi * 1.7);
+    // Long, low clouds (light smeared along the wall), each with a hot core.
+    vec2 d = (q - vec2(x, y)) / (size * vec2(3.0 + 2.5 * hash(vec2(fi, 5.3)), 1.0));
+    float r2 = dot(d, d);
+    float breathe = (0.75 + 0.25 * sin(time * 0.23 + fi * 2.3)) * smoothstep(0.5 * span, 0.5 * span - 1.2, abs(x));
+    vec3 c = srgbToLinear(u_colors[min(1 + i % lights, last)]);
+    light += c * (exp(-r2) + 0.8 * exp(-r2 * 4.0)) * (0.5 + 0.7 * hash(vec2(fi, 9.1))) * breathe;
+  }
+  // Streaks along the wall, as light carried behind a diffuser smears.
+  light *= 1.0 + 0.22 * snoise(vec2(q.x * 0.7 + time * 0.02, q.y * 6.0 + 2.0)) * (0.4 + 0.6 * soft);
+
+  // The panels: each transmits a little more or less, and darkens a touch
+  // toward its edges; a hairline seam where two meet.
+  float panelW = 0.44;
+  float xp = p.x / panelW + 0.5;
+  float id = floor(xp);
+  float edge = min(fract(xp), 1.0 - fract(xp)) * panelW * u_scale;
+  float seamW = max(0.0011, 0.7 * px);
+  float seam = exp(-(edge / seamW) * (edge / seamW));
+  light *= (0.96 + 0.08 * hash(vec2(id, 1.3))) * (0.95 + 0.05 * smoothstep(0.0, 0.08, edge));
+  light *= 1.0 - 0.5 * seam;
+  return lightToDisplay(light);
+}
+#endif
+
+// ============================================================
 // Dither / Halftone Gradient
 // ============================================================
 
@@ -1062,6 +1326,12 @@ vec3 computeGradient(vec2 uv, float time) {
   return inkSmokeGradient(uv, time);
 #elif WAVR_GRADIENT == 22
   return plasmaOrbGradient(uv, time);
+#elif WAVR_GRADIENT == 23
+  return apertureGradient(uv, time);
+#elif WAVR_GRADIENT == 24
+  return haloGradient(uv, time);
+#elif WAVR_GRADIENT == 25
+  return lightWallGradient(uv, time);
 #else
 #error Unknown WAVR_GRADIENT
 #endif

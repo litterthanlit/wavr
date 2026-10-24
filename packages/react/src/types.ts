@@ -17,7 +17,8 @@ export type GradientType =
   | "dither" | "scanline" | "glitch" | "image" | "voronoi"
   | "silk" | "aurora" | "liquid" | "softCells" | "grainflow"
   | "prismGlass" | "neonTunnel" | "liquidChrome" | "iridescentFoil"
-  | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb";
+  | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb"
+  | "aperture" | "halo" | "lightWall";
 
 export interface MaskParams {
   shape: MaskShape;

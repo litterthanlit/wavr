@@ -1,6 +1,6 @@
 import trailFragSource from "./shaders/trail.glsl";
-import bloomExtractSource from "./shaders/bloom-extract.glsl";
-import blurSource from "./shaders/blur.glsl";
+import bloomDownSource from "./shaders/bloom-down.glsl";
+import bloomUpSource from "./shaders/bloom-up.glsl";
 import {
   FULLSCREEN_VERTEX_SOURCE,
   LAYER_VERTEX_SOURCE,
@@ -142,6 +142,9 @@ export const GRADIENT_TYPE_IDS: Readonly<Record<LayerParams["gradientType"], num
   lightLeak: 20,
   inkSmoke: 21,
   plasmaOrb: 22,
+  aperture: 23,
+  halo: 24,
+  lightWall: 25,
 };
 
 const IMAGE_BLEND_MODE_MAP: Record<ImageBlendMode, number> = {
@@ -228,6 +231,8 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_trailEnabled", "u_trailTexture", "u_trailWidth",
   // Spec 0004: Deband (blue-noise anti-banding, on by default)
   "u_debandEnabled", "u_debandStrength",
+  // Cinematic bloom (the bloom pyramid's top level)
+  "u_realBloomEnabled", "u_realBloomGain", "u_bloomTexture",
 ];
 
 // Texture units. Each sampler is bound to one fixed unit in its program.
@@ -239,6 +244,35 @@ const UNIT_TRAIL = 4; // post
 const UNIT_COMPOSITE_PREV = 5; // layer: layers composited so far
 const UNIT_SCENE = 6; // post: all layers composited
 const UNIT_PALETTE = 7; // layer, post: baked palette. Only ever sampled, never a render target.
+const UNIT_BLOOM = 8; // post: the bloom pyramid's top level
+
+/**
+ * Cinematic bloom: linear light below this (brightest channel) doesn't bloom;
+ * above it, a quadratic soft knee. About sRGB 0.58, so the light in a scene
+ * blooms and its mid-tones don't.
+ */
+const BLOOM_THRESHOLD = 0.3;
+/** Cinematic bloom: the light added back, per unit of thresholded light. */
+const BLOOM_STRENGTH = 1.0;
+/** Cinematic bloom: the most pyramid levels below the canvas; each doubles the reach. */
+const BLOOM_MAX_LEVELS = 7;
+/** Cinematic bloom: each level's light, relative to the next narrower one's (a glare falloff). */
+const BLOOM_LEVEL_FALLOFF = 0.72;
+
+/** 1 / the summed weight of `levels` pyramid levels, so the bloom's strength doesn't depend on the canvas size. */
+function bloomNormalization(levels: number): number {
+  let sum = 0;
+  for (let i = 0; i < levels; i++) sum += Math.pow(BLOOM_LEVEL_FALLOFF, i);
+  return 1 / sum;
+}
+
+/** One level of the bloom pyramid. */
+interface BloomLevel {
+  fbo: WebGLFramebuffer;
+  texture: WebGLTexture;
+  width: number;
+  height: number;
+}
 
 /** Lowest fixed render scale setRenderScale accepts. */
 const MIN_RENDER_SCALE = 0.25;
@@ -413,21 +447,15 @@ export class GradientEngine {
   private feedbackWidth = 0;
   private feedbackHeight = 0;
 
-  // Real bloom FBO pipeline
-  private bloomExtractProgram: WebGLProgram | null = null;
-  private bloomBlurProgram: WebGLProgram | null = null;
-  private bloomExtractUniforms: UniformMap = {};
-  private bloomBlurUniforms: UniformMap = {};
-  private bloomSceneFBO: WebGLFramebuffer | null = null;
-  private bloomSceneTex: WebGLTexture | null = null;
-  private bloomFBO_A: WebGLFramebuffer | null = null;
-  private bloomTex_A: WebGLTexture | null = null;
-  private bloomFBO_B: WebGLFramebuffer | null = null;
-  private bloomTex_B: WebGLTexture | null = null;
-  private bloomWidth = 0;
-  private bloomHeight = 0;
-  private bloomSceneWidth = 0;
-  private bloomSceneHeight = 0;
+  // Cinematic bloom: a pyramid of the composited scene's light, made between
+  // the layer passes and the post pass, which adds its top level back.
+  private bloomDownProgram: WebGLProgram | null = null;
+  private bloomUpProgram: WebGLProgram | null = null;
+  private bloomDownUniforms: UniformMap = {};
+  private bloomUpUniforms: UniformMap = {};
+  private bloomLevels: BloomLevel[] = [];
+  private bloomCanvasWidth = 0;
+  private bloomCanvasHeight = 0;
 
   // Trail FBO ping-pong
   private trailProgram: WebGLProgram | null = null;
@@ -495,6 +523,7 @@ export class GradientEngine {
     this.gl = gl;
     this.textureUnits = [
       gl.TEXTURE0, gl.TEXTURE1, gl.TEXTURE2, gl.TEXTURE3, gl.TEXTURE4, gl.TEXTURE5, gl.TEXTURE6, gl.TEXTURE7,
+      gl.TEXTURE8,
     ];
     this.initProgram();
   }
@@ -536,7 +565,7 @@ export class GradientEngine {
     const gl = this.gl;
     this.destroyFeedbackFBOs();
     this.destroyTrailFBOs();
-    this.destroyBloomFBOs();
+    this.destroyBloomLevels();
     this.destroyCompositeFBOs();
     this.destroyCaptureFBO();
     this.trimPalettes(0);
@@ -547,15 +576,15 @@ export class GradientEngine {
     this.postProgram = null;
     this.active = null;
     this.lastUniformValues.clear();
-    for (const program of [this.trailProgram, this.bloomExtractProgram, this.bloomBlurProgram]) {
+    for (const program of [this.trailProgram, this.bloomDownProgram, this.bloomUpProgram]) {
       if (program) gl.deleteProgram(program);
     }
     this.trailProgram = null;
-    this.bloomExtractProgram = null;
-    this.bloomBlurProgram = null;
+    this.bloomDownProgram = null;
+    this.bloomUpProgram = null;
     this.trailUniforms = {};
-    this.bloomExtractUniforms = {};
-    this.bloomBlurUniforms = {};
+    this.bloomDownUniforms = {};
+    this.bloomUpUniforms = {};
 
     if (this.quadVAO) gl.deleteVertexArray(this.quadVAO);
     if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
@@ -744,6 +773,7 @@ export class GradientEngine {
       ["u_compositePrev", UNIT_COMPOSITE_PREV],
       ["u_sceneTexture", UNIT_SCENE],
       ["u_paletteTexture", UNIT_PALETTE],
+      ["u_bloomTexture", UNIT_BLOOM],
     ] as const) {
       this.seti(name, unit);
     }
@@ -1124,110 +1154,94 @@ export class GradientEngine {
     this.trailTextures = null;
   }
 
-  private initBloomPrograms() {
+  /** Compiles and links one of the small fullscreen programs (trail, bloom) and looks up `names`. */
+  private createAuxProgram(label: string, fragmentSource: string, names: string[]): [WebGLProgram, UniformMap] {
     const gl = this.gl;
-
-    // Extract program
-    const extractVert = this.compileShader(gl.VERTEX_SHADER, FULLSCREEN_VERTEX_SOURCE);
-    const extractFrag = this.compileShader(gl.FRAGMENT_SHADER, bloomExtractSource);
-    const extractProg = gl.createProgram()!;
-    gl.attachShader(extractProg, extractVert);
-    gl.attachShader(extractProg, extractFrag);
-    let linkStart = performance.now();
-    gl.linkProgram(extractProg);
+    const vert = this.compileShader(gl.VERTEX_SHADER, FULLSCREEN_VERTEX_SOURCE);
+    const frag = this.compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+    const program = gl.createProgram()!;
+    gl.attachShader(program, vert);
+    gl.attachShader(program, frag);
+    const linkStart = performance.now();
+    gl.linkProgram(program);
     this.recordShaderTiming(performance.now() - linkStart);
-    if (!gl.getProgramParameter(extractProg, gl.LINK_STATUS)) {
-      throw new Error(`Bloom extract link failed: ${gl.getProgramInfoLog(extractProg)}`);
+    gl.deleteShader(vert);
+    gl.deleteShader(frag);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(`${label} link failed: ${gl.getProgramInfoLog(program)}`);
     }
-    this.bloomExtractProgram = extractProg;
-    this.bloomExtractUniforms = {};
-    for (const name of ["u_source", "u_threshold"]) {
-      const loc = gl.getUniformLocation(extractProg, name);
-      if (loc) this.bloomExtractUniforms[name] = loc;
+    const uniforms: UniformMap = {};
+    for (const name of names) {
+      const loc = gl.getUniformLocation(program, name);
+      if (loc) uniforms[name] = loc;
     }
-
-    // Blur program
-    const blurVert = this.compileShader(gl.VERTEX_SHADER, FULLSCREEN_VERTEX_SOURCE);
-    const blurFrag = this.compileShader(gl.FRAGMENT_SHADER, blurSource);
-    const blurProg = gl.createProgram()!;
-    gl.attachShader(blurProg, blurVert);
-    gl.attachShader(blurProg, blurFrag);
-    linkStart = performance.now();
-    gl.linkProgram(blurProg);
-    this.recordShaderTiming(performance.now() - linkStart);
-    if (!gl.getProgramParameter(blurProg, gl.LINK_STATUS)) {
-      throw new Error(`Bloom blur link failed: ${gl.getProgramInfoLog(blurProg)}`);
-    }
-    this.bloomBlurProgram = blurProg;
-    this.bloomBlurUniforms = {};
-    for (const name of ["u_source", "u_direction"]) {
-      const loc = gl.getUniformLocation(blurProg, name);
-      if (loc) this.bloomBlurUniforms[name] = loc;
-    }
+    return [program, uniforms];
   }
 
-  private initBloomFBOs() {
+  private initBloomPrograms() {
+    [this.bloomDownProgram, this.bloomDownUniforms] = this.createAuxProgram(
+      "Bloom downsample",
+      bloomDownSource,
+      ["u_source", "u_sourceTexel", "u_sourceScale", "u_threshold"],
+    );
+    [this.bloomUpProgram, this.bloomUpUniforms] = this.createAuxProgram(
+      "Bloom upsample",
+      bloomUpSource,
+      ["u_source", "u_sourceTexel", "u_weight"],
+    );
+  }
+
+  /**
+   * The bloom pyramid for the current canvas: level 0 at half its size, each
+   * level below at half the one above, while both sides stay at least 2 px
+   * (BLOOM_MAX_LEVELS at most). Half-float where the composite targets are,
+   * so the light keeps its precision down the chain.
+   */
+  private ensureBloomLevels() {
     const gl = this.gl;
-    this.destroyBloomFBOs();
-
-    const sceneW = gl.canvas.width;
-    const sceneH = gl.canvas.height;
-    const bloomW = Math.max(1, Math.floor(sceneW / 4));
-    const bloomH = Math.max(1, Math.floor(sceneH / 4));
-
-    // Scene FBO (full res — captures rendered gradient)
-    this.bloomSceneTex = gl.createTexture()!;
-    gl.bindTexture(gl.TEXTURE_2D, this.bloomSceneTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, sceneW, sceneH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    this.bloomSceneFBO = gl.createFramebuffer()!;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomSceneFBO);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.bloomSceneTex, 0);
-    this.assertFramebufferComplete("bloom-scene");
-
-    // Bloom ping-pong FBOs (1/4 res)
-    const makeFBO = () => {
-      const tex = gl.createTexture()!;
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bloomW, bloomH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    if (this.bloomLevels.length > 0 &&
+        this.bloomCanvasWidth === gl.canvas.width &&
+        this.bloomCanvasHeight === gl.canvas.height) {
+      return;
+    }
+    this.destroyBloomLevels();
+    // Allocate on unit 0, which the post pass binds afresh, not on whatever unit is active.
+    gl.activeTexture(this.textureUnits[0]);
+    let width = Math.max(1, Math.ceil(gl.canvas.width / 2));
+    let height = Math.max(1, Math.ceil(gl.canvas.height / 2));
+    while (this.bloomLevels.length < BLOOM_MAX_LEVELS && (this.bloomLevels.length === 0 || (width >= 2 && height >= 2))) {
+      const texture = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      if (this.halfFloatTargets) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      } else {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      }
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       const fbo = gl.createFramebuffer()!;
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-      this.assertFramebufferComplete("bloom");
-      return { fbo, tex };
-    };
-
-    const a = makeFBO();
-    const b = makeFBO();
-    this.bloomFBO_A = a.fbo;
-    this.bloomTex_A = a.tex;
-    this.bloomFBO_B = b.fbo;
-    this.bloomTex_B = b.tex;
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+      this.bloomLevels.push({ fbo, texture, width, height });
+      this.assertFramebufferComplete(`bloom-${this.bloomLevels.length - 1}`);
+      width = Math.max(1, Math.floor(width / 2));
+      height = Math.max(1, Math.floor(height / 2));
+    }
     gl.bindTexture(gl.TEXTURE_2D, null);
-
-    this.bloomWidth = bloomW;
-    this.bloomHeight = bloomH;
-    this.bloomSceneWidth = sceneW;
-    this.bloomSceneHeight = sceneH;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.bloomCanvasWidth = gl.canvas.width;
+    this.bloomCanvasHeight = gl.canvas.height;
   }
 
-  private destroyBloomFBOs() {
+  private destroyBloomLevels() {
     const gl = this.gl;
-    if (this.bloomSceneFBO) { gl.deleteFramebuffer(this.bloomSceneFBO); this.bloomSceneFBO = null; }
-    if (this.bloomSceneTex) { gl.deleteTexture(this.bloomSceneTex); this.bloomSceneTex = null; }
-    if (this.bloomFBO_A) { gl.deleteFramebuffer(this.bloomFBO_A); this.bloomFBO_A = null; }
-    if (this.bloomTex_A) { gl.deleteTexture(this.bloomTex_A); this.bloomTex_A = null; }
-    if (this.bloomFBO_B) { gl.deleteFramebuffer(this.bloomFBO_B); this.bloomFBO_B = null; }
-    if (this.bloomTex_B) { gl.deleteTexture(this.bloomTex_B); this.bloomTex_B = null; }
+    for (const level of this.bloomLevels) {
+      gl.deleteFramebuffer(level.fbo);
+      gl.deleteTexture(level.texture);
+    }
+    this.bloomLevels = [];
   }
 
   private static readonly BLEND_MODE_MAP: Record<BlendMode, number> = {
@@ -1335,90 +1349,55 @@ export class GradientEngine {
     this.compositeTextures = null;
   }
 
-  private renderBloomPass(state: EngineState, output: WebGLFramebuffer | null = null) {
-    if (!state.realBloomEnabled) return;
+  /**
+   * Builds the cinematic bloom pyramid from the composited scene: down the
+   * levels (the first pass keeps the light above BLOOM_THRESHOLD, in linear
+   * light), then back up, each level blurred into the one above, so level 0
+   * holds the light spread at every scale. The post pass adds it back. Reads
+   * the drawn corner of the scene at a reduced render scale; the pyramid
+   * itself is always sized from the canvas.
+   */
+  private renderBloomPyramid(sceneTexture: WebGLTexture, sceneScaleX: number, sceneScaleY: number) {
     const gl = this.gl;
-
-    // Lazy init programs
-    if (!this.bloomExtractProgram) this.initBloomPrograms();
-    // Ensure FBOs match canvas size
-    if (!this.bloomSceneFBO ||
-        this.bloomSceneWidth !== gl.canvas.width ||
-        this.bloomSceneHeight !== gl.canvas.height) {
-      this.initBloomFBOs();
-    }
+    if (!this.bloomDownProgram) this.initBloomPrograms();
+    this.ensureBloomLevels();
+    const levels = this.bloomLevels;
 
     gl.bindVertexArray(this.quadVAO);
     gl.disable(gl.BLEND);
+    this.useAuxProgram(this.bloomDownProgram!);
+    const du = this.bloomDownUniforms;
+    if (du["u_source"]) gl.uniform1i(du["u_source"], 0);
+    for (let i = 0; i < levels.length; i++) {
+      const level = levels[i];
+      const sourceWidth = i === 0 ? this.compositeWidth : levels[i - 1].width;
+      const sourceHeight = i === 0 ? this.compositeHeight : levels[i - 1].height;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, level.fbo);
+      gl.viewport(0, 0, level.width, level.height);
+      this.bindTexture(0, i === 0 ? sceneTexture : levels[i - 1].texture);
+      if (du["u_sourceTexel"]) gl.uniform2f(du["u_sourceTexel"], 1 / sourceWidth, 1 / sourceHeight);
+      if (du["u_sourceScale"]) gl.uniform2f(du["u_sourceScale"], i === 0 ? sceneScaleX : 1, i === 0 ? sceneScaleY : 1);
+      if (du["u_threshold"]) gl.uniform1f(du["u_threshold"], i === 0 ? BLOOM_THRESHOLD : 0);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
 
-    // Step 1: Copy the just-rendered gradient (screen or capture FBO) into the scene FBO
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, output);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.bloomSceneFBO!);
-    gl.blitFramebuffer(
-      0, 0, gl.canvas.width, gl.canvas.height,
-      0, 0, gl.canvas.width, gl.canvas.height,
-      gl.COLOR_BUFFER_BIT, gl.LINEAR
-    );
-
-    // Step 2: Extract bright pixels → bloomFBO_A (1/4 res)
-    this.useAuxProgram(this.bloomExtractProgram!);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFBO_A!);
-    gl.viewport(0, 0, this.bloomWidth, this.bloomHeight);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.bloomSceneTex!);
-    const eu = this.bloomExtractUniforms;
-    if (eu["u_source"]) gl.uniform1i(eu["u_source"], 0);
-    if (eu["u_threshold"]) gl.uniform1f(eu["u_threshold"], 0.5);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    // Step 3: Horizontal blur bloomTex_A → bloomFBO_B
-    this.useAuxProgram(this.bloomBlurProgram!);
-    const bu = this.bloomBlurUniforms;
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFBO_B!);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex_A!);
-    if (bu["u_source"]) gl.uniform1i(bu["u_source"], 0);
-    if (bu["u_direction"]) gl.uniform2f(bu["u_direction"], 1.0 / this.bloomWidth, 0.0);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    // Step 4: Vertical blur bloomTex_B → bloomFBO_A
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFBO_A!);
-    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex_B!);
-    if (bu["u_direction"]) gl.uniform2f(bu["u_direction"], 0.0, 1.0 / this.bloomHeight);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    // Step 5: Composite — draw scene + bloom to the original target
-    gl.bindFramebuffer(gl.FRAMEBUFFER, output);
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-    // First, restore the scene
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.bloomSceneFBO!);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, output);
-    gl.blitFramebuffer(
-      0, 0, gl.canvas.width, gl.canvas.height,
-      0, 0, gl.canvas.width, gl.canvas.height,
-      gl.COLOR_BUFFER_BIT, gl.NEAREST
-    );
-    gl.bindFramebuffer(gl.FRAMEBUFFER, output);
-
-    // Then additively blend the bloom on top
+    // Back up: add each level, tent-blurred, into the one above.
+    this.useAuxProgram(this.bloomUpProgram!);
+    const uu = this.bloomUpUniforms;
+    if (uu["u_source"]) gl.uniform1i(uu["u_source"], 0);
+    if (uu["u_weight"]) gl.uniform1f(uu["u_weight"], BLOOM_LEVEL_FALLOFF);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
-
-    // Re-use the blur program to just pass through bloomTex_A
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex_A!);
-    // Zero direction = no blur, just passthrough
-    if (bu["u_direction"]) gl.uniform2f(bu["u_direction"], 0.0, 0.0);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
+    for (let i = levels.length - 1; i > 0; i--) {
+      const target = levels[i - 1];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
+      gl.viewport(0, 0, target.width, target.height);
+      this.bindTexture(0, levels[i].texture);
+      if (uu["u_sourceTexel"]) gl.uniform2f(uu["u_sourceTexel"], 1 / levels[i].width, 1 / levels[i].height);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
     gl.disable(gl.BLEND);
+    this.bindTexture(0, null);
   }
 
   /**
@@ -1621,13 +1600,17 @@ export class GradientEngine {
       resources.push({ kind: "framebuffer", count: 2 });
       resources.push({ kind: "texture", width: this.trailWidth, height: this.trailHeight, count: 2 });
     }
-    if (this.bloomSceneFBO) {
-      resources.push({ kind: "framebuffer", count: 1 });
-      resources.push({ kind: "texture", width: this.bloomSceneWidth, height: this.bloomSceneHeight, count: 1 });
-    }
-    if (this.bloomFBO_A && this.bloomFBO_B) {
-      resources.push({ kind: "framebuffer", count: 2 });
-      resources.push({ kind: "texture", width: this.bloomWidth, height: this.bloomHeight, count: 2 });
+    if (this.bloomLevels.length > 0) {
+      resources.push({ kind: "framebuffer", count: this.bloomLevels.length });
+      for (const level of this.bloomLevels) {
+        resources.push({
+          kind: "texture",
+          width: level.width,
+          height: level.height,
+          count: 1,
+          bytesPerPixel: this.halfFloatTargets ? 8 : 4,
+        });
+      }
     }
     if (this.compositeFBOs) {
       resources.push({ kind: "framebuffer", count: 2 });
@@ -2094,6 +2077,11 @@ export class GradientEngine {
       }
       const sceneTexture = compositeTextures[1 - writeIdx];
 
+      // Cinematic bloom: the scene's light, spread, for the post pass to add.
+      const bloomActive = state.realBloomEnabled;
+      if (bloomActive) this.renderBloomPyramid(sceneTexture, compositeScaleX, compositeScaleY);
+      else if (this.bloomLevels.length > 0) this.destroyBloomLevels();
+
       // Post pass: global effects on the composited image.
       gl.bindFramebuffer(gl.FRAMEBUFFER, finalTarget);
       gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -2102,6 +2090,7 @@ export class GradientEngine {
       this.bindTexture(UNIT_SCENE, sceneTexture);
       const trailActive = state.trailEnabled && this.trailTextures !== null;
       if (trailActive) this.bindTexture(UNIT_TRAIL, this.trailTextures![this.trailIndex]);
+      if (bloomActive) this.bindTexture(UNIT_BLOOM, this.bloomLevels[0].texture);
       if (feedbackActive) {
         // The previous frame: the feedback target we are not drawing into.
         this.bindTexture(UNIT_PREV_FRAME, this.feedbackTextures![1 - this.feedbackIndex]);
@@ -2111,10 +2100,13 @@ export class GradientEngine {
       this.setPostUniforms(state, lastLayer);
       this.bindPalette(visibleLayers.length - 1, lastLayer, state);
       this.set2f("u_compositeScale", compositeScaleX, compositeScaleY);
+      this.seti("u_realBloomEnabled", bloomActive ? 1 : 0);
+      if (bloomActive) this.setf("u_realBloomGain", BLOOM_STRENGTH * bloomNormalization(this.bloomLevels.length));
       this.drawGeometry(false);
 
       this.bindTexture(UNIT_SCENE, null);
       if (trailActive) this.bindTexture(UNIT_TRAIL, null);
+      if (bloomActive) this.bindTexture(UNIT_BLOOM, null);
       if (feedbackActive) this.bindTexture(UNIT_PREV_FRAME, null);
     }
 
@@ -2138,9 +2130,6 @@ export class GradientEngine {
       this.feedbackIndex = 1 - this.feedbackIndex;
     }
 
-    // Cinematic bloom on the final image. Runs after the feedback blit so the
-    // two effects can be combined (bloom used to be skipped under feedback).
-    this.renderBloomPass(state, output);
     this.framesDrawn++;
     return true;
   }
