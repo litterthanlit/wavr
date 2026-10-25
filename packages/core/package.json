@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./presets": "./src/presets/index.ts",
-    "./presets/all": "./src/presets/all.ts"
+    "./presets/all": "./src/presets/all.ts",
+    "./webgpu-hdr-output": "./src/webgpu-hdr-output.ts"
   },
   "dependencies": {
     "@wavr/schema": "workspace:*"
@@ -16,6 +17,7 @@
     "lint": "tsc --noEmit"
   },
   "devDependencies": {
+    "@webgpu/types": "0.1.74",
     "typescript": "^5"
   }
 }

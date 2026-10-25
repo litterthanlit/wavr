@@ -112,6 +112,12 @@ export interface GradientConfig {
    * canvas: more saturated colour on P3 screens. Default "srgb".
    */
   colorProfile?: ColorProfile;
+  /**
+   * How far light may rise above white on an HDR display, in stops (1 = twice
+   * white, at most 3). Default 0, standard range; standard displays and
+   * exports show the scene as it looks at 0.
+   */
+  hdrHeadroom?: number;
   ripple?: { enabled: boolean; intensity: number };
   glow?: { enabled: boolean; intensity: number; radius: number };
   caustic?: { enabled: boolean; intensity: number };

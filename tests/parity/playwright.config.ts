@@ -8,7 +8,7 @@ import { defineConfig } from "@playwright/test";
 // isn't something we want to bet on.
 export default defineConfig({
   testDir: ".",
-  testMatch: /runner\.test\.ts/,
+  testMatch: /(runner|hdr)\.test\.ts/,
   fullyParallel: false,
   workers: 1,
   retries: 0,

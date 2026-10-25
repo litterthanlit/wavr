@@ -54,6 +54,13 @@ vec3 highlightShoulder(vec3 c, float knee) {
   return min(c, vec3(knee)) + (1.0 - knee) * tanh(min(over, vec3(10.0)));
 }
 
+// The shoulder under the frame's peak: white, or in HDR the peak, with the
+// knee at the same share of it.
+vec3 peakShoulder(vec3 c, float knee) {
+  float peak = displayPeak();
+  return peak * highlightShoulder(c / peak, knee);
+}
+
 // ACES filmic fit (Narkowicz) behind an exposure, so it is a contrast curve
 // rather than a brightness change: input is scaled by 0.4 and the result by
 // 1 / aces(0.4), which keeps white near 0.98 and mid-grey near 0.55, and deepens the
@@ -61,12 +68,12 @@ vec3 highlightShoulder(vec3 c, float knee) {
 vec3 acesFilmic(vec3 x) {
   x *= 0.4;
   vec3 aces = (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);
-  return highlightShoulder(aces * 1.8492, 0.9);
+  return peakShoulder(aces * 1.8492, 0.9);
 }
 
 // 0 = none, 1 = highlight shoulder (the "Reinhard" mode), 2 = ACES filmic.
 vec3 applyToneMap(vec3 c) {
-  if (u_toneMapMode == 1) return highlightShoulder(c, 0.8);
+  if (u_toneMapMode == 1) return peakShoulder(c, 0.8);
   if (u_toneMapMode == 2) return acesFilmic(c);
   return c;
 }
@@ -95,6 +102,17 @@ float caustic(vec2 uv, float time) {
 vec3 adjustSaturation(vec3 color, float sat) {
   float grey = dot(color, vec3(0.2126, 0.7152, 0.0722));
   return mix(vec3(grey), color, sat);
+}
+
+// Screen blend of `light` over `base`. In HDR a value above white keeps what is
+// above it (screening it would darken it); in standard range it is the plain
+// screen, values over 1 included, as it always was.
+vec3 screenLight(vec3 base, vec3 light) {
+  if (u_hdrPeak > 1.0) {
+    vec3 sdr = min(base, 1.0);
+    return 1.0 - (1.0 - sdr) * (1.0 - light) + (base - sdr);
+  }
+  return 1.0 - (1.0 - base) * (1.0 - light);
 }
 
 vec3 rotateHue(vec3 color, float angle) {
@@ -265,10 +283,13 @@ void main() {
   // scale by the bloom pyramid, added back in linear light like an exposure:
   // 1 - (1 - c) e^-bloom adds `bloom` where the scene is dark and eases into
   // white, never past it, where it is bright, so a glow never clips to a flat
-  // patch, and where there is no bloom the scene is untouched.
+  // patch, and where there is no bloom the scene is untouched. In HDR it eases
+  // into the peak P instead, P - (P - c) e^(-bloom / P): light P times
+  // brighter (with a threshold P times higher) glares P times brighter.
   if (u_realBloomEnabled) {
     vec3 bloom = textureLod(u_bloomTexture, uv, 0.0).rgb * u_realBloomGain;
-    color = linearToSrgb(1.0 - (1.0 - min(srgbToLinear(color), 1.0)) * exp(-bloom));
+    float peak = framePeak();
+    color = linearToSrgb(peak - (peak - min(srgbToLinear(color), peak)) * exp(-bloom / peak));
   }
 
   // Hue shift
@@ -308,7 +329,7 @@ void main() {
     if (totalWeight > 0.0) {
       bloomSum /= totalWeight;
       // Screen blend (Photoshop): brighter areas glow without clipping
-      color = 1.0 - (1.0 - color) * (1.0 - bloomSum * u_bloomIntensity * 0.8);
+      color = screenLight(color, bloomSum * u_bloomIntensity * 0.8);
     }
   }
 
@@ -329,8 +350,7 @@ void main() {
     }
     if (total > 0.0) glow /= total;
     // Screen blend for the glow layer
-    vec3 glowed = 1.0 - (1.0 - color) * (1.0 - glow * u_glowIntensity * 0.6);
-    color = glowed;
+    color = screenLight(color, glow * u_glowIntensity * 0.6);
   }
 
   // Caustics (water light refraction overlay)
@@ -476,7 +496,7 @@ void main() {
     color *= charMask * 1.2 + 0.1;
   }
 
-  vec3 outColor = clamp(color, 0.0, 1.0);
+  vec3 outColor = clamp(color, 0.0, displayPeak());
 
   // Spec 0004: Deband — add ±0.5 LSB of noise per channel to smooth 8-bit banding.
   // Interleaved Gradient Noise (Jiménez) spreads error across high frequencies,

@@ -128,7 +128,10 @@ describe("portable fragment shader", () => {
         expect(source).not.toMatch(/\bsoftColor\b|\bgetColor\b|\bfieldFor\b/);
         // The engine's curve, not a stand-in.
         expect(source).toContain("vec3 highlightShoulder(vec3 c, float knee)");
-        expect(source).toContain("if (TONE_MAP_MODE == 1) return highlightShoulder(c, 0.8);");
+        expect(source).toContain("if (TONE_MAP_MODE == 1) return peakShoulder(c, 0.8);");
+        // Standard range: the engine's HDR peak collapses to white, and no uniform carries it.
+        expect(source).toContain("vec3 peakShoulder(vec3 c, float knee) { return highlightShoulder(c, knee); }");
+        expect(source).not.toMatch(/\bu_hdrPeak\b/);
       });
     });
   }

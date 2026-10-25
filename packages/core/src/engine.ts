@@ -1,6 +1,7 @@
 import trailFragSource from "./shaders/trail.glsl";
 import bloomDownSource from "./shaders/bloom-down.glsl";
 import bloomUpSource from "./shaders/bloom-up.glsl";
+import hdrPackSource from "./shaders/hdr-pack.glsl";
 import {
   FULLSCREEN_VERTEX_SOURCE,
   LAYER_VERTEX_SOURCE,
@@ -38,6 +39,7 @@ import {
   type PaletteKey,
 } from "./palette";
 import { RenderScaleController, type RenderScaleOptions } from "./render-scale";
+import { displayPeak, hdrPeak, type HdrOutput } from "./hdr";
 
 export interface EngineState {
   layers: LayerParams[];
@@ -92,6 +94,11 @@ export interface EngineState {
   toneMapMode: number;
   /** The RGB space colour values are read in and the canvas presents in. */
   colorProfile: ColorProfile;
+  /**
+   * How far light may rise above white, in stops, where the frame is presented
+   * through an HDR output (setHdrOutput). 0 is standard range.
+   */
+  hdrHeadroom: number;
   rippleEnabled: boolean;
   rippleIntensity: number;
   glowEnabled: boolean;
@@ -187,7 +194,7 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_mouseReact", "u_mousePresence",
   "u_bloomEnabled", "u_bloomIntensity", "u_vignette", "u_radialBlurAmount",
   "u_blurEnabled", "u_blurAmount",
-  "u_paletteTexture", "u_paletteDomain", "u_compositeScale",
+  "u_paletteTexture", "u_paletteDomain", "u_compositeScale", "u_hdrPeak",
   "u_chromaticAberration", "u_hueShift",
   "u_asciiEnabled", "u_asciiSize", "u_ditherEnabled", "u_ditherSize",
   "u_layerOpacity", "u_sceneTexture",
@@ -456,6 +463,18 @@ export class GradientEngine {
   private feedbackIndex = 0;
   private feedbackWidth = 0;
   private feedbackHeight = 0;
+  /** The feedback targets are half-float (while presenting HDR, so they keep the light above white). */
+  private feedbackHalfFloat = false;
+
+  // HDR output (setHdrOutput): while one is attached, live frames are drawn
+  // into hdrTarget and packed onto the canvas for it to present.
+  private hdrOutput: HdrOutput | null = null;
+  /** u_hdrPeak of the frame being drawn: hdrPeak(hdrHeadroom) when it goes to the HDR output, else 1. */
+  private framePeak = 1;
+  private lastFrameHdr = false;
+  private hdrTarget: { fbo: WebGLFramebuffer; texture: WebGLTexture; width: number; height: number } | null = null;
+  private hdrPackProgram: WebGLProgram | null = null;
+  private hdrPackUniforms: UniformMap = {};
 
   // Cinematic bloom: a pyramid of the composited scene's light, made between
   // the layer passes and the post pass, which adds its top level back.
@@ -581,6 +600,7 @@ export class GradientEngine {
     this.destroyBloomLevels();
     this.destroyCompositeFBOs();
     this.destroyCaptureFBO();
+    this.destroyHdrTarget();
     this.trimPalettes(0);
 
     for (const record of this.layerPrograms.values()) this.disposeProgram(record);
@@ -589,15 +609,17 @@ export class GradientEngine {
     this.postProgram = null;
     this.active = null;
     this.lastUniformValues.clear();
-    for (const program of [this.trailProgram, this.bloomDownProgram, this.bloomUpProgram]) {
+    for (const program of [this.trailProgram, this.bloomDownProgram, this.bloomUpProgram, this.hdrPackProgram]) {
       if (program) gl.deleteProgram(program);
     }
     this.trailProgram = null;
     this.bloomDownProgram = null;
     this.bloomUpProgram = null;
+    this.hdrPackProgram = null;
     this.trailUniforms = {};
     this.bloomDownUniforms = {};
     this.bloomUpUniforms = {};
+    this.hdrPackUniforms = {};
 
     if (this.quadVAO) gl.deleteVertexArray(this.quadVAO);
     if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
@@ -1037,7 +1059,7 @@ export class GradientEngine {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   }
 
-  private initFeedbackFBOs() {
+  private initFeedbackFBOs(halfFloat: boolean) {
     const gl = this.gl;
     const width = gl.canvas.width;
     const height = gl.canvas.height;
@@ -1049,7 +1071,8 @@ export class GradientEngine {
     for (let i = 0; i < 2; i++) {
       const tex = gl.createTexture()!;
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      if (halfFloat) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -1070,6 +1093,7 @@ export class GradientEngine {
     this.feedbackTextures = [textures[0], textures[1]];
     this.feedbackWidth = width;
     this.feedbackHeight = height;
+    this.feedbackHalfFloat = halfFloat;
     this.feedbackIndex = 0;
   }
 
@@ -1390,7 +1414,8 @@ export class GradientEngine {
       this.bindTexture(0, i === 0 ? sceneTexture : levels[i - 1].texture);
       if (du["u_sourceTexel"]) gl.uniform2f(du["u_sourceTexel"], 1 / sourceWidth, 1 / sourceHeight);
       if (du["u_sourceScale"]) gl.uniform2f(du["u_sourceScale"], i === 0 ? sceneScaleX : 1, i === 0 ? sceneScaleY : 1);
-      if (du["u_threshold"]) gl.uniform1f(du["u_threshold"], i === 0 ? BLOOM_THRESHOLD : 0);
+      // In HDR the light is framePeak times brighter, and so is the threshold.
+      if (du["u_threshold"]) gl.uniform1f(du["u_threshold"], i === 0 ? BLOOM_THRESHOLD * this.framePeak : 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 
@@ -1913,6 +1938,7 @@ export class GradientEngine {
   /** Uniforms shared by every layer draw (the layer program is bound). `mvp` is meshMvp() when mesh distortion is on. */
   private setLayerGlobals(state: EngineState, mvp: Float32Array | null) {
     this.setf("u_time", this.elapsedTime);
+    this.setf("u_hdrPeak", this.framePeak);
     this.set2f("u_resolution", this.passWidth, this.passHeight);
     const pointer = this.pointer;
     const [velocityX, velocityY] = pointerVelocity(pointer, this.gl.canvas.width / this.gl.canvas.height);
@@ -1958,6 +1984,7 @@ export class GradientEngine {
    */
   private setPostUniforms(state: EngineState, lastLayer: LayerParams) {
     this.setf("u_time", this.elapsedTime);
+    this.setf("u_hdrPeak", this.framePeak);
     this.set2f("u_resolution", this.gl.canvas.width, this.gl.canvas.height);
     this.setf("u_speed", lastLayer.speed);
 
@@ -2047,24 +2074,35 @@ export class GradientEngine {
 
     const visibleLayers = state.layers.filter((l) => l.visible);
     if (!this.programsReady(visibleLayers)) return false;
-    this.applyCanvasProfile(state.colorProfile);
+    if (visibleLayers.length > 0) this.ensureCompositeFBOs();
+
+    // A live frame goes to the HDR output while one is attached, with light up
+    // to the state's headroom above white (which only half-float targets carry
+    // through); a capture, drawn into an `output` of its own, is standard range.
+    const toHdr = output === null && this.hdrOutput !== null;
+    this.framePeak = toHdr && this.halfFloatTargets ? hdrPeak(state.hdrHeadroom) : 1;
+    // The canvas carries the packed frame then: data, not colour.
+    this.applyCanvasProfile(toHdr ? "srgb" : state.colorProfile);
 
     // Trail field (before the main render — writes to its own targets)
     this.updateTrail(state);
 
     const feedbackActive = state.feedbackEnabled;
 
-    // Set up FBO for feedback if needed
+    // Set up FBO for feedback if needed: half-float while presenting HDR, so
+    // the light above white carries over too (a capture leaves them as they are).
     if (feedbackActive) {
+      const halfFloat = output === null ? this.framePeak > 1 : this.feedbackHalfFloat;
       if (!this.feedbackFBOs ||
           this.feedbackWidth !== gl.canvas.width ||
-          this.feedbackHeight !== gl.canvas.height) {
-        this.initFeedbackFBOs();
+          this.feedbackHeight !== gl.canvas.height ||
+          this.feedbackHalfFloat !== halfFloat) {
+        this.initFeedbackFBOs(halfFloat);
       }
     }
 
-    // Final render target: feedback FBO, explicit capture FBO, or the default framebuffer
-    const finalTarget = feedbackActive ? this.feedbackFBOs![this.feedbackIndex] : output;
+    // Final render target: feedback FBO, the HDR target, explicit capture FBO, or the default framebuffer
+    const finalTarget = feedbackActive ? this.feedbackFBOs![this.feedbackIndex] : toHdr ? this.ensureHdrTarget() : output;
 
     this.trimPalettes(visibleLayers.length);
     if (visibleLayers.length === 0) {
@@ -2073,7 +2111,6 @@ export class GradientEngine {
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
     } else {
-      this.ensureCompositeFBOs();
       const compositeFBOs = this.compositeFBOs!;
       const compositeTextures = this.compositeTextures!;
       const mvp = state.meshDistortionEnabled ? this.meshMvp() : null;
@@ -2155,21 +2192,125 @@ export class GradientEngine {
       this.cleanupTextures(state.layers);
     }
 
-    // Blit FBO to screen and swap buffers
+    // Blit FBO to screen and swap buffers (or hand the frame to the HDR output)
     if (feedbackActive && this.feedbackFBOs) {
-      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.feedbackFBOs[this.feedbackIndex]);
-      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, output);
-      gl.blitFramebuffer(
-        0, 0, gl.canvas.width, gl.canvas.height,
-        0, 0, gl.canvas.width, gl.canvas.height,
-        gl.COLOR_BUFFER_BIT, gl.NEAREST
-      );
+      if (toHdr) {
+        this.presentHdr(this.feedbackTextures![this.feedbackIndex], state.colorProfile);
+      } else {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.feedbackFBOs[this.feedbackIndex]);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, output);
+        gl.blitFramebuffer(
+          0, 0, gl.canvas.width, gl.canvas.height,
+          0, 0, gl.canvas.width, gl.canvas.height,
+          gl.COLOR_BUFFER_BIT, gl.NEAREST
+        );
+      }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       this.feedbackIndex = 1 - this.feedbackIndex;
+    } else if (toHdr) {
+      this.presentHdr(this.hdrTarget!.texture, state.colorProfile);
     }
+    if (output === null) this.lastFrameHdr = toHdr;
 
     this.framesDrawn++;
     return true;
+  }
+
+  /**
+   * Presents live frames through `output` (an extended-range canvas: see
+   * WebGPUHdrOutput) instead of on the canvas, with light up to the state's
+   * hdrHeadroom above white; null presents on the canvas again. The last state
+   * is drawn again at once either way, so whoever swaps the two canvases can
+   * show the right one in the same frame. Captures stay standard range.
+   */
+  setHdrOutput(output: HdrOutput | null) {
+    if (output === this.hdrOutput) return;
+    this.hdrOutput = output;
+    if (!output) this.destroyHdrTarget();
+    const state = this.lastState;
+    if (!state || this.gl.isContextLost()) return;
+    try {
+      this.render(state);
+    } catch {
+      // A frame that can't be drawn fails the render loop, which reports it.
+    }
+  }
+
+  /** Whether the last live frame went to the HDR output. */
+  isPresentingHdr(): boolean {
+    return this.lastFrameHdr;
+  }
+
+  /** The live frame's target while presenting HDR: canvas-sized, half-float where the composite targets are. */
+  private ensureHdrTarget(): WebGLFramebuffer {
+    const gl = this.gl;
+    const width = gl.canvas.width;
+    const height = gl.canvas.height;
+    if (this.hdrTarget && this.hdrTarget.width === width && this.hdrTarget.height === height) {
+      return this.hdrTarget.fbo;
+    }
+    this.destroyHdrTarget();
+
+    const texture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    if (this.halfFloatTargets) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    const fbo = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    this.assertFramebufferComplete("hdr");
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    this.hdrTarget = { fbo, texture, width, height };
+    return fbo;
+  }
+
+  private destroyHdrTarget() {
+    if (!this.hdrTarget) return;
+    this.gl.deleteFramebuffer(this.hdrTarget.fbo);
+    this.gl.deleteTexture(this.hdrTarget.texture);
+    this.hdrTarget = null;
+  }
+
+  /**
+   * Packs the frame in `source` onto the canvas as two 8-bit tiles
+   * (hdr-pack.glsl), hands each to the HDR output as soon as it is drawn, and
+   * has the output present them.
+   */
+  private presentHdr(source: WebGLTexture, profile: ColorProfile) {
+    const gl = this.gl;
+    const output = this.hdrOutput!;
+    if (!this.hdrPackProgram) {
+      [this.hdrPackProgram, this.hdrPackUniforms] = this.createAuxProgram(
+        "HDR pack",
+        hdrPackSource,
+        ["u_source", "u_range", "u_tile"],
+      );
+    }
+    const range = displayPeak(this.framePeak);
+    const u = this.hdrPackUniforms;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(this.quadVAO);
+    this.useAuxProgram(this.hdrPackProgram);
+    if (u["u_source"]) gl.uniform1i(u["u_source"], 0);
+    if (u["u_range"]) gl.uniform1f(u["u_range"], range);
+    this.bindTexture(0, source);
+    const canvas = gl.canvas as HTMLCanvasElement;
+    for (const tile of [0, 1] as const) {
+      if (u["u_tile"]) gl.uniform1i(u["u_tile"], tile);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      output.copyTile(canvas, tile);
+    }
+    this.bindTexture(0, null);
+    output.present(range, profile);
   }
 
   /**

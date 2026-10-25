@@ -63,6 +63,8 @@ export interface ProjectState {
   toneMapMode: number;
   /** Absent in projects saved before colour profiles: sRGB. */
   colorProfile?: ColorProfile;
+  /** Absent in projects saved before HDR: standard range. */
+  hdrHeadroom?: number;
   rippleEnabled: boolean;
   rippleIntensity: number;
   glowEnabled: boolean;
@@ -155,6 +157,7 @@ export function exportProjectState(state: GradientState): ProjectState {
     oklabEnabled: state.oklabEnabled as boolean,
     toneMapMode: state.toneMapMode as number,
     colorProfile: state.colorProfile as ColorProfile,
+    hdrHeadroom: state.hdrHeadroom as number,
     rippleEnabled: state.rippleEnabled as boolean,
     rippleIntensity: state.rippleIntensity as number,
     glowEnabled: state.glowEnabled as boolean,

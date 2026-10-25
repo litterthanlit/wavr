@@ -44,6 +44,7 @@ export const GradientConfig = d(
     oklabEnabled: d("GradientConfig.oklabEnabled", z.boolean()).default(true),
     toneMapMode: d("GradientConfig.toneMapMode", z.number().int().min(0).max(3)).default(1),
     colorProfile: d("GradientConfig.colorProfile", ColorProfile).default("srgb"),
+    hdrHeadroom: d("GradientConfig.hdrHeadroom", z.number().min(0).max(3)).default(0),
 
     noise: NoiseEffect.optional(),
     bloom: BloomEffect.optional(),

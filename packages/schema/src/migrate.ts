@@ -147,7 +147,7 @@ function migrateProjectStateV1(input: Record<string, unknown>, opts: MigrateOpti
   const passthrough: string[] = [
     "brightness", "saturation", "grain", "vignette", "mouseReact",
     "chromaticAberration", "hueShift", "domainWarp",
-    "oklabEnabled", "toneMapMode", "colorProfile",
+    "oklabEnabled", "toneMapMode", "colorProfile", "hdrHeadroom",
   ];
   for (const k of passthrough) {
     if (k in input) out[k] = input[k];

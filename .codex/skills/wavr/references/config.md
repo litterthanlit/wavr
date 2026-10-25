@@ -34,6 +34,8 @@ Skip `image` unless the user supplies a texture.
 
 `colorProfile: "display-p3"` reads every colour value as Display P3 and renders to a P3 canvas: the same numbers come out more saturated on wide-gamut screens (recent Macs, iPhones, many phones), and browsers without P3 show them as sRGB. Default `"srgb"`. Use it for vivid light (the light fields) and pick colours with that in mind: `[0, 0.85, 0.9]` in P3 is an aqua sRGB can't reach.
 
+`hdrHeadroom` (0–3 stops, default 0) lets light shine brighter than white on an HDR screen: at 2 the light fields' light is four times as bright, while their wall or room stays as it is. Standard screens and exports show the scene as at 0. Only the Wavr editor presents HDR so far; `@wavr/gradient` accepts the field and renders standard range.
+
 ## Presets (`@wavr/gradient/presets`)
 
 Light fields: `aperture` `cobaltAperture` `duskAperture` `ganzfeld` `halo` `iceHalo` `lightWall` `lagoonWall`

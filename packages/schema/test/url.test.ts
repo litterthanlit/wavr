@@ -65,6 +65,7 @@ function randomConfig(rand: () => number): GC {
     oklabEnabled: rand() > 0.5,
     toneMapMode: Math.floor(rand() * 4),
     colorProfile: rand() > 0.5 ? "display-p3" : "srgb",
+    hdrHeadroom: rand() > 0.5 ? Math.round(rand() * 12) / 4 : 0,
   };
 
   // Randomly enable a few effect groups with mid-range params.
@@ -325,5 +326,12 @@ describe("strip-defaults", () => {
     const p3: GC = { ...DEFAULT_CONFIG, colorProfile: "display-p3" };
     expect(encodeUrl(p3)).not.toBe(encodeUrl(DEFAULT_CONFIG));
     expect(decodeUrl(encodeUrl(p3)).colorProfile).toBe("display-p3");
+  });
+
+  it("leaves standard range out, so URLs from before HDR decode without it", () => {
+    expect(decodeUrl(encodeUrl(DEFAULT_CONFIG)).hdrHeadroom).toBe(0);
+    const hdr: GC = { ...DEFAULT_CONFIG, hdrHeadroom: 2 };
+    expect(encodeUrl(hdr)).not.toBe(encodeUrl(DEFAULT_CONFIG));
+    expect(decodeUrl(encodeUrl(hdr)).hdrHeadroom).toBe(2);
   });
 });

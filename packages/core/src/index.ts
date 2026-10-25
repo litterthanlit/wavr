@@ -3,6 +3,8 @@ export { createGradient } from "./create";
 export { attachPointer } from "./attach-pointer";
 export type { AttachPointerOptions, PointerTarget } from "./attach-pointer";
 export type { EngineState, CaptureOptions } from "./engine";
+export { MAX_HDR_HEADROOM, displayPeak, hdrDisplayQuery, hdrPeak } from "./hdr";
+export type { HdrOutput } from "./hdr";
 export type { LayerParams, GradientType, BlendMode, ColorProfile, ImageBlendMode, MaskParams, MaskShape, MaskBlendMode, TextMaskAlign } from "./layers";
 export {
   createLayer, defaultSoftnessForGradientType, DEFAULT_LAYER, DEFAULT_MASK, MAX_LAYERS,

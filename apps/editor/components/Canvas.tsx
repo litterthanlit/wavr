@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { GradientEngine, attachPointer, type EngineMetrics } from "@wavr/core";
+import type { WebGPUHdrOutput } from "@wavr/core/webgpu-hdr-output";
 import {
   useGradientStore,
   GradientState,
@@ -10,6 +11,8 @@ import {
 import { normalizeTimelineTime, type PlaybackMode } from "@/lib/timeline";
 import { applyEnginePerformanceSettings, applyTimeline, withPerformanceMode } from "@/lib/frame-state";
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
+import { setHdrStatus } from "@/lib/hdr-status";
+import { useHdrDisplay } from "@/lib/useHdrDisplay";
 import Toast from "@/components/ui/Toast";
 
 // Shared audio analyzer instance (persists across re-renders)
@@ -59,7 +62,10 @@ interface CanvasProps {
 
 export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hdrCanvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GradientEngine | null>(null);
+  const hdrWanted = useGradientStore((state) => state.hdrHeadroom > 0);
+  const hdrDisplay = useHdrDisplay();
   const [fps, setFps] = useState(0);
   const [metrics, setMetrics] = useState<EngineMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -342,6 +348,61 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
     };
   }, [onCanvasReady, onEngineReady, syncTextMaskTexture]);
 
+  // HDR: while the scene asks for headroom and the screen can show it, frames
+  // go to an extended-range WebGPU canvas laid over the WebGL one (which the
+  // engine then only packs frames onto). The WebGL canvas stays in place,
+  // invisible, so it keeps the layout and the pointer. Attaching and detaching
+  // draw a frame at once, so the swap shows no blank frame. The effect runs
+  // after the engine's own, and again whenever that rebuilds the engine.
+  useEffect(() => {
+    const engine = engineRef.current;
+    const glCanvas = canvasRef.current;
+    const hdrCanvas = hdrCanvasRef.current;
+    if (!hdrWanted || hdrDisplay !== true || !engine || !glCanvas || !hdrCanvas) {
+      setHdrStatus("off");
+      return;
+    }
+    let cancelled = false;
+    let output: WebGPUHdrOutput | null = null;
+    const detach = () => {
+      engine.setHdrOutput(null);
+      glCanvas.style.opacity = "";
+      hdrCanvas.style.display = "";
+    };
+    setHdrStatus("starting");
+    import("@wavr/core/webgpu-hdr-output")
+      .then(({ createWebGPUHdrOutput }) => createWebGPUHdrOutput(hdrCanvas, useGradientStore.getState().colorProfile))
+      .then((created) => {
+        if (cancelled) {
+          created?.dispose();
+          return;
+        }
+        if (!created) {
+          setHdrStatus("unsupported");
+          return;
+        }
+        output = created;
+        created.onLost = () => {
+          detach();
+          setHdrStatus("lost");
+        };
+        engine.setHdrOutput(created);
+        hdrCanvas.style.display = "block";
+        glCanvas.style.opacity = "0";
+        setHdrStatus("on");
+      })
+      .catch(() => {
+        if (!cancelled) setHdrStatus("unsupported");
+      });
+    return () => {
+      cancelled = true;
+      if (output) {
+        detach();
+        output.dispose();
+      }
+    };
+  }, [hdrWanted, hdrDisplay, onCanvasReady, onEngineReady]);
+
   // Reduced motion: pause by default
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -369,6 +430,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
       <canvas
         ref={canvasRef}
         className="block"
+      />
+      <canvas
+        ref={hdrCanvasRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 hidden h-full w-full"
       />
       {contextLost && (
         <div className="absolute inset-0 flex items-center justify-center bg-root/80">

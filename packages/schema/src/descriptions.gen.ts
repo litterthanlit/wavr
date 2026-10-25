@@ -43,6 +43,7 @@ export const DESCRIPTIONS = {
   "GradientConfig.oklabEnabled": "Blend colors in OKLab space for more perceptual gradients.",
   "GradientConfig.toneMapMode": "Tone mapping: 0=none, 1=soft highlights (unchanged below 0.8, rolls off brighter values), 2=ACES filmic, 3=reserved (renders as none).",
   "GradientConfig.colorProfile": "'display-p3' reads every colour value as Display P3 and renders to a wide-gamut canvas: more saturated colour on P3 screens (browsers without P3 canvases show the same values as sRGB). 'srgb' (default) is unchanged.",
+  "GradientConfig.hdrHeadroom": "How far light may rise above white on an HDR display, in stops (1 = twice as bright as white, 3 = eight times). 0 (default) is standard range. Standard displays, exports and browsers without HDR canvases show the scene as it looks at 0.",
 
   // Effect groups — noun-phrase descriptors
   "NoiseEffect": "Fractal-noise overlay added to the composited gradient.",

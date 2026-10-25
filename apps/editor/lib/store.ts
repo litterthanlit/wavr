@@ -130,6 +130,8 @@ export interface GradientState {
   toneMapMode: number;
   /** The RGB space colour values are read in and the canvas presents in. */
   colorProfile: ColorProfile;
+  /** Stops light may rise above white on an HDR display; 0 is standard range. */
+  hdrHeadroom: number;
   rippleEnabled: boolean;
   rippleIntensity: number;
   glowEnabled: boolean;
@@ -386,6 +388,7 @@ const DEFAULTS = {
   trailWidth: 0.05,
   debandEnabled: true,
   debandStrength: 1.0,
+  hdrHeadroom: 0,
   // The opening scene's own grain, tone map, bloom and colour profile.
   ...INITIAL_EFFECTS,
   audioEnabled: false,
@@ -544,11 +547,14 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     markPushPoint();
     flushPending();
     const current = useGradientStore.getState();
-    // Colours come with the profile they are read in: a patch that brings
-    // colours (a preset, a scene, a project saved before profiles) without
-    // naming one is sRGB, whatever the scene it is loaded over.
+    // Colours come with the profile and range they are read in: a patch that
+    // brings colours (a preset, a scene, a project saved before profiles or
+    // HDR) without naming them is sRGB and standard range, whatever the scene
+    // it is loaded over.
     const bringsColors = Array.isArray(input.layers) || input.colors !== undefined;
-    const preset = bringsColors && input.colorProfile === undefined ? { ...input, colorProfile: "srgb" as const } : input;
+    const preset = bringsColors
+      ? { ...input, colorProfile: input.colorProfile ?? "srgb", hdrHeadroom: input.hdrHeadroom ?? 0 }
+      : input;
     pushHistory(takeSnapshot(current));
     if (Array.isArray(preset.layers)) {
       const nextLayers = preset.layers.map((layer) => createLayer(layer));

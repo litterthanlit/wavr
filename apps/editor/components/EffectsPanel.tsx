@@ -7,11 +7,25 @@ import Toggle from "@/components/ui/Toggle";
 import Slider from "@/components/ui/Slider";
 import Select from "@/components/ui/Select";
 import { useWideGamutDisplay } from "@/lib/useWideGamutDisplay";
+import { useHdrDisplay } from "@/lib/useHdrDisplay";
+import { useHdrStatus, type HdrStatus } from "@/lib/hdr-status";
 
 const COLOR_PROFILE_OPTIONS = [
   { value: "srgb", label: "sRGB" },
   { value: "display-p3", label: "Display P3 (wide gamut)" },
 ];
+
+/** What the HDR headroom does here, and why it may not show. */
+function hdrCaption(headroom: number, display: boolean | null, status: HdrStatus): string {
+  const peak = Math.pow(2, headroom);
+  const times = Number.isInteger(peak) ? String(peak) : peak.toFixed(1);
+  const what = `On an HDR screen, light shines up to ${times}× brighter than white`;
+  const exports = "Exports stay standard range.";
+  if (display === false) return `${what}. This screen shows standard range, so you see the scene without it. ${exports}`;
+  if (status === "unsupported") return `${what}, but this browser can't show it from WebGPU yet (Chrome and Edge can). ${exports}`;
+  if (status === "lost") return `HDR stopped when the GPU reset; showing standard range. Set the headroom to 0 and back to try again. ${exports}`;
+  return `${what}. ${exports}`;
+}
 
 const AUDIO_TARGETS = [
   { value: "distortion", label: "Distortion" },
@@ -48,6 +62,8 @@ function Section({ title, defaultOpen = false, children }: { title: string; defa
 export default function EffectsPanel() {
   const store = useGradientStore();
   const wideGamut = useWideGamutDisplay();
+  const hdrDisplay = useHdrDisplay();
+  const hdrStatus = useHdrStatus();
 
   return (
     <div className="flex flex-col gap-1 p-4">
@@ -93,6 +109,12 @@ export default function EffectsPanel() {
 
       {/* Lighting */}
       <Section title="Lighting" defaultOpen>
+        <Slider label="HDR Headroom" value={store.hdrHeadroom} min={0} max={3} step={0.25} onChange={(v) => store.set({ hdrHeadroom: v })} onCommit={() => store.commitSet()} />
+        {store.hdrHeadroom > 0 && (
+          <p className="text-[11px] leading-snug text-text-tertiary" aria-live="polite">
+            {hdrCaption(store.hdrHeadroom, hdrDisplay, hdrStatus)}
+          </p>
+        )}
         <Toggle label="Bloom" checked={store.bloomEnabled} onChange={(v) => store.setDiscrete({ bloomEnabled: v })} />
         <Slider label="Intensity" value={store.bloomIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ bloomIntensity: v })} onCommit={() => store.commitSet()} disabled={!store.bloomEnabled} />
         <Toggle label="Cinematic Bloom" checked={store.realBloomEnabled} onChange={(v) => store.setDiscrete({ realBloomEnabled: v })} />

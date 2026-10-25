@@ -19,6 +19,16 @@ describe("WavrSceneDocument", () => {
     expect(gradientConfigFromSceneDocument(srgb).colorProfile).toBe("srgb");
   });
 
+  it("carries the HDR headroom, and leaves it out of standard-range scenes", () => {
+    const hdr = GradientConfig.parse({ ...DEFAULT_CONFIG, hdrHeadroom: 1.5 });
+    const document = sceneDocumentFromGradientConfig(hdr);
+    expect(document.globals.hdrHeadroom).toBe(1.5);
+    expect(gradientConfigFromSceneDocument(document).hdrHeadroom).toBe(1.5);
+    const sdr = sceneDocumentFromGradientConfig(GradientConfig.parse(DEFAULT_CONFIG));
+    expect("hdrHeadroom" in sdr.globals).toBe(false);
+    expect(gradientConfigFromSceneDocument(sdr).hdrHeadroom).toBe(0);
+  });
+
   it("wraps the current GradientConfig in a canonical scene document", () => {
     const config = GradientConfig.parse({
       ...DEFAULT_CONFIG,

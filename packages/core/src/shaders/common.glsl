@@ -23,6 +23,11 @@ uniform vec2 u_paletteDomain;       // post: the last visible layer's palette
 // [layer] [post] render scale: the share of the composite targets the layers drew into, see compositeUV()
 uniform vec2 u_compositeScale;
 
+// [layer] [post] HDR: how bright the frame may get, in units of white (linear
+// light). 1, except in a frame presented through an HDR output, where it is
+// 2^hdrHeadroom; read it through framePeak() and displayPeak().
+uniform float u_hdrPeak;
+
 // [layer] gradient parameters and mouse
 uniform vec2 u_mouse;
 uniform vec2 u_mouseSmooth;     // smoothed pointer: uv, y up
@@ -461,6 +466,22 @@ vec3 linearToSrgb(vec3 c) {
   return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
 }
 
+// The brightest light a frame may hold, in units of white: 1 in standard
+// range, the HDR peak in HDR. The light fields shine this much brighter than in
+// standard range, so their brightest stops reach the peak while the room or
+// wall they light stays as it is; lightToDisplay rolls off under the peak, and
+// both scale with it, so an HDR frame is the standard one with its light that
+// much brighter: the same picture, glowing.
+float framePeak() {
+  return max(u_hdrPeak, 1.0);
+}
+
+// framePeak() as a display value: white (1), or in HDR the peak on the same
+// curve, which goes on past 1 the way an extended-range canvas reads it.
+float displayPeak() {
+  return u_hdrPeak > 1.0 ? linearToSrgb(vec3(u_hdrPeak)).r : 1.0;
+}
+
 // erf(x), within 2e-4 (Winitzki's approximation).
 float erfApprox(float x) {
   float x2 = x * x;
@@ -510,15 +531,17 @@ vec3 lightRamp(float t) {
 
 // Linear light to display sRGB. Light below the knee passes through, so a
 // palette colour shows as picked (a channel at 1 comes back within two 8-bit
-// levels). Above it the brightest channel rolls off toward 1 on a short C1
-// shoulder, and the light that no longer fits bleaches the colour toward white,
-// keeping its hue, as bright coloured light does on film and in the eye.
+// levels). Above it the brightest channel rolls off toward the peak (white, or
+// the HDR peak) on a short C1 shoulder, and the light that no longer fits
+// bleaches the colour toward white, keeping its hue, as bright coloured light
+// does on film and in the eye.
 vec3 lightToDisplay(vec3 c) {
   c = max(c, 0.0);
   float m = max(max(c.r, c.g), c.b);
-  const float KNEE = 0.94;
-  if (m > KNEE) {
-    float shoulder = KNEE + (1.0 - KNEE) * tanh(min((m - KNEE) / (1.0 - KNEE), 10.0));
+  float peak = framePeak();
+  float knee = 0.94 * peak;
+  if (m > knee) {
+    float shoulder = knee + (peak - knee) * tanh(min((m - knee) / (peak - knee), 10.0));
     c = mix(c * (shoulder / m), vec3(shoulder), 1.0 - shoulder / m);
   }
   return linearToSrgb(c);
