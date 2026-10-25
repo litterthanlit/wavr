@@ -26,7 +26,7 @@ export const wavrConfig: GradientConfig = {
 
 Light modes: `liquidChrome` `horizonGlow` `inkSmoke` `plasmaOrb` `iridescentFoil` `lightLeak`. They read the palette as light, darkest stop first and brightest last, so give them a dark-to-light palette (or start from their presets).
 
-Light fields (coloured light in a space, after light installations; mixed in linear light, so the most saturated, gallery-like looks): `aperture` (a knife-edged opening of light in a wall: first colour the wall, the rest the light from the opening's core to its rim; complexity sets the proportions, from a tall slit at 1 to a wide band at 8, distortion the haze that spills it into the room), `halo` (a loop of light in a dark room; a dark-to-light palette like the light modes), `lightWall` (lights drifting behind frosted glass panels: first colour the glass's glow, the rest the lights). Their presets set `toneMapMode: 0` and most turn on `realBloomEnabled`; keep both when you adapt one.
+Light fields (coloured light in a space, after light installations; mixed in linear light, so the most saturated, gallery-like looks): `aperture` (a knife-edged opening of light in a wall: first colour the wall, the rest the light from the opening's core to its rim; complexity sets the proportions, from a tall slit at 1 to a wide band at 8, distortion the haze that spills it into the room), `halo` (a loop of light in a dark room; a dark-to-light palette like the light modes), `lightWall` (lights drifting behind frosted glass panels: first colour the glass's glow, the rest the lights). Their presets set `toneMapMode: 0` and `colorProfile: "display-p3"`, and most turn on `realBloomEnabled`; keep them when you adapt one.
 
 Skip `image` unless the user supplies a texture.
 
