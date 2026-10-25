@@ -467,8 +467,8 @@ export function getShareUrlV2(state: GradientState): string {
  *   `history.replaceState` so subsequent edits use the new format.
  * - On empty hash (on mount, or via popstate to "#"), resets the schema-owned
  *   slice to DEFAULT_CONFIG with the editor's initial scene as its layer and
- *   its effects (grain, tone map, cinematic bloom), so /editor opens on that
- *   scene rather than on the schema's bare baseline.
+ *   its effects (grain, tone map, cinematic bloom, colour profile), so /editor
+ *   opens on that scene rather than on the schema's bare baseline.
  *
  * An empty hash is applied synchronously. A hash that needs decoding is applied
  * synchronously too once the codec is loaded; otherwise it waits for the codec
@@ -487,6 +487,7 @@ export function applyHashToStore(): Promise<void> {
       layers: [layerParamsToConfig(createLayer(INITIAL_LAYER_PARAMS))],
       grain: INITIAL_EFFECTS.grain,
       toneMapMode: INITIAL_EFFECTS.toneMapMode,
+      colorProfile: INITIAL_EFFECTS.colorProfile,
       // DEFAULT_CONFIG has no realBloom, which reads as off.
       realBloom: { enabled: INITIAL_EFFECTS.realBloomEnabled },
     });

@@ -19,6 +19,7 @@ describe("initial scene", () => {
       grain: aperture.grain,
       toneMapMode: aperture.toneMapMode,
       realBloomEnabled: aperture.realBloomEnabled,
+      colorProfile: aperture.colorProfile,
     });
   });
 
@@ -31,5 +32,6 @@ describe("initial scene", () => {
     expect(state.grain).toBe(INITIAL_EFFECTS.grain);
     expect(state.toneMapMode).toBe(INITIAL_EFFECTS.toneMapMode);
     expect(state.realBloomEnabled).toBe(INITIAL_EFFECTS.realBloomEnabled);
+    expect(state.colorProfile).toBe("display-p3");
   });
 });

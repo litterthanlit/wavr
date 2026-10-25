@@ -371,7 +371,6 @@ const DEFAULTS = {
   feedbackEnabled: false,
   feedbackDecay: 0.5,
   oklabEnabled: true,
-  colorProfile: "srgb" as ColorProfile,
   rippleEnabled: false,
   rippleIntensity: 0.5,
   glowEnabled: false,
@@ -387,7 +386,7 @@ const DEFAULTS = {
   trailWidth: 0.05,
   debandEnabled: true,
   debandStrength: 1.0,
-  // The opening scene's own grain, tone map and bloom.
+  // The opening scene's own grain, tone map, bloom and colour profile.
   ...INITIAL_EFFECTS,
   audioEnabled: false,
   audioSource: "mic" as const,
