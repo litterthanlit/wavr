@@ -160,6 +160,7 @@ export function storeToConfig(state: GradientState): GradientConfig {
     oklabEnabled: state.oklabEnabled,
     toneMapMode: state.toneMapMode,
     colorProfile: state.colorProfile,
+    hdrHeadroom: state.hdrHeadroom,
     // Effect groups. Always emit so store state round-trips (disabled-with-
     // tweaked-intensity is preserved). Schema tolerates presence.
     noise: {
@@ -302,6 +303,7 @@ export function configToStorePatch(config: GradientConfig): Partial<GradientStat
     oklabEnabled: config.oklabEnabled,
     toneMapMode: config.toneMapMode,
     colorProfile: config.colorProfile,
+    hdrHeadroom: config.hdrHeadroom,
   };
 
   // Effect groups: flatten back to triples. Each group is optional on the

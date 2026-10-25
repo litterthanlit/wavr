@@ -108,6 +108,7 @@ export function resolveConfig(config: GradientConfig): EngineState {
     oklabEnabled: config.oklabEnabled ?? true,
     toneMapMode: config.toneMapMode ?? 1,
     colorProfile: config.colorProfile ?? "srgb",
+    hdrHeadroom: config.hdrHeadroom ?? 0,
     rippleEnabled: config.ripple?.enabled ?? false,
     rippleIntensity: config.ripple?.intensity ?? 0.5,
     glowEnabled: config.glow?.enabled ?? false,
@@ -161,6 +162,7 @@ export const CONFIG_FIELD_STATE_KEYS: Record<
   oklabEnabled: ["oklabEnabled"],
   toneMapMode: ["toneMapMode"],
   colorProfile: ["colorProfile"],
+  hdrHeadroom: ["hdrHeadroom"],
   ripple: ["rippleEnabled", "rippleIntensity"],
   glow: ["glowEnabled", "glowIntensity", "glowRadius"],
   caustic: ["causticEnabled", "causticIntensity"],
@@ -223,6 +225,7 @@ export function stateToConfig(state: EngineState): GradientConfig {
     speed: state.meshSpeed,
   };
   if (state.colorProfile !== "srgb") config.colorProfile = state.colorProfile;
+  if (state.hdrHeadroom > 0) config.hdrHeadroom = state.hdrHeadroom;
   // Deband: always emit so the engine's default-on behavior round-trips
   // correctly when the user explicitly disables it.
   config.deband = { enabled: state.debandEnabled, strength: state.debandStrength };

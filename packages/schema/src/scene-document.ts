@@ -140,6 +140,7 @@ export const WavrSceneGlobals = z.object({
   mouseReact: z.number().min(0).max(1),
   oklabEnabled: z.boolean(),
   toneMapMode: z.number().int().min(0).max(3),
+  hdrHeadroom: z.number().min(0).max(3).optional(),
 }).strict();
 export type WavrSceneGlobals = z.infer<typeof WavrSceneGlobals>;
 
@@ -213,6 +214,7 @@ function globalsFromConfig(config: GradientConfigValue): WavrSceneGlobals {
     mouseReact: config.mouseReact,
     oklabEnabled: config.oklabEnabled,
     toneMapMode: config.toneMapMode,
+    ...(config.hdrHeadroom > 0 ? { hdrHeadroom: config.hdrHeadroom } : {}),
   };
 }
 

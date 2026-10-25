@@ -198,7 +198,7 @@ void main() {
     mask = texture(u_textMaskTexture, v_uv).r;
   }
 
-  vec3 layerColor = clamp(color, 0.0, 1.0);
+  vec3 layerColor = clamp(color, 0.0, displayPeak());
   float layerAlpha = u_layerOpacity * mask;
 
   if (u_compositeEnabled) {

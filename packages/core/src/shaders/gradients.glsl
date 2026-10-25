@@ -948,7 +948,7 @@ vec3 apertureGradient(vec2 uv, float time) {
   // not a flat card).
   vec2 v = p / vec2(0.5 * u_resolution.x / u_resolution.y, 0.5);
   vec3 wall = srgbToLinear(u_colors[0]) * (1.0 - 0.1 * smoothstep(0.3, 1.6, dot(v, v)));
-  vec3 col = lightToDisplay(mix(wall, light, open));
+  vec3 col = lightToDisplay(mix(wall, light * framePeak(), open));
 
   // Haze scatters the opening's light into the room: around it the wall takes
   // on its colour (a mix, not an addition, so pink light in a cyan room turns
@@ -957,7 +957,7 @@ vec3 apertureGradient(vec2 uv, float time) {
   // and wider along the opening's long side, as in a lit fog.
   vec2 spread = (0.9 * halfSize + 0.08) * mix(0.35, 1.0, haze);
   float glow = blurredBox(p, halfSize, spread) / blurredBox(vec2(0.0), halfSize, spread);
-  vec3 mean = lightToDisplay(mix(apertureLight(1.0), apertureLight(0.0), 0.35));
+  vec3 mean = lightToDisplay(mix(apertureLight(1.0), apertureLight(0.0), 0.35) * framePeak());
   return mix(col, mean, haze * mix(0.82 * min(glow, 1.0), 0.3, open));
 }
 #endif
@@ -1055,7 +1055,7 @@ vec3 haloGradient(vec2 uv, float time) {
     vec3 core;
     vec3 glow;
     vec3 l = haloLoop(lp, a * (1.0 + 0.05 * fi), cosTilt, time + fi * 7.0, soft, wobble, 1.0 + 2.0 * fi, px, core, glow);
-    float weight = i == 0 ? 1.0 : 0.22 / fi;
+    float weight = (i == 0 ? 1.0 : 0.22 / fi) * framePeak();
     // Striations on the main loop only, where its far arc is in focus.
     float striated = i == 0 ? 1.0 + 0.45 * stripes * clamp(glow.g * 1.5, 0.0, 1.0) * clamp(1.0 + lp.y / (0.3 * a), 0.0, 1.0) : 1.0;
     col += weight * (
@@ -1125,7 +1125,7 @@ vec3 lightWallGradient(vec2 uv, float time) {
   float seam = exp(-(edge / seamW) * (edge / seamW));
   light *= (0.96 + 0.08 * hash(vec2(id, 1.3))) * (0.95 + 0.05 * smoothstep(0.0, 0.08, edge));
   light *= 1.0 - 0.5 * seam;
-  return lightToDisplay(light);
+  return lightToDisplay(light * framePeak());
 }
 #endif
 

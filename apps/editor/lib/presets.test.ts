@@ -33,6 +33,7 @@ const SAMPLES: { [K in keyof typeof CONFIG_FIELD_STATE_KEYS]: GradientConfig[K] 
   oklabEnabled: false,
   toneMapMode: 2,
   colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
   ripple: { enabled: true, intensity: 0.73 },
   glow: { enabled: true, intensity: 0.64, radius: 0.11 },
   caustic: { enabled: true, intensity: 0.58 },

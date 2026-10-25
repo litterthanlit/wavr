@@ -35,4 +35,5 @@ export const DEFAULT_CONFIG: GradientConfig = {
   oklabEnabled: true,
   toneMapMode: 1,
   colorProfile: "srgb",
+  hdrHeadroom: 0,
 };

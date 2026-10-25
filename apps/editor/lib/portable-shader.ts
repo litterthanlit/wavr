@@ -321,6 +321,13 @@ function constantDeclarations(s: PortableSettings): Record<string, { name: strin
   };
 }
 
+/** The engine's HDR helpers (common.glsl, post.glsl) as they are in standard range, the only range an export presents. */
+const STANDARD_RANGE: Record<string, string> = {
+  framePeak: "float framePeak() { return 1.0; }",
+  displayPeak: "float displayPeak() { return 1.0; }",
+  peakShoulder: "vec3 peakShoulder(vec3 c, float knee) { return highlightShoulder(c, knee); }",
+};
+
 /** Order the constants appear in, with a comment per group. */
 const CONSTANT_GROUPS: { comment: string; names: string[] }[] = [
   { comment: "Look: edit and reload", names: ["SPEED", "SCALE", "COMPLEXITY", "DISTORTION", "SOFTNESS", "DOMAIN_WARP", "COLOR_BLEND", "COLOR_COUNT"] },
@@ -358,6 +365,11 @@ export function buildPortableShader(settings: PortableSettings, parts: ShaderPar
     ...definitionsOf(preprocess(parts.mouse, defines()), "mouse.glsl", true),
     ...definitionsOf(preprocess(parts.gradients, defines()), "gradients.glsl", true),
   ];
+  // Exports are standard range: the engine's HDR helpers collapse to white.
+  for (const definition of pool) {
+    const standard = STANDARD_RANGE[definition.name];
+    if (standard) definition.text = definition.code = standard;
+  }
   const byName = new Map<string, Definition[]>();
   for (const definition of pool) byName.set(definition.name, [...(byName.get(definition.name) ?? []), definition]);
 

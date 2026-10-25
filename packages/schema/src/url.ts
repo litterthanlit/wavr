@@ -159,7 +159,7 @@ function stripDefaults(config: GC): Record<string, unknown> {
   const globals: Array<keyof GC> = [
     "brightness", "saturation", "grain", "vignette",
     "chromaticAberration", "hueShift", "domainWarp", "radialBlur",
-    "mouseReact", "oklabEnabled", "toneMapMode", "colorProfile",
+    "mouseReact", "oklabEnabled", "toneMapMode", "colorProfile", "hdrHeadroom",
   ];
   for (const k of globals) {
     if (config[k] !== DEFAULT_CONFIG[k]) out[k as string] = config[k];

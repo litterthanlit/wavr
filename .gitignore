@@ -22,6 +22,8 @@ tests/parity/pages/runner.global.js
 tests/parity/pages/runner.global.js.map
 tests/parity/pages/snapshot.global.js
 tests/parity/pages/snapshot.global.js.map
+tests/parity/pages/hdr.global.js
+tests/parity/pages/hdr.global.js.map
 
 # next.js
 .next/
