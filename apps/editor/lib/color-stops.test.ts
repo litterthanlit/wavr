@@ -7,6 +7,7 @@ import {
   moveStop,
   nearestSlot,
   reverseStops,
+  sameStops,
   stopPosition,
   type Rgb,
 } from "./color-stops";
@@ -47,6 +48,13 @@ describe("color stops", () => {
     expect(reverseStops(colors)).toEqual([BLUE, GREEN, RED]);
     expect(colors).toEqual([RED, GREEN, BLUE]);
     expect(moveStop(colors, 0, 1)[1]).not.toBe(colors[0]);
+  });
+
+  it("tells a palette that is exactly another from one that differs", () => {
+    expect(sameStops([RED, GREEN], [[1, 0, 0], [0, 1, 0]])).toBe(true);
+    expect(sameStops([RED, GREEN], [GREEN, RED])).toBe(false);
+    expect(sameStops([RED, GREEN], [RED, GREEN, BLUE])).toBe(false);
+    expect(sameStops([RED], [[1, 0, 0.001]])).toBe(false);
   });
 });
 

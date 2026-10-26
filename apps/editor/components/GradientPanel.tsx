@@ -7,12 +7,12 @@ import Slider from "@/components/ui/Slider";
 import { em, px, radiansAsDegrees, times } from "@/lib/units";
 import ColorInput from "@/components/ui/ColorInput";
 import GradientBar from "@/components/ui/GradientBar";
-import { MAX_STOPS, barPalette, insertStop, reverseStops, stopPosition, type Rgb } from "@/lib/color-stops";
+import { MAX_STOPS, barPalette, insertStop, reverseStops, sameStops, stopPosition, type Rgb } from "@/lib/color-stops";
 import Toggle from "@/components/ui/Toggle";
 import Section from "@/components/ui/Section";
 import LookPicker from "@/components/LookPicker";
 import { LayerParams, MaskParams, TextMaskAlign } from "@wavr/core";
-import { GRADIENT_OPTIONS } from "@/lib/gradient-types";
+import { GRADIENT_OPTIONS, curatedPalette } from "@/lib/gradient-types";
 
 const MASK_SHAPE_OPTIONS = [
   { value: "none", label: "None" },
@@ -253,6 +253,9 @@ export default function GradientPanel() {
   };
 
   const look = GRADIENT_OPTIONS.find((option) => option.value === store.gradientType);
+  // The look's own palette, offered back once the colours differ from it.
+  const curated = curatedPalette(store.gradientType);
+  const canReset = curated !== null && !sameStops(colors, curated);
 
   return (
     <div className="flex flex-col divide-y divide-border p-4">
@@ -323,6 +326,15 @@ export default function GradientPanel() {
               >
                 Reverse
               </button>
+              {canReset && (
+                <button
+                  type="button"
+                  onClick={() => store.setDiscrete({ colors: curated })}
+                  className="text-text-secondary hover:text-accent transition-colors py-1"
+                >
+                  Reset
+                </button>
+              )}
               {colors.length < MAX_STOPS && (
                 <button
                   type="button"
@@ -490,10 +502,10 @@ export default function GradientPanel() {
         )}
       </Section>
 
-      <Section title="Animation">
+      <Section title="Motion">
         <Slider label="Speed" value={store.speed} min={0} max={2} step={0.01} format={times} onChange={(v) => store.set({ speed: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} onCommit={() => store.commitSet()} />
         <Slider label="Scale" value={store.scale} min={0.2} max={4} step={0.01} format={times} onChange={(v) => store.set({ scale: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} onCommit={() => store.commitSet()} />
         <Slider label="Distortion" value={store.distortion} min={0} max={1} step={0.01} onChange={(v) => store.set({ distortion: v })} onCommit={() => store.commitSet()} />
         <Slider label="Softness" value={store.softness} min={0} max={1} step={0.01} onChange={(v) => store.set({ softness: v })} onCommit={() => store.commitSet()} />
       </Section>
