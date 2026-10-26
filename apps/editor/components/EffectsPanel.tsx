@@ -63,36 +63,12 @@ export default function EffectsPanel() {
   const wideGamut = useWideGamutDisplay();
   const hdrDisplay = useHdrDisplay();
   const hdrStatus = useHdrStatus();
+  const [moreGlow, setMoreGlow] = useState(false);
+  // A scene that uses an older glow opens with it showing.
+  const moreGlowOpen = moreGlow || store.bloomEnabled || store.glowEnabled;
 
   return (
     <div className="flex flex-col gap-1 p-4">
-      {/* Output quality (spec 0004) — on by default, grouped separately so users
-          don't confuse it with creative effects. Leave on unless exporting a
-          posterized look. */}
-      <Section
-        title="Output quality"
-      >
-        <div title="Adds sub-pixel noise to hide 8-bit color banding. Leave on unless you're exporting a posterized look.">
-          <Toggle
-            label="Anti-banding"
-            checked={store.debandEnabled}
-            onChange={(v) => store.setDiscrete({ debandEnabled: v })}
-          />
-        </div>
-        {store.debandEnabled && (
-          <Slider
-            label="Strength"
-            value={store.debandStrength}
-            min={0}
-            max={2}
-            step={0.1}
-            onChange={(v) => store.set({ debandStrength: v })}
-            onCommit={() => store.commitSet()}
-          />
-        )}
-      </Section>
-
-      <div className="border-t border-border my-1" />
 
       {/* Texture */}
       <Section title="Texture" defaultOpen>
@@ -115,12 +91,26 @@ export default function EffectsPanel() {
             {hdrCaption(store.hdrHeadroom, hdrDisplay, hdrStatus)}
           </p>
         )}
-        <Toggle label="Bloom" checked={store.bloomEnabled} onChange={(v) => store.setDiscrete({ bloomEnabled: v })} />
-        {store.bloomEnabled && <Slider label="Intensity" value={store.bloomIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ bloomIntensity: v })} onCommit={() => store.commitSet()} />}
-        <Toggle label="Cinematic Bloom" checked={store.realBloomEnabled} onChange={(v) => store.setDiscrete({ realBloomEnabled: v })} />
-        <Toggle label="Soft Glow" checked={store.glowEnabled} onChange={(v) => store.setDiscrete({ glowEnabled: v })} />
-        {store.glowEnabled && <Slider label="Intensity" value={store.glowIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ glowIntensity: v })} onCommit={() => store.commitSet()} />}
-        {store.glowEnabled && <Slider label="Radius" value={store.glowRadius} min={0.01} max={0.1} step={0.005} onChange={(v) => store.set({ glowRadius: v })} onCommit={() => store.commitSet()} />}
+        {/* Bloom is the cinematic one (the bloom pyramid); the two older glows
+            stay for the scenes that use them, folded away unless one is on. */}
+        <Toggle label="Bloom" checked={store.realBloomEnabled} onChange={(v) => store.setDiscrete({ realBloomEnabled: v })} />
+        <button
+          type="button"
+          onClick={() => setMoreGlow(!moreGlowOpen)}
+          aria-expanded={moreGlowOpen}
+          className="self-start text-[11px] text-text-tertiary hover:text-text-secondary transition-colors"
+        >
+          {moreGlowOpen ? "Fewer glow styles" : "More glow styles"}
+        </button>
+        {moreGlowOpen && (
+          <>
+            <Toggle label="Classic Bloom" checked={store.bloomEnabled} onChange={(v) => store.setDiscrete({ bloomEnabled: v })} />
+            {store.bloomEnabled && <Slider label="Intensity" value={store.bloomIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ bloomIntensity: v })} onCommit={() => store.commitSet()} />}
+            <Toggle label="Soft Glow" checked={store.glowEnabled} onChange={(v) => store.setDiscrete({ glowEnabled: v })} />
+            {store.glowEnabled && <Slider label="Intensity" value={store.glowIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ glowIntensity: v })} onCommit={() => store.commitSet()} />}
+            {store.glowEnabled && <Slider label="Radius" value={store.glowRadius} min={0.01} max={0.1} step={0.005} onChange={(v) => store.set({ glowRadius: v })} onCommit={() => store.commitSet()} />}
+          </>
+        )}
         <Toggle label="Caustics" checked={store.causticEnabled} onChange={(v) => store.setDiscrete({ causticEnabled: v })} />
         {store.causticEnabled && <Slider label="Intensity" value={store.causticIntensity} min={0} max={1} step={0.01} onChange={(v) => store.set({ causticIntensity: v })} onCommit={() => store.commitSet()} />}
         <Slider label="Vignette" value={store.vignette} min={0} max={1} step={0.01} onChange={(v) => store.set({ vignette: v })} onCommit={() => store.commitSet()} />
@@ -252,6 +242,34 @@ export default function EffectsPanel() {
 
       {/* Audio Reactivity */}
       <AudioSection />
+
+      <div className="border-t border-border my-1" />
+
+      {/* Output quality (spec 0004) — on by default, grouped separately so users
+          don't confuse it with creative effects. Leave on unless exporting a
+          posterized look. */}
+      <Section
+        title="Output quality"
+      >
+        <div title="Adds sub-pixel noise to hide 8-bit color banding. Leave on unless you're exporting a posterized look.">
+          <Toggle
+            label="Anti-banding"
+            checked={store.debandEnabled}
+            onChange={(v) => store.setDiscrete({ debandEnabled: v })}
+          />
+        </div>
+        {store.debandEnabled && (
+          <Slider
+            label="Strength"
+            value={store.debandStrength}
+            min={0}
+            max={2}
+            step={0.1}
+            onChange={(v) => store.set({ debandStrength: v })}
+            onCommit={() => store.commitSet()}
+          />
+        )}
+      </Section>
     </div>
   );
 }

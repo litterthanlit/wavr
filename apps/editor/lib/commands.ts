@@ -67,7 +67,7 @@ type EffectFlag = (typeof EFFECT_FLAGS)[number];
 
 const EFFECT_LABELS: Record<EffectFlag, string> = {
   noiseEnabled: "noise",
-  bloomEnabled: "bloom",
+  bloomEnabled: "classic bloom",
   blurEnabled: "blur",
   curlEnabled: "curl",
   kaleidoscopeEnabled: "kaleidoscope",
@@ -81,11 +81,11 @@ const EFFECT_LABELS: Record<EffectFlag, string> = {
   threeDEnabled: "3D",
   meshDistortionEnabled: "mesh distortion",
   rippleEnabled: "ripple",
-  glowEnabled: "glow",
+  glowEnabled: "soft glow",
   causticEnabled: "caustic",
   liquifyEnabled: "liquify",
   trailEnabled: "trail",
-  realBloomEnabled: "real bloom",
+  realBloomEnabled: "bloom",
   debandEnabled: "deband",
 };
 
