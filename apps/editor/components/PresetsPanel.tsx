@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useGradientStore } from "@/lib/store";
-import { PRESETS, CATEGORY_ORDER, CATEGORY_LABELS, ARCHIVED_CATEGORIES, PresetCategory, type Preset } from "@/lib/presets";
+import { PRESETS, CATEGORY_ORDER, CATEGORY_LABELS, PresetCategory, type Preset } from "@/lib/presets";
 import { cssColor } from "@/lib/css-color";
 
 function PresetCard({ preset, onLoad }: { preset: Preset; onLoad: (preset: Preset) => void }) {
@@ -41,7 +41,7 @@ function PresetCard({ preset, onLoad }: { preset: Preset; onLoad: (preset: Prese
 
 export default function PresetsPanel() {
   const loadPreset = useGradientStore((s) => s.loadPreset);
-  const [collapsed, setCollapsed] = useState<Set<PresetCategory>>(() => new Set(ARCHIVED_CATEGORIES));
+  const [collapsed, setCollapsed] = useState<Set<PresetCategory>>(() => new Set());
 
   const toggleCategory = (cat: PresetCategory) => {
     setCollapsed((prev) => {
@@ -58,7 +58,6 @@ export default function PresetsPanel() {
         const catPresets = PRESETS.filter((p) => p.category === cat);
         if (catPresets.length === 0) return null;
         const isCollapsed = collapsed.has(cat);
-        const archived = ARCHIVED_CATEGORIES.includes(cat);
         const listId = `presets-${cat}`;
 
         return (
@@ -89,17 +88,10 @@ export default function PresetsPanel() {
             </button>
 
             {!isCollapsed && (
-              <div id={listId}>
-                {archived && (
-                  <p className="text-[11px] leading-relaxed text-text-tertiary pb-2">
-                    Earlier presets, kept so scenes and code that name them still load.
-                  </p>
-                )}
-                <div className="grid grid-cols-2 gap-2 pb-3">
-                  {catPresets.map((preset) => (
-                    <PresetCard key={preset.id} preset={preset} onLoad={(p) => loadPreset(p.data)} />
-                  ))}
-                </div>
+              <div id={listId} className="grid grid-cols-2 gap-2 pb-3">
+                {catPresets.map((preset) => (
+                  <PresetCard key={preset.id} preset={preset} onLoad={(p) => loadPreset(p.data)} />
+                ))}
               </div>
             )}
           </section>

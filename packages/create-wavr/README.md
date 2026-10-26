@@ -4,7 +4,7 @@ Scaffold a Wavr shader landing page with a compact editor overlay in the preview
 
 ```bash
 npx create-wavr my-site
-npx create-wavr my-site --template waitlist --preset ocean
+npx create-wavr my-site --template waitlist --preset inkSmoke
 npx create-wavr my-site --template html
 ```
 

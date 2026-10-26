@@ -7,7 +7,7 @@ import * as corePresets from "@wavr/core/presets";
 import { PRESET_CATALOG, PRESET_CATEGORIES } from "@wavr/core/presets";
 import { presets as allPresets } from "@wavr/core/presets/all";
 import { presetToStorePatch } from "./preset-patch";
-import { ARCHIVED_CATEGORIES, PRESETS } from "./presets";
+import { PRESETS } from "./presets";
 import { PRESETS as CREATE_WAVR_PRESETS, parseArgs } from "../../../packages/create-wavr/src/args";
 
 const THUMBNAIL_DIR = path.join(__dirname, "../public/presets");
@@ -85,19 +85,17 @@ describe("preset catalog", () => {
     expect(PRESETS.map((preset) => preset.id)).toEqual(PRESET_CATALOG.map((entry) => entry.id));
   });
 
-  it("lists its categories in display order, with the archive last", () => {
-    expect(PRESET_CATEGORIES.map((category) => category.id)).toEqual(["lightFields", "light", "soft", "texture", "archive"]);
-    expect(ARCHIVED_CATEGORIES).toEqual(["archive"]);
+  it("lists its categories in display order", () => {
+    expect(PRESET_CATEGORIES.map((category) => category.id)).toEqual(["lightFields", "light"]);
     // The catalogue is grouped: each category's presets sit together, in category order.
     const order = PRESET_CATEGORIES.map((category) => category.id);
     const indexes = PRESET_CATALOG.map((entry) => order.indexOf(entry.category));
     expect(indexes).toEqual([...indexes].sort((a, b) => a - b));
   });
 
-  it("doesn't scaffold new pages from an archived preset", () => {
-    const archived = new Set(PRESET_CATALOG.filter((entry) => entry.category === "archive").map((entry) => entry.id));
+  it("lets create-wavr scaffold from every preset, and only those", () => {
+    expect([...CREATE_WAVR_PRESETS]).toEqual(PRESET_CATALOG.map((entry) => entry.id));
     expect(CREATE_WAVR_PRESETS).toContain(parseArgs([]).preset);
-    expect(archived.has(parseArgs([]).preset)).toBe(false);
   });
 });
 

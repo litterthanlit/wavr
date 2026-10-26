@@ -4,11 +4,11 @@ import { scaffold } from "./scaffold";
 const HELP = `create-wavr — scaffold a Wavr shader landing page
 
 Usage:
-  npx create-wavr [dir] [--template hero|waitlist|product|html] [--preset aurora]
+  npx create-wavr [dir] [--template hero|waitlist|product|html] [--preset halo]
 
 Options:
   -t, --template   ${TEMPLATES.join(" | ")} (default: hero)
-  -p, --preset     Named Wavr preset (default: aurora)
+  -p, --preset     Named Wavr preset (default: halo)
       --link       Absolute Wavr monorepo root; copies local packages via file:
   -h, --help       Show this message
 

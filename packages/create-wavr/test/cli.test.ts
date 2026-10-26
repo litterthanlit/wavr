@@ -14,8 +14,8 @@ afterEach(() => {
 });
 
 describe("parseArgs", () => {
-  it("defaults to hero/aurora", () => {
-    expect(parseArgs([])).toMatchObject({ dir: "wavr-landing", template: "hero", preset: "aurora" });
+  it("defaults to hero/halo", () => {
+    expect(parseArgs([])).toMatchObject({ dir: "wavr-landing", template: "hero", preset: "halo" });
   });
 
   it("ignores a bare -- separator", () => {
@@ -26,11 +26,11 @@ describe("parseArgs", () => {
   });
 
   it("parses template, preset, and link", () => {
-    const options = parseArgs(["site", "--template", "waitlist", "--preset", "ocean", "--link", "/workspace"]);
+    const options = parseArgs(["site", "--template", "waitlist", "--preset", "inkSmoke", "--link", "/workspace"]);
     expect(options).toMatchObject({
       dir: "site",
       template: "waitlist",
-      preset: "ocean",
+      preset: "inkSmoke",
       link: "/workspace",
     });
   });
@@ -38,16 +38,20 @@ describe("parseArgs", () => {
   it("rejects unknown templates", () => {
     expect(() => parseArgs(["--template", "nope"])).toThrow(/Unknown template/);
   });
+
+  it("rejects a preset that has been removed", () => {
+    expect(() => parseArgs(["--preset", "aurora"])).toThrow(/Unknown preset/);
+  });
 });
 
 describe("scaffold", () => {
   it("creates a hero Next app with config, apply API, and skills", () => {
     const dir = path.join(mkdtempSync(path.join(tmpdir(), "wavr-")), "hero");
     temps.push(path.dirname(dir));
-    scaffold({ dir, template: "hero", preset: "sunset", link: null, help: false });
+    scaffold({ dir, template: "hero", preset: "lightWall", link: null, help: false });
 
     const config = readFileSync(path.join(dir, "wavr.config.ts"), "utf8");
-    expect(config).toContain("sunset");
+    expect(config).toContain("lightWall");
     expect(readFileSync(path.join(dir, "app/page.tsx"), "utf8")).toContain("WavrBackground");
     const background = readFileSync(path.join(dir, "components/WavrBackground.tsx"), "utf8");
     expect(background).toContain("showEditor");
@@ -61,13 +65,13 @@ describe("scaffold", () => {
     const dir = path.join(mkdtempSync(path.join(tmpdir(), "wavr-")), "html");
     temps.push(path.dirname(dir));
     try {
-      scaffold({ dir, template: "html", preset: "ocean", link: null, help: false });
+      scaffold({ dir, template: "html", preset: "inkSmoke", link: null, help: false });
     } catch (error) {
       if (error instanceof Error && error.message.includes("IIF")) return;
       throw error;
     }
     const html = readFileSync(path.join(dir, "index.html"), "utf8");
-    expect(html).toContain("presets.ocean");
+    expect(html).toContain("presets.inkSmoke");
   });
 
   it("refuses a non-empty directory", () => {
@@ -76,7 +80,7 @@ describe("scaffold", () => {
     mkdirSync(path.join(dir, "keep"), { recursive: true });
     writeFileSync(path.join(dir, "keep", "x.txt"), "nope");
     expect(() =>
-      scaffold({ dir, template: "hero", preset: "aurora", link: null, help: false }),
+      scaffold({ dir, template: "hero", preset: "halo", link: null, help: false }),
     ).toThrow(/non-empty/);
   });
 });
