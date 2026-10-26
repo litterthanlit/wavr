@@ -32,6 +32,9 @@ export function currentGradientType<T extends string>(type: T): T | GradientType
   return RETIRED_GRADIENT_TYPES.get(type) ?? type;
 }
 
+/** Global config fields only retired gradient types read. Old configs still carry them; they are dropped. */
+export const RETIRED_GLOBALS: readonly string[] = ["domainWarp"];
+
 // 26-value Photoshop set.
 export const BLEND_MODES = [
   "normal",

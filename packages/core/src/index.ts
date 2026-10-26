@@ -20,6 +20,7 @@ export {
   MASK_SHAPES,
   MASK_BLEND_MODES,
   TEXT_MASK_ALIGNS,
+  RETIRED_GLOBALS,
   RETIRED_GRADIENT_TYPES,
   currentGradientType,
 } from "@wavr/schema/enums";

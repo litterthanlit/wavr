@@ -1,5 +1,5 @@
 import { GradientState, type PerformanceMode } from "./store";
-import { ColorProfile, LayerParams, currentGradientType } from "@wavr/core";
+import { ColorProfile, LayerParams, RETIRED_GLOBALS, currentGradientType } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
 import { cloneScene3D, type Scene3DState } from "./scene3d";
 import { sceneDocumentToStorePatch, storeToSceneDocument } from "./scene-document";
@@ -353,9 +353,9 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
     }
     return next;
   }));
-  // Projects saved while the retired gradient types existed carry their domain warp.
-  const state: Partial<ProjectState> & { domainWarp?: unknown } = { ...project.state };
-  delete state.domainWarp;
+  // Projects saved while the retired gradient types existed carry their globals.
+  const state: Record<string, unknown> = { ...project.state };
+  for (const k of RETIRED_GLOBALS) delete state[k];
   return { patch: { ...state, layers } as Partial<GradientState>, missingImages };
 }
 

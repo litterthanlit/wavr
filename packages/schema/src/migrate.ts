@@ -1,6 +1,6 @@
 import { GradientConfig, type GradientConfig as GC } from "./schema";
 import { DEFAULT_CONFIG } from "./defaults";
-import { currentGradientType } from "./enums";
+import { RETIRED_GLOBALS, currentGradientType } from "./enums";
 import { SCHEMA_VERSION, type SchemaVersion } from "./version";
 
 export type LegacyShape = "types-v1" | "project-state-v1";
@@ -62,9 +62,6 @@ export function detectShape(input: unknown): DetectedShape {
 
   return "project-state-v1";
 }
-
-/** Globals that only retired gradient types read. Old configs still carry them. */
-const RETIRED_GLOBALS = ["domainWarp"];
 
 const WARN = (warnings: MigrateWarning[], opts: MigrateOptions | undefined, w: MigrateWarning) => {
   warnings.push(w);

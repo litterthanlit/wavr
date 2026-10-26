@@ -106,7 +106,7 @@ The canonical list is `GRADIENT_TYPES` in `packages/schema/src/enums.ts` (zod-fr
 
 `apps/editor/lib/gradient-types.test.ts` fails if a type is missing an editor option, a shader id, a guard or a dispatch branch, or if a kept type's shader id changes (code exports and embeds compile it in).
 
-To retire a mode, delete it everywhere and add its name to `RETIRED_GRADIENT_TYPES` (`packages/schema/src/enums.ts`) with the kept type it opens as. Every place a config enters reads that table (`migrate()` for share URLs and `/embed`, `parseSceneDocument()`, core's `resolveConfig()`, the editor's `projectStateForLoad()`), so old links, embeds and saved projects still open. A config field only the retired mode read goes from the schema too; `migrate()` and `parseSceneDocument()` drop it from old configs (`RETIRED_GLOBALS` in `migrate.ts`).
+To retire a mode, delete it everywhere and add its name to `RETIRED_GRADIENT_TYPES` (`packages/schema/src/enums.ts`) with the kept type it opens as. Every place a config enters reads that table (`migrate()` for share URLs and `/embed`, `parseSceneDocument()`, core's `resolveConfig()`, the editor's `projectStateForLoad()`), so old links, embeds and saved projects still open. A config field only the retired mode read goes from the schema too; `migrate()` and `parseSceneDocument()` drop it from old configs (`RETIRED_GLOBALS`, next to the table).
 
 ## Testing
 

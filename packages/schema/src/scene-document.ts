@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { BlendMode, ColorSpace } from "./primitives";
-import { currentGradientType } from "./enums";
+import { RETIRED_GLOBALS, currentGradientType } from "./enums";
 import { LayerConfig } from "./layer";
 import { GradientConfig, type GradientConfig as GradientConfigValue } from "./schema";
 import { DEFAULT_CONFIG } from "./defaults";
@@ -183,7 +183,7 @@ export function parseSceneDocument(input: unknown): WavrSceneDocument {
   const document: Record<string, unknown> = { ...input };
   if (isRecord(input.globals)) {
     const globals: Record<string, unknown> = { ...input.globals };
-    delete globals.domainWarp;
+    for (const k of RETIRED_GLOBALS) delete globals[k];
     document.globals = globals;
   }
   if (Array.isArray(input.layers)) {

@@ -71,7 +71,7 @@ export type {
   PropertySchema,
 } from "./property-schema";
 export { DEFAULT_CONFIG } from "./defaults";
-export { RETIRED_GRADIENT_TYPES, currentGradientType } from "./enums";
+export { RETIRED_GLOBALS, RETIRED_GRADIENT_TYPES, currentGradientType } from "./enums";
 export { SCHEMA_VERSION, type SchemaVersion } from "./version";
 
 // Migration
