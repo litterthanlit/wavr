@@ -69,17 +69,17 @@ describe("GradientEngine colour profile", () => {
 
   it("bakes the palette in the scene's profile, and again when the profile changes", () => {
     const { engine, uploads } = setup();
-    const aurora = createLayer({ gradientType: "halo", colors: COLORS });
-    const blend = effectiveBlend(0, aurora.softness);
+    const halo = createLayer({ gradientType: "halo", colors: COLORS });
+    const blend = effectiveBlend(0, halo.softness);
     const palettes = () => uploads.filter((u) => u.format === "RGBA16F" && u.width === PALETTE_SIZE && u.height === 1);
 
-    engine.render(state({ layers: [aurora], colorProfile: "display-p3" }));
+    engine.render(state({ layers: [halo], colorProfile: "display-p3" }));
     expect(palettes().at(-1)?.data).toEqual(Array.from(bakePalette(COLORS, true, blend, undefined, true)));
 
-    engine.render(state({ layers: [aurora], colorProfile: "display-p3" }));
+    engine.render(state({ layers: [halo], colorProfile: "display-p3" }));
     expect(palettes()).toHaveLength(1);
 
-    engine.render(state({ layers: [aurora] }));
+    engine.render(state({ layers: [halo] }));
     expect(palettes()).toHaveLength(2);
     expect(palettes().at(-1)?.data).toEqual(Array.from(bakePalette(COLORS, true, blend)));
   });
