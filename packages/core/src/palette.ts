@@ -11,21 +11,20 @@
 // the stops is not: that one was a smoothstep from each stop to the next, which
 // brings the colour to rest at every stop and leaves each one a flat band.
 // This one passes through the inner stops on Catmull-Rom tangents, as the
-// light fields' lightStops (common.glsl) does, and is flat at both ends.
+// light fields' lightStops (common.glsl) does, except in a channel that stops
+// or turns there, so repeated stops still hold a colour; it is flat at both
+// ends.
 
 type Rgb = readonly [number, number, number];
 
 /**
  * Texels in the table: linear filtering between them must stay within one
  * 8-bit level of the exact function. Smooth palettes need far fewer (256 gives
- * 0.05/255 for the editor's defaults), but saturated stops in Oklab clip at
- * the sRGB gamut edge, which leaves kinks in the curve: a rainbow of 8 stops is
- * off by 14/255 at 128 texels, 7.4/255 at 256 and 0.74/255 at 512. The curve
- * runs through a stop on the gamut edge without slowing, so the edge cuts it
- * there: pure red, green and blue are off by 3.2/255 at 512 (halving with each
- * doubling), within the one texel around green. At 512 the table is 4 KB of
- * half-float per layer and a bake is 512 x 7 colour evaluations, a fraction of
- * a millisecond.
+ * 0.08/255 for the editor's defaults), but saturated stops in Oklab clip at
+ * the sRGB gamut edge, which leaves kinks in the curve: the worst case measured
+ * (a rainbow, 8 stops) is 11/255 at 128 texels, 5.4/255 at 256 and 0.46/255
+ * at 512. At 512 the table is 4 KB of half-float per layer and a bake is
+ * 512 x 7 colour evaluations, a fraction of a millisecond.
  * Must match PALETTE_TEXELS in common.glsl.
  */
 export const PALETTE_SIZE = 512;
@@ -166,20 +165,27 @@ function oklabToLinear(L: number, a: number, b: number): [number, number, number
  * The palette before the blend: stop j of n at t = j / (n - 1), joined by
  * cubic Hermite segments in the space the stops mix in (Oklab when `oklab` is
  * on, else the stop values). Inner stops get Catmull-Rom tangents, so the
- * colour keeps moving through a stop instead of resting on it; the first and
- * last get none, so the palette is flat at both ends, where pingPong() folds
- * it. With two stops it is a smoothstep. The returned function writes the
- * colour at `t` (clamped to [0, 1]) into `out`, never negative; out of Oklab,
- * `displayP3` gives Display P3 values.
+ * colour keeps moving through a stop instead of resting on it, but per channel
+ * only where the channel keeps going the same way through the stop: a channel
+ * the stop repeats, peaks or dips at gets none, so a run of repeated stops
+ * holds its colour (stops have no positions; repeating one is how a colour is
+ * held longer) and no channel overshoots a stop it peaks or dips at. The first
+ * and last get none, so the palette is flat at both ends, where pingPong()
+ * folds it. With two stops it is a smoothstep. The returned function writes
+ * the colour at `t` (clamped to [0, 1]) into `out`, never negative; out of
+ * Oklab, `displayP3` gives Display P3 values.
  */
 export function stopCurve(stops: readonly Rgb[], oklab: boolean, displayP3 = false): (t: number, out: number[]) => void {
   const points = oklab ? stops.map((c): Rgb => linearToOklab(...stopToLinearSrgb(c, displayP3))) : stops;
   const last = points.length - 1;
-  const tangents = points.map((_, j): Rgb => {
+  const tangents = points.map((point, j): Rgb => {
     if (j === 0 || j === last) return [0, 0, 0];
-    const before = points[j - 1];
-    const after = points[j + 1];
-    return [0.5 * (after[0] - before[0]), 0.5 * (after[1] - before[1]), 0.5 * (after[2] - before[2])];
+    const tangent = (c: number) => {
+      const d0 = point[c] - points[j - 1][c];
+      const d1 = points[j + 1][c] - point[c];
+      return d0 * d1 > 0 ? 0.5 * (d0 + d1) : 0;
+    };
+    return [tangent(0), tangent(1), tangent(2)];
   });
 
   return (t, out) => {

@@ -101,9 +101,16 @@ ${settings.displayP3 ? `  const r = 4.0767416621 * l3 - 3.3077115913 * m3 + 0.23
 };
 const mixStops = COLORS.map((c) => (OKLAB ? toOklab(c) : c));
 // The direction the curve passes each stop in: toward the next stop from the one before, so the colour never
-// rests on a stop; none at the two ends, so the palette is flat where the shader folds it back.
+// rests on a stop. A channel that repeats, peaks or dips at the stop gets none, so repeated stops hold their
+// colour and no channel overshoots a stop it peaks or dips at. Nor do the two ends, so the palette is flat
+// where the shader folds it back.
 const tangents = mixStops.map((c, j) =>
-  j === 0 || j === mixStops.length - 1 ? [0, 0, 0] : c.map((_, i) => 0.5 * (mixStops[j + 1][i] - mixStops[j - 1][i])),
+  c.map((v, i) => {
+    if (j === 0 || j === mixStops.length - 1) return 0;
+    const d0 = v - mixStops[j - 1][i];
+    const d1 = mixStops[j + 1][i] - v;
+    return d0 * d1 > 0 ? 0.5 * (d0 + d1) : 0;
+  }),
 );
 // The texture covers t from -REACH to 1 + REACH: how far the blend still moves the colour past the ends.
 const REACH = BLEND < 0.01 ? 0 : BLEND * 0.3;

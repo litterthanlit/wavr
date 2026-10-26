@@ -204,23 +204,39 @@ describe("the curve through the stops", () => {
   }
 
   // The defect this curve fixes: a smoothstep from stop to stop brings the
-  // colour to rest at every stop, so each stop shows as a flat band.
-  const FLOWING = ["editor default", "rainbow, 8 stops", "saturated primaries", "light leak", "near black", "repeated stop"];
-  for (const name of FLOWING) {
+  // colour to rest at every stop, so each stop shows as a flat band. It may
+  // rest only where no channel (in the space the stops mix in) carries on
+  // through the stop: a repeated stop holds, a peak or dip doesn't overshoot.
+  for (const [name, colors] of Object.entries(PALETTES).filter(([, colors]) => colors.length > 2)) {
     for (const mode of MODES) {
-      it(`${name}, ${mode.name}: keeps moving through the inner stops`, () => {
-        const colors = PALETTES[name];
+      it(`${name}, ${mode.name}: keeps moving through every inner stop a channel carries on through, and rests at the others`, () => {
         const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        const points = colors.map((c) => toMixSpace(c, mode.oklab, mode.displayP3));
         const mean = meanSpeed(palette);
         const h = 1e-5;
         for (let j = 1; j < colors.length - 1; j++) {
+          const carriesOn = [0, 1, 2].some((c) => (points[j][c] - points[j - 1][c]) * (points[j + 1][c] - points[j][c]) > 0);
           const t = j / (colors.length - 1);
           const speed = distance(palette(t + h), palette(t - h)) / (2 * h);
-          expect(speed / mean, `stop ${j}`).toBeGreaterThan(0.1);
+          if (carriesOn) expect(speed / mean, `stop ${j} moves`).toBeGreaterThan(0.1);
+          else expect(speed / mean, `stop ${j} rests`).toBeLessThan(1e-3);
         }
       });
     }
   }
+
+  it("holds a repeated stop's colour across the whole run", () => {
+    // Stops have no positions, so repeating one is how a colour is held longer.
+    const navy: V3 = [0.1, 0.12, 0.35];
+    const colors: V3[] = [navy, navy, navy, [1, 0.45, 0.4]];
+    for (const mode of MODES) {
+      const table = bakePalette(colors, mode.oklab, 0, undefined, mode.displayP3);
+      // Texels 0 to 340 are t = 0 to 2/3, the three navy stops.
+      for (let i = 0; i <= Math.floor((2 / 3) * (PALETTE_SIZE - 1)); i++) {
+        expect([table[i * 4], table[i * 4 + 1], table[i * 4 + 2]], `${mode.name}, texel ${i}`).toEqual([table[0], table[1], table[2]]);
+      }
+    }
+  });
 
   // pingPong() folds the palette at both ends; a slope there would leave a crease.
   for (const [name, colors] of Object.entries(PALETTES).filter(([, colors]) => colors.length > 1)) {
@@ -236,10 +252,11 @@ describe("the curve through the stops", () => {
   }
 
   it("is never negative", () => {
-    // Pure green between pure red and blue: the curve leaves green heading for
-    // blue and away from red, which takes red below 0 unless clamped.
+    // A dark ramp that brightens fast after its middle stop: the curve arrives
+    // there on that steep tangent, which first pulls it below black.
+    const ramp: V3[] = [[0, 0, 0], [0.1, 0.1, 0.1], [1, 1, 1]];
     for (const mode of MODES) {
-      const table = bakePalette(PALETTES["saturated primaries"], mode.oklab, 0, undefined, mode.displayP3);
+      const table = bakePalette(ramp, mode.oklab, 0, undefined, mode.displayP3);
       for (let i = 0; i < table.length; i++) expect(table[i]).toBeGreaterThanOrEqual(0);
     }
   });
@@ -303,11 +320,7 @@ describe("bakePalette", () => {
           const got = sampleTable(table, 0, i / steps);
           for (let c = 0; c < 3; c++) worst = Math.max(worst, Math.abs(got[c] - expected[c]));
         }
-        // Pure green lies on the gamut's edge and the curve runs through it
-        // without slowing, so the edge cuts the curve there: a kink that
-        // filtering rounds off within one texel (see PALETTE_SIZE).
-        const kinked = name === "saturated primaries" && mode.oklab;
-        expect(worst * 255).toBeLessThanOrEqual(kinked ? 3.5 : 1);
+        expect(worst * 255).toBeLessThanOrEqual(1);
       });
     }
   }
