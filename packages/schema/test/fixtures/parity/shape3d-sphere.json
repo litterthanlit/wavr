@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "layers": [
     {
-      "type": "mesh",
+      "type": "liquidChrome",
       "colors": [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42], [0.251, 0.878, 0.816]],
       "speed": 0,
       "complexity": 3,
