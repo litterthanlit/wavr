@@ -14,6 +14,7 @@ import {
   createPaletteKey,
   paletteKeyMatches,
   setPaletteKey,
+  stopCurve,
   toMixSpace,
 } from "../../../packages/core/src/palette";
 
@@ -23,6 +24,8 @@ type V3 = [number, number, number];
 // A straight port of the GLSL the palette texture replaced (sampleColorAt and
 // getGradientColor, common.glsl before the palette bake), written the way the
 // GLSL reads: vec3 maths, mix/step/pow/clamp, one function per GLSL function.
+// It walked a smoothstep from stop to stop. Between two stops the curve still
+// is that smoothstep, so a two-stop palette must bake to exactly these colours.
 // ---------------------------------------------------------------------------
 const map3 = (a: V3, f: (x: number) => number): V3 => [f(a[0]), f(a[1]), f(a[2])];
 const mix1 = (x: number, y: number, a: number) => x * (1 - a) + y * a;
@@ -117,14 +120,25 @@ function glslGetGradientColor(u: Uniforms, t: number): V3 {
 
 const PALETTES: Record<string, V3[]> = {
   "two stops": [[0.9, 0.2, 0.3], [0.1, 0.3, 0.95]],
+  "two stops, dark to light": [[0.1, 0.1, 0.4], [1, 0.6, 0.3]],
   "editor default": [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42], [0.251, 0.878, 0.816], [0.98, 0.82, 0.2]],
   "black and white, 8 stops": [[0, 0, 0], [1, 1, 1], [0, 0, 0], [1, 1, 1], [0, 0, 0], [1, 1, 1], [0, 0, 0], [1, 1, 1]],
   "saturated primaries": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
   "rainbow, 8 stops": [[1, 0, 0], [1, 0.6, 0], [1, 1, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1], [0.6, 0, 1], [1, 0, 0.6]],
+  "light leak": [[0.008, 0.004, 0.008], [0.173, 0.031, 0.098], [0.584, 0.086, 0.161], [1, 0.29, 0.11], [1, 0.647, 0.18], [1, 0.945, 0.824]],
   "near black": [[0.001, 0.002, 0.003], [0.02, 0.01, 0.03], [0.035, 0.04, 0.03]],
   "one stop": [[0.8, 0.3, 0.5]],
   "repeated stop": [[0.2, 0.4, 0.6], [0.2, 0.4, 0.6], [0.9, 0.9, 0.1]],
 };
+
+const TWO_STOP_PALETTES = Object.entries(PALETTES).filter(([, colors]) => colors.length === 2);
+
+/** The spaces a palette can mix in: Oklab from sRGB or Display P3 stops, or the stop values themselves. */
+const MODES: { name: string; oklab: boolean; displayP3: boolean }[] = [
+  { name: "Oklab", oklab: true, displayP3: false },
+  { name: "Oklab, Display P3", oklab: true, displayP3: true },
+  { name: "sRGB", oklab: false, displayP3: false },
+];
 
 // colorBlend / softness pairs; the effective blend is max(colorBlend, softness * 0.85).
 const BLENDS: [string, number, number][] = [
@@ -151,8 +165,105 @@ function sampleTable(table: Float32Array, blend: number, t: number): V3 {
   return [0, 1, 2].map((c) => table[i0 * 4 + c] * (1 - f) + table[i1 * 4 + c] * f) as V3;
 }
 
-describe("bakePalette", () => {
+/** The unblended palette, exactly: the function the table holds samples of. */
+function exactPalette(colors: V3[], oklab: boolean, displayP3 = false): (t: number) => V3 {
+  const curve = stopCurve(colors, oklab, displayP3);
+  return (t) => {
+    const out: V3 = [0, 0, 0];
+    curve(t, out);
+    return out;
+  };
+}
+
+const distance = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/** How far the colour travels per unit of t, on average: the palette's length. */
+function meanSpeed(palette: (t: number) => V3): number {
+  let length = 0;
+  let previous = palette(0);
+  for (let k = 1; k <= 4000; k++) {
+    const colour = palette(k / 4000);
+    length += distance(colour, previous);
+    previous = colour;
+  }
+  return length;
+}
+
+describe("the curve through the stops", () => {
   for (const [name, colors] of Object.entries(PALETTES)) {
+    for (const mode of MODES) {
+      it(`${name}, ${mode.name}: passes through every stop at t = j / (n - 1)`, () => {
+        const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        colors.forEach((stop, j) => {
+          const colour = palette(colors.length === 1 ? 0 : j / (colors.length - 1));
+          // To the precision of the Oklab matrices, which invert each other to about 1e-6.
+          colour.forEach((c, i) => expect(c).toBeCloseTo(stop[i], 5));
+        });
+      });
+    }
+  }
+
+  // The defect this curve fixes: a smoothstep from stop to stop brings the
+  // colour to rest at every stop, so each stop shows as a flat band. It may
+  // rest only where no channel (in the space the stops mix in) carries on
+  // through the stop: a repeated stop holds, a peak or dip doesn't overshoot.
+  for (const [name, colors] of Object.entries(PALETTES).filter(([, colors]) => colors.length > 2)) {
+    for (const mode of MODES) {
+      it(`${name}, ${mode.name}: keeps moving through every inner stop a channel carries on through, and rests at the others`, () => {
+        const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        const points = colors.map((c) => toMixSpace(c, mode.oklab, mode.displayP3));
+        const mean = meanSpeed(palette);
+        const h = 1e-5;
+        for (let j = 1; j < colors.length - 1; j++) {
+          const carriesOn = [0, 1, 2].some((c) => (points[j][c] - points[j - 1][c]) * (points[j + 1][c] - points[j][c]) > 0);
+          const t = j / (colors.length - 1);
+          const speed = distance(palette(t + h), palette(t - h)) / (2 * h);
+          if (carriesOn) expect(speed / mean, `stop ${j} moves`).toBeGreaterThan(0.1);
+          else expect(speed / mean, `stop ${j} rests`).toBeLessThan(1e-3);
+        }
+      });
+    }
+  }
+
+  it("holds a repeated stop's colour across the whole run", () => {
+    // Stops have no positions, so repeating one is how a colour is held longer.
+    const navy: V3 = [0.1, 0.12, 0.35];
+    const colors: V3[] = [navy, navy, navy, [1, 0.45, 0.4]];
+    for (const mode of MODES) {
+      const table = bakePalette(colors, mode.oklab, 0, undefined, mode.displayP3);
+      // Texels 0 to 340 are t = 0 to 2/3, the three navy stops.
+      for (let i = 0; i <= Math.floor((2 / 3) * (PALETTE_SIZE - 1)); i++) {
+        expect([table[i * 4], table[i * 4 + 1], table[i * 4 + 2]], `${mode.name}, texel ${i}`).toEqual([table[0], table[1], table[2]]);
+      }
+    }
+  });
+
+  // pingPong() folds the palette at both ends; a slope there would leave a crease.
+  for (const [name, colors] of Object.entries(PALETTES).filter(([, colors]) => colors.length > 1)) {
+    for (const mode of MODES) {
+      it(`${name}, ${mode.name}: is flat at both ends`, () => {
+        const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        const mean = meanSpeed(palette);
+        const h = 1e-6;
+        expect(distance(palette(h), palette(0)) / h / mean).toBeLessThan(1e-3);
+        expect(distance(palette(1), palette(1 - h)) / h / mean).toBeLessThan(1e-3);
+      });
+    }
+  }
+
+  it("is never negative", () => {
+    // A dark ramp that brightens fast after its middle stop: the curve arrives
+    // there on that steep tangent, which first pulls it below black.
+    const ramp: V3[] = [[0, 0, 0], [0.1, 0.1, 0.1], [1, 1, 1]];
+    for (const mode of MODES) {
+      const table = bakePalette(ramp, mode.oklab, 0, undefined, mode.displayP3);
+      for (let i = 0; i < table.length; i++) expect(table[i]).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe("bakePalette", () => {
+  for (const [name, colors] of TWO_STOP_PALETTES) {
     for (const oklab of [true, false]) {
       for (const [blendName, colorBlend, softness] of BLENDS) {
         it(`${name}, ${oklab ? "Oklab" : "sRGB"}, ${blendName}: every texel is the old shader's colour`, () => {
@@ -182,7 +293,7 @@ describe("bakePalette", () => {
           const table = bakePalette(colors, oklab, blend);
           const uniforms: Uniforms = { colors, oklab, colorBlend, softness };
 
-          // Past both ends too: with a blend the old function keeps changing beyond [0, 1].
+          // Past both ends too: with a blend the function keeps changing beyond [0, 1].
           let worst = 0;
           const steps = 1999;
           for (let i = 0; i <= steps; i++) {
@@ -197,8 +308,25 @@ describe("bakePalette", () => {
     }
   }
 
+  for (const [name, colors] of Object.entries(PALETTES)) {
+    for (const mode of MODES) {
+      it(`${name}, ${mode.name}: filtering between texels stays close to the exact palette`, () => {
+        const table = bakePalette(colors, mode.oklab, 0, undefined, mode.displayP3);
+        const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        let worst = 0;
+        const steps = 20000;
+        for (let i = 0; i <= steps; i++) {
+          const expected = palette(i / steps);
+          const got = sampleTable(table, 0, i / steps);
+          for (let c = 0; c < 3; c++) worst = Math.max(worst, Math.abs(got[c] - expected[c]));
+        }
+        expect(worst * 255).toBeLessThanOrEqual(1);
+      });
+    }
+  }
+
   it("covers the stretch past [0, 1] that a blend still reaches", () => {
-    const colors = PALETTES["editor default"];
+    const colors = PALETTES["two stops"];
     const blend = effectiveBlend(1, 0);
     const uniforms: Uniforms = { colors, oklab: true, colorBlend: 1, softness: 0 };
     const reach = paletteReach(blend);

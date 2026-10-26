@@ -173,10 +173,10 @@ describe("export helpers", () => {
     it("stays small", () => {
       for (const type of GRADIENT_TYPES) {
         const player = exportStandalonePlayer({ ...state, gradientType: type, mouseReact: 1 });
-        expect(player.length, type).toBeLessThan(18_000);
+        expect(player.length, type).toBeLessThan(18_500);
         // Display P3 adds its colour conversion (palette bake, canvas) on top.
         const p3 = exportStandalonePlayer({ ...state, gradientType: type, mouseReact: 1, colorProfile: "display-p3" });
-        expect(p3.length, `${type} in P3`).toBeLessThan(18_500);
+        expect(p3.length, `${type} in P3`).toBeLessThan(19_000);
       }
     });
   });
