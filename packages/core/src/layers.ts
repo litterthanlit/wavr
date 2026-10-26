@@ -13,20 +13,6 @@ export type { BlendMode, ColorProfile, GradientType, ImageBlendMode, MaskBlendMo
 
 export function defaultSoftnessForGradientType(type: GradientType): number {
   switch (type) {
-    case "silk":
-      return 0.72;
-    case "aurora":
-      return 0.68;
-    case "liquid":
-      return 0.62;
-    case "softCells":
-      return 0.76;
-    case "grainflow":
-      return 0.48;
-    case "prismGlass":
-      return 0.7;
-    case "neonTunnel":
-      return 0.56;
     case "horizonGlow":
     case "lightLeak":
     case "plasmaOrb":
@@ -161,7 +147,7 @@ export interface LayerParams {
 }
 
 export const DEFAULT_LAYER: LayerParams = {
-  gradientType: "mesh",
+  gradientType: "lightWall",
   speed: 0.4,
   complexity: 3,
   scale: 1.0,

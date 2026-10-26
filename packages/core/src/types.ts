@@ -46,7 +46,6 @@ export interface GradientConfig {
   noise?: { enabled: boolean; intensity: number; scale: number };
   chromaticAberration?: number;
   hueShift?: number;
-  domainWarp?: number;
   mouseReact?: number;
   curl?: { enabled: boolean; intensity: number; scale: number };
   kaleidoscope?: { enabled: boolean; segments: number; rotation: number };

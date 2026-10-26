@@ -30,7 +30,7 @@ import { WavrGradient, type WavrGradientProps } from "../src/WavrGradient";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const config: GradientConfig = { layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] };
+const config: GradientConfig = { layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] };
 
 let host: HTMLDivElement;
 let root: Root;

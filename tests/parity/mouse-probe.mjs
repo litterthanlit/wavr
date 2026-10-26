@@ -25,11 +25,10 @@ const HEIGHT = flag("--height", 576);
 
 // A representative gradient id for each style (see the table in mouse.glsl).
 const STYLES = [
-  { style: "push", id: 0 },
-  { style: "lens", id: 9 },
-  { style: "swirl", id: 3 },
-  { style: "magnet", id: 2 },
-  { style: "wave", id: 4 },
+  { style: "push", id: 25 },
+  { style: "lens", id: 19 },
+  { style: "swirl", id: 17 },
+  { style: "wave", id: 18 },
   { style: "custom (lens)", id: -1, custom: true },
 ];
 

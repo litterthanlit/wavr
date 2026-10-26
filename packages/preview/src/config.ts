@@ -12,7 +12,7 @@ export function activeLayer(config: GradientConfig): LayerConfig {
   const layer = config.layers[0];
   if (layer) return layer;
   return {
-    type: "mesh",
+    type: "lightWall",
     colors: [
       [0.1, 0.1, 0.2],
       [0.4, 0.2, 0.8],

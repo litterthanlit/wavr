@@ -47,7 +47,7 @@ function bootstrap(): Promise<{ canvas: HTMLCanvasElement; handle: GradientHandl
       const seed: GradientConfig = {
         layers: [
           {
-            type: "linear",
+            type: "lightWall",
             colors: [
               [0, 0, 0],
               [1, 1, 1],

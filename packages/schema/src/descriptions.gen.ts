@@ -37,7 +37,6 @@ export const DESCRIPTIONS = {
   "GradientConfig.vignette": "Darkens edges toward the frame border.",
   "GradientConfig.chromaticAberration": "Per-channel UV offset strength.",
   "GradientConfig.hueShift": "Hue rotation in degrees, -180 to 180.",
-  "GradientConfig.domainWarp": "Global UV noise warp amount.",
   "GradientConfig.radialBlur": "Radial blur strength from the center.",
   "GradientConfig.mouseReact": "How strongly mouse position modulates animation.",
   "GradientConfig.oklabEnabled": "Blend colors in OKLab space for more perceptual gradients.",

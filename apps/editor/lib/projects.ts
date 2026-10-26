@@ -1,5 +1,5 @@
 import { GradientState, type PerformanceMode } from "./store";
-import { ColorProfile, LayerParams } from "@wavr/core";
+import { ColorProfile, LayerParams, RETIRED_GLOBALS, currentGradientType } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
 import { cloneScene3D, type Scene3DState } from "./scene3d";
 import { sceneDocumentToStorePatch, storeToSceneDocument } from "./scene-document";
@@ -56,7 +56,6 @@ export interface ProjectState {
   pixelSortEnabled: boolean;
   pixelSortIntensity: number;
   pixelSortThreshold: number;
-  domainWarp: number;
   feedbackEnabled: boolean;
   feedbackDecay: number;
   oklabEnabled: boolean;
@@ -151,7 +150,6 @@ export function exportProjectState(state: GradientState): ProjectState {
     pixelSortEnabled: state.pixelSortEnabled as boolean,
     pixelSortIntensity: state.pixelSortIntensity as number,
     pixelSortThreshold: state.pixelSortThreshold as number,
-    domainWarp: state.domainWarp as number,
     feedbackEnabled: state.feedbackEnabled as boolean,
     feedbackDecay: state.feedbackDecay as number,
     oklabEnabled: state.oklabEnabled as boolean,
@@ -340,7 +338,7 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
   const store = getImageBackend();
   let missingImages = 0;
   const layers = await Promise.all(project.state.layers.map(async (layer) => {
-    const next = { ...layer };
+    const next = { ...layer, gradientType: currentGradientType(layer.gradientType) };
     for (const field of IMAGE_FIELDS) {
       const value = layer[field];
       if (!isImageRef(value)) continue;
@@ -355,7 +353,10 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
     }
     return next;
   }));
-  return { patch: { ...project.state, layers } as Partial<GradientState>, missingImages };
+  // Projects saved while the retired gradient types existed carry their globals.
+  const state: Record<string, unknown> = { ...project.state };
+  for (const k of RETIRED_GLOBALS) delete state[k];
+  return { patch: { ...state, layers } as Partial<GradientState>, missingImages };
 }
 
 export function deleteProject(name: string): Promise<void> {

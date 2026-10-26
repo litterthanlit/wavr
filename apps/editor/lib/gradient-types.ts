@@ -1,5 +1,9 @@
 import {
+  LIGHT_FIELD_PALETTES,
+  LIGHT_GRADIENT_PALETTES,
   defaultSoftnessForGradientType,
+  rotateHue,
+  type ColorProfile,
   type GradientType,
   type LayerParams,
 } from "@wavr/core";
@@ -7,106 +11,51 @@ import {
 export type GradientOption = {
   value: GradientType;
   label: string;
-  group: "Premium" | "Classic" | "Stylized" | "Media";
+  group: "Light fields" | "Light" | "Media";
 };
 
-/** The strongest, calmest modes: the picker leads with these. */
-export const PREMIUM_GRADIENT_TYPES: GradientType[] = [
-  "aperture",
-  "halo",
-  "lightWall",
-  "liquidChrome",
-  "horizonGlow",
-  "inkSmoke",
-  "plasmaOrb",
-  "iridescentFoil",
-  "lightLeak",
-  "mesh",
-  "silk",
-  "aurora",
-  "liquid",
-  "prismGlass",
-  "grainflow",
-  "softCells",
-  "neonTunnel",
-];
-
-/**
- * What Randomize picks from: modes that look good with any palette. Left out:
- * aurora (the palette's first colour is its sky, so it needs a dark one), the
- * light modes (liquidChrome, iridescentFoil, horizonGlow, lightLeak, inkSmoke,
- * plasmaOrb, halo: the palette runs from shadow to the brightest light, so it
- * has to start dark and end light), the aperture and light wall (their first
- * colour is the wall or the glass, the rest the light), voronoi
- * and softCells (read as flat tiles in a random palette), dither (needs two
- * contrasting colours) and the rest of the stylized group.
- */
-export const RANDOM_GRADIENT_TYPES: LayerParams["gradientType"][] = [
-  "mesh",
-  "silk",
-  "liquid",
-  "grainflow",
-  "prismGlass",
-  "neonTunnel",
-  "plasma",
-];
-
-export const COMMAND_GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = [
-  "aperture",
-  "halo",
-  "lightWall",
-  "liquidChrome",
-  "horizonGlow",
-  "inkSmoke",
-  "plasmaOrb",
-  "iridescentFoil",
-  "lightLeak",
-  "mesh",
-  "silk",
-  "aurora",
-  "liquid",
-  "prismGlass",
-  "grainflow",
-  "softCells",
-  "neonTunnel",
-  "linear",
-  "radial",
-  "conic",
-  "plasma",
-  "voronoi",
-  "dither",
-  "scanline",
-  "glitch",
-];
-
 export const GRADIENT_OPTIONS: GradientOption[] = [
-  { value: "aperture", label: "Aperture", group: "Premium" },
-  { value: "halo", label: "Halo", group: "Premium" },
-  { value: "lightWall", label: "Light Wall", group: "Premium" },
-  { value: "liquidChrome", label: "Liquid Chrome", group: "Premium" },
-  { value: "horizonGlow", label: "Horizon Glow", group: "Premium" },
-  { value: "inkSmoke", label: "Ink Smoke", group: "Premium" },
-  { value: "plasmaOrb", label: "Plasma Orb", group: "Premium" },
-  { value: "iridescentFoil", label: "Iridescent Foil", group: "Premium" },
-  { value: "lightLeak", label: "Light Leak", group: "Premium" },
-  { value: "mesh", label: "Mesh", group: "Premium" },
-  { value: "silk", label: "Silk", group: "Premium" },
-  { value: "aurora", label: "Aurora", group: "Premium" },
-  { value: "liquid", label: "Liquid", group: "Premium" },
-  { value: "prismGlass", label: "Prism Glass", group: "Premium" },
-  { value: "grainflow", label: "Grainflow", group: "Premium" },
-  { value: "softCells", label: "Soft Cells", group: "Premium" },
-  { value: "neonTunnel", label: "Neon Tunnel", group: "Premium" },
-  { value: "linear", label: "Linear", group: "Classic" },
-  { value: "radial", label: "Radial", group: "Classic" },
-  { value: "conic", label: "Conic", group: "Classic" },
-  { value: "plasma", label: "Plasma", group: "Classic" },
-  { value: "voronoi", label: "Voronoi", group: "Classic" },
-  { value: "dither", label: "Dither", group: "Stylized" },
-  { value: "scanline", label: "Scanline", group: "Stylized" },
-  { value: "glitch", label: "Glitch", group: "Stylized" },
+  { value: "aperture", label: "Aperture", group: "Light fields" },
+  { value: "halo", label: "Halo", group: "Light fields" },
+  { value: "lightWall", label: "Light Wall", group: "Light fields" },
+  { value: "liquidChrome", label: "Liquid Chrome", group: "Light" },
+  { value: "horizonGlow", label: "Horizon Glow", group: "Light" },
+  { value: "inkSmoke", label: "Ink Smoke", group: "Light" },
+  { value: "plasmaOrb", label: "Plasma Orb", group: "Light" },
+  { value: "iridescentFoil", label: "Iridescent Foil", group: "Light" },
+  { value: "lightLeak", label: "Light Leak", group: "Light" },
   { value: "image", label: "Image", group: "Media" },
 ];
+
+/** The types the command palette can switch to, in picker order (image needs an upload). */
+export const COMMAND_GRADIENT_TYPES = GRADIENT_OPTIONS.flatMap(({ value }) => (value === "image" ? [] : [value]));
+
+/** Each type's own palette, the one its presets open with. */
+const CURATED_PALETTES = {
+  ...LIGHT_GRADIENT_PALETTES,
+  ...LIGHT_FIELD_PALETTES,
+} satisfies Record<Exclude<GradientType, "image">, [number, number, number][]>;
+
+/** What Randomize picks from: every type with a palette of its own (all but image). */
+export const RANDOM_GRADIENT_TYPES = Object.keys(CURATED_PALETTES) as (keyof typeof CURATED_PALETTES)[];
+
+/**
+ * A random look for a layer: a type, its own palette turned to a random hue,
+ * and its softness. The palette is turned as a whole in OkLCh, so its roles
+ * (a dark room to the brightest light, or the wall and then the lights) hold.
+ */
+export function randomLook(
+  random: () => number,
+  colorProfile: ColorProfile,
+): Pick<LayerParams, "gradientType" | "colors" | "softness"> {
+  const gradientType = RANDOM_GRADIENT_TYPES[Math.floor(random() * RANDOM_GRADIENT_TYPES.length)] ?? "lightWall";
+  const degrees = random() * 360;
+  return {
+    gradientType,
+    colors: CURATED_PALETTES[gradientType].map((color) => rotateHue(color, degrees, colorProfile === "display-p3")),
+    softness: defaultSoftnessForGradientType(gradientType),
+  };
+}
 
 /** The picker's name for a type ("Liquid Chrome"), for anywhere a type is shown. */
 export function gradientTypeLabel(type: LayerParams["gradientType"]): string {

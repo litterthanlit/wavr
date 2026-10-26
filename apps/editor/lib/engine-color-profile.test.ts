@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GradientEngine, PALETTE_SIZE, bakePalette, createLayer, effectiveBlend, resolveConfig } from "@wavr/core";
 import type { EngineState } from "@wavr/core";
-import { toMixSpace } from "../../../packages/core/src/palette";
 import { createFakeGL } from "./test-utils/fake-webgl";
 
 const globals = globalThis as Record<string, unknown>;
@@ -33,8 +32,8 @@ afterAll(() => {
 const COLORS: [number, number, number][] = [[0.1, 0.2, 0.9], [0.9, 0.3, 0.2], [0.2, 0.85, 0.9]];
 
 function state(overrides: Partial<EngineState> = {}): EngineState {
-  const base = resolveConfig({ layers: [{ type: "mesh", colors: COLORS }] });
-  return { ...base, layers: [createLayer({ gradientType: "mesh", colors: COLORS })], ...overrides };
+  const base = resolveConfig({ layers: [{ type: "lightWall", colors: COLORS }] });
+  return { ...base, layers: [createLayer({ gradientType: "lightWall", colors: COLORS })], ...overrides };
 }
 
 function setup() {
@@ -61,36 +60,26 @@ describe("GradientEngine colour profile", () => {
     expect("drawingBufferColorSpace" in context).toBe(false);
   });
 
-  it("tells the layer passes, and hands the mesh its stops through Oklab from P3", () => {
+  it("hands the light fields their raw stops, the values themselves whatever the profile", () => {
     const { engine, draws } = setup();
     engine.render(state({ colorProfile: "display-p3" }));
-    const [layerPass, post] = draws;
-    expect(layerPass.uniforms.u_displayP3).toBe(1);
-    COLORS.forEach((color, i) => {
-      expect(layerPass.uniforms[`u_colorsMix[${i}]`]).toEqual([...toMixSpace(color, true, true)]);
-      // The raw stops are the values themselves, whatever the profile.
-      expect(layerPass.uniforms[`u_colors[${i}]`]).toEqual(color);
-    });
-    expect(post.uniforms.u_displayP3).toBeUndefined();
-
-    engine.render(state());
-    expect(draws[2].uniforms.u_displayP3).toBe(0);
-    expect(draws[2].uniforms["u_colorsMix[0]"]).toEqual([...toMixSpace(COLORS[0], true)]);
+    const [layerPass] = draws;
+    COLORS.forEach((color, i) => expect(layerPass.uniforms[`u_colors[${i}]`]).toEqual(color));
   });
 
   it("bakes the palette in the scene's profile, and again when the profile changes", () => {
     const { engine, uploads } = setup();
-    const aurora = createLayer({ gradientType: "aurora", colors: COLORS });
-    const blend = effectiveBlend(0, aurora.softness);
+    const halo = createLayer({ gradientType: "halo", colors: COLORS });
+    const blend = effectiveBlend(0, halo.softness);
     const palettes = () => uploads.filter((u) => u.format === "RGBA16F" && u.width === PALETTE_SIZE && u.height === 1);
 
-    engine.render(state({ layers: [aurora], colorProfile: "display-p3" }));
+    engine.render(state({ layers: [halo], colorProfile: "display-p3" }));
     expect(palettes().at(-1)?.data).toEqual(Array.from(bakePalette(COLORS, true, blend, undefined, true)));
 
-    engine.render(state({ layers: [aurora], colorProfile: "display-p3" }));
+    engine.render(state({ layers: [halo], colorProfile: "display-p3" }));
     expect(palettes()).toHaveLength(1);
 
-    engine.render(state({ layers: [aurora] }));
+    engine.render(state({ layers: [halo] }));
     expect(palettes()).toHaveLength(2);
     expect(palettes().at(-1)?.data).toEqual(Array.from(bakePalette(COLORS, true, blend)));
   });
@@ -98,7 +87,7 @@ describe("GradientEngine colour profile", () => {
   it("converts a picture into the scene's profile on upload, but never a distortion map", () => {
     const { engine, imageUploads, context } = setup();
     const layer = createLayer({
-      gradientType: "mesh",
+      gradientType: "lightWall",
       colors: COLORS,
       imageData: "data:image/png;base64,picture",
       distortionMapData: "data:image/png;base64,map",

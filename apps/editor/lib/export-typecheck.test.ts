@@ -14,7 +14,7 @@ const state: ExportableState = {
     [1, 0.42, 0.42],
     [0.251, 0.878, 0.816],
   ],
-  gradientType: "silk",
+  gradientType: "inkSmoke",
   speed: 0.4,
   complexity: 3,
   scale: 1,
@@ -63,7 +63,7 @@ function diagnosticsOf(source: string): string[] {
 describe("exported code", () => {
   it("compiles under strict TypeScript: React component, with and without the pointer", () => {
     expect(diagnosticsOf(exportReactComponent({ ...state, mouseReact: 0.6 }))).toEqual([]);
-    expect(diagnosticsOf(exportReactComponent({ ...state, gradientType: "mesh", mouseReact: 0 }))).toEqual([]);
+    expect(diagnosticsOf(exportReactComponent({ ...state, gradientType: "lightWall", mouseReact: 0 }))).toEqual([]);
   });
 
   it("has a checker that notices a mistake", () => {

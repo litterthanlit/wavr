@@ -154,7 +154,6 @@ export function storeToConfig(state: GradientState): GradientConfig {
     vignette: state.vignette,
     chromaticAberration: state.chromaticAberration,
     hueShift: state.hueShift,
-    domainWarp: state.domainWarp,
     radialBlur: state.radialBlurAmount, // rename: radialBlurAmount → radialBlur
     mouseReact: state.mouseReact,
     oklabEnabled: state.oklabEnabled,
@@ -297,7 +296,6 @@ export function configToStorePatch(config: GradientConfig): Partial<GradientStat
     vignette: config.vignette,
     chromaticAberration: config.chromaticAberration,
     hueShift: config.hueShift,
-    domainWarp: config.domainWarp,
     radialBlurAmount: config.radialBlur,
     mouseReact: config.mouseReact,
     oklabEnabled: config.oklabEnabled,

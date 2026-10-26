@@ -137,7 +137,7 @@ describe("assembled layer source", () => {
 
   it("the image gradient program skips the image blend, other programs keep it", () => {
     const imageProgram = stripComments(preprocess(assembleLayerSource(GRADIENT_TYPE_IDS.image, parts)));
-    const meshProgram = stripComments(preprocess(assembleLayerSource(GRADIENT_TYPE_IDS.mesh, parts)));
+    const meshProgram = stripComments(preprocess(assembleLayerSource(GRADIENT_TYPE_IDS.lightWall, parts)));
     expect(imageProgram).not.toContain("imgSample");
     expect(meshProgram).toContain("imgSample");
   });
@@ -165,7 +165,7 @@ describe("assembled layer source", () => {
   });
 
   it("every gradient guard is preprocessed away in a program for another gradient", () => {
-    const source = preprocess(assembleLayerSource(GRADIENT_TYPE_IDS.mesh, parts));
+    const source = preprocess(assembleLayerSource(GRADIENT_TYPE_IDS.lightWall, parts));
     expect(source).not.toMatch(/^#if/m);
     expect(source).not.toMatch(/^#endif/m);
   });
@@ -200,15 +200,14 @@ describe("assembled post source", () => {
 describe("render scale", () => {
   it("every gradient that reads gl_FragCoord is drawn at full resolution by the engine", () => {
     // At a reduced render scale a pixel of the layer pass is bigger on screen, so a pattern laid out in
-    // gl_FragCoord (halftone cells, scanlines, paper grain) would change size. FULL_RESOLUTION_GRADIENTS
-    // is how the engine avoids that; a gradient added to this file with such a pattern must join it.
+    // gl_FragCoord would change size. FULL_RESOLUTION_GRADIENTS is how the engine avoids that; a
+    // gradient added to this file with such a pattern must join it.
     // A type can have several guarded blocks (its helpers get their own, ahead of it).
     const blocks = [...stripComments(parts.gradients).matchAll(/^#if WAVR_GRADIENT == (\d+)\n([\s\S]*?)^#endif/gm)];
     expect(new Set(blocks.map((b) => Number(b[1]))).size).toBe(GRADIENT_TYPES.length);
     const readers = GRADIENT_TYPES.filter((type) =>
       blocks.some((b) => Number(b[1]) === GRADIENT_TYPE_IDS[type] && b[2].includes("gl_FragCoord")),
     );
-    expect(readers.length).toBeGreaterThan(0);
     for (const type of readers) expect(FULL_RESOLUTION_GRADIENTS.has(type), type).toBe(true);
     // And nothing on the list is there for no reason: a type of its own, not a typo.
     for (const type of FULL_RESOLUTION_GRADIENTS) expect(GRADIENT_TYPES).toContain(type);
@@ -221,7 +220,7 @@ describe("render scale", () => {
   });
 
   it("the layer program reads the previous layers, and post the scene, through compositeUV", () => {
-    const layer = stripComments(preprocess(assembleLayerSource(GRADIENT_TYPE_IDS.mesh, parts)));
+    const layer = stripComments(preprocess(assembleLayerSource(GRADIENT_TYPE_IDS.lightWall, parts)));
     expect(layer.match(/texture\(\s*u_compositePrev/g)).toHaveLength(1);
     expect(layer).toContain("texture(u_compositePrev, compositeUV(v_uv, vec2(textureSize(u_compositePrev, 0))))");
     expect(stripComments(parts.post)).not.toMatch(/\bu_compositePrev\b/);
@@ -243,8 +242,8 @@ describe("shader uniforms", () => {
   }
 
   it("every uniform a shader declares is listed in PROGRAM_UNIFORM_NAMES", () => {
-    // u_colors and u_colorsMix are arrays; their elements are looked up as u_colors[i].
-    const arrays = new Set(["u_colors", "u_colorsMix"]);
+    // u_colors is an array; its elements are looked up as u_colors[i].
+    const arrays = new Set(["u_colors"]);
     const missing = [...declared].filter((name) => !arrays.has(name) && !PROGRAM_UNIFORM_NAMES.includes(name));
     expect(missing, "uniforms the engine would never set").toEqual([]);
   });

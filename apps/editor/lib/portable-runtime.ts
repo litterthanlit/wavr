@@ -224,8 +224,6 @@ const spring = (s${t(": { value: number; velocity: number }")}, target${t(": num
     uses("u_paletteTexture") &&
       `  gl.uniform1i(uniform("u_paletteTexture"), 0);\n  gl.uniform2f(uniform("u_paletteDomain"), 1 / SPAN, REACH / SPAN);`,
     uses("u_colors") && `  gl.uniform3fv(uniform("u_colors"), COLORS.flat());`,
-    uses("u_colorsMix") && `  gl.uniform3fv(uniform("u_colorsMix"), mixStops.flat());`,
-    uses("u_oklabEnabled") && `  gl.uniform1i(uniform("u_oklabEnabled"), OKLAB ? 1 : 0);`,
   ].filter(Boolean).join("\n");
 
   const start = `// Draws the gradient into \`canvas\` until the function it returns is called.

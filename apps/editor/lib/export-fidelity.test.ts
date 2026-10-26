@@ -49,12 +49,12 @@ describe("export fidelity reporting", () => {
     expect(warn({ mouseReact: 1, trailEnabled: true }).join("\n")).toContain("pointer reactivity is");
   });
 
-  it("warns that the image gradient is drawn as mesh", () => {
+  it("warns that the image gradient is drawn as a light wall", () => {
     const warnings = getPortableExportWarnings({ layers: [{ visible: true, gradientType: "image" }] });
     expect(warnings).toEqual([
-      "The Image gradient needs its picture, so portable code exports draw a Mesh gradient in its place.",
+      "The Image gradient needs its picture, so portable code exports draw a Light Wall in its place.",
     ]);
-    expect(getPortableExportWarnings({ layers: [{ visible: true, gradientType: "aurora" }] })).toEqual([]);
+    expect(getPortableExportWarnings({ layers: [{ visible: true, gradientType: "halo" }] })).toEqual([]);
     // A hidden image layer is not drawn at all.
     expect(getPortableExportWarnings({ layers: [{ visible: false, gradientType: "image" }] })).toEqual([]);
   });

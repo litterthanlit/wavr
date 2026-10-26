@@ -6,7 +6,7 @@ import { createFakeGL, type FakeGLOptions, type Handle } from "./test-utils/fake
 const UNIT_PALETTE = 7;
 
 function stateWith(layers: LayerParams[], overrides: Partial<EngineState> = {}): EngineState {
-  const base = resolveConfig({ layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] });
+  const base = resolveConfig({ layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] });
   return { ...base, layers, ...overrides };
 }
 
@@ -19,15 +19,15 @@ function setup(options: FakeGLOptions = {}) {
   return { engine, paletteUploads, paletteTextures, ...fake };
 }
 
-const warm = createLayer({ gradientType: "mesh", colors: [[1, 0.3, 0], [0.9, 0.9, 0.1], [0.2, 0.1, 0.4]] });
+const warm = createLayer({ gradientType: "lightWall", softness: 0, colors: [[1, 0.3, 0], [0.9, 0.9, 0.1], [0.2, 0.1, 0.4]] });
 const cool = createLayer({
-  gradientType: "plasma",
+  gradientType: "plasmaOrb",
   blendMode: "screen",
   softness: 0.6,
   colors: [[0, 0.2, 1], [0, 0.8, 0.8]],
 });
 const mist = createLayer({
-  gradientType: "silk",
+  gradientType: "inkSmoke",
   blendMode: "overlay",
   colors: [[0.9, 0.9, 1], [0.3, 0.3, 0.6], [0.1, 0.1, 0.2], [1, 1, 1]],
 });

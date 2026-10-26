@@ -201,7 +201,6 @@ export default function ExportModal({
     brightness: store.brightness,
     saturation: store.saturation,
     hueShift: store.hueShift,
-    domainWarp: store.domainWarp,
     colorBlend: store.colorBlend,
     oklabEnabled: store.oklabEnabled,
     toneMapMode: store.toneMapMode,
@@ -525,7 +524,6 @@ export default function ExportModal({
                     vignette: store.vignette,
                     chromaticAberration: store.chromaticAberration,
                     hueShift: store.hueShift,
-                    domainWarp: store.domainWarp,
                   };
                   const config = generateEmbedConfig(embedState);
                   await copyToClipboard(generateEmbedSnippet(config));

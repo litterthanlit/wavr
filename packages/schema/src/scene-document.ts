@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BlendMode, ColorSpace } from "./primitives";
+import { RETIRED_GLOBALS, currentGradientType } from "./enums";
 import { LayerConfig } from "./layer";
 import { GradientConfig, type GradientConfig as GradientConfigValue } from "./schema";
 import { DEFAULT_CONFIG } from "./defaults";
@@ -135,7 +136,6 @@ export const WavrSceneGlobals = z.object({
   vignette: z.number().min(0).max(1),
   chromaticAberration: z.number().min(0).max(1),
   hueShift: z.number().min(-180).max(180),
-  domainWarp: z.number().min(0).max(1),
   radialBlur: z.number().min(0).max(1),
   mouseReact: z.number().min(0).max(1),
   oklabEnabled: z.boolean(),
@@ -168,6 +168,34 @@ export const WavrSceneDocument = z.object({
   performanceProfile: PerformanceProfile,
 }).strict();
 export type WavrSceneDocument = z.infer<typeof WavrSceneDocument>;
+
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null && !Array.isArray(x);
+}
+
+/**
+ * Parse a scene document from outside (a file, local storage). One saved by an
+ * earlier Wavr may name a retired gradient type, which opens as its
+ * replacement, and carry the global domain warp, which only retired types read.
+ */
+export function parseSceneDocument(input: unknown): WavrSceneDocument {
+  if (!isRecord(input)) return WavrSceneDocument.parse(input);
+  const document: Record<string, unknown> = { ...input };
+  if (isRecord(input.globals)) {
+    const globals: Record<string, unknown> = { ...input.globals };
+    for (const k of RETIRED_GLOBALS) delete globals[k];
+    document.globals = globals;
+  }
+  if (Array.isArray(input.layers)) {
+    document.layers = input.layers.map((layer: unknown) => {
+      if (!isRecord(layer) || !isRecord(layer.source) || !isRecord(layer.source.gradient)) return layer;
+      const gradient = layer.source.gradient;
+      if (typeof gradient.type !== "string") return layer;
+      return { ...layer, source: { ...layer.source, gradient: { ...gradient, type: currentGradientType(gradient.type) } } };
+    });
+  }
+  return WavrSceneDocument.parse(document);
+}
 
 export interface SceneDocumentFromConfigOptions {
   id?: string;
@@ -209,7 +237,6 @@ function globalsFromConfig(config: GradientConfigValue): WavrSceneGlobals {
     vignette: config.vignette,
     chromaticAberration: config.chromaticAberration,
     hueShift: config.hueShift,
-    domainWarp: config.domainWarp,
     radialBlur: config.radialBlur,
     mouseReact: config.mouseReact,
     oklabEnabled: config.oklabEnabled,

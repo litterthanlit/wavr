@@ -31,13 +31,13 @@ afterEach(() => {
 });
 
 function stateWith(layers: LayerParams[], overrides: Partial<EngineState> = {}): EngineState {
-  const base = resolveConfig({ layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] });
+  const base = resolveConfig({ layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] });
   return { ...base, layers, ...overrides };
 }
 
-const meshLayer = (extra: Partial<LayerParams> = {}) => createLayer({ gradientType: "mesh", ...extra });
+const meshLayer = (extra: Partial<LayerParams> = {}) => createLayer({ gradientType: "lightWall", ...extra });
 const plasmaLayer = (extra: Partial<LayerParams> = {}) =>
-  createLayer({ gradientType: "plasma", blendMode: "screen", ...extra });
+  createLayer({ gradientType: "plasmaOrb", blendMode: "screen", ...extra });
 
 function setup(size: [number, number] = [100, 50], options: FakeGLOptions = {}) {
   const fake = createFakeGL(options);
@@ -177,12 +177,12 @@ describe("render scale", () => {
     it("a scene is full resolution as soon as one visible layer needs it", () => {
       const { engine, frame } = setup();
       engine.setRenderScale(0.5);
-      const state = stateWith([meshLayer(), createLayer({ gradientType: "dither", blendMode: "screen" }), plasmaLayer()]);
+      const state = stateWith([meshLayer(), createLayer({ gradientType: "image", blendMode: "screen" }), plasmaLayer()]);
       const draws = frame(state);
       for (const layer of draws.slice(0, 3)) expect(layer.viewport).toEqual(FULL);
 
       // Hidden, it no longer counts.
-      const hidden = frame(stateWith([meshLayer(), createLayer({ gradientType: "dither", visible: false })]));
+      const hidden = frame(stateWith([meshLayer(), createLayer({ gradientType: "image", visible: false })]));
       expect(hidden[0].viewport).toEqual([0, 0, 50, 25]);
     });
 
@@ -273,7 +273,7 @@ describe("render scale", () => {
 
       // The same rules as live: a layer that needs full resolution gets it.
       start = draws.length;
-      engine.captureImageData({ state: stateWith([createLayer({ gradientType: "glitch" })]), renderScale: 0.6 });
+      engine.captureImageData({ state: stateWith([createLayer({ gradientType: "image" })]), renderScale: 0.6 });
       expect(draws[start].viewport).toEqual([0, 0, 100, 50]);
 
       // And the next default capture is full again.

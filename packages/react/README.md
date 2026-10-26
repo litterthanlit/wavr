@@ -4,10 +4,10 @@ Animated WebGL gradient React component.
 
 ```tsx
 import { WavrGradient } from "@wavr/gradient";
-import { aurora } from "@wavr/gradient/presets";
+import { halo } from "@wavr/gradient/presets";
 
 export function Hero() {
-  return <WavrGradient config={aurora} className="absolute inset-0" />;
+  return <WavrGradient config={halo} className="absolute inset-0" />;
 }
 ```
 

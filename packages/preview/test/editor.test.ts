@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { aurora, ocean } from "@wavr/core/presets";
+import { halo, inkSmoke } from "@wavr/core/presets";
 import { mountWavrEditor } from "../src/editor";
 
 describe("mountWavrEditor", () => {
@@ -12,7 +12,7 @@ describe("mountWavrEditor", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const onChange = vi.fn();
-    const handle = mountWavrEditor(host, { config: aurora, onChange, visible: true });
+    const handle = mountWavrEditor(host, { config: halo, onChange, visible: true });
 
     const root = document.body.querySelector("[data-wavr-editor='root']");
     expect(root?.parentElement).toBe(document.body);
@@ -21,13 +21,13 @@ describe("mountWavrEditor", () => {
     expect(panel).toBeTruthy();
     expect((panel as HTMLElement).hidden).toBe(false);
 
-    const oceanBtn = root?.shadowRoot?.querySelector("[data-preset='ocean']") as HTMLButtonElement;
-    oceanBtn.click();
+    const inkSmokeBtn = root?.shadowRoot?.querySelector("[data-preset='inkSmoke']") as HTMLButtonElement;
+    inkSmokeBtn.click();
 
-    expect(handle.getConfig().layers[0]?.type).toBe("silk");
+    expect(handle.getConfig().layers[0]?.type).toBe("inkSmoke");
     expect(onChange).toHaveBeenCalled();
     const last = onChange.mock.calls.at(-1)?.[0];
-    expect(last.layers[0].type).toBe(ocean.layers[0]?.type);
+    expect(last.layers[0].type).toBe(inkSmoke.layers[0]?.type);
     handle.destroy();
     expect(document.body.querySelector("[data-wavr-editor='root']")).toBeNull();
   });
@@ -35,7 +35,7 @@ describe("mountWavrEditor", () => {
   it("toggles the panel with the E key and the chip", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
-    const handle = mountWavrEditor(host, { config: aurora, visible: true });
+    const handle = mountWavrEditor(host, { config: halo, visible: true });
     const root = document.body.querySelector("[data-wavr-editor='root']");
     const panel = root?.shadowRoot?.querySelector("[data-wavr-editor='panel']") as HTMLElement;
     const chip = root?.shadowRoot?.querySelector("[data-wavr-editor='chip']") as HTMLButtonElement;
@@ -51,9 +51,9 @@ describe("mountWavrEditor", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const onChange = vi.fn();
-    const handle = mountWavrEditor(host, { config: aurora, onChange, visible: true });
-    handle.update(ocean);
-    expect(handle.getConfig().layers[0]?.type).toBe("silk");
+    const handle = mountWavrEditor(host, { config: halo, onChange, visible: true });
+    handle.update(inkSmoke);
+    expect(handle.getConfig().layers[0]?.type).toBe("inkSmoke");
     expect(onChange).not.toHaveBeenCalled();
     handle.destroy();
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aurora, sunset } from "@wavr/core/presets";
+import { halo, inkSmoke } from "@wavr/core/presets";
 import {
   cloneConfig,
   formatReactSnippet,
@@ -24,28 +24,28 @@ describe("config helpers", () => {
   });
 
   it("patches the active layer without mutating the original", () => {
-    const next = patchActiveLayer(aurora, { type: "plasma", speed: 0.9 });
-    expect(aurora.layers[0]?.type).toBe("aurora");
-    expect(next.layers[0]?.type).toBe("plasma");
+    const next = patchActiveLayer(halo, { type: "plasmaOrb", speed: 0.9 });
+    expect(halo.layers[0]?.type).toBe("halo");
+    expect(next.layers[0]?.type).toBe("plasmaOrb");
     expect(next.layers[0]?.speed).toBe(0.9);
   });
 
   it("clones configs", () => {
-    const original = sunset.grain;
-    const copy = cloneConfig(sunset);
+    const original = inkSmoke.grain;
+    const copy = cloneConfig(inkSmoke);
     copy.grain = 1;
     expect(copy.grain).toBe(1);
-    expect(sunset.grain).toBe(original);
+    expect(inkSmoke.grain).toBe(original);
   });
 
   it("formats a react snippet", () => {
-    const snippet = formatReactSnippet(aurora);
+    const snippet = formatReactSnippet(halo);
     expect(snippet).toContain('import { WavrGradient } from "@wavr/gradient"');
-    expect(snippet).toContain('"aurora"');
+    expect(snippet).toContain('"halo"');
   });
 
   it("resolves named presets", () => {
-    expect(getPreset("ocean")?.layers[0]?.type).toBe("silk");
+    expect(getPreset("roseSmoke")?.layers[0]?.type).toBe("inkSmoke");
   });
 
   it("honors editor query overrides", () => {
@@ -60,12 +60,8 @@ describe("config helpers", () => {
 });
 
 describe("preset options", () => {
-  it("offers no archived preset, but still resolves one by id", async () => {
-    const { PRESET_CATALOG } = await import("@wavr/core/presets");
+  it("offers only presets that resolve", async () => {
     const { PRESET_OPTIONS } = await import("../src/presets");
-    const archived = new Set(PRESET_CATALOG.filter((entry) => entry.category === "archive").map((entry) => entry.id));
-    expect(PRESET_OPTIONS.filter((option) => archived.has(option.id))).toEqual([]);
     expect(PRESET_OPTIONS.every((option) => getPreset(option.id))).toBe(true);
-    expect(getPreset("vaporwave")).toBeDefined();
   });
 });

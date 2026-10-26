@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { LayerParams, BlendMode, ColorProfile, createLayer, MAX_LAYERS } from "@wavr/core";
+import { LayerParams, BlendMode, ColorProfile, createLayer, LIGHT_GRADIENT_PALETTES, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
-import { RANDOM_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
+import { defaultSoftnessForType, randomLook } from "./gradient-types";
 import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
 import {
   DEFAULT_SCENE_3D_STATE,
@@ -121,7 +121,6 @@ export interface GradientState {
   pixelSortEnabled: boolean;
   pixelSortIntensity: number;
   pixelSortThreshold: number;
-  domainWarp: number;
   feedbackEnabled: boolean;
   feedbackDecay: number;
 
@@ -369,7 +368,6 @@ const DEFAULTS = {
   pixelSortEnabled: false,
   pixelSortIntensity: 0.5,
   pixelSortThreshold: 0.5,
-  domainWarp: 0,
   feedbackEnabled: false,
   feedbackDecay: 0.5,
   oklabEnabled: true,
@@ -603,30 +601,12 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
   },
 
   randomize: () => {
-    const count = 3 + Math.floor(Math.random() * 3);
-    const baseHue = Math.random() * 360;
-    const colors: [number, number, number][] = [];
-    for (let i = 0; i < count; i++) {
-      const hue = (baseHue + i * (360 / count) + (Math.random() - 0.5) * 30) % 360;
-      colors.push(hslToRgb(hue, 0.6 + Math.random() * 0.4, 0.4 + Math.random() * 0.3));
-    }
-    const types: LayerParams["gradientType"][] = RANDOM_GRADIENT_TYPES;
-    const gradientType = types[Math.floor(Math.random() * types.length)];
-    const speed = 0.2 + Math.random() * 0.8;
-    const complexity = 2 + Math.floor(Math.random() * 4);
-    const scale = 0.5 + Math.random() * 2;
-    const distortion = Math.random() * 0.6;
-    const softness = gradientType === "mesh" || gradientType === "plasma" || gradientType === "dither"
-      ? 0.25 + Math.random() * 0.35
-      : 0.5 + Math.random() * 0.35;
-
     flushPending();
     const current = useGradientStore.getState();
     pushHistory(takeSnapshot(current));
+    const look = randomLook(Math.random, current.colorProfile);
     const newLayers = current.layers.map((l, i) =>
-      i === current.activeLayerIndex
-        ? { ...l, colors, gradientType, speed, complexity, scale, distortion, softness }
-        : l
+      i === current.activeLayerIndex ? { ...l, ...look } : l
     );
     rawSet({
       layers: newLayers,
@@ -673,9 +653,12 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
+    // Light adds over what is below.
     const newLayer = createLayer({
-      colors: [randomHue(), randomHue(), randomHue()],
-      opacity: 0.7,
+      gradientType: "halo",
+      colors: LIGHT_GRADIENT_PALETTES.halo.map((c) => [...c] as [number, number, number]),
+      blendMode: "screen",
+      opacity: 1,
     });
     const newLayers = [...current.layers, newLayer];
     const newIndex = newLayers.length - 1;

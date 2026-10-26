@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "layers": [
     {
-      "type": "mesh",
+      "type": "lightWall",
       "colors": [[0.0, 0.9, 0.8], [0.2, 0.8, 0.3], [0.3, 0.2, 0.7]],
       "speed": 0,
       "complexity": 4,
@@ -11,7 +11,7 @@
       "blendMode": "normal"
     },
     {
-      "type": "mesh",
+      "type": "halo",
       "colors": [[1.0, 0.5, 0.31], [0.94, 0.33, 0.48]],
       "speed": 0,
       "complexity": 3,
@@ -21,7 +21,7 @@
       "blendMode": "screen"
     },
     {
-      "type": "mesh",
+      "type": "horizonGlow",
       "colors": [[0.29, 0.0, 0.51], [0.0, 0.1, 0.4]],
       "speed": 0,
       "complexity": 3,

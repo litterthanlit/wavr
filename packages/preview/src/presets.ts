@@ -3,8 +3,7 @@ import type { GradientConfig } from "@wavr/core";
 
 export const presets: Record<string, GradientConfig> = allPresets;
 
-// The overlay offers the catalogue's current presets; getPreset still resolves an
-// archived one, so a page that names one keeps loading it.
+// The overlay offers one preset per look; getPreset resolves any of them.
 export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "aperture", label: "Aperture" },
   { id: "ganzfeld", label: "Ganzfeld" },
@@ -16,19 +15,6 @@ export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "plasmaOrb", label: "Plasma Orb" },
   { id: "iridescentFoil", label: "Iridescent Foil" },
   { id: "lightLeak", label: "Light Leak" },
-  { id: "aurora", label: "Aurora" },
-  { id: "sunset", label: "Sunset" },
-  { id: "midnight", label: "Midnight" },
-  { id: "ocean", label: "Ocean" },
-  { id: "lava", label: "Lava" },
-  { id: "newspaper", label: "Newspaper" },
-  { id: "stipple", label: "Stipple" },
-  { id: "dissolve", label: "Dissolve" },
-  { id: "slitScan", label: "Slit Scan" },
-  { id: "corruption", label: "Corruption" },
-  { id: "bladeRunner", label: "Blade Runner" },
-  { id: "northernLights", label: "North Lights" },
-  { id: "prism", label: "Prism" },
 ];
 
 export function getPreset(id: string): GradientConfig | undefined {

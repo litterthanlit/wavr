@@ -23,9 +23,7 @@ function mulberry32(seed: number) {
 
 function randomConfig(rand: () => number): GC {
   const GRADIENT_TYPES = [
-    "mesh", "radial", "linear", "conic", "plasma",
-    "dither", "scanline", "glitch", "voronoi",
-    "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
+    "image",
     "liquidChrome", "iridescentFoil", "horizonGlow", "lightLeak", "inkSmoke", "plasmaOrb",
     "aperture", "halo", "lightWall",
   ] as const;
@@ -59,7 +57,6 @@ function randomConfig(rand: () => number): GC {
     vignette: rand(),
     chromaticAberration: rand(),
     hueShift: rand() * 360 - 180,
-    domainWarp: rand(),
     radialBlur: rand(),
     mouseReact: rand(),
     oklabEnabled: rand() > 0.5,
@@ -112,7 +109,7 @@ describe("size budget (gate 2)", () => {
       ...DEFAULT_CONFIG,
       layers: [
         {
-          type: "mesh",
+          type: "lightWall",
           colors: [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42], [0.251, 0.878, 0.816]],
           speed: 0.5,
           complexity: 3,
@@ -124,7 +121,7 @@ describe("size budget (gate 2)", () => {
           depth: 0,
         },
         {
-          type: "plasma",
+          type: "plasmaOrb",
           colors: [[0.3, 0.8, 1], [1, 0.4, 0.7]],
           speed: 0.3,
           complexity: 4,
@@ -259,7 +256,8 @@ describe("V1 backwards-compat (live URL sample)", () => {
     expect(result.config.version).toBe("2.0.0");
     expect(result.config.noise).toEqual({ enabled: true, intensity: 0.4, scale: 1.5 });
     expect(result.config.bloom).toEqual({ enabled: true, intensity: 0.3 });
-    expect(result.config.layers[0]!.type).toBe("mesh");
+    expect(result.config.layers[0]!.type).toBe("lightWall");
+    expect(result.config.layers[0]!.colors).toEqual(liveProjectState.layers[0]!.colors);
   });
 
   it("decodes a live V1 URL (no prefix, just base64url)", () => {
@@ -297,6 +295,55 @@ describe("V1 backwards-compat (live URL sample)", () => {
     // And the re-decoded V2 matches the once-migrated V2.
     const redecoded = decodeUrl(v2hash);
     expect(redecoded).toEqual(decoded);
+  });
+});
+
+// ---------- Retired gradient types ----------------------------------------
+
+describe("share URLs naming a retired gradient type", () => {
+  // Encoded by main's encodeUrl before mesh and aurora were removed.
+  const MESH_URL = "s2.N4IgbgpgTgzglgewHYgFwgEwDoAMuQA0IANgIYCe0MaA2qAC7kAOEaIAthDABaEgDGCYgli0aeAMwAOKQUkBWAOwEAjAF0CNFXKwAWDDv0bxWDPO14pi2ZZUA2Y3gCcNrFIN4MajSBgsIACZoeHZEguxMxBAAHnCMaLpEMPykUWgqWBJEAXAw9CL0iCioeLrySQgAZvRIXNQlpgC+PgDmUKRwxXg45SABCOwdSADqpFBMwZnyjUA";
+  const AURORA_URL = "s2.N4IgbgpgTgzglgewHYgFwgEwDoAMuQA0IANgIYCe0MaA2qAC7kAOEaIpArlAlKYSAGMExHtVQ0aeHAEYCUjHNwA2ALoFJuBXgDMi7RjUbpADkUBOLVgCsVw3gDsp2XmOq1IGCwgATNHhNEQgC2TMQQAB5wjGhKRDACpGFo0li6IN5wMPQ89IgoqDqmHggAZvRIEDBiLgC+7gDmvHD5UlZEYHD1FfT0rAWpRNkVALKkTMMI3n0KIEgImX2gEEikAEZhvqgliTAQRM29SPDR-WnxiX3SNUTrCAhBaEsr6z5o28S7+0iHx+R+qdcQFAIIkAEIie6PEDLNYbND0KAcCA1GpAA";
+
+  it("opens a mesh scene as lightWall, with its colours and motion", () => {
+    const result = tryDecodeUrl(MESH_URL);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.config.layers).toEqual([{
+      type: "lightWall",
+      colors: [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42], [0.251, 0.878, 0.816], [0.98, 0.82, 0.2]],
+      speed: 0.6,
+      complexity: 4,
+      scale: 1.3,
+      distortion: 0.45,
+      softness: 0.2,
+      opacity: 1,
+      blendMode: "normal",
+      depth: 0,
+    }]);
+    expect(result.config.grain).toBe(0.05);
+    // Its domain warp, read only by the retired types, is dropped rather than refused.
+    expect(result.droppedKeys).toEqual(["domainWarp"]);
+    expect(result.config).not.toHaveProperty("domainWarp");
+  });
+
+  it("opens an aurora scene as lightWall, with its colours and effects", () => {
+    const result = tryDecodeUrl(AURORA_URL);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.config.layers[0]).toMatchObject({
+      type: "lightWall",
+      colors: [[0.01, 0.02, 0.06], [0.02, 0.3, 0.32], [0.18, 0.92, 0.55], [0.78, 1, 0.86]],
+      speed: 0.18,
+      softness: 0.8,
+    });
+    expect(result.config.realBloom).toEqual({ enabled: true });
+    expect(result.config.toneMapMode).toBe(2);
+  });
+
+  it("re-encodes the opened scene under its new type", () => {
+    const opened = decodeUrl(MESH_URL);
+    expect(decodeUrl(encodeUrl(opened))).toEqual(opened);
   });
 });
 

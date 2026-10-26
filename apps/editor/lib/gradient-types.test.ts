@@ -16,8 +16,6 @@ import { GradientType as SchemaGradientType } from "@wavr/schema";
 import {
   COMMAND_GRADIENT_TYPES,
   GRADIENT_OPTIONS,
-  PREMIUM_GRADIENT_TYPES,
-  RANDOM_GRADIENT_TYPES,
   gradientTypeLabel,
 } from "./gradient-types";
 import { INITIAL_LAYER_PARAMS } from "./initial-scene";
@@ -48,30 +46,16 @@ describe("gradient types", () => {
 
   it("types are shown by their picker name", () => {
     expect(gradientTypeLabel("liquidChrome")).toBe("Liquid Chrome");
-    expect(gradientTypeLabel("softCells")).toBe("Soft Cells");
+    expect(gradientTypeLabel("lightWall")).toBe("Light Wall");
   });
 
-  it("the picker leads with the premium modes and keeps the stylized ones apart", () => {
+  it("the picker groups the light fields, then the light modes, then the uploaded picture", () => {
     const groupOrder = [...new Set(GRADIENT_OPTIONS.map((option) => option.group))];
-    expect(groupOrder).toEqual(["Premium", "Classic", "Stylized", "Media"]);
-    const stylized = GRADIENT_OPTIONS.filter((o) => o.group === "Stylized").map((o) => o.value);
-    expect(stylized.sort()).toEqual(["dither", "glitch", "scanline"]);
-    const premium = GRADIENT_OPTIONS.filter((o) => o.group === "Premium").map((o) => o.value);
-    expect(premium).toEqual(PREMIUM_GRADIENT_TYPES);
-  });
-
-  it("Randomize only picks modes that work with any palette", () => {
-    const group = (type: string) => GRADIENT_OPTIONS.find((o) => o.value === type)?.group;
-    for (const type of RANDOM_GRADIENT_TYPES) {
-      expect(["Premium", "Classic"], `${type} is ${group(type)}`).toContain(group(type));
-    }
-    // These depend on the palette's order or contrast, so a random one can ruin them.
-    for (const type of ["aurora", "dither", "scanline", "glitch", "voronoi", "image"] as const) {
-      expect(RANDOM_GRADIENT_TYPES).not.toContain(type);
-    }
-    for (const type of RANDOM_GRADIENT_TYPES) {
-      expect(isLightGradientType(type), `${type} reads the palette as light`).toBe(false);
-    }
+    expect(groupOrder).toEqual(["Light fields", "Light", "Media"]);
+    const group = (name: string) => GRADIENT_OPTIONS.filter((o) => o.group === name).map((o) => o.value);
+    expect(group("Light fields").sort()).toEqual(["aperture", "halo", "lightWall"]);
+    for (const type of group("Light")) expect(isLightGradientType(type), type).toBe(true);
+    expect(group("Media")).toEqual(["image"]);
   });
 
   it("each light mode has a curated palette that runs from shadow to light, as its presets do", () => {
@@ -90,7 +74,7 @@ describe("gradient types", () => {
   });
 
   it("the opening scene is a light field on its own palette, so the panel offers no swap", () => {
-    const type = INITIAL_LAYER_PARAMS.gradientType ?? "mesh";
+    const type = INITIAL_LAYER_PARAMS.gradientType ?? "lightWall";
     expect(isLightFieldType(type)).toBe(true);
     expect(isLightGradientType(type)).toBe(false);
     if (isLightFieldType(type)) expect(INITIAL_LAYER_PARAMS.colors).toEqual(LIGHT_FIELD_PALETTES[type]);
@@ -108,6 +92,21 @@ describe("gradient types", () => {
 
   it("no gradient function reads the mouse (mouseWarp in layer.glsl does that once)", () => {
     expect(GRADIENTS_SHADER).not.toMatch(/u_mouse\w*|\w+Displace\b|rippleEffect/);
+  });
+
+  it("keeps each type's shader id, which code exports and embeds compile in", () => {
+    expect(GRADIENT_TYPE_IDS).toEqual({
+      image: 8,
+      liquidChrome: 17,
+      iridescentFoil: 18,
+      horizonGlow: 19,
+      lightLeak: 20,
+      inkSmoke: 21,
+      plasmaOrb: 22,
+      aperture: 23,
+      halo: 24,
+      lightWall: 25,
+    });
   });
 
   it("every type has a unique shader id", () => {

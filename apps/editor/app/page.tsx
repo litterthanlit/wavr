@@ -123,8 +123,8 @@ function DitherCanvas() {
 const FEATURES = [
   {
     label: "Gradient Engine",
-    title: "Premium modes, one shader",
-    desc: "Silk, aurora, liquid, soft cells, grainflow, mesh, plasma, and dither — all GPU-rendered in a single WebGL 2 fragment shader.",
+    title: "Light, on the GPU",
+    desc: "Aperture, halo, light wall, liquid chrome, horizon glow, ink smoke and plasma orb, all rendered in WebGL 2.",
     ascii: "█▓▒░",
   },
   {
@@ -224,7 +224,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-base md:text-lg text-text-secondary max-w-[520px] leading-relaxed mb-10">
-            A WebGL-powered editor for creating mesh gradients, layered effects,
+            A WebGL-powered editor for creating gradients of light, layered effects,
             and exportable motion — all in the browser.
           </p>
 
@@ -336,7 +336,7 @@ export default function LandingPage() {
             {
               step: "01",
               title: "Pick a gradient mode",
-              desc: "Start from soft premium modes like silk, aurora, liquid, soft cells, and grainflow. Tune colors, motion, scale, and softness live.",
+              desc: "Start from a light field or a light mode, like aperture, halo, liquid chrome or ink smoke. Tune colors, motion, scale, and softness live.",
               glyph: "░░▒▒▓▓██",
             },
             {

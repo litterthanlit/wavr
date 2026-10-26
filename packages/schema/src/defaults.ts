@@ -1,14 +1,14 @@
 import type { GradientConfig } from "./schema";
 import { SCHEMA_VERSION } from "./version";
 
-// Minimal valid config — 2-color linear mesh, no effects.
+// Minimal valid config — a 2-colour light wall, no effects.
 // Used as the baseline for `migrate()` fills, `get_preset("default")`, and boot state.
 export const DEFAULT_CONFIG: GradientConfig = {
   version: SCHEMA_VERSION,
   colorSpace: "linear",
   layers: [
     {
-      type: "mesh",
+      type: "lightWall",
       colors: [
         [0.388, 0.357, 1.0],
         [1.0, 0.42, 0.42],
@@ -29,7 +29,6 @@ export const DEFAULT_CONFIG: GradientConfig = {
   vignette: 0,
   chromaticAberration: 0,
   hueShift: 0,
-  domainWarp: 0,
   radialBlur: 0,
   mouseReact: 0.5,
   oklabEnabled: true,

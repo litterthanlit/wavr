@@ -15,7 +15,6 @@ import {
   paletteKeyMatches,
   setPaletteKey,
   stopCurve,
-  toMixSpace,
 } from "../../../packages/core/src/palette";
 
 type V3 = [number, number, number];
@@ -175,6 +174,29 @@ function exactPalette(colors: V3[], oklab: boolean, displayP3 = false): (t: numb
   };
 }
 
+// Display P3 to linear sRGB (CSS Color 4), for stops read in a P3 scene.
+const P3_TO_SRGB: V3[] = [
+  [1.2249401, -0.2249404, 0],
+  [-0.0420569, 1.0420571, 0],
+  [-0.0196376, -0.0786361, 1.0982735],
+];
+
+/** A stop in the space the curve runs in: Oklab, or the stop's own values. */
+function mixPoint(c: V3, oklab: boolean, displayP3: boolean): V3 {
+  if (!oklab) return c;
+  const lin = glslSrgbToLinear(c);
+  const [r, g, b] = displayP3 ? (P3_TO_SRGB.map((row) => row[0] * lin[0] + row[1] * lin[1] + row[2] * lin[2]) as V3) : lin;
+  // cbrt, not pow: a P3 stop can be negative in linear sRGB.
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+
 const distance = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 /** How far the colour travels per unit of t, on average: the palette's length. */
@@ -211,7 +233,7 @@ describe("the curve through the stops", () => {
     for (const mode of MODES) {
       it(`${name}, ${mode.name}: keeps moving through every inner stop a channel carries on through, and rests at the others`, () => {
         const palette = exactPalette(colors, mode.oklab, mode.displayP3);
-        const points = colors.map((c) => toMixSpace(c, mode.oklab, mode.displayP3));
+        const points = colors.map((c) => mixPoint(c, mode.oklab, mode.displayP3));
         const mean = meanSpeed(palette);
         const h = 1e-5;
         for (let j = 1; j < colors.length - 1; j++) {
@@ -455,7 +477,6 @@ describe("Display P3", () => {
     for (const [index, stop] of [[0, stops[0]], [PALETTE_SIZE - 1, stops[2]]] as [number, V3][]) {
       texel(table, index).forEach((c, i) => expect(c).toBeCloseTo(stop[i], 5));
     }
-    toMixSpace(stops[1], true, true).forEach((c, i) => expect(c).not.toBeCloseTo(toMixSpace(stops[1], true)[i], 3));
   });
 
   it("blends in Oklab between the colours the P3 values are, not as if they were sRGB", () => {

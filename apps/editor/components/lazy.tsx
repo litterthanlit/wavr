@@ -24,7 +24,6 @@ const loadPresetsPanel = () => import("@/components/PresetsPanel");
 const loadCustomGLSLPanel = () => import("@/components/CustomGLSLPanel");
 const loadExportModal = () => import("@/components/ExportModal");
 const loadProjectsModal = () => import("@/components/ProjectsModal");
-const loadSceneGalleryModal = () => import("@/components/SceneGalleryModal");
 const loadShortcutsModal = () => import("@/components/ShortcutsModal");
 const loadCommandPalette = () => import("@/components/CommandPalette");
 const loadOnboarding = () => import("@/components/Onboarding");
@@ -36,7 +35,6 @@ export const LazyPresetsPanel = dynamic(loadPresetsPanel, { ssr: false, loading:
 export const LazyCustomGLSLPanel = dynamic(loadCustomGLSLPanel, { ssr: false, loading: () => null });
 export const LazyExportModal = dynamic(loadExportModal, { ssr: false, loading: () => null });
 export const LazyProjectsModal = dynamic(loadProjectsModal, { ssr: false, loading: () => null });
-export const LazySceneGalleryModal = dynamic(loadSceneGalleryModal, { ssr: false, loading: () => null });
 export const LazyShortcutsModal = dynamic(loadShortcutsModal, { ssr: false, loading: () => null });
 export const LazyCommandPalette = dynamic(loadCommandPalette, { ssr: false, loading: () => null });
 export const LazyOnboarding = dynamic(loadOnboarding, { ssr: false, loading: () => null });
@@ -55,7 +53,6 @@ export const preloadPresetsPanel = preloader(loadPresetsPanel);
 export const preloadCustomGLSLPanel = preloader(loadCustomGLSLPanel);
 export const preloadExportModal = preloader(loadExportModal);
 export const preloadProjectsModal = preloader(loadProjectsModal);
-export const preloadSceneGalleryModal = preloader(loadSceneGalleryModal);
 export const preloadShortcutsModal = preloader(loadShortcutsModal);
 export const preloadCommandPalette = preloader(loadCommandPalette);
 export const preloadMobileDrawerBody = preloader(loadMobileDrawerBody);
@@ -82,7 +79,6 @@ export function prefetchEditorChunks(): () => void {
     loadScenePanel,
     loadCommandPalette,
     loadProjectsModal,
-    loadSceneGalleryModal,
     loadShortcutsModal,
     loadCustomGLSLPanel,
   ];

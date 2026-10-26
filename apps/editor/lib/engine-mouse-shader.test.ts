@@ -38,7 +38,7 @@ describe("mouse warp wiring", () => {
 
   it("only gives the styles listed in the table", () => {
     const styles = [...mouse.matchAll(/^vec2 (mouseWarp(?!\()\w+)\(vec2 uv\)/gm)].map((m) => m[1]);
-    expect(styles.sort()).toEqual(["mouseWarpLens", "mouseWarpMagnet", "mouseWarpPush", "mouseWarpSwirl", "mouseWarpWave"]);
+    expect(styles.sort()).toEqual(["mouseWarpLens", "mouseWarpPush", "mouseWarpSwirl", "mouseWarpWave"]);
     for (const style of styles) {
       expect(mouse.match(new RegExp(`define WAVR_MOUSE_WARP ${style}\\b`)), style).not.toBeNull();
     }
@@ -48,7 +48,9 @@ describe("mouse warp wiring", () => {
     expect(mouse).toMatch(/if \(u_mouseReact <= 0\.0 \|\| u_mousePresence <= 0\.0\) return uv;/);
     // Every style is scaled by react * presence (through MouseField.amount).
     expect(mouse).toMatch(/f\.amount = react \* clamp\(u_mousePresence, 0\.0, 1\.0\);/);
-    expect(mouse.match(/\* f\.amount\)/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+    const bodies = [...mouse.matchAll(/^vec2 (mouseWarp(?!\()\w+)\(vec2 uv\) \{([\s\S]*?)\n\}/gm)];
+    expect(bodies.length).toBe(4);
+    for (const [, style, body] of bodies) expect(body, style).toContain("f.amount");
   });
 
   it("measures in aspect-correct space", () => {
