@@ -11,7 +11,7 @@ uniform float u_time;
 uniform vec2 u_resolution;
 uniform float u_speed;          // post: the last visible layer's, like the palette
 uniform float u_softness;
-uniform vec3 u_colors[8];
+uniform vec3 u_colors[8];       // the raw stops, for the light fields
 uniform int u_colorCount;
 uniform sampler2D u_paletteTexture; // baked getGradientColor, see "Palette" below
 uniform vec2 u_paletteDomain;       // post: the last visible layer's palette
@@ -323,9 +323,11 @@ vec2 compositeUV(vec2 uv, vec2 targetSize) {
 // Palette
 // ============================================================
 
-// The texture covers t in [-reach, 1 + reach], where reach is how far the
-// blend still moves the colour past the ends; u_paletteDomain maps t to a
-// coordinate along it.
+// The layer's palette (stops, Oklab or sRGB interpolation, softness) is
+// evaluated on the CPU, once per change, into a 1D texture of PALETTE_TEXELS
+// (palette.ts is the source of the maths). The texture covers t in
+// [-reach, 1 + reach], where reach is how far the blend still moves the colour
+// past the ends; u_paletteDomain maps t to a coordinate along it.
 const float PALETTE_TEXELS = 512.0;
 
 vec3 getGradientColor(float t) {

@@ -5,6 +5,8 @@
 ### Light-only gradient modes ✅
 - The gradient modes are now the light fields (aperture, halo, light wall), the light modes (liquid chrome, iridescent foil, horizon glow, light leak, ink smoke, plasma orb) and image. The earlier modes named below (mesh, radial, linear, conic, plasma, dither, scanline, glitch and the soft modes) are retired; a link, embed or project that names one opens as a light wall.
 - 20 presets in two groups, Light Fields and Light; the Scene Gallery and the preset archive are gone.
+- A simpler editor: a Look grid replaces the type menu, Effects is five open sections, and audio reactivity and the global colour blend are removed (listed under Core Product below as they shipped). Effects that left the editor still render in scenes that use them, under "Also in this scene".
+- Colour runs through each stop on a Catmull-Rom curve instead of resting on it, so palettes blend without flat bands.
 
 ### Core Product (Phases 1–4)
 - 5 original gradient modes: mesh, radial, linear, conic, plasma

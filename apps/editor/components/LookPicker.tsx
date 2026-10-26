@@ -27,7 +27,9 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
   const selected = Math.max(0, GRADIENT_OPTIONS.findIndex((option) => option.value === value));
   const tabStop = focused ?? selected;
 
-  const onKeyDown = (e: KeyboardEvent, i: number) => {
+  // A listbox, not a radio group: arrows only move focus and Enter or Space picks, so browsing
+  // the looks by keyboard doesn't make an undo step and a shader compile per tile.
+  const moveFocus = (e: KeyboardEvent, i: number) => {
     const target = keyTarget(e.key, i, GRADIENT_OPTIONS.length);
     if (target === null) return;
     e.preventDefault();
@@ -36,7 +38,7 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
 
   return (
     <div
-      role="radiogroup"
+      role="listbox"
       aria-label="Look"
       className="grid grid-cols-5 gap-1.5"
       onBlur={(e) => {
@@ -53,13 +55,13 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
               tiles.current[i] = el;
             }}
             type="button"
-            role="radio"
-            aria-checked={checked}
+            role="option"
+            aria-selected={checked}
             aria-label={option.label}
             title={option.label}
             tabIndex={i === tabStop ? 0 : -1}
             onFocus={() => setFocused(i)}
-            onKeyDown={(e) => onKeyDown(e, i)}
+            onKeyDown={(e) => moveFocus(e, i)}
             onClick={() => onPick(option.value)}
             className={`group relative block aspect-[4/3] overflow-hidden rounded-md border bg-surface
               transition-colors duration-150 focus-visible:outline-offset-[3px] ${
