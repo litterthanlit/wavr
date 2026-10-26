@@ -11,7 +11,6 @@ import {
   LazyExportModal,
   LazyShortcutsModal,
   LazyProjectsModal,
-  LazySceneGalleryModal,
   LazyCommandPalette,
   LazyOnboarding,
   prefetchEditorChunks,
@@ -41,7 +40,6 @@ export default function EditorPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
-  const [scenesOpen, setScenesOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SidebarTab>("gradient");
   // Each modal's code loads the first time it opens (or earlier, on hover or
@@ -49,7 +47,6 @@ export default function EditorPage() {
   const exportMounted = useEverOpened(exportOpen);
   const shortcutsMounted = useEverOpened(shortcutsOpen);
   const projectsMounted = useEverOpened(projectsOpen);
-  const scenesMounted = useEverOpened(scenesOpen);
   const paletteMounted = useEverOpened(paletteOpen);
   const [onboardingNeeded, setOnboardingNeeded] = useState(false);
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
@@ -120,7 +117,6 @@ export default function EditorPage() {
           setExportOpen(false);
           setShortcutsOpen(false);
           setProjectsOpen(false);
-          setScenesOpen(false);
           break;
         case "1":
           setActiveTab("gradient");
@@ -182,7 +178,6 @@ export default function EditorPage() {
     // dvh, so a phone's browser bars don't push the timeline off screen.
     <div className="h-dvh w-screen flex flex-col overflow-hidden bg-root">
       <TopBar
-        onScenes={() => setScenesOpen(true)}
         onExport={() => setExportOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
         onProjects={() => setProjectsOpen(true)}
@@ -222,12 +217,6 @@ export default function EditorPage() {
         <LazyProjectsModal
           open={projectsOpen}
           onClose={() => setProjectsOpen(false)}
-        />
-      )}
-      {scenesMounted && (
-        <LazySceneGalleryModal
-          open={scenesOpen}
-          onClose={() => setScenesOpen(false)}
         />
       )}
       {paletteMounted && (
