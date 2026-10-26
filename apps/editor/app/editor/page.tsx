@@ -187,7 +187,7 @@ export default function EditorPage() {
         onShowShortcuts={() => setShortcutsOpen(true)}
         onProjects={() => setProjectsOpen(true)}
       />
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="editor-main flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <div className="relative flex flex-1 min-h-0 overflow-hidden">
             <Canvas
@@ -201,6 +201,7 @@ export default function EditorPage() {
           <Timeline />
         </div>
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
+        <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
       {exportMounted && (
         <LazyExportModal
@@ -242,7 +243,6 @@ export default function EditorPage() {
           }}
         />
       )}
-      <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
       {onboardingNeeded && <LazyOnboarding />}
     </div>
   );

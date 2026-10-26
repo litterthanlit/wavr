@@ -688,8 +688,68 @@ body {
 }
 
 .mobile-controls-button,
-.mobile-controls-drawer {
+.mobile-sheet {
   display: none;
+}
+
+/* The phone controls sheet (MobileDrawer): part of the layout, so the canvas
+   shrinks to fit beside it instead of being covered. */
+@media (max-width: 900px) {
+  .editor-main {
+    flex-direction: column;
+  }
+
+  .mobile-sheet:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    height: 46dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--color-base);
+    border-top: 1px solid var(--color-border);
+    border-radius: 14px 14px 0 0;
+  }
+
+  .mobile-sheet[data-expanded="true"]:not([hidden]) {
+    height: 82dvh;
+  }
+
+  .mobile-controls-button {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .editor-main {
+    flex-direction: row;
+  }
+
+  .mobile-sheet:not([hidden]),
+  .mobile-sheet[data-expanded="true"]:not([hidden]) {
+    height: auto;
+    width: min(360px, 48vw);
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+    border-radius: 0;
+  }
+
+  /* There is no half height to switch from at the side. */
+  .mobile-sheet-handle {
+    visibility: hidden;
+  }
+}
+
+@media (max-width: 900px) and (prefers-reduced-motion: no-preference) {
+  .mobile-sheet:not([hidden]) {
+    animation: sheet-in 0.2s ease-out;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }
 
 @media (max-width: 900px) {
@@ -699,10 +759,6 @@ body {
 
   .mobile-controls-button {
     display: flex;
-  }
-
-  .mobile-controls-drawer {
-    display: block;
   }
 
   .topbar {

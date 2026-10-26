@@ -1,412 +1,225 @@
-"use client";
+import Link from "next/link";
+import HeroScene from "@/components/landing/HeroScene";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
-
-/* ── ASCII / Dither decorative patterns ─────────────────────────── */
-
-const DITHER_BLOCK = `░▒▓█▓▒░░▒▓█▓▒░
-▒▓█▓▒░░▒▓█▓▒░░
-▓█▓▒░░▒▓█▓▒░░▒
-█▓▒░░▒▓█▓▒░░▒▓
-▓▒░░▒▓█▓▒░░▒▓█
-▒░░▒▓█▓▒░░▒▓█▓
-░░▒▓█▓▒░░▒▓█▓▒
-░▒▓█▓▒░░▒▓█▓▒░`;
-
-const ASCII_WAVE = `
-    .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .
- ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .     .
-˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙
- ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·
-.     .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .
-   .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .   `;
-
-const GRID_CHARS = "·+·+·+·+·+·+·+·+·+·+·+·+·+·+·+·+";
-
-/* ── Animated dither noise canvas ───────────────────────────────── */
-
-function DitherCanvas() {
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const W = 160;
-    const H = 90;
-    canvas.width = W;
-    canvas.height = H;
-
-    // Resizing reset the context state, so set the font once here.
-    ctx.font = "3px Geist Mono, monospace";
-
-    const chars = " .:-=+*#%@";
-    // Glyph alpha runs 0.08-0.20. 64 steps are indistinguishable from a
-    // continuous ramp and let us reuse the style strings instead of building
-    // (and re-parsing) one per glyph.
-    const ALPHA_STEPS = 64;
-    const styles = Array.from(
-      { length: ALPHA_STEPS },
-      (_, i) => `rgba(99, 91, 255, ${0.08 + (i / (ALPHA_STEPS - 1)) * 0.12})`,
-    );
-    // This is decoration behind the hero text: 30fps looks the same and costs
-    // half. `frame` advances by two per drawn frame, so the motion keeps the
-    // speed it had at 60fps.
-    const FRAME_INTERVAL_MS = 1000 / 30;
-    let frame = 0;
-    let raf = 0;
-    let lastDraw = -Infinity;
-
-    const draw = (now: number) => {
-      raf = requestAnimationFrame(draw);
-      // 1ms of slack so vsync jitter doesn't skip a frame we could have drawn.
-      if (now - lastDraw < FRAME_INTERVAL_MS - 1) return;
-      lastDraw = now;
-
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, W, H);
-
-      for (let y = 0; y < H; y += 4) {
-        for (let x = 0; x < W; x += 3) {
-          const noise =
-            Math.sin(x * 0.08 + frame * 0.02) *
-              Math.cos(y * 0.06 + frame * 0.015) *
-              0.5 +
-            0.5;
-          const idx = Math.floor(noise * (chars.length - 1));
-          // chars[0] is a space: nothing to draw.
-          if (idx === 0) continue;
-          ctx.fillStyle = styles[Math.round(noise * (ALPHA_STEPS - 1))];
-          ctx.fillText(chars[idx], x, y);
-        }
-      }
-      frame += 2;
-    };
-
-    const stop = () => {
-      cancelAnimationFrame(raf);
-      raf = 0;
-    };
-
-    // Only animate while the hero is on screen. Cancelling the *latest* frame
-    // matters on unmount: the loop used to keep running after navigating to the
-    // editor, redrawing ~2k glyphs per frame on a detached canvas.
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        if (!raf) raf = requestAnimationFrame(draw);
-      } else {
-        stop();
-      }
-    });
-    observer.observe(canvas);
-
-    return () => {
-      observer.disconnect();
-      stop();
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={ref}
-      className="absolute inset-0 w-full h-full opacity-40 pointer-events-none"
-      style={{ imageRendering: "pixelated" }}
-    />
-  );
-}
-
-/* ── Feature data ───────────────────────────────────────────────── */
+// The landing page. A server component: everything is static except the
+// hero's live scene (components/landing/HeroScene.tsx), which loads the engine
+// after the page has painted.
+//
+// Avoid `text-base` here: the theme's `--color-base` surface token makes it
+// set the text colour as well as the size (near-white headings on the light
+// theme). Use `text-[15px]`/`text-[16px]` for a body size.
 
 const FEATURES = [
   {
-    label: "Gradient Engine",
-    title: "Premium modes, one shader",
-    desc: "Silk, aurora, liquid, soft cells, grainflow, mesh, plasma, and dither — all GPU-rendered in a single WebGL 2 fragment shader.",
+    label: "Light Fields",
+    title: "Coloured light, not just colour",
+    desc: "Apertures, halos and light walls mixed in linear light, after light installations. Every glow is computed exactly, with no blur.",
+    ascii: "▢◯▤",
+  },
+  {
+    label: "Gradient Modes",
+    title: "26 modes, compiled on demand",
+    desc: "Liquid chrome, silk, aurora, iridescent foil, mesh, plasma, dither and more. Each mode is its own GPU program, built only when used.",
     ascii: "█▓▒░",
   },
   {
-    label: "Layer System",
-    title: "Stack and blend",
-    desc: "Up to 4 layers with blend modes — normal, multiply, screen, overlay, add. Each layer has independent parameters.",
-    ascii: "╔═══╗",
+    label: "Colour",
+    title: "Display P3 and HDR",
+    desc: "Wide-gamut scenes, Oklab blending and light that shines brighter than white on HDR screens. Exports stay true on standard ones.",
+    ascii: "◐◑◒",
   },
   {
-    label: "Effects Pipeline",
-    title: "Dither. ASCII. Bloom.",
-    desc: "Film grain, noise overlay, chromatic aberration, particles, pixel sorting, reaction-diffusion — all in the shader.",
+    label: "Layers & Effects",
+    title: "Stack, blend, finish",
+    desc: "Up to 4 layers with blend modes, then cinematic bloom, film grain, chromatic aberration, dither, ASCII and pixel sorting.",
     ascii: ".:*#@",
   },
   {
-    label: "Mouse Physics",
-    title: "Reactive to touch",
-    desc: "Fluid displacement, ripple waves, vortex swirl. Three physics modes that respond to cursor position and velocity.",
+    label: "Interaction",
+    title: "Reacts to touch",
+    desc: "Push, lens, swirl, magnet and wave: each mode answers the pointer or a finger, with click ripples and trails.",
     ascii: "~≈≋~",
-  },
-  {
-    label: "Timeline",
-    title: "Keyframe anything",
-    desc: "Animate any parameter over time. Loop, bounce, or one-shot playback with precise keyframe control.",
-    ascii: "▸▸▸▸",
   },
   {
     label: "Export",
     title: "Ship it anywhere",
-    desc: "PNG, CSS, Tailwind config, WebM video, React component, Web Component, iframe embed, or shareable URL.",
+    desc: "PNG up to 4×, GIF, WebM, a React component or web component built from the engine's own shader, an embed, or a link.",
     ascii: "→⤓↗",
   },
 ];
 
-/* ── Stat counters ──────────────────────────────────────────────── */
-
 const STATS = [
-  { value: "60", unit: "fps", label: "GPU-rendered" },
-  { value: "20+", unit: "", label: "Effects" },
+  { value: "26", unit: "", label: "Gradient modes" },
+  { value: "P3", unit: "+ HDR", label: "Wide-gamut colour" },
   { value: "8", unit: "", label: "Export formats" },
   { value: "0", unit: "", label: "Signups needed" },
 ];
 
-/* ── Main page ──────────────────────────────────────────────────── */
+const STEPS = [
+  {
+    step: "01",
+    title: "Start from a preset",
+    desc: "Light fields, liquid chrome, soft silks and textures, each shown as it renders. Or pick a mode and build from nothing.",
+    glyph: "░░▒▒▓▓██",
+  },
+  {
+    step: "02",
+    title: "Shape it",
+    desc: "Edit the palette on a live gradient bar, tune motion and softness, stack layers and effects. Every change is one undo step.",
+    glyph: ".:=+*#%@",
+  },
+  {
+    step: "03",
+    title: "Export",
+    desc: "Download a PNG, GIF or video, copy a React component, or share a link that opens the exact scene.",
+    glyph: "→ → → →",
+  },
+];
+
+const primaryButton =
+  "inline-flex items-center justify-center font-medium text-white bg-accent hover:opacity-90 rounded-lg transition-opacity";
 
 export default function LandingPage() {
-  const router = useRouter();
   return (
     <div className="min-h-screen bg-root text-text-primary overflow-x-hidden">
       {/* ── Nav ─────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border backdrop-blur-xl bg-root/80">
-        <div className="max-w-[1200px] mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-semibold tracking-[0.2em]">
-              WAVR
-            </span>
+      <nav aria-label="Main" className="fixed top-0 left-0 right-0 z-50 border-b border-border backdrop-blur-xl bg-root/80">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="font-mono text-sm font-semibold tracking-[0.2em]">WAVR</span>
             <span className="text-[10px] font-mono text-text-tertiary border border-border rounded px-1.5 py-0.5 ml-1">
               beta
             </span>
-          </div>
-          <div className="flex items-center gap-6">
-            <a
-              href="https://github.com"
-              className="text-xs text-text-secondary hover:text-text-primary transition-colors"
-            >
-              GitHub
-            </a>
-            <button
-              onClick={() => router.push("/editor")}
-              className="text-xs font-medium text-root bg-text-primary hover:bg-text-secondary
-                px-4 py-1.5 rounded-md transition-colors"
-            >
-              Open Editor
-            </button>
-          </div>
+          </Link>
+          <Link href="/editor" className={`${primaryButton} text-xs px-4 py-2`}>
+            Open editor
+          </Link>
         </div>
       </nav>
 
-      {/* ── Hero ────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-24 px-6">
-        {/* Subtle animated background */}
-        <div className="absolute inset-0 overflow-hidden">
-          <DitherCanvas />
-          <div className="absolute inset-0 bg-gradient-to-b from-root via-root/90 to-root" />
-        </div>
+      <main>
+        {/* ── Hero: copy on the left, the engine running on the right ── */}
+        <section className="relative pt-24 sm:pt-28 lg:pt-32 pb-16 lg:pb-24 px-4 sm:px-6">
+          <div className="max-w-[1200px] mx-auto grid gap-10 lg:gap-14 lg:grid-cols-12 lg:items-end">
+            <div className="lg:col-span-5 lg:pb-6 order-2 lg:order-1">
+              <p className="font-mono text-[11px] text-text-tertiary tracking-[0.2em] uppercase mb-5">
+                Animated gradient editor
+              </p>
+              <h1 className="text-[44px] sm:text-6xl lg:text-[58px] xl:text-[66px] font-medium tracking-[-0.04em] leading-[0.95] mb-6">
+                Gradients that
+                <br />
+                <span className="text-text-secondary">move like light.</span>
+              </h1>
+              <p className="text-[16px] md:text-lg text-text-secondary max-w-[460px] leading-relaxed mb-8">
+                Design moving light fields, chrome and soft gradients in the browser, in Display P3 and HDR, then
+                export them as code, video or a link.
+              </p>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                <Link href="/editor" className={`${primaryButton} text-sm px-6 py-3`}>
+                  Open the editor
+                </Link>
+                <span className="text-xs text-text-tertiary font-mono">No account · Free</span>
+              </div>
+            </div>
+            <div className="lg:col-span-7 order-1 lg:order-2">
+              <HeroScene />
+            </div>
+          </div>
+        </section>
 
-        <div className="relative max-w-[1200px] mx-auto">
-          {/* ASCII decorative line */}
-          <div className="font-mono text-[10px] text-text-tertiary/40 mb-8 tracking-[0.5em] select-none overflow-hidden whitespace-nowrap">
-            {GRID_CHARS}
+        {/* ── Stats bar ───────────────────────────────────────── */}
+        <section aria-label="At a glance" className="border-y border-border bg-base/50">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-8">
+            {STATS.map((s) => (
+              <div key={s.label}>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl font-medium tracking-tight">{s.value}</span>
+                  {s.unit && <span className="text-sm text-text-secondary font-mono">{s.unit}</span>}
+                </div>
+                <span className="text-xs text-text-tertiary">{s.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Features ────────────────────────────────────────── */}
+        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 py-20 lg:py-24">
+          <div className="flex items-center gap-4 mb-4">
+            <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">Capabilities</span>
+            <div className="flex-1 h-px bg-border" />
           </div>
 
-          <h1 className="text-5xl md:text-7xl lg:text-[88px] font-medium tracking-[-0.04em] leading-[0.95] mb-6">
-            Animated gradients,
-            <br />
-            <span className="text-text-secondary">crafted visually.</span>
-          </h1>
-
-          <p className="text-base md:text-lg text-text-secondary max-w-[520px] leading-relaxed mb-10">
-            A WebGL-powered editor for creating mesh gradients, layered effects,
-            and exportable motion — all in the browser.
-          </p>
-
-          <div className="flex items-center gap-4 mb-16">
-            <button
-              onClick={() => router.push("/editor")}
-              className="px-6 py-2.5 text-sm font-medium text-root bg-text-primary hover:bg-text-secondary
-                rounded-md transition-all duration-150"
-            >
-              Open Editor
-            </button>
-            <span className="text-xs text-text-tertiary font-mono">
-              No account · Free · Open source
-            </span>
-          </div>
-
-          {/* ASCII art hero accent */}
-          <pre className="font-mono text-[9px] leading-[1.4] text-accent/20 select-none whitespace-pre max-w-max">
-            {DITHER_BLOCK}
-          </pre>
-        </div>
-      </section>
-
-      {/* ── Stats bar ───────────────────────────────────────── */}
-      <section className="border-y border-border bg-base/50">
-        <div className="max-w-[1200px] mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-8">
-          {STATS.map((s) => (
-            <div key={s.label}>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-medium tracking-tight">
-                  {s.value}
-                </span>
-                {s.unit && (
-                  <span className="text-sm text-text-secondary font-mono">
-                    {s.unit}
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-text-tertiary">{s.label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Features ────────────────────────────────────────── */}
-      <section className="max-w-[1200px] mx-auto px-6 py-24">
-        <div className="flex items-center gap-4 mb-4">
-          <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
-            Capabilities
-          </span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <h2 className="text-3xl md:text-4xl font-medium tracking-[-0.03em] mb-16">
-          Everything you need to create
-          <br />
-          <span className="text-text-secondary">and ship visual effects.</span>
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
-          {FEATURES.map((f) => (
-            <div
-              key={f.label}
-              className="bg-root p-8 group cursor-default transition-colors hover:bg-surface/50"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
-                  {f.label}
-                </span>
-                <span
-                  className="font-mono text-sm text-accent/30 group-hover:text-accent/60 transition-colors select-none"
-                >
-                  {f.ascii}
-                </span>
-              </div>
-              <h3 className="text-lg font-medium mb-2 tracking-[-0.01em]">
-                {f.title}
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                {f.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── ASCII texture divider ───────────────────────────── */}
-      <div className="max-w-[1200px] mx-auto px-6 select-none">
-        <pre className="font-mono text-[8px] leading-[1.6] text-text-tertiary/15 overflow-hidden whitespace-pre">
-          {ASCII_WAVE}
-        </pre>
-      </div>
-
-      {/* ── How it works ────────────────────────────────────── */}
-      <section className="max-w-[1200px] mx-auto px-6 py-24">
-        <div className="flex items-center gap-4 mb-4">
-          <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
-            Workflow
-          </span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <h2 className="text-3xl md:text-4xl font-medium tracking-[-0.03em] mb-16">
-          Create → Effect → Export
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          {[
-            {
-              step: "01",
-              title: "Pick a gradient mode",
-              desc: "Start from soft premium modes like silk, aurora, liquid, soft cells, and grainflow. Tune colors, motion, scale, and softness live.",
-              glyph: "░░▒▒▓▓██",
-            },
-            {
-              step: "02",
-              title: "Layer effects",
-              desc: "Stack noise, bloom, dither, ASCII, chromatic aberration, particles, and more. Each effect has fine-grained controls.",
-              glyph: ".:=+*#%@",
-            },
-            {
-              step: "03",
-              title: "Export anywhere",
-              desc: "Grab a PNG, copy CSS, download WebM video, generate a React component, or share a URL. One click.",
-              glyph: "→ → → →",
-            },
-          ].map((s) => (
-            <div key={s.step} className="group">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="font-mono text-xs text-accent">{s.step}</span>
-                <span className="font-mono text-[10px] text-text-tertiary/30 tracking-[0.3em] select-none">
-                  {s.glyph}
-                </span>
-              </div>
-              <h3 className="text-base font-medium mb-2">{s.title}</h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                {s.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── CTA ─────────────────────────────────────────────── */}
-      <section className="border-t border-border">
-        <div className="max-w-[1200px] mx-auto px-6 py-24 flex flex-col items-center text-center">
-          {/* Dither accent */}
-          <pre className="font-mono text-[10px] leading-[1.2] text-accent/15 mb-8 select-none">
-            {"▓▒░  ░▒▓█▓▒░  ░▒▓"}
-          </pre>
-
-          <h2 className="text-3xl md:text-5xl font-medium tracking-[-0.03em] mb-4">
-            Start creating.
+          <h2 className="text-3xl md:text-4xl font-medium tracking-[-0.03em] mb-12 lg:mb-16">
+            Everything you need to create{" "}
+            <br className="hidden sm:block" />
+            <span className="text-text-secondary">and ship visual effects.</span>
           </h2>
-          <p className="text-base text-text-secondary max-w-md mb-8">
-            No signup, no install, no paywall. Open the editor and start
-            building animated gradients in seconds.
-          </p>
-          <button
-            onClick={() => router.push("/editor")}
-            className="px-8 py-3 text-sm font-medium text-root bg-text-primary hover:bg-text-secondary
-              rounded-md transition-all duration-150"
-          >
-            Open Editor
-          </button>
-        </div>
-      </section>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
+            {FEATURES.map((f) => (
+              <div key={f.label} className="bg-root p-6 sm:p-8 group transition-colors hover:bg-surface/50">
+                <div className="flex items-center justify-between mb-6">
+                  <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">{f.label}</span>
+                  <span
+                    aria-hidden="true"
+                    className="font-mono text-sm text-accent/40 group-hover:text-accent/70 transition-colors select-none"
+                  >
+                    {f.ascii}
+                  </span>
+                </div>
+                <h3 className="text-lg font-medium mb-2 tracking-[-0.01em]">{f.title}</h3>
+                <p className="text-sm text-text-secondary leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── How it works ────────────────────────────────────── */}
+        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 py-20 lg:py-24">
+          <div className="flex items-center gap-4 mb-4">
+            <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">Workflow</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          <h2 className="text-3xl md:text-4xl font-medium tracking-[-0.03em] mb-12 lg:mb-16">
+            Preset → Shape → Export
+          </h2>
+
+          <ol className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-12">
+            {STEPS.map((s) => (
+              <li key={s.step}>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="font-mono text-xs text-accent">{s.step}</span>
+                  <span aria-hidden="true" className="font-mono text-[10px] text-text-tertiary/40 tracking-[0.3em] select-none">
+                    {s.glyph}
+                  </span>
+                </div>
+                <h3 className="text-[16px] font-medium mb-2">{s.title}</h3>
+                <p className="text-sm text-text-secondary leading-relaxed">{s.desc}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* ── CTA ─────────────────────────────────────────────── */}
+        <section className="border-t border-border">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-20 lg:py-24 flex flex-col items-center text-center">
+            <h2 className="text-3xl md:text-5xl font-medium tracking-[-0.03em] mb-4">Start creating.</h2>
+            <p className="text-[16px] text-text-secondary max-w-md mb-8">
+              No signup, no install, no paywall. Open the editor and start from a preset in seconds.
+            </p>
+            <Link href="/editor" className={`${primaryButton} text-sm px-8 py-3`}>
+              Open the editor
+            </Link>
+          </div>
+        </section>
+      </main>
 
       {/* ── Footer ──────────────────────────────────────────── */}
       <footer className="border-t border-border">
-        <div className="max-w-[1200px] mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-4">
-            <span className="font-mono text-xs text-text-tertiary tracking-[0.15em]">
-              WAVR
-            </span>
-            <span className="text-[10px] text-text-tertiary/40">
-              Built with WebGL 2 + Next.js
-            </span>
-          </div>
-          <div className="font-mono text-[9px] text-text-tertiary/25 tracking-wider select-none">
-            ░▒▓█▓▒░
-          </div>
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row justify-between items-center gap-3">
+          <span className="font-mono text-xs text-text-tertiary tracking-[0.15em]">WAVR</span>
+          <span className="text-xs text-text-tertiary">Rendered with WebGL 2 in your browser</span>
         </div>
       </footer>
     </div>
