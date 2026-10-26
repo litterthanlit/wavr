@@ -2,16 +2,22 @@ import { GradientConfig } from "../types";
 
 export const northernLights: GradientConfig = {
   layers: [{
-    type: "mesh",
-    colors: [[0.1, 0.85, 0.4], [0.0, 0.75, 0.7], [0.4, 0.15, 0.7], [0.15, 0.35, 0.9]],
-    speed: 0.25,
-    complexity: 5,
-    scale: 1.5,
-    distortion: 0.35,
+    type: "aurora",
+    colors: [[0.01, 0.01, 0.05], [0.12, 0.08, 0.38], [0.1, 0.75, 0.6], [0.95, 0.5, 0.75]],
+    speed: 0.2,
+    complexity: 4,
+    scale: 0.8,
+    distortion: 0.55,
+    softness: 0.8,
   }],
-  brightness: 0.9,
-  saturation: 1.2,
-  vignette: 0.2,
+  realBloomEnabled: true,
+  grain: 0.05,
+  vignette: 0.3,
+  oklabEnabled: true,
+  toneMapMode: 2,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
 };
 
 export const deepSea: GradientConfig = {

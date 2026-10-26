@@ -26,15 +26,22 @@ export const oilSlick: GradientConfig = {
 
 export const prism: GradientConfig = {
   layers: [{
-    type: "linear",
-    colors: [[0.95, 0.1, 0.1], [1.0, 0.55, 0.0], [1.0, 1.0, 0.0], [0.0, 0.85, 0.2], [0.1, 0.3, 0.95], [0.5, 0.0, 0.8]],
-    speed: 0.3,
-    complexity: 2,
-    distortion: 0.15,
+    type: "prismGlass",
+    colors: [[0.03, 0.03, 0.07], [0.2, 0.3, 0.8], [0.9, 0.4, 0.7], [0.95, 0.9, 0.8]],
+    speed: 0.25,
+    complexity: 5,
+    scale: 1,
+    distortion: 0.35,
+    softness: 0.7,
   }],
-  brightness: 1.1,
-  saturation: 1.5,
-  bloom: { enabled: true, intensity: 0.2 },
+  realBloomEnabled: true,
+  grain: 0.05,
+  vignette: 0.3,
+  oklabEnabled: true,
+  toneMapMode: 2,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
 };
 
 export const smoke: GradientConfig = {

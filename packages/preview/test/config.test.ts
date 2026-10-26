@@ -25,7 +25,7 @@ describe("config helpers", () => {
 
   it("patches the active layer without mutating the original", () => {
     const next = patchActiveLayer(aurora, { type: "plasma", speed: 0.9 });
-    expect(aurora.layers[0]?.type).toBe("mesh");
+    expect(aurora.layers[0]?.type).toBe("aurora");
     expect(next.layers[0]?.type).toBe("plasma");
     expect(next.layers[0]?.speed).toBe(0.9);
   });
@@ -41,11 +41,11 @@ describe("config helpers", () => {
   it("formats a react snippet", () => {
     const snippet = formatReactSnippet(aurora);
     expect(snippet).toContain('import { WavrGradient } from "@wavr/gradient"');
-    expect(snippet).toContain('"mesh"');
+    expect(snippet).toContain('"aurora"');
   });
 
   it("resolves named presets", () => {
-    expect(getPreset("ocean")?.layers[0]?.type).toBe("linear");
+    expect(getPreset("ocean")?.layers[0]?.type).toBe("silk");
   });
 
   it("honors editor query overrides", () => {
@@ -56,5 +56,16 @@ describe("config helpers", () => {
     window.history.replaceState({}, "", "/");
     expect(shouldShowEditor(false)).toBe(false);
     expect(shouldShowEditor(true)).toBe(true);
+  });
+});
+
+describe("preset options", () => {
+  it("offers no archived preset, but still resolves one by id", async () => {
+    const { PRESET_CATALOG } = await import("@wavr/core/presets");
+    const { PRESET_OPTIONS } = await import("../src/presets");
+    const archived = new Set(PRESET_CATALOG.filter((entry) => entry.category === "archive").map((entry) => entry.id));
+    expect(PRESET_OPTIONS.filter((option) => archived.has(option.id))).toEqual([]);
+    expect(PRESET_OPTIONS.every((option) => getPreset(option.id))).toBe(true);
+    expect(getPreset("vaporwave")).toBeDefined();
   });
 });

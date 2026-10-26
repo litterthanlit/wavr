@@ -24,7 +24,7 @@ describe("mountWavrEditor", () => {
     const oceanBtn = root?.shadowRoot?.querySelector("[data-preset='ocean']") as HTMLButtonElement;
     oceanBtn.click();
 
-    expect(handle.getConfig().layers[0]?.type).toBe("linear");
+    expect(handle.getConfig().layers[0]?.type).toBe("silk");
     expect(onChange).toHaveBeenCalled();
     const last = onChange.mock.calls.at(-1)?.[0];
     expect(last.layers[0].type).toBe(ocean.layers[0]?.type);
@@ -53,7 +53,7 @@ describe("mountWavrEditor", () => {
     const onChange = vi.fn();
     const handle = mountWavrEditor(host, { config: aurora, onChange, visible: true });
     handle.update(ocean);
-    expect(handle.getConfig().layers[0]?.type).toBe("linear");
+    expect(handle.getConfig().layers[0]?.type).toBe("silk");
     expect(onChange).not.toHaveBeenCalled();
     handle.destroy();
   });

@@ -17,17 +17,22 @@ export const filmNoir: GradientConfig = {
 
 export const bladeRunner: GradientConfig = {
   layers: [{
-    type: "mesh",
-    colors: [[1.0, 0.2, 0.55], [0.05, 0.1, 0.45], [1.0, 0.55, 0.1], [0.0, 0.7, 0.7]],
-    speed: 0.35,
+    type: "neonTunnel",
+    colors: [[0.02, 0.02, 0.08], [0.1, 0.08, 0.4], [1, 0.22, 0.52], [1, 0.6, 0.2]],
+    speed: 0.3,
     complexity: 5,
-    distortion: 0.4,
+    scale: 1,
+    distortion: 0.3,
+    softness: 0.6,
   }],
-  saturation: 1.2,
-  bloom: { enabled: true, intensity: 0.5 },
-  chromaticAberration: 0.3,
-  grain: 0.06,
-  vignette: 0.3,
+  realBloomEnabled: true,
+  grain: 0.05,
+  vignette: 0.35,
+  oklabEnabled: true,
+  toneMapMode: 2,
+  // Stated explicitly so loading this preset in the editor switches these off.
+  noise: { enabled: false, intensity: 0.3, scale: 1 },
+  bloom: { enabled: false, intensity: 0.3 },
 };
 
 export const tron: GradientConfig = {
