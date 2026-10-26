@@ -42,19 +42,11 @@ Light fields: `aperture` `cobaltAperture` `duskAperture` `ganzfeld` `halo` `iceH
 
 Light: `liquidChrome` `goldChrome` `horizonGlow` `iceHorizon` `inkSmoke` `roseSmoke` `plasmaOrb` `limeOrb` `iridescentFoil` `midnightFoil` `lightLeak` `violetLeak`
 
-Classic: `aurora` `sunset` `midnight` `candy` `ocean` `lava` `cyber` `monochrome`
+Soft: `aurora` `silkEditorial` `northernGlow` `bladeRunner` `prism` `ocean` `lava` `sunset` `velvetCells` `midnight` `northernLights` `liquidGlass`
 
-Dither: `newspaper` `stipple` `dissolve` `morse`
+Texture: `grainFlow` `newspaper` `stipple` `dissolve` `slitScan` `corruption`
 
-Scanline: `retroCrt` `broadcastSignal` `vhs` `neonBars`
-
-Glitch: `dataMosh` `slitScan` `corruption` `signalLoss`
-
-Cinematic: `filmNoir` `bladeRunner` `tron` `vaporwave`
-
-Nature: `northernLights` `deepSea` `forestCanopy` `sandstorm`
-
-Abstract: `liquidMetal` `oilSlick` `prism` `smoke`
+Archive (earlier looks, still exported; prefer the groups above): `candy` `cyber` `monochrome` `morse` `retroCrt` `broadcastSignal` `vhs` `neonBars` `dataMosh` `signalLoss` `filmNoir` `tron` `vaporwave` `deepSea` `forestCanopy` `sandstorm` `liquidMetal` `oilSlick` `smoke`
 
 ## Overlay-editable fields
 

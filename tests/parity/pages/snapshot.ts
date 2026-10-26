@@ -8,6 +8,7 @@
 //   window.__wavrSnapshotReady : Promise<void>
 //   window.__wavrGradientTypes : the gradient types, in GRADIENT_TYPES order
 //   window.__wavrPresets       : the ids of the built-in presets (PRESET_CATALOG order)
+//   window.__wavrPresetConfigs : each preset's GradientConfig, by id (thumbnails.mjs hashes them)
 //   window.__wavrSnapshot      : (job, SnapshotOptions) => Promise<SnapshotResult>
 //
 // A frame has no history, so the pointer is staged: `mouse` puts it somewhere
@@ -91,6 +92,7 @@ declare global {
     __wavrSnapshotReady: Promise<void>;
     __wavrGradientTypes: readonly GradientType[];
     __wavrPresets: readonly string[];
+    __wavrPresetConfigs: Record<string, GradientConfig>;
     __wavrSnapshot: (job: SnapshotJob, options: SnapshotOptions) => Promise<SnapshotResult>;
   }
 }
@@ -151,6 +153,7 @@ window.__wavrSnapshotReady = new Promise<void>((resolve, reject) => {
 
       window.__wavrGradientTypes = GRADIENT_TYPES;
       window.__wavrPresets = PRESET_CATALOG.map((entry) => entry.id);
+      window.__wavrPresetConfigs = Object.fromEntries(PRESET_CATALOG.map((entry) => [entry.id, entry.config]));
       window.__wavrSnapshot = async (job, options) => {
         const { time, width, height } = options;
         let state: EngineState;

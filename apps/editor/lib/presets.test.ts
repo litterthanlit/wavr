@@ -1,10 +1,16 @@
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CONFIG_FIELD_STATE_KEYS, resolveConfig, type GradientConfig } from "@wavr/core";
 import * as corePresets from "@wavr/core/presets";
 import { PRESET_CATALOG, PRESET_CATEGORIES } from "@wavr/core/presets";
 import { presets as allPresets } from "@wavr/core/presets/all";
 import { presetToStorePatch } from "./preset-patch";
-import { PRESETS } from "./presets";
+import { ARCHIVED_CATEGORIES, PRESETS } from "./presets";
+import { PRESETS as CREATE_WAVR_PRESETS, parseArgs } from "../../../packages/create-wavr/src/args";
+
+const THUMBNAIL_DIR = path.join(__dirname, "../public/presets");
 
 const BASE: GradientConfig = { layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] };
 
@@ -77,6 +83,40 @@ describe("preset catalog", () => {
 
   it("gives the editor one preset per catalog entry, in order", () => {
     expect(PRESETS.map((preset) => preset.id)).toEqual(PRESET_CATALOG.map((entry) => entry.id));
+  });
+
+  it("lists its categories in display order, with the archive last", () => {
+    expect(PRESET_CATEGORIES.map((category) => category.id)).toEqual(["lightFields", "light", "soft", "texture", "archive"]);
+    expect(ARCHIVED_CATEGORIES).toEqual(["archive"]);
+    // The catalogue is grouped: each category's presets sit together, in category order.
+    const order = PRESET_CATEGORIES.map((category) => category.id);
+    const indexes = PRESET_CATALOG.map((entry) => order.indexOf(entry.category));
+    expect(indexes).toEqual([...indexes].sort((a, b) => a - b));
+  });
+
+  it("doesn't scaffold new pages from an archived preset", () => {
+    const archived = new Set(PRESET_CATALOG.filter((entry) => entry.category === "archive").map((entry) => entry.id));
+    expect(CREATE_WAVR_PRESETS).toContain(parseArgs([]).preset);
+    expect(archived.has(parseArgs([]).preset)).toBe(false);
+  });
+});
+
+describe("preset thumbnails", () => {
+  const hashes = JSON.parse(fs.readFileSync(path.join(THUMBNAIL_DIR, "thumbnails.json"), "utf8")) as Record<string, string>;
+
+  it("has one for every preset, rendered from its current config (else run `pnpm thumbnails`)", () => {
+    expect(Object.keys(hashes)).toEqual(PRESET_CATALOG.map((entry) => entry.id));
+    for (const entry of PRESET_CATALOG) {
+      const hash = createHash("sha256").update(JSON.stringify(entry.config)).digest("hex").slice(0, 10);
+      expect([entry.id, hashes[entry.id]]).toEqual([entry.id, hash]);
+      expect(fs.existsSync(path.join(THUMBNAIL_DIR, `${entry.id}.webp`)), entry.id).toBe(true);
+    }
+    const files = fs.readdirSync(THUMBNAIL_DIR).filter((file) => file.endsWith(".webp"));
+    expect(files.sort()).toEqual(PRESET_CATALOG.map((entry) => `${entry.id}.webp`).sort());
+  });
+
+  it("gives each editor preset a URL that changes with its config", () => {
+    for (const preset of PRESETS) expect(preset.thumbnail).toBe(`/presets/${preset.id}.webp?v=${hashes[preset.id]}`);
   });
 });
 
