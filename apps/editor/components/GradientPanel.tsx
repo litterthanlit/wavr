@@ -4,6 +4,7 @@ import React from "react";
 import { useGradientStore } from "@/lib/store";
 import Select from "@/components/ui/Select";
 import Slider from "@/components/ui/Slider";
+import { degrees, em, percent, px, radiansAsDegrees, times } from "@/lib/units";
 import ColorInput from "@/components/ui/ColorInput";
 import Toggle from "@/components/ui/Toggle";
 import {
@@ -181,13 +182,13 @@ function MaskControls({
           <Slider label="Position Y" value={mask.position[1]} min={-1} max={1} step={0.01}
             onChange={(v) => onUpdate("position", [mask.position[0], v])}
             onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Scale X" value={mask.scale[0]} min={0.1} max={4} step={0.01}
+          <Slider label="Scale X" value={mask.scale[0]} min={0.1} max={4} step={0.01} format={times}
             onChange={(v) => onUpdate("scale", [v, mask.scale[1]])}
             onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Scale Y" value={mask.scale[1]} min={0.1} max={4} step={0.01}
+          <Slider label="Scale Y" value={mask.scale[1]} min={0.1} max={4} step={0.01} format={times}
             onChange={(v) => onUpdate("scale", [mask.scale[0], v])}
             onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Rotation" value={mask.rotation} min={0} max={6.28} step={0.01}
+          <Slider label="Rotation" value={mask.rotation} min={0} max={6.28} step={0.01} format={radiansAsDegrees}
             onChange={(v) => onUpdate("rotation", v)}
             onCommit={() => useGradientStore.getState().commitSet()} />
           <Slider label="Feather" value={mask.feather} min={0} max={0.5} step={0.001}
@@ -318,7 +319,7 @@ export default function GradientPanel() {
             />
             {activeLayer.imageData && (
               <>
-                <Slider label="Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01}
+                <Slider label="Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01} format={times}
                   onChange={(v) => updateLayerField("imageScale", v)}
                   onCommit={() => store.commitSet()} />
                 <Slider label="Offset X" value={activeLayer.imageOffset[0]} min={-1} max={1} step={0.01}
@@ -389,7 +390,7 @@ export default function GradientPanel() {
                 <Slider label="Blend Opacity" value={activeLayer.imageBlendOpacity} min={0} max={1} step={0.01}
                   onChange={(v) => updateLayerField("imageBlendOpacity", v)}
                   onCommit={() => store.commitSet()} />
-                <Slider label="Image Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01}
+                <Slider label="Image Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01} format={times}
                   onChange={(v) => updateLayerField("imageScale", v)}
                   onCommit={() => store.commitSet()} />
               </>
@@ -510,13 +511,13 @@ export default function GradientPanel() {
                   focus:border-accent transition-colors"
               />
             </div>
-            <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1}
+            <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1} format={px}
               onChange={(v) => updateLayerField("textMaskFontSize", v)}
               onCommit={() => store.commitSet()} />
             <Slider label="Weight" value={activeLayer.textMaskFontWeight} min={400} max={900} step={100}
               onChange={(v) => updateLayerField("textMaskFontWeight", v)}
               onCommit={() => store.commitSet()} />
-            <Slider label="Spacing" value={activeLayer.textMaskLetterSpacing} min={-0.05} max={0.2} step={0.005}
+            <Slider label="Spacing" value={activeLayer.textMaskLetterSpacing} min={-0.05} max={0.2} step={0.005} format={em}
               onChange={(v) => updateLayerField("textMaskLetterSpacing", v)}
               onCommit={() => store.commitSet()} />
             <Select
@@ -534,9 +535,9 @@ export default function GradientPanel() {
       {/* Animation */}
       <div className="flex flex-col gap-3">
         <SectionHeader>Animation</SectionHeader>
-        <Slider label="Speed" value={store.speed} min={0} max={2} step={0.01} onChange={(v) => store.set({ speed: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Speed" value={store.speed} min={0} max={2} step={0.01} format={times} onChange={(v) => store.set({ speed: v })} onCommit={() => store.commitSet()} />
         <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Scale" value={store.scale} min={0.2} max={4} step={0.01} onChange={(v) => store.set({ scale: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Scale" value={store.scale} min={0.2} max={4} step={0.01} format={times} onChange={(v) => store.set({ scale: v })} onCommit={() => store.commitSet()} />
         <Slider label="Distortion" value={store.distortion} min={0} max={1} step={0.01} onChange={(v) => store.set({ distortion: v })} onCommit={() => store.commitSet()} />
         <Slider label="Softness" value={store.softness} min={0} max={1} step={0.01} onChange={(v) => store.set({ softness: v })} onCommit={() => store.commitSet()} />
         {(store.gradientType === "mesh" || store.gradientType === "silk" || store.gradientType === "aurora") && (
@@ -549,9 +550,9 @@ export default function GradientPanel() {
       {/* Appearance */}
       <div className="flex flex-col gap-3">
         <SectionHeader>Appearance</SectionHeader>
-        <Slider label="Brightness" value={store.brightness} min={0.1} max={2} step={0.01} onChange={(v) => store.set({ brightness: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} onChange={(v) => store.set({ saturation: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Hue Shift" value={store.hueShift} min={0} max={360} step={1} onChange={(v) => store.set({ hueShift: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Brightness" value={store.brightness} min={0.1} max={2} step={0.01} format={percent} onChange={(v) => store.set({ brightness: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} format={percent} onChange={(v) => store.set({ saturation: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Hue Shift" value={store.hueShift} min={0} max={360} step={1} format={degrees} onChange={(v) => store.set({ hueShift: v })} onCommit={() => store.commitSet()} />
       </div>
     </div>
   );

@@ -20,10 +20,10 @@ import type { SidebarTab } from "@/lib/types";
 // (and are prefetched on idle, see prefetchEditorChunks).
 const TABS: { id: SidebarTab; label: string; preload?: () => void }[] = [
   { id: "gradient", label: "Gradient" },
-  { id: "scene", label: "Scene", preload: preloadScenePanel },
+  { id: "scene", label: "3D", preload: preloadScenePanel },
   { id: "effects", label: "Effects", preload: preloadEffectsPanel },
   { id: "presets", label: "Presets", preload: preloadPresetsPanel },
-  { id: "code", label: "Lab", preload: preloadCustomGLSLPanel },
+  { id: "code", label: "Shader", preload: preloadCustomGLSLPanel },
 ];
 
 interface SidebarProps {

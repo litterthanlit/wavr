@@ -1,6 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Check,
+  Download,
+  FolderOpen,
+  Keyboard,
+  LayoutGrid,
+  Link2,
+  Moon,
+  Pause,
+  Play,
+  Redo2,
+  Shuffle,
+  Sun,
+  SunMoon,
+  Undo2,
+} from "lucide-react";
 import { useGradientStore, canUndo, canRedo } from "@/lib/store";
 import { useTheme } from "@/lib/useTheme";
 import { copyShareUrl } from "@/lib/url";
@@ -26,54 +42,73 @@ export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects
   const [linkCopied, setLinkCopied] = useState(false);
 
   const themeLabel = theme === "system" ? "Auto" : theme === "light" ? "Light" : "Dark";
+  const ThemeIcon = theme === "system" ? SunMoon : theme === "light" ? Sun : Moon;
 
+  // Icons with a label beside them; on narrower screens only the icon shows
+  // (Export keeps its label down to 640px), so every button carries its name
+  // as aria-label. Export is the one primary action, the only filled button.
   return (
     <header className="topbar">
       {/* Left: Logo + History */}
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-[13px] font-bold text-text-primary tracking-[0.15em] mr-1">WAVR</span>
+      <div className="topbar-group">
+        <span className="topbar-logo font-mono text-[13px] font-bold text-text-primary tracking-[0.15em] mr-1">WAVR</span>
         <div className="topbar-divider" />
-        <button onClick={undo} disabled={!canUndo()} aria-label="Undo" className="topbar-btn">
-          &#8592;
+        <button onClick={undo} disabled={!canUndo()} aria-label="Undo" title="Undo (⌘Z)" className="topbar-btn topbar-btn-icon">
+          <Undo2 size={14} aria-hidden="true" />
         </button>
-        <button onClick={redo} disabled={!canRedo()} aria-label="Redo" className="topbar-btn">
-          &#8594;
+        <button onClick={redo} disabled={!canRedo()} aria-label="Redo" title="Redo (⌘⇧Z)" className="topbar-btn topbar-btn-icon">
+          <Redo2 size={14} aria-hidden="true" />
         </button>
       </div>
 
-      {/* Center: Playback + Utils */}
-      <div className="flex items-center gap-2">
+      {/* Center: Browse + Playback */}
+      <div className="topbar-group">
         <button
           onClick={onScenes}
           onPointerEnter={preloadSceneGalleryModal}
           onFocus={preloadSceneGalleryModal}
-          className="topbar-btn topbar-btn-accent"
+          aria-label="Gallery"
+          className="topbar-btn"
         >
-          Scenes
+          <LayoutGrid size={14} aria-hidden="true" />
+          <span className="topbar-label">Gallery</span>
         </button>
-        <button onClick={randomize} className="topbar-btn">
-          Randomize
+        <button onClick={randomize} aria-label="Randomize" title="Randomize (R)" className="topbar-btn">
+          <Shuffle size={14} aria-hidden="true" />
+          <span className="topbar-label">Randomize</span>
         </button>
-        <button onClick={() => set({ playing: !playing })} className="topbar-btn" style={{ minWidth: 56 }}>
-          {playing ? "Pause" : "Play"}
+        <button
+          onClick={() => set({ playing: !playing })}
+          aria-label={playing ? "Pause" : "Play"}
+          title={`${playing ? "Pause" : "Play"} (Space)`}
+          className="topbar-btn"
+        >
+          {playing ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
+          <span className="topbar-label topbar-label-fixed">{playing ? "Pause" : "Play"}</span>
         </button>
-        <div className="topbar-divider" />
+      </div>
+
+      {/* Right: Preferences, then the scene's actions */}
+      <div className="topbar-group">
         <button
           onClick={onShowShortcuts}
           onPointerEnter={preloadShortcutsModal}
           onFocus={preloadShortcutsModal}
           aria-label="Keyboard shortcuts"
-          className="topbar-btn"
+          title="Keyboard shortcuts (?)"
+          className="topbar-btn topbar-btn-icon topbar-hide-narrow"
         >
-          ?
+          <Keyboard size={14} aria-hidden="true" />
         </button>
-        <button onClick={cycleTheme} aria-label={`Theme: ${themeLabel}`} className="topbar-btn">
-          {themeLabel}
+        <button
+          onClick={cycleTheme}
+          aria-label={`Theme: ${themeLabel}`}
+          title={`Theme: ${themeLabel}`}
+          className="topbar-btn topbar-btn-icon topbar-hide-narrow"
+        >
+          <ThemeIcon size={14} aria-hidden="true" />
         </button>
-      </div>
-
-      {/* Right: Actions */}
-      <div className="flex items-center gap-2">
+        <div className="topbar-divider" />
         <button
           onClick={async () => {
             await copyShareUrl(store);
@@ -82,26 +117,33 @@ export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects
           }}
           onPointerEnter={preloadUrlCodec}
           onFocus={preloadUrlCodec}
+          aria-label={linkCopied ? "Link copied" : "Share"}
           className="topbar-btn"
         >
-          {linkCopied ? "Copied!" : "Share"}
+          {linkCopied ? <Check size={14} aria-hidden="true" /> : <Link2 size={14} aria-hidden="true" />}
+          <span className="topbar-label">{linkCopied ? "Copied!" : "Share"}</span>
         </button>
         <button
           onClick={onProjects}
           onPointerEnter={preloadProjectsModal}
           onFocus={preloadProjectsModal}
+          aria-label="Projects"
+          title="Projects (P)"
           className="topbar-btn"
         >
-          Projects
+          <FolderOpen size={14} aria-hidden="true" />
+          <span className="topbar-label">Projects</span>
         </button>
-        <div className="topbar-divider" />
         <button
           onClick={onExport}
           onPointerEnter={preloadExportModal}
           onFocus={preloadExportModal}
-          className="topbar-btn"
+          aria-label="Export"
+          title="Export (E)"
+          className="topbar-btn topbar-btn-accent"
         >
-          Export
+          <Download size={14} aria-hidden="true" />
+          <span className="topbar-label-primary">Export</span>
         </button>
       </div>
     </header>

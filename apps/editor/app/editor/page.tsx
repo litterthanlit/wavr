@@ -17,6 +17,7 @@ import {
   prefetchEditorChunks,
 } from "@/components/lazy";
 import { useGradientStore } from "@/lib/store";
+import { toggleRenderStats } from "@/lib/useRenderStats";
 import { applyHashToStore, initializeUrlSync, preloadUrlCodec } from "@/lib/url-sync";
 import { hasSeenOnboarding } from "@/lib/onboarding";
 import { useEverOpened } from "@/lib/useEverOpened";
@@ -138,6 +139,9 @@ export default function EditorPage() {
           break;
         case "?":
           setShortcutsOpen((prev) => !prev);
+          break;
+        case "s":
+          if (!isMeta) toggleRenderStats();
           break;
       }
     },

@@ -6,7 +6,7 @@ import type { SidebarTab } from "@/lib/types";
 
 const TABS: { id: SidebarTab; label: string }[] = [
   { id: "gradient", label: "Gradient" },
-  { id: "scene", label: "Scene" },
+  { id: "scene", label: "3D" },
   { id: "effects", label: "Effects" },
   { id: "presets", label: "Presets" },
 ];
