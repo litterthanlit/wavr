@@ -32,8 +32,8 @@
   --color-border-val: rgba(255, 255, 255, 0.06);
   --color-border-active-val: rgba(255, 255, 255, 0.12);
   --color-text-primary-val: #e8e8ec;
-  --color-text-secondary-val: #8a8f98;
-  --color-text-tertiary-val: #555960;
+  --color-text-secondary-val: #a0a4ac;
+  --color-text-tertiary-val: #80858e;
   --color-accent-val: #635bff;
   --color-slider-track-val: rgba(255, 255, 255, 0.08);
 
@@ -63,7 +63,7 @@
     --color-border-active-val: rgba(0, 0, 0, 0.14);
     --color-text-primary-val: #18181b;
     --color-text-secondary-val: #52525b;
-    --color-text-tertiary-val: #a1a1aa;
+    --color-text-tertiary-val: #6b6b74;
     --color-accent-val: #4f46e5;
     --color-slider-track-val: rgba(0, 0, 0, 0.06);
 
@@ -89,7 +89,7 @@
   --color-border-active-val: rgba(0, 0, 0, 0.14);
   --color-text-primary-val: #18181b;
   --color-text-secondary-val: #52525b;
-  --color-text-tertiary-val: #a1a1aa;
+  --color-text-tertiary-val: #6b6b74;
   --color-accent-val: #4f46e5;
   --color-slider-track-val: rgba(0, 0, 0, 0.06);
 
@@ -117,8 +117,8 @@
   --color-border-val: rgba(255, 255, 255, 0.06);
   --color-border-active-val: rgba(255, 255, 255, 0.12);
   --color-text-primary-val: #e8e8ec;
-  --color-text-secondary-val: #8a8f98;
-  --color-text-tertiary-val: #555960;
+  --color-text-secondary-val: #a0a4ac;
+  --color-text-tertiary-val: #80858e;
   --color-accent-val: #635bff;
   --color-slider-track-val: rgba(255, 255, 255, 0.08);
 
@@ -255,8 +255,13 @@ body {
 
 .slider-thumb-active {
   opacity: 1;
-  background: #F51853;
-  box-shadow: 0 0 6px #F5185366;
+  background: var(--color-accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.slider-track:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .slider-value {
@@ -623,7 +628,16 @@ body {
   z-index: 10;
 }
 
+.topbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 12px;
   font-size: 11px;
   font-weight: 500;
@@ -657,6 +671,21 @@ body {
   background: var(--color-accent);
 }
 
+.topbar-btn-icon {
+  padding: 6px 8px;
+}
+
+.topbar-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Play and Pause swap in place without the bar shifting. */
+.topbar-label-fixed {
+  min-width: 30px;
+}
+
+
 .topbar-divider {
   width: 1px;
   height: 20px;
@@ -686,11 +715,54 @@ body {
     padding: 0 10px;
   }
 
-  .topbar-btn {
-    padding: 6px 9px;
+  .topbar-divider {
+    display: none;
+  }
+}
+
+/* Below 1024px the buttons show their icons only (each carries its name as
+   aria-label); Export keeps its label down to phones. */
+@media (max-width: 1023px) {
+  .topbar-label {
+    display: none;
   }
 
-  .topbar-divider {
+  .topbar-btn {
+    padding: 6px 8px;
+  }
+}
+
+/* Phones: Export as an icon too, and no keyboard shortcuts or theme toggle. */
+@media (max-width: 640px) {
+  .topbar-group {
+    gap: 4px;
+  }
+
+  .topbar-label-primary,
+  .topbar-hide-narrow {
+    display: none;
+  }
+
+  .topbar-btn {
+    padding: 6px;
+  }
+}
+
+/* The smallest phones: tighter spacing, and no room for the wordmark (the page title has it). */
+@media (max-width: 379px) {
+  .topbar {
+    padding: 0 6px;
+  }
+
+  .topbar-group {
+    gap: 2px;
+  }
+
+  .topbar-btn {
+    padding: 5px;
+  }
+
+  .topbar-logo {
     display: none;
   }
 }

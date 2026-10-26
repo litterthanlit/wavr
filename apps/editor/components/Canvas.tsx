@@ -13,6 +13,7 @@ import { applyEnginePerformanceSettings, applyTimeline, withPerformanceMode } fr
 import { AudioAnalyzer, AudioBands } from "@/lib/audio";
 import { setHdrStatus } from "@/lib/hdr-status";
 import { useHdrDisplay } from "@/lib/useHdrDisplay";
+import { useRenderStats } from "@/lib/useRenderStats";
 import Toast from "@/components/ui/Toast";
 
 // Shared audio analyzer instance (persists across re-renders)
@@ -66,6 +67,7 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
   const engineRef = useRef<GradientEngine | null>(null);
   const hdrWanted = useGradientStore((state) => state.hdrHeadroom > 0);
   const hdrDisplay = useHdrDisplay();
+  const showStats = useRenderStats();
   const [fps, setFps] = useState(0);
   const [metrics, setMetrics] = useState<EngineMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -446,13 +448,15 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
           <p className="rounded bg-base/70 px-2 py-1 text-xs text-text-secondary">Compiling shader...</p>
         </div>
       )}
-      <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded hidden lg:block">
-        {fps} FPS
-        {metrics && (
-          <> · {metrics.lastCpuFrameMs.toFixed(1)}ms CPU · {metrics.framebufferCount} FBO · {formatBytes(metrics.estimatedBytes)}</>
+      {showStats && (
+        <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded">
+          {fps} FPS
+          {metrics && (
+            <> · {metrics.lastCpuFrameMs.toFixed(1)}ms CPU · {metrics.framebufferCount} FBO · {formatBytes(metrics.estimatedBytes)}</>
         )}
         {metrics && metrics.renderScale < 1 && <> · {Math.round(metrics.renderScale * 100)}% res</>}
       </div>
+      )}
       <Toast
         message={toastMsg ?? ""}
         visible={toastMsg !== null}

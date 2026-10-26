@@ -15,6 +15,7 @@ import { MAX_LAYERS } from "@wavr/core";
 import type { LayerParams } from "@wavr/core";
 import type { SidebarTab } from "./types";
 import { COMMAND_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
+import { renderStatsShown, toggleRenderStats } from "./useRenderStats";
 
 export type CommandGroup =
   | "Playback"
@@ -91,10 +92,10 @@ const EFFECT_LABELS: Record<EffectFlag, string> = {
 // Tabs (keep local — the ordering matters for labels).
 const TABS: { id: SidebarTab; label: string; shortcut: string }[] = [
   { id: "gradient", label: "Gradient", shortcut: "1" },
-  { id: "scene", label: "Scene", shortcut: "2" },
+  { id: "scene", label: "3D", shortcut: "2" },
   { id: "effects", label: "Effects", shortcut: "3" },
   { id: "presets", label: "Presets", shortcut: "4" },
-  { id: "code", label: "Code", shortcut: "5" },
+  { id: "code", label: "Shader", shortcut: "5" },
 ];
 
 // camelCase → [lower tokens]: "sunsetBloom" → ["sunset", "bloom"].
@@ -169,6 +170,15 @@ export function getCommands(ui: UiActions): Command[] {
       run: () => ui.setTab(tab.id),
     });
   }
+
+  commands.push({
+    id: "view.renderStats",
+    label: renderStatsShown() ? "Hide render stats" : "Show render stats",
+    group: "View",
+    keywords: ["fps", "performance", "debug", "stats", "frame rate"],
+    shortcut: "S",
+    run: toggleRenderStats,
+  });
 
   // ── Layers ──────────────────────────────────────────────────────────────
   commands.push({
