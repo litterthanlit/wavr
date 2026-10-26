@@ -71,7 +71,7 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
 
 export const COMMAND_GRADIENT_TYPES = GRADIENT_OPTIONS.flatMap(({ value }) => (value === "image" ? [] : [value]));
 
-export const CURATED_PALETTES = {
+const CURATED_PALETTES = {
   ...LIGHT_GRADIENT_PALETTES,
   ...LIGHT_FIELD_PALETTES,
 } satisfies Record<Exclude<GradientType, "image">, [number, number, number][]>;
@@ -93,7 +93,7 @@ const THUMBNAIL_HASHES: Record<string, string | undefined> = thumbnailHashes;
 
 export function lookThumbnail(type: GradientType): string | null {
   const hash = THUMBNAIL_HASHES[type];
-  return type === "image" || !hash ? null : `/presets/${type}.webp?v=${hash}`;
+  return hash ? `/presets/${type}.webp?v=${hash}` : null;
 }
 
 export const RANDOM_GRADIENT_TYPES = Object.keys(CURATED_PALETTES) as (keyof typeof CURATED_PALETTES)[];
@@ -102,7 +102,7 @@ export function randomLook(
   random: () => number,
   colorProfile: ColorProfile,
 ): Pick<LayerParams, "gradientType" | "colors" | "softness"> {
-  const gradientType = RANDOM_GRADIENT_TYPES[Math.floor(random() * RANDOM_GRADIENT_TYPES.length)] ?? "lightWall";
+  const gradientType = RANDOM_GRADIENT_TYPES[Math.floor(random() * RANDOM_GRADIENT_TYPES.length)];
   const degrees = random() * 360;
   return {
     gradientType,

@@ -16,9 +16,9 @@ const toLinear = (c: number) => (c >= 0.04045 ? ((c + 0.055) / 1.055) ** 2.4 : c
 const P3_TO_SRGB = [[1.2249401, -0.2249404, 0], [-0.0420569, 1.0420571, 0], [-0.0196376, -0.0786361, 1.0982735]];
 
 function oklch(color: Rgb, displayP3 = false): { L: number; C: number; h: number } {
-  let [r, g, b] = color.map(toLinear) as [number, number, number];
+  let [r, g, b] = color.map(toLinear);
   if (displayP3) {
-    [r, g, b] = P3_TO_SRGB.map((row) => row[0]! * r + row[1]! * g + row[2]! * b) as [number, number, number];
+    [r, g, b] = P3_TO_SRGB.map((row) => row[0] * r + row[1] * g + row[2] * b);
   }
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
@@ -33,7 +33,7 @@ const hueDelta = (from: number, to: number) => ((to - from + 540) % 360) - 180;
 
 function sequence(...values: number[]): () => number {
   let i = 0;
-  return () => values[i++ % values.length]!;
+  return () => values[i++ % values.length];
 }
 
 describe("rotateHue", () => {
@@ -92,7 +92,7 @@ describe("randomLook", () => {
 
   it("gives the type its own palette turned to one hue, and its softness", () => {
     const look = randomLook(sequence(0, 0.25), "srgb");
-    const type = RANDOM_GRADIENT_TYPES[0]!;
+    const type = RANDOM_GRADIENT_TYPES[0];
     const palette = { ...LIGHT_GRADIENT_PALETTES, ...LIGHT_FIELD_PALETTES }[type];
     expect(look.gradientType).toBe(type);
     expect(look.softness).toBe(defaultSoftnessForGradientType(type));

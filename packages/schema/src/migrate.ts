@@ -311,15 +311,15 @@ function withoutRetired(
 
 export function migrate(input: unknown, opts?: MigrateOptions): MigrateResult {
   const shape = detectShape(input);
-  if (shape === "v2" && isRecord(input)) {
+  if (!isRecord(input)) {
+    // Not an object — can't salvage. finalize will throw via parse.
+    return finalize({}, [], [], shape);
+  }
+  if (shape === "v2") {
     const droppedKeys: string[] = [];
     const warnings: MigrateWarning[] = [];
     const config = GradientConfig.parse(withoutRetired(input, droppedKeys, warnings, opts));
     return { config, droppedKeys, warnings, detectedShape: "v2" };
-  }
-  if (!isRecord(input)) {
-    // Not an object — can't salvage. finalize will throw via parse.
-    return finalize({}, [], [], shape);
   }
   if (shape === "types-v1") return migrateTypesV1(input, opts);
   return migrateProjectStateV1(input, opts);

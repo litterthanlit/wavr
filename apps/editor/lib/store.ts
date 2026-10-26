@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { LayerParams, BlendMode, ColorProfile, createLayer, LIGHT_GRADIENT_PALETTES, MAX_LAYERS } from "@wavr/core";
+import { LayerParams, BlendMode, ColorProfile, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
 import { defaultSoftnessForType, lookPatch, randomLook } from "./gradient-types";
 import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
@@ -643,12 +643,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
-    const newLayer = createLayer({
-      gradientType: "halo",
-      colors: LIGHT_GRADIENT_PALETTES.halo.map((c) => [...c] as [number, number, number]),
-      blendMode: "screen",
-      opacity: 1,
-    });
+    const newLayer = createLayer({ ...lookPatch("halo"), blendMode: "screen", opacity: 1 });
     const newLayers = [...current.layers, newLayer];
     const newIndex = newLayers.length - 1;
     rawSet({

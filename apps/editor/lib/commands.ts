@@ -47,8 +47,8 @@ export interface UiActions {
 }
 
 // ── Gradient types (exclude "image", see spec §3.3) ────────────────────────
-// Keep in sync with LayerParams["gradientType"]. Image requires a file-upload
-// payload the palette can't provide; stays reachable via the Gradient panel.
+// Image requires a file-upload payload the palette can't provide; stays
+// reachable via the Gradient panel.
 const GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = COMMAND_GRADIENT_TYPES;
 
 const EFFECT_TOGGLES = {

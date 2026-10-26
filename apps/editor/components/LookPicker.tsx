@@ -24,7 +24,7 @@ function keyTarget(key: string, i: number, count: number): number | null {
 export default function LookPicker({ value, onPick }: { value: GradientType; onPick: (type: GradientType) => void }) {
   const tiles = useRef<(HTMLButtonElement | null)[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
-  const selected = Math.max(0, GRADIENT_OPTIONS.findIndex((option) => option.value === value));
+  const selected = GRADIENT_OPTIONS.findIndex((option) => option.value === value);
   const tabStop = focused ?? selected;
 
   // A listbox, not a radio group: arrows only move focus and Enter or Space picks, so browsing
