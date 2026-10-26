@@ -287,3 +287,29 @@ export function setPaletteKey(key: PaletteKey, colors: readonly Rgb[], oklab: bo
     key.colors[i * 3 + 2] = c[2];
   }
 }
+
+/**
+ * `color` with its hue turned by `degrees` in OkLCh, its lightness and chroma
+ * kept. Where the turned colour falls outside the gamut (sRGB, or Display P3
+ * with `displayP3`), it gives up only the chroma it must, so its hue and
+ * lightness still hold.
+ */
+export function rotateHue(color: Rgb, degrees: number, displayP3 = false): [number, number, number] {
+  const [L, a, b] = linearToOklab(...stopToLinearSrgb(color, displayP3));
+  const turn = (degrees * Math.PI) / 180;
+  const ta = a * Math.cos(turn) - b * Math.sin(turn);
+  const tb = a * Math.sin(turn) + b * Math.cos(turn);
+  const linearAt = (chroma: number) => {
+    const lin = oklabToLinear(L, ta * chroma, tb * chroma);
+    return displayP3 ? applyMatrix(SRGB_TO_P3, ...lin) : lin;
+  };
+  const inGamut = (c: readonly number[]) => c.every((v) => v >= -1e-7 && v <= 1 + 1e-7);
+  let chroma = 1;
+  if (!inGamut(linearAt(1))) {
+    let lo = 0;
+    for (let step = 0.5; step > 1e-6; step /= 2) if (inGamut(linearAt(lo + step))) lo += step;
+    chroma = lo;
+  }
+  const lin = linearAt(chroma);
+  return [linearToSrgb(clamp01(lin[0])), linearToSrgb(clamp01(lin[1])), linearToSrgb(clamp01(lin[2]))];
+}

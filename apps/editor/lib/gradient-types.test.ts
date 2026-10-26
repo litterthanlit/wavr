@@ -17,7 +17,6 @@ import {
   COMMAND_GRADIENT_TYPES,
   GRADIENT_OPTIONS,
   PREMIUM_GRADIENT_TYPES,
-  RANDOM_GRADIENT_TYPES,
   gradientTypeLabel,
 } from "./gradient-types";
 import { INITIAL_LAYER_PARAMS } from "./initial-scene";
@@ -58,20 +57,6 @@ describe("gradient types", () => {
     expect(stylized.sort()).toEqual(["dither", "glitch", "scanline"]);
     const premium = GRADIENT_OPTIONS.filter((o) => o.group === "Premium").map((o) => o.value);
     expect(premium).toEqual(PREMIUM_GRADIENT_TYPES);
-  });
-
-  it("Randomize only picks modes that work with any palette", () => {
-    const group = (type: string) => GRADIENT_OPTIONS.find((o) => o.value === type)?.group;
-    for (const type of RANDOM_GRADIENT_TYPES) {
-      expect(["Premium", "Classic"], `${type} is ${group(type)}`).toContain(group(type));
-    }
-    // These depend on the palette's order or contrast, so a random one can ruin them.
-    for (const type of ["aurora", "dither", "scanline", "glitch", "voronoi", "image"] as const) {
-      expect(RANDOM_GRADIENT_TYPES).not.toContain(type);
-    }
-    for (const type of RANDOM_GRADIENT_TYPES) {
-      expect(isLightGradientType(type), `${type} reads the palette as light`).toBe(false);
-    }
   });
 
   it("each light mode has a curated palette that runs from shadow to light, as its presets do", () => {

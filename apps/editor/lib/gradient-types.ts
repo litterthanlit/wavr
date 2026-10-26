@@ -1,5 +1,9 @@
 import {
+  LIGHT_FIELD_PALETTES,
+  LIGHT_GRADIENT_PALETTES,
   defaultSoftnessForGradientType,
+  rotateHue,
+  type ColorProfile,
   type GradientType,
   type LayerParams,
 } from "@wavr/core";
@@ -31,25 +35,29 @@ export const PREMIUM_GRADIENT_TYPES: GradientType[] = [
   "neonTunnel",
 ];
 
+/** Each type's own palette, the one its presets open with. */
+const CURATED_PALETTES = { ...LIGHT_GRADIENT_PALETTES, ...LIGHT_FIELD_PALETTES };
+
+/** What Randomize picks from: every type with a palette of its own (all but image). */
+export const RANDOM_GRADIENT_TYPES = Object.keys(CURATED_PALETTES) as (keyof typeof CURATED_PALETTES)[];
+
 /**
- * What Randomize picks from: modes that look good with any palette. Left out:
- * aurora (the palette's first colour is its sky, so it needs a dark one), the
- * light modes (liquidChrome, iridescentFoil, horizonGlow, lightLeak, inkSmoke,
- * plasmaOrb, halo: the palette runs from shadow to the brightest light, so it
- * has to start dark and end light), the aperture and light wall (their first
- * colour is the wall or the glass, the rest the light), voronoi
- * and softCells (read as flat tiles in a random palette), dither (needs two
- * contrasting colours) and the rest of the stylized group.
+ * A random look for a layer: a type, its own palette turned to a random hue,
+ * and its softness. The palette is turned as a whole in OkLCh, so its roles
+ * (a dark room to the brightest light, or the wall and then the lights) hold.
  */
-export const RANDOM_GRADIENT_TYPES: LayerParams["gradientType"][] = [
-  "mesh",
-  "silk",
-  "liquid",
-  "grainflow",
-  "prismGlass",
-  "neonTunnel",
-  "plasma",
-];
+export function randomLook(
+  random: () => number,
+  colorProfile: ColorProfile,
+): Pick<LayerParams, "gradientType" | "colors" | "softness"> {
+  const gradientType = RANDOM_GRADIENT_TYPES[Math.floor(random() * RANDOM_GRADIENT_TYPES.length)] ?? "lightWall";
+  const degrees = random() * 360;
+  return {
+    gradientType,
+    colors: CURATED_PALETTES[gradientType].map((color) => rotateHue(color, degrees, colorProfile === "display-p3")),
+    softness: defaultSoftnessForGradientType(gradientType),
+  };
+}
 
 export const COMMAND_GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = [
   "aperture",

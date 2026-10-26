@@ -49,6 +49,7 @@ export {
   MAX_PALETTE_COLORS,
   bakePalette,
   displayP3ToSrgb,
+  rotateHue,
   effectiveBlend,
   paletteDomain,
   paletteReach,
