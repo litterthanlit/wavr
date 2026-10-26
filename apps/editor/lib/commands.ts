@@ -13,7 +13,7 @@ import { copyShareUrl } from "./url";
 import { PRESETS } from "./presets";
 import { MAX_LAYERS } from "@wavr/core";
 import type { LayerParams } from "@wavr/core";
-import type { SidebarTab } from "./types";
+import { SIDEBAR_TABS, type SidebarTab } from "./types";
 import { COMMAND_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
 import { renderStatsShown, toggleRenderStats } from "./useRenderStats";
 
@@ -89,15 +89,6 @@ const EFFECT_LABELS: Record<EffectFlag, string> = {
   debandEnabled: "deband",
 };
 
-// Tabs (keep local — the ordering matters for labels).
-const TABS: { id: SidebarTab; label: string; shortcut: string }[] = [
-  { id: "gradient", label: "Gradient", shortcut: "1" },
-  { id: "scene", label: "3D", shortcut: "2" },
-  { id: "effects", label: "Effects", shortcut: "3" },
-  { id: "presets", label: "Presets", shortcut: "4" },
-  { id: "code", label: "Shader", shortcut: "5" },
-];
-
 // camelCase → [lower tokens]: "sunsetBloom" → ["sunset", "bloom"].
 function tokenize(camel: string): string[] {
   return camel
@@ -160,13 +151,13 @@ export function getCommands(ui: UiActions): Command[] {
   });
 
   // ── View (tab switch) ───────────────────────────────────────────────────
-  for (const tab of TABS) {
+  for (const [i, tab] of SIDEBAR_TABS.entries()) {
     commands.push({
       id: `view.tab.${tab.id}`,
       label: `Switch to ${tab.label} tab`,
       group: "View",
       keywords: ["tab", "panel", "switch", tab.id],
-      shortcut: tab.shortcut,
+      shortcut: String(i + 1),
       run: () => ui.setTab(tab.id),
     });
   }

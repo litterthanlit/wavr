@@ -49,6 +49,17 @@ describe("command registry", () => {
     expect(presetCommands.length).toBe(PRESETS.length);
   });
 
+  it("opens the tabs with keys 1 to 5: Gradient, Effects, Presets, 3D, Shader", () => {
+    const tabs = getCommands(noopUi()).filter((c) => c.id.startsWith("view.tab."));
+    expect(tabs.map((c) => [c.shortcut, c.label])).toEqual([
+      ["1", "Switch to Gradient tab"],
+      ["2", "Switch to Effects tab"],
+      ["3", "Switch to Presets tab"],
+      ["4", "Switch to 3D tab"],
+      ["5", "Switch to Shader tab"],
+    ]);
+  });
+
   it("no gradient command for the image type", () => {
     const commands = getCommands(noopUi());
     const imageCmd = commands.find((c) => c.id === "gradient.image");
