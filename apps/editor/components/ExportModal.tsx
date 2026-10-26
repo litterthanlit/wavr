@@ -217,7 +217,6 @@ export default function ExportModal({
     scene3DEnabled: store.scene3DEnabled,
     timelineEnabled: store.timelineEnabled,
     keyframeCount: store.keyframes.length,
-    audioEnabled: store.audioEnabled,
     customGLSL: store.customGLSL,
     mouseReact: store.mouseReact,
     rippleEnabled: store.rippleEnabled,

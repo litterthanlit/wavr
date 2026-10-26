@@ -6,7 +6,7 @@ Wavr is currently a capable shader editor, not yet a full shader factory.
 
 - PNG and WebM/GIF capture the visible canvas, including the 3D overlay when enabled.
 - React, Web Component, standalone player, and config widget exports are simplified portable shader exports.
-- Portable code exports do not preserve the full layer stack, masks, image textures, text masks, audio reactivity, timeline keyframes, custom GLSL, or the 3D overlay.
+- Portable code exports do not preserve the full layer stack, masks, image textures, text masks, timeline keyframes, custom GLSL, or the 3D overlay.
 - Share/embed URLs use the compressed URL state, not a full scene document with assets.
 
 ## Rendering Architecture

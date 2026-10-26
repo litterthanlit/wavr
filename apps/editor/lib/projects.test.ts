@@ -77,12 +77,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     realBloomEnabled: false,
     debandEnabled: true,
     debandStrength: 1,
-    audioEnabled: false,
-    audioSource: "mic",
-    audioBassTarget: "distortion",
-    audioTrebleTarget: "brightness",
-    audioEnergyTarget: "scale",
-    audioSensitivity: 0.5,
     performanceMode: "auto",
     playing: true,
     timelineEnabled: false,
@@ -243,6 +237,20 @@ describe("project export", () => {
 
     expect(patch.layers).toEqual([{ ...layer, gradientType: "lightWall" }]);
     expect(patch).not.toHaveProperty("domainWarp");
+  });
+
+  it("opens a project saved with audio reactivity without its fields", async () => {
+    const audio = {
+      audioEnabled: true, audioSource: "mic", audioBassTarget: "distortion",
+      audioTrebleTarget: "brightness", audioEnergyTarget: "scale", audioSensitivity: 0.5,
+    };
+    const project = { name: "Loud", timestamp: 1, state: { ...exportProjectState(minimalState()), ...audio } };
+    localStorage.setItem("wavr-projects", JSON.stringify([project]));
+
+    const { patch } = await projectStateForLoad(loadProjects()[0]);
+
+    for (const key of Object.keys(audio)) expect(patch).not.toHaveProperty(key);
+    expect(patch).toMatchObject({ grain: project.state.grain });
   });
 
   it("opens a scene-document-only project naming a retired gradient type as lightWall", async () => {

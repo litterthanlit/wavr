@@ -148,14 +148,6 @@ export interface GradientState {
   debandEnabled: boolean;
   debandStrength: number;
 
-  // Audio reactivity
-  audioEnabled: boolean;
-  audioSource: "mic" | "file";
-  audioBassTarget: string;
-  audioTrebleTarget: string;
-  audioEnergyTarget: string;
-  audioSensitivity: number;
-
   // Playback
   playing: boolean;
   performanceMode: PerformanceMode;
@@ -388,12 +380,6 @@ const DEFAULTS = {
   debandStrength: 1.0,
   // The opening scene's own grain, tone map, bloom, colour profile and HDR headroom.
   ...INITIAL_EFFECTS,
-  audioEnabled: false,
-  audioSource: "mic" as const,
-  audioBassTarget: "distortion",
-  audioTrebleTarget: "brightness",
-  audioEnergyTarget: "scale",
-  audioSensitivity: 0.5,
   playing: true,
   performanceMode: "auto" as PerformanceMode,
   timelineEnabled: false,

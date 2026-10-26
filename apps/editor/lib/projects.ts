@@ -81,12 +81,6 @@ export interface ProjectState {
   debandEnabled: boolean;
   debandStrength: number;
   customGLSL: string | null;
-  audioEnabled: boolean;
-  audioSource: "mic" | "file";
-  audioBassTarget: string;
-  audioTrebleTarget: string;
-  audioEnergyTarget: string;
-  audioSensitivity: number;
   performanceMode: PerformanceMode;
   timelineEnabled: boolean;
   timelineDuration: number;
@@ -110,6 +104,11 @@ export interface ProjectState {
 }
 
 const STORAGE_KEY = "wavr-projects";
+
+/** Fields of editor features that are gone (audio reactivity), which older saved projects still carry. */
+const RETIRED_EDITOR_FIELDS = [
+  "audioEnabled", "audioSource", "audioBassTarget", "audioTrebleTarget", "audioEnergyTarget", "audioSensitivity",
+];
 
 export function exportProjectState(state: GradientState): ProjectState {
   return {
@@ -173,12 +172,6 @@ export function exportProjectState(state: GradientState): ProjectState {
     debandEnabled: state.debandEnabled as boolean,
     debandStrength: state.debandStrength as number,
     customGLSL: state.customGLSL as string | null,
-    audioEnabled: state.audioEnabled as boolean,
-    audioSource: state.audioSource as "mic" | "file",
-    audioBassTarget: state.audioBassTarget as string,
-    audioTrebleTarget: state.audioTrebleTarget as string,
-    audioEnergyTarget: state.audioEnergyTarget as string,
-    audioSensitivity: state.audioSensitivity as number,
     performanceMode: (state.performanceMode ?? "auto") as PerformanceMode,
     timelineEnabled: state.timelineEnabled as boolean,
     timelineDuration: state.timelineDuration as number,
@@ -353,9 +346,9 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
     }
     return next;
   }));
-  // Projects saved while the retired gradient types existed carry their globals.
+  // Projects saved while the retired gradient types or editor features existed carry their fields.
   const state: Record<string, unknown> = { ...project.state };
-  for (const k of RETIRED_GLOBALS) delete state[k];
+  for (const k of [...RETIRED_GLOBALS, ...RETIRED_EDITOR_FIELDS]) delete state[k];
   return { patch: { ...state, layers } as Partial<GradientState>, missingImages };
 }
 

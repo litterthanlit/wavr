@@ -133,7 +133,7 @@ function shapeKindToNumber(k: Shape3DKind): number {
 /**
  * Build a GradientConfig from the store state. Only reads schema-owned fields
  * (spec 0001 §3.4 bucket A). Editor-only fields (`activeLayerIndex`,
- * `timeline*`, `audio*`, `customGLSL`, `colorBlend`, layer masks/images/text)
+ * `timeline*`, `customGLSL`, `colorBlend`, layer masks/images/text)
  * are NOT written to the URL — they live in the editor-state envelope (future
  * spec 0002).
  */
@@ -144,7 +144,6 @@ export function storeToConfig(state: GradientState): GradientConfig {
     version: "2.0.0",
     // Skip: activeLayerIndex (editor-only), colorBlend (editor-only),
     //       timelineEnabled/Duration/PlaybackMode/keyframes/timelinePosition (editor-only),
-    //       audioEnabled/Source/*Target/Sensitivity (editor-only),
     //       customGLSL (editor-only), playing (ephemeral).
     colorSpace: "linear",
     layers,
