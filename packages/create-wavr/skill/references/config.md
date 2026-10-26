@@ -7,22 +7,25 @@ import type { GradientConfig } from "@wavr/gradient";
 
 export const wavrConfig: GradientConfig = {
   layers: [{
-    type: "mesh",
-    colors: [[0, 0.9, 0.8], [0.2, 0.8, 0.3], [0.3, 0.2, 0.7], [0.2, 0.4, 1]],
+    type: "lightWall",
+    colors: [[0.05, 0.12, 0.35], [0.1, 0.45, 0.95], [0.2, 0.85, 0.9], [0.55, 0.4, 1]],
     speed: 0.4,
     complexity: 4,
-    scale: 1.2,
-    distortion: 0.35,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.8,
   }],
-  bloom: { enabled: true, intensity: 0.3 },
-  vignette: 0.2,
-  grain: 0.05,
+  grain: 0.04,
+  toneMapMode: 0,
+  colorProfile: "display-p3",
+  hdrHeadroom: 1,
+  realBloomEnabled: true,
 };
 ```
 
 ## Layer types
 
-`mesh` `radial` `linear` `conic` `plasma` `dither` `scanline` `glitch` `voronoi` `silk` `aurora` `liquid` `softCells` `grainflow` `prismGlass` `neonTunnel`
+Every type but `image` is light. Earlier types (`mesh`, `aurora`, `silk` and the rest) were removed; a config that names one opens as `lightWall`, so don't write them.
 
 Light modes: `liquidChrome` `horizonGlow` `inkSmoke` `plasmaOrb` `iridescentFoil` `lightLeak`. They read the palette as light, darkest stop first and brightest last, so give them a dark-to-light palette (or start from their presets).
 
@@ -41,12 +44,6 @@ Skip `image` unless the user supplies a texture.
 Light fields: `aperture` `cobaltAperture` `duskAperture` `ganzfeld` `halo` `iceHalo` `lightWall` `lagoonWall`
 
 Light: `liquidChrome` `goldChrome` `horizonGlow` `iceHorizon` `inkSmoke` `roseSmoke` `plasmaOrb` `limeOrb` `iridescentFoil` `midnightFoil` `lightLeak` `violetLeak`
-
-Soft: `aurora` `silkEditorial` `northernGlow` `bladeRunner` `prism` `ocean` `lava` `sunset` `velvetCells` `midnight` `northernLights` `liquidGlass`
-
-Texture: `grainFlow` `newspaper` `stipple` `dissolve` `slitScan` `corruption`
-
-Archive (earlier looks, still exported; prefer the groups above): `candy` `cyber` `monochrome` `morse` `retroCrt` `broadcastSignal` `vhs` `neonBars` `dataMosh` `signalLoss` `filmNoir` `tron` `vaporwave` `deepSea` `forestCanopy` `sandstorm` `liquidMetal` `oilSlick` `smoke`
 
 ## Overlay-editable fields
 

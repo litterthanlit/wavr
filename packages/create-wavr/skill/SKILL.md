@@ -1,6 +1,6 @@
 ---
 name: wavr
-description: Generate animated WebGL shader backgrounds and custom landing pages with Wavr. Use when the user wants a Unicorn Studio–style hero, mesh/plasma/gradient background, shader landing page, create-wavr, or @wavr/gradient.
+description: Generate animated WebGL shader backgrounds and custom landing pages with Wavr. Use when the user wants a Unicorn Studio–style hero, animated gradient or light background, shader landing page, create-wavr, or @wavr/gradient.
 ---
 
 # Wavr
@@ -9,7 +9,7 @@ Wavr is a WebGL 2 gradient runtime plus a compact in-preview editor. Do not impo
 
 ## Choose a path
 
-1. **New site** — `npx create-wavr [dir] --template hero|waitlist|product|html --preset aurora`
+1. **New site** — `npx create-wavr [dir] --template hero|waitlist|product|html --preset halo`
 2. **Existing React/Next** — `pnpm add @wavr/gradient` and render `<WavrGradient />`
 3. **No framework** — `npx create-wavr [dir] --template html` or `mountWavrPreview()` from `@wavr/preview`
 
@@ -40,10 +40,10 @@ import { wavrConfig } from "./wavr.config";
 
 ```tsx
 import { WavrGradient } from "@wavr/gradient";
-import { aurora } from "@wavr/gradient/presets";
+import { halo } from "@wavr/gradient/presets";
 
 export function Hero() {
-  return <WavrGradient config={aurora} className="absolute inset-0 -z-10" />;
+  return <WavrGradient config={halo} className="absolute inset-0 -z-10" />;
 }
 ```
 
