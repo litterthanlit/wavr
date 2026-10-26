@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useGradientStore } from "@/lib/store";
 import Select from "@/components/ui/Select";
 import Slider from "@/components/ui/Slider";
 import { degrees, em, percent, px, radiansAsDegrees, times } from "@/lib/units";
 import ColorInput from "@/components/ui/ColorInput";
+import GradientBar from "@/components/ui/GradientBar";
+import { MAX_STOPS, barPalette, insertStop, reverseStops, stopPosition, type Rgb } from "@/lib/color-stops";
 import Toggle from "@/components/ui/Toggle";
 import {
   LIGHT_FIELD_PALETTES,
@@ -223,6 +225,25 @@ export default function GradientPanel() {
   const store = useGradientStore();
   const activeLayer = store.layers[store.activeLayerIndex];
   const isImageType = store.gradientType === "image";
+  const [selectedStop, setSelectedStop] = useState(0);
+  const colors = store.colors as Rgb[];
+  const stop = Math.min(selectedStop, colors.length - 1);
+
+  // A new stop goes after the selected one (before it at the end), halfway
+  // to its neighbour, in the colour the palette already has there.
+  const addStop = () => {
+    if (colors.length >= MAX_STOPS) return;
+    const index = stop === colors.length - 1 ? stop : stop + 1;
+    const t = (stopPosition(index - 1, colors.length) + stopPosition(index, colors.length)) / 2;
+    const color = barPalette(colors, {
+      oklab: store.oklabEnabled,
+      colorBlend: store.colorBlend,
+      softness: store.softness,
+      colorProfile: store.colorProfile,
+    }).sample(t);
+    store.setDiscrete({ colors: insertStop(colors, index, color) });
+    setSelectedStop(index);
+  };
 
   const updateLayerField = (field: string, value: number | string | boolean | [number, number]) => {
     const newLayers = store.layers.map((l, i) =>
@@ -341,25 +362,54 @@ export default function GradientPanel() {
         <>
           <div className="flex flex-col gap-2">
             <SectionHeader>Colors</SectionHeader>
-            {(store.colors as [number, number, number][]).map((color, i) => (
-              <ColorInput
-                key={i}
-                color={color}
-                colorProfile={store.colorProfile}
-                onChange={(c) => store.setColor(i, c)}
-                onCommit={() => store.commitSet()}
-                onRemove={() => store.removeColor(i)}
-                canRemove={store.colors.length > 2}
-              />
-            ))}
-            {store.colors.length < 8 && (
-              <button
-                onClick={() => store.addColor()}
-                className="text-xs text-text-tertiary hover:text-accent transition-colors py-1"
-              >
-                + Add Color
-              </button>
-            )}
+            <GradientBar
+              colors={colors}
+              selected={stop}
+              onSelect={setSelectedStop}
+              onColorsChange={(next) => store.setDiscrete({ colors: next })}
+              colorProfile={store.colorProfile}
+              oklab={store.oklabEnabled}
+              colorBlend={store.colorBlend}
+              softness={store.softness}
+            />
+            <ColorInput
+              key={`${store.activeLayerIndex}-${stop}`}
+              color={colors[stop]}
+              colorProfile={store.colorProfile}
+              onChange={(c) => store.setColor(stop, c)}
+              onCommit={() => store.commitSet()}
+              onRemove={() => {
+                store.removeColor(stop);
+                setSelectedStop(Math.max(0, stop - 1));
+              }}
+              canRemove={colors.length > 2}
+            />
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-text-tertiary">
+                Color {stop + 1} of {colors.length}
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    store.setDiscrete({ colors: reverseStops(colors) });
+                    setSelectedStop(colors.length - 1 - stop);
+                  }}
+                  className="text-text-secondary hover:text-accent transition-colors py-1"
+                >
+                  Reverse
+                </button>
+                {colors.length < MAX_STOPS && (
+                  <button
+                    type="button"
+                    onClick={addStop}
+                    className="text-text-secondary hover:text-accent transition-colors py-1"
+                  >
+                    + Add color
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-border" />
