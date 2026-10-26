@@ -33,8 +33,8 @@ afterAll(() => {
 const COLORS: [number, number, number][] = [[0.1, 0.2, 0.9], [0.9, 0.3, 0.2], [0.2, 0.85, 0.9]];
 
 function state(overrides: Partial<EngineState> = {}): EngineState {
-  const base = resolveConfig({ layers: [{ type: "mesh", colors: COLORS }] });
-  return { ...base, layers: [createLayer({ gradientType: "mesh", colors: COLORS })], ...overrides };
+  const base = resolveConfig({ layers: [{ type: "lightWall", colors: COLORS }] });
+  return { ...base, layers: [createLayer({ gradientType: "lightWall", colors: COLORS })], ...overrides };
 }
 
 function setup() {
@@ -80,7 +80,7 @@ describe("GradientEngine colour profile", () => {
 
   it("bakes the palette in the scene's profile, and again when the profile changes", () => {
     const { engine, uploads } = setup();
-    const aurora = createLayer({ gradientType: "aurora", colors: COLORS });
+    const aurora = createLayer({ gradientType: "halo", colors: COLORS });
     const blend = effectiveBlend(0, aurora.softness);
     const palettes = () => uploads.filter((u) => u.format === "RGBA16F" && u.width === PALETTE_SIZE && u.height === 1);
 
@@ -98,7 +98,7 @@ describe("GradientEngine colour profile", () => {
   it("converts a picture into the scene's profile on upload, but never a distortion map", () => {
     const { engine, imageUploads, context } = setup();
     const layer = createLayer({
-      gradientType: "mesh",
+      gradientType: "lightWall",
       colors: COLORS,
       imageData: "data:image/png;base64,picture",
       distortionMapData: "data:image/png;base64,map",

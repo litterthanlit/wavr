@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GradientEngine, createLayer, resolveConfig } from "@wavr/core";
+import { GRADIENT_TYPE_IDS, GradientEngine, createLayer, resolveConfig } from "@wavr/core";
 import type { EngineState } from "@wavr/core";
 import {
   RIPPLE_DURATION,
@@ -16,7 +16,7 @@ const ASPECT = 2;
 
 function stateWith(overrides: Partial<EngineState> = {}): EngineState {
   const base = resolveConfig({ layers: [] });
-  return { ...base, layers: [createLayer({ gradientType: "mesh" })], ...overrides };
+  return { ...base, layers: [createLayer({ gradientType: "lightWall" })], ...overrides };
 }
 
 function setup() {
@@ -27,7 +27,7 @@ function setup() {
     const from = fake.draws.length;
     engine.render(state);
     const drawn = fake.draws.slice(from);
-    return { layer: drawn.find((d) => fake.programOf(d)?.gradientId === 0)!, post: drawn[drawn.length - 1], drawn };
+    return { layer: drawn.find((d) => fake.programOf(d)?.gradientId === GRADIENT_TYPE_IDS.lightWall)!, post: drawn[drawn.length - 1], drawn };
   };
   const trailDraws = (from = 0): DrawRecord[] => fake.draws.slice(from).filter((d) => d.uniforms.u_trailDecay !== undefined);
   return { engine, ...fake, frame, trailDraws };

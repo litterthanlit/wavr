@@ -128,23 +128,7 @@ type UniformMap = Record<string, WebGLUniformLocation>;
 
 /** Shader id for each gradient type (`u_gradientType`). */
 export const GRADIENT_TYPE_IDS: Readonly<Record<LayerParams["gradientType"], number>> = {
-  mesh: 0,
-  radial: 1,
-  linear: 2,
-  conic: 3,
-  plasma: 4,
-  dither: 5,
-  scanline: 6,
-  glitch: 7,
   image: 8,
-  voronoi: 9,
-  silk: 10,
-  aurora: 11,
-  liquid: 12,
-  softCells: 13,
-  grainflow: 14,
-  prismGlass: 15,
-  neonTunnel: 16,
   liquidChrome: 17,
   iridescentFoil: 18,
   horizonGlow: 19,
@@ -295,18 +279,13 @@ interface BloomLevel {
 const MIN_RENDER_SCALE = 0.25;
 
 /**
- * Gradients whose look is fixed in screen pixels (they read gl_FragCoord for a
- * grid, grain or scanlines) or in image detail. The layer pass is drawn at full
- * resolution whenever one of them is visible, because at a lower scale a pixel
- * of the layer pass is bigger on screen: halftone cells, scanlines and paper
- * grain would grow and an uploaded picture would blur. A test checks this list
- * against the gl_FragCoord users in gradients.glsl.
+ * Gradients whose look is fixed in screen pixels (they read gl_FragCoord) or in
+ * image detail. The layer pass is drawn at full resolution whenever one of them
+ * is visible, because at a lower scale a pixel of the layer pass is bigger on
+ * screen: an uploaded picture would blur. A test checks this list against the
+ * gl_FragCoord users in gradients.glsl.
  */
 export const FULL_RESOLUTION_GRADIENTS: ReadonlySet<LayerParams["gradientType"]> = new Set([
-  "dither",
-  "scanline",
-  "glitch",
-  "grainflow",
   "image",
 ]);
 

@@ -1,7 +1,7 @@
 // Compares two runs of `pnpm snapshots` image by image (same file names), to
 // see what a change to the shaders or the engine did to the pictures.
 //
-//   pnpm snapshots:diff <dirA> <dirB> [--only mesh,fixture-solid] [--fail-above 2]
+//   pnpm snapshots:diff <dirA> <dirB> [--only halo,fixture-solid] [--fail-above 2]
 //
 // Per image: the largest single-channel difference (0-255), the mean
 // difference, and the share of pixels differing by more than 1, 2 and 4.

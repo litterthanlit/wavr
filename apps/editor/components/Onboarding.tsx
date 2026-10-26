@@ -10,7 +10,7 @@ const STEPS = [
   },
   {
     title: "Gradient Controls",
-    desc: "Use the Gradient tab in the sidebar to change type, colors, speed, and distortion. Try Domain Warp in mesh mode for deeper organic patterns.",
+    desc: "Use the Gradient tab in the sidebar to change type, colors, speed, and distortion. Each type says how it reads its palette and offers its own.",
   },
   {
     title: "Effects",

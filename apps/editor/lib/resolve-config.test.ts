@@ -17,7 +17,7 @@ describe("resolveConfig", () => {
   });
 
   it("keeps an explicit hidden layer hidden", () => {
-    const layer = createLayer({ gradientType: "mesh", visible: false });
+    const layer = createLayer({ gradientType: "lightWall", visible: false });
     expect(layer.visible).toBe(false);
   });
 });

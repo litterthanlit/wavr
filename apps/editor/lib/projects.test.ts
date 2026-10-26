@@ -106,7 +106,7 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     meshSpeed: 0,
     scene3DEnabled: false,
     scene3D: cloneScene3D(DEFAULT_SCENE_3D_STATE),
-    gradientType: "mesh",
+    gradientType: "lightWall",
     speed: 0.4,
     complexity: 3,
     scale: 1,

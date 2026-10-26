@@ -13,7 +13,7 @@ beforeAll(() => {
 });
 
 function stateWith(layers: LayerParams[], overrides: Partial<EngineState> = {}): EngineState {
-  const base = resolveConfig({ layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] });
+  const base = resolveConfig({ layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] });
   return { ...base, layers, ...overrides };
 }
 
@@ -45,12 +45,12 @@ describe("layer programs", () => {
 
   it("reuses a type's program across frames and layers", () => {
     const { engine, layerPrograms, draws, programOf } = setup();
-    const state = stateWith([layerOf("mesh"), layerOf("plasma"), layerOf("mesh", { blendMode: "screen" })]);
+    const state = stateWith([layerOf("lightWall"), layerOf("plasmaOrb"), layerOf("lightWall", { blendMode: "screen" })]);
 
     for (let frame = 0; frame < 3; frame++) engine.render(state);
 
     const programs = layerPrograms();
-    expect(programs.map((p) => p.gradientId).sort()).toEqual([GRADIENT_TYPE_IDS.mesh, GRADIENT_TYPE_IDS.plasma].sort());
+    expect(programs.map((p) => p.gradientId).sort()).toEqual([GRADIENT_TYPE_IDS.lightWall, GRADIENT_TYPE_IDS.plasmaOrb].sort());
     for (const program of programs) expect(program.linkCalls).toBe(1);
 
     // Frame draws are layer, layer, layer, post. Layers 0 and 2 share a program.
@@ -64,7 +64,7 @@ describe("layer programs", () => {
 
   it("links the post program once for the engine's lifetime", () => {
     const { engine, programs, draws, programOf } = setup();
-    for (const type of ["mesh", "radial", "voronoi"] as const) {
+    for (const type of ["lightWall", "horizonGlow", "liquidChrome"] as const) {
       engine.render(stateWith([layerOf(type)]));
     }
     const posts = new Set(draws.filter((d) => programOf(d)?.gradientId === null).map((d) => programOf(d)));
@@ -75,8 +75,8 @@ describe("layer programs", () => {
 
   it("does not compile types that only hidden layers use", () => {
     const { engine, layerPrograms } = setup();
-    engine.render(stateWith([layerOf("mesh"), layerOf("glitch", { visible: false })]));
-    expect(layerPrograms().map((p) => p.gradientId)).toEqual([GRADIENT_TYPE_IDS.mesh]);
+    engine.render(stateWith([layerOf("lightWall"), layerOf("image", { visible: false })]));
+    expect(layerPrograms().map((p) => p.gradientId)).toEqual([GRADIENT_TYPE_IDS.lightWall]);
   });
 });
 
@@ -85,7 +85,7 @@ describe("custom GLSL program", () => {
 
   it("replaces the gradient of every layer until reverted", () => {
     const { engine, layerPrograms, draws, programOf } = setup();
-    const state = stateWith([layerOf("mesh"), layerOf("plasma", { blendMode: "screen" })]);
+    const state = stateWith([layerOf("lightWall"), layerOf("plasmaOrb", { blendMode: "screen" })]);
     engine.render(state);
     const builtIn = layerPrograms().length;
     expect(builtIn).toBe(2);
@@ -107,13 +107,13 @@ describe("custom GLSL program", () => {
     const afterRevert = draws.length;
     engine.render(state);
     expect(layerPrograms().filter((p) => !p.custom)).toHaveLength(2);
-    expect(programOf(draws[afterRevert])?.gradientId).toBe(GRADIENT_TYPE_IDS.mesh);
-    expect(programOf(draws[afterRevert + 1])?.gradientId).toBe(GRADIENT_TYPE_IDS.plasma);
+    expect(programOf(draws[afterRevert])?.gradientId).toBe(GRADIENT_TYPE_IDS.lightWall);
+    expect(programOf(draws[afterRevert + 1])?.gradientId).toBe(GRADIENT_TYPE_IDS.plasmaOrb);
   });
 
   it("replaces the previous custom program and frees it", () => {
     const { engine, layerPrograms } = setup();
-    engine.render(stateWith([layerOf("mesh")]));
+    engine.render(stateWith([layerOf("lightWall")]));
     engine.setCustomShader("return vec3(1.0);");
     const first = layerPrograms().find((p) => p.custom)!;
     engine.setCustomShader("return vec3(0.0);");
@@ -137,7 +137,7 @@ describe("custom GLSL program", () => {
     const failed = layerPrograms().filter((p) => p.custom).at(-1)!;
     expect(failed.deleted).toBe(true);
     const before = draws.length;
-    engine.render(stateWith([layerOf("mesh")]));
+    engine.render(stateWith([layerOf("lightWall")]));
     expect(programOf(draws[before])?.fragmentSource).toContain("return vec3(1.0);");
   });
 
@@ -159,12 +159,12 @@ describe("custom GLSL program", () => {
 describe("parallel shader compilation", () => {
   it("draws nothing while programs compile, never blocking on them", () => {
     const { engine, draws, controls, blockingQueries } = setup({ parallelCompile: true });
-    const state = stateWith([layerOf("mesh")]);
+    const state = stateWith([layerOf("lightWall")]);
 
     for (let frame = 0; frame < 3; frame++) expect(engine.render(state)).toBe(false);
     expect(draws).toHaveLength(0);
     expect(engine.isReady(state)).toBe(false);
-    expect(engine.getMetrics().pendingPrograms).toBe(2); // mesh layer + post
+    expect(engine.getMetrics().pendingPrograms).toBe(2); // light wall layer + post
     // Link/compile status queries would stall the thread until the compile finishes.
     expect(blockingQueries).toEqual([]);
 
@@ -179,41 +179,41 @@ describe("parallel shader compilation", () => {
   it("keeps drawing the old type's frames only once the new type has compiled", () => {
     const { engine, draws, controls, layerPrograms } = setup({ parallelCompile: true });
     controls.compileComplete = true;
-    const mesh = stateWith([layerOf("mesh")]);
-    expect(engine.render(mesh)).toBe(true);
+    const wall = stateWith([layerOf("lightWall")]);
+    expect(engine.render(wall)).toBe(true);
     const drawn = draws.length;
 
     // Switching to a type that has not been compiled yet: skip frames until it is.
     controls.compileComplete = false;
-    const plasma = stateWith([layerOf("plasma")]);
-    expect(engine.render(plasma)).toBe(false);
+    const orb = stateWith([layerOf("plasmaOrb")]);
+    expect(engine.render(orb)).toBe(false);
     expect(draws).toHaveLength(drawn);
     expect(layerPrograms()).toHaveLength(2);
-    // The finished mesh program is still fine to draw with meanwhile.
-    expect(engine.render(mesh)).toBe(true);
+    // The finished light wall program is still fine to draw with meanwhile.
+    expect(engine.render(wall)).toBe(true);
 
     controls.compileComplete = true;
-    expect(engine.render(plasma)).toBe(true);
+    expect(engine.render(orb)).toBe(true);
     expect(draws.length).toBeGreaterThan(drawn + 2);
   });
 
   it("stops reporting a compile once it finishes, even for a type no longer drawn", () => {
     const { engine, controls } = setup({ parallelCompile: true });
-    // Switch away from plasma before its compile finishes; nothing draws plasma again.
-    expect(engine.render(stateWith([layerOf("plasma")]))).toBe(false);
-    const silk = stateWith([layerOf("silk")]);
-    expect(engine.render(silk)).toBe(false);
+    // Switch away from the orb before its compile finishes; nothing draws it again.
+    expect(engine.render(stateWith([layerOf("plasmaOrb")]))).toBe(false);
+    const smoke = stateWith([layerOf("inkSmoke")]);
+    expect(engine.render(smoke)).toBe(false);
     expect(engine.isCompiling()).toBe(true);
 
     controls.compileComplete = true;
-    expect(engine.render(silk)).toBe(true);
+    expect(engine.render(smoke)).toBe(true);
     expect(engine.isCompiling()).toBe(false);
     expect(engine.getMetrics().pendingPrograms).toBe(0);
   });
 
   it("a skipped frame touches no render targets or frame state", () => {
     const { engine, controls, attachments, textureFormats, draws } = setup({ parallelCompile: true });
-    const state = stateWith([layerOf("mesh")], { feedbackEnabled: true, trailEnabled: true, realBloomEnabled: true });
+    const state = stateWith([layerOf("lightWall")], { feedbackEnabled: true, trailEnabled: true, realBloomEnabled: true });
     expect(engine.render(state)).toBe(false);
     // No composite, feedback, trail or bloom targets were allocated or advanced.
     expect(attachments.size).toBe(0);
@@ -227,7 +227,7 @@ describe("parallel shader compilation", () => {
 
   it("surfaces a compile failure with the info log once the compile completes", () => {
     const { engine, controls } = setup({ parallelCompile: true });
-    const state = stateWith([layerOf("mesh")]);
+    const state = stateWith([layerOf("lightWall")]);
     controls.failCompile = true;
     controls.infoLog = "ERROR: 0:7: syntax error";
 
@@ -241,7 +241,7 @@ describe("parallel shader compilation", () => {
 
   it("capturing waits for programs to finish compiling instead of skipping the frame", () => {
     const { engine, draws, blockingQueries, controls } = setup({ parallelCompile: true });
-    const state = stateWith([layerOf("mesh")]);
+    const state = stateWith([layerOf("lightWall")]);
     expect(engine.render(state)).toBe(false);
     expect(controls.compileComplete).toBe(false);
 
@@ -256,7 +256,7 @@ describe("parallel shader compilation", () => {
 
   it("capturePixels also blocks on programs a different state needs", () => {
     const { engine, draws } = setup({ parallelCompile: true });
-    const pixels = engine.capturePixels(stateWith([layerOf("silk")]));
+    const pixels = engine.capturePixels(stateWith([layerOf("inkSmoke")]));
     expect(pixels).toHaveLength(16 * 8 * 4);
     expect(draws.length).toBeGreaterThan(0);
   });
@@ -265,13 +265,13 @@ describe("parallel shader compilation", () => {
 describe("synchronous compilation without the extension", () => {
   it("compiles on first use and reports failures with the info log", () => {
     const { engine, controls, draws } = setup();
-    expect(engine.isReady(stateWith([layerOf("radial")]))).toBe(true);
-    expect(engine.render(stateWith([layerOf("radial")]))).toBe(true);
+    expect(engine.isReady(stateWith([layerOf("horizonGlow")]))).toBe(true);
+    expect(engine.render(stateWith([layerOf("horizonGlow")]))).toBe(true);
     expect(draws).toHaveLength(2);
 
     controls.failLink = true;
     controls.infoLog = "ERROR: link";
-    expect(() => engine.render(stateWith([layerOf("conic")]))).toThrow(/Program link failed.*ERROR: link/);
+    expect(() => engine.render(stateWith([layerOf("aperture")]))).toThrow(/Program link failed.*ERROR: link/);
   });
 
   it("throws from the constructor when the post shader does not compile", () => {
@@ -285,7 +285,7 @@ describe("synchronous compilation without the extension", () => {
 describe("context restore", () => {
   it("initProgram drops every program and rebuilds them on demand", () => {
     const { engine, programs, draws, programOf } = setup();
-    const state = stateWith([layerOf("mesh"), layerOf("plasma", { blendMode: "screen" })], {
+    const state = stateWith([layerOf("lightWall"), layerOf("plasmaOrb", { blendMode: "screen" })], {
       realBloomEnabled: true,
       trailEnabled: true,
     });
@@ -308,7 +308,7 @@ describe("context restore", () => {
     const { engine, layerPrograms, draws, programOf } = setup();
     engine.setCustomShader("return vec3(0.25);");
     engine.initProgram();
-    engine.render(stateWith([layerOf("mesh")]));
+    engine.render(stateWith([layerOf("lightWall")]));
     const live = layerPrograms().filter((p) => !p.deleted);
     expect(live).toHaveLength(1);
     expect(live[0].custom).toBe(true);

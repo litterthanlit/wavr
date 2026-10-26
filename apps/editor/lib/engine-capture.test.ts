@@ -16,8 +16,8 @@ beforeAll(() => {
 });
 
 function state(overrides: Partial<EngineState> = {}): EngineState {
-  const base = resolveConfig({ layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] });
-  return { ...base, layers: [createLayer({ gradientType: "mesh" })], ...overrides };
+  const base = resolveConfig({ layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] });
+  return { ...base, layers: [createLayer({ gradientType: "lightWall" })], ...overrides };
 }
 
 function setup() {

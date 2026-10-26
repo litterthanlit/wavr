@@ -17,7 +17,7 @@ import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 function buildRealisticState(): GradientState {
   const base = useGradientStore.getState();
   const layerA = createLayer({
-    gradientType: "silk",
+    gradientType: "inkSmoke",
     speed: 0.8,
     complexity: 5,
     scale: 1.4,
@@ -33,7 +33,7 @@ function buildRealisticState(): GradientState {
     ],
   });
   const layerB = createLayer({
-    gradientType: "conic",
+    gradientType: "aperture",
     speed: 0.3,
     complexity: 2,
     scale: 0.9,
@@ -144,7 +144,7 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(patch.layers).toBeDefined();
     const outLayers = patch.layers!;
     expect(outLayers.length).toBe(2);
-    expect(outLayers[0].gradientType).toBe("silk");
+    expect(outLayers[0].gradientType).toBe("inkSmoke");
     expect(outLayers[0].speed).toBeCloseTo(0.8);
     expect(outLayers[0].complexity).toBe(5);
     expect(outLayers[0].scale).toBeCloseTo(1.4);
@@ -155,7 +155,7 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(outLayers[0].depth).toBeCloseTo(0.25);
     expect(outLayers[0].colors.length).toBe(3);
 
-    expect(outLayers[1].gradientType).toBe("conic");
+    expect(outLayers[1].gradientType).toBe("aperture");
     expect(outLayers[1].softness).toBeCloseTo(0.2);
     expect(outLayers[1].blendMode).toBe("multiply");
     expect(outLayers[1].opacity).toBeCloseTo(0.5);
@@ -431,7 +431,7 @@ describe("empty hash", () => {
       location: { hash: "" } as Location,
     } as unknown as Window;
     useGradientStore.setState({
-      layers: [createLayer({ gradientType: "plasma" })],
+      layers: [createLayer({ gradientType: "plasmaOrb" })],
       grain: 0.5,
       toneMapMode: 2,
       realBloomEnabled: !INITIAL_EFFECTS.realBloomEnabled,

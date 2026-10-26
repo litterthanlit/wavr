@@ -110,7 +110,7 @@ describe("size budget (gate 2)", () => {
       ...DEFAULT_CONFIG,
       layers: [
         {
-          type: "mesh",
+          type: "lightWall",
           colors: [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42], [0.251, 0.878, 0.816]],
           speed: 0.5,
           complexity: 3,
@@ -122,7 +122,7 @@ describe("size budget (gate 2)", () => {
           depth: 0,
         },
         {
-          type: "plasma",
+          type: "plasmaOrb",
           colors: [[0.3, 0.8, 1], [1, 0.4, 0.7]],
           speed: 0.3,
           complexity: 4,

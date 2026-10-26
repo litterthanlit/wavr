@@ -6,9 +6,7 @@
  */
 
 export const GRADIENT_TYPES = [
-  "mesh", "radial", "linear", "conic", "plasma",
-  "dither", "scanline", "glitch", "voronoi", "image",
-  "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
+  "image",
   "liquidChrome", "iridescentFoil", "horizonGlow", "lightLeak", "inkSmoke", "plasmaOrb",
   "aperture", "halo", "lightWall",
 ] as const;

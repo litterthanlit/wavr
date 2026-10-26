@@ -92,14 +92,6 @@ vec2 mouseWarpSwirl(vec2 uv) {
   return mouseDisplace(uv, turned - f.p);
 }
 
-// Magnet: the picture is drawn in towards the pointer and smeared along its
-// motion. (Sampling outward is content moving inward.)
-vec2 mouseWarpMagnet(vec2 uv) {
-  MouseField f = mouseField(uv, 0.9);
-  vec2 d = f.p * (0.60 * f.w) - f.motion * (0.055 * f.w);
-  return mouseDisplace(uv, d * f.amount);
-}
-
 // Wave: rings run outwards from the pointer while it moves (their size follows
 // its speed), over a faint static lens. The ring direction fades to zero at the
 // centre instead of being normalised there.
@@ -116,40 +108,8 @@ vec2 mouseWarpWave(vec2 uv) {
 // needs a line here.
 #if defined(WAVR_CUSTOM)
 #define WAVR_MOUSE_WARP mouseWarpLens
-#elif WAVR_GRADIENT == 0
-#define WAVR_MOUSE_WARP mouseWarpPush
-#elif WAVR_GRADIENT == 1
-#define WAVR_MOUSE_WARP mouseWarpWave
-#elif WAVR_GRADIENT == 2
-#define WAVR_MOUSE_WARP mouseWarpMagnet
-#elif WAVR_GRADIENT == 3
-#define WAVR_MOUSE_WARP mouseWarpSwirl
-#elif WAVR_GRADIENT == 4
-#define WAVR_MOUSE_WARP mouseWarpWave
-#elif WAVR_GRADIENT == 5
-#define WAVR_MOUSE_WARP mouseWarpMagnet
-#elif WAVR_GRADIENT == 6
-#define WAVR_MOUSE_WARP mouseWarpMagnet
-#elif WAVR_GRADIENT == 7
-#define WAVR_MOUSE_WARP mouseWarpMagnet
 #elif WAVR_GRADIENT == 8
 #define WAVR_MOUSE_WARP mouseWarpPush
-#elif WAVR_GRADIENT == 9
-#define WAVR_MOUSE_WARP mouseWarpLens
-#elif WAVR_GRADIENT == 10
-#define WAVR_MOUSE_WARP mouseWarpPush
-#elif WAVR_GRADIENT == 11
-#define WAVR_MOUSE_WARP mouseWarpLens
-#elif WAVR_GRADIENT == 12
-#define WAVR_MOUSE_WARP mouseWarpPush
-#elif WAVR_GRADIENT == 13
-#define WAVR_MOUSE_WARP mouseWarpLens
-#elif WAVR_GRADIENT == 14
-#define WAVR_MOUSE_WARP mouseWarpPush
-#elif WAVR_GRADIENT == 15
-#define WAVR_MOUSE_WARP mouseWarpLens
-#elif WAVR_GRADIENT == 16
-#define WAVR_MOUSE_WARP mouseWarpSwirl
 #elif WAVR_GRADIENT == 17
 #define WAVR_MOUSE_WARP mouseWarpSwirl
 #elif WAVR_GRADIENT == 18

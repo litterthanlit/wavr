@@ -5,7 +5,7 @@
 // apart the pictures are.
 //
 //   node tests/parity/export-parity.mjs [outDir] [--size 384] [--time 1]
-//        [--aspect 1.78] [--only mesh,aurora] [--format standalone|web]
+//        [--aspect 1.78] [--only halo,lightWall] [--format standalone|web]
 //        [--palette sunset] [--layer scale=2,complexity=8] [--state toneMapMode=2,hueShift=30]
 //        [--mouse 0.4,0.6] [--max-mean 2]
 //

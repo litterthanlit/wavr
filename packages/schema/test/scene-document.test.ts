@@ -69,6 +69,7 @@ describe("WavrSceneDocument", () => {
   it("opens a saved document's retired gradient type as lightWall, with its colours", () => {
     const saved = JSON.parse(JSON.stringify(sceneDocumentFromGradientConfig(DEFAULT_CONFIG, { name: "Saved" })));
     saved.layers[0].source.gradient.type = "aurora";
+    expect(() => WavrSceneDocument.parse(saved)).toThrow();
     const opened = parseSceneDocument(saved);
     expect(opened.layers[0]?.source).toEqual({
       kind: "gradient",
@@ -83,7 +84,7 @@ describe("WavrSceneDocument", () => {
         DEFAULT_CONFIG.layers[0],
         {
           ...DEFAULT_CONFIG.layers[0],
-          type: "aurora",
+          type: "halo",
           opacity: 0.6,
           blendMode: "screen",
         },

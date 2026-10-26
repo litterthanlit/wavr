@@ -12,7 +12,7 @@ import { GRADIENT_TYPE_IDS, SHADER_PARTS, type ColorProfile, type ShaderParts } 
  * fall behind the editor, and it holds only what its gradient uses, as the
  * engine's program does. Values the engine sets as uniforms (scale, softness,
  * ...) become `const`s at the top of the output, named in capitals, where a
- * user can edit them; the palette, the colours of the mesh and dither modes
+ * user can edit them; the palette, the stops the light fields read as lights
  * and the pointer stay uniforms, set by the runtime in portable-runtime.ts.
  *
  * The cutting is by names, so it relies on how the shader files are written:
@@ -53,7 +53,7 @@ export interface PortableState {
 
 /** A PortableState with every default applied and every value in range. */
 export interface PortableSettings {
-  /** The gradient the shader holds: the state's type, or mesh where a portable export has nothing to draw (image, unknown). */
+  /** The gradient the shader holds: the state's type, or the light wall where a portable export has nothing to draw (image, unknown). */
   gradientType: string;
   gradientId: number;
   colors: [number, number, number][];
@@ -87,7 +87,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 export function resolvePortableSettings(state: PortableState): PortableSettings {
   const ids = GRADIENT_TYPE_IDS as Record<string, number>;
   // The image mode samples an uploaded picture, which a portable export doesn't carry.
-  const gradientType = state.gradientType in ids && state.gradientType !== "image" ? state.gradientType : "mesh";
+  const gradientType = state.gradientType in ids && state.gradientType !== "image" ? state.gradientType : "lightWall";
   const colors = state.colors.slice(0, MAX_COLORS).map((c) => [c[0], c[1], c[2]] as [number, number, number]);
   const toneMapMode = Math.round(finite(state.toneMapMode, 1));
   return {

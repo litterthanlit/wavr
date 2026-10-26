@@ -14,7 +14,7 @@ describe("compileRenderPlan", () => {
         DEFAULT_CONFIG.layers[0],
         {
           ...DEFAULT_CONFIG.layers[0],
-          type: "plasma",
+          type: "plasmaOrb",
           opacity: 0.5,
           blendMode: "screen",
         },

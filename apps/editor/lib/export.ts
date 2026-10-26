@@ -46,7 +46,7 @@ export function getPortableExportWarnings(input: PortableExportFidelityInput): s
   }
 
   if (visibleLayers.some((layer) => layer.gradientType === "image")) {
-    warnings.push("The Image gradient needs its picture, so portable code exports draw a Mesh gradient in its place.");
+    warnings.push("The Image gradient needs its picture, so portable code exports draw a Light Wall in its place.");
   }
 
   if (visibleLayers.some((layer) => layer.maskEnabled || layer.textMaskEnabled)) {
@@ -399,9 +399,9 @@ module.exports = {
  */
 export type ExportableState = PortableState;
 
-/** Shader id for a gradient type, falling back to mesh for unknown values. */
+/** Shader id for a gradient type, falling back to light wall for unknown values. */
 function gradientTypeId(type: string): number {
-  return (GRADIENT_TYPE_IDS as Record<string, number>)[type] ?? GRADIENT_TYPE_IDS.mesh;
+  return (GRADIENT_TYPE_IDS as Record<string, number>)[type] ?? GRADIENT_TYPE_IDS.lightWall;
 }
 
 /** The pointer is read over the canvas itself, so an export that reacts to it says what that means for the page. */

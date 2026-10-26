@@ -4,7 +4,7 @@ import type { EngineState, LayerParams } from "@wavr/core";
 import { createFakeGL } from "./test-utils/fake-webgl";
 
 function stateWith(layers: LayerParams[], overrides: Partial<EngineState> = {}): EngineState {
-  const base = resolveConfig({ layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] });
+  const base = resolveConfig({ layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] });
   return { ...base, layers, ...overrides };
 }
 
@@ -14,9 +14,9 @@ function setup() {
   return { engine, ...fake };
 }
 
-const red = createLayer({ gradientType: "mesh", speed: 0.2, scale: 1, colors: [[1, 0, 0], [0.5, 0, 0]] });
+const red = createLayer({ gradientType: "lightWall", speed: 0.2, scale: 1, colors: [[1, 0, 0], [0.5, 0, 0]] });
 const blue = createLayer({
-  gradientType: "plasma",
+  gradientType: "plasmaOrb",
   speed: 0.7,
   scale: 2,
   blendMode: "screen",
@@ -24,7 +24,7 @@ const blue = createLayer({
 });
 // Same gradient (so the same program) as `red`, different values.
 const green = createLayer({
-  gradientType: "mesh",
+  gradientType: "lightWall",
   speed: 0.5,
   scale: 3,
   blendMode: "screen",
