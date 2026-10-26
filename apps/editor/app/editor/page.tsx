@@ -178,8 +178,9 @@ export default function EditorPage() {
   }, []);
 
   return (
-    <div className="h-screen w-screen bg-root flex items-center justify-center">
-    <div className="h-[90vh] w-[90vw] flex flex-col rounded-xl overflow-hidden border border-border shadow-2xl">
+    // Edge to edge: the canvas is the product, so it gets the whole window.
+    // dvh, so a phone's browser bars don't push the timeline off screen.
+    <div className="h-dvh w-screen flex flex-col overflow-hidden bg-root">
       <TopBar
         onScenes={() => setScenesOpen(true)}
         onExport={() => setExportOpen(true)}
@@ -243,7 +244,6 @@ export default function EditorPage() {
       )}
       <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
       {onboardingNeeded && <LazyOnboarding />}
-    </div>
     </div>
   );
 }
