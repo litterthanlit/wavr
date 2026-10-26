@@ -131,7 +131,7 @@ export default function ExportModal({
   const [pngScale, setPngScale] = useState<(typeof PNG_SCALES)[number]>(1);
   const [pngExporting, setPngExporting] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"ship" | "image" | "code" | "embed">("ship");
+  const [tab, setTab] = useState<"image" | "code" | "embed" | "ship">("image");
   const store = useGradientStore();
   const colors = store.colors as [number, number, number][];
 
@@ -270,10 +270,10 @@ export default function ExportModal({
   };
 
   const tabs = [
-    { key: "ship" as const, label: "Ship" },
     { key: "image" as const, label: "Image / Video" },
     { key: "code" as const, label: "Code" },
     { key: "embed" as const, label: "Embed" },
+    { key: "ship" as const, label: "Ship" },
   ];
 
   return (
