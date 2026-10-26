@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import ts from "typescript";
 import { PALETTE_SIZE, bakePalette, effectiveBlend, paletteDomain } from "@wavr/core";
-import { toMixSpace } from "../../../packages/core/src/palette";
 import {
   createPointerState,
   pointerVelocity,
@@ -28,7 +27,7 @@ const base: PortableState = {
     [0.251, 0.878, 0.816],
     [0.98, 0.82, 0.2],
   ],
-  gradientType: "aurora",
+  gradientType: "plasmaOrb",
   speed: 0.4,
   complexity: 3,
   scale: 1,
@@ -134,17 +133,16 @@ describe.each<PortableLanguage>(["js", "ts"])("generated runtime (%s)", (languag
       { name: "one colour", state: { colors: [[0.2, 0.4, 0.9]] } },
       { name: "the default four, hard stops", state: {} },
       { name: "soft modes: blend from softness", state: { softness: 0.7 } },
-      { name: "colour blend", state: { colorBlend: 0.4 } },
-      { name: "eight saturated stops in Oklab, blended", state: { colors: RAINBOW, colorBlend: 0.8 } },
-      { name: "eight saturated stops in sRGB, blended", state: { colors: RAINBOW, colorBlend: 0.8, oklabEnabled: false } },
+      { name: "eight saturated stops in Oklab, blended", state: { colors: RAINBOW, softness: 0.9 } },
+      { name: "eight saturated stops in sRGB, blended", state: { colors: RAINBOW, softness: 0.9, oklabEnabled: false } },
       { name: "two stops in sRGB", state: { colors: [[0.1, 0.1, 0.4], [0.9, 0.5, 0.6]], oklabEnabled: false, softness: 0.3 } },
     ];
 
     for (const { name, state } of cases) {
       it(`bakes the editor's palette: ${name}`, () => {
         const run = launch(state, language);
-        const { colors, oklab, softness, colorBlend } = run.settings;
-        const blend = effectiveBlend(colorBlend, softness);
+        const { colors, oklab, softness } = run.settings;
+        const blend = effectiveBlend(softness);
 
         const upload = run.fake.uploads.find((u) => u.call === "texImage2D" && u.format === "RGBA16F");
         expect(upload).toMatchObject({ width: PALETTE_SIZE, height: 1 });
@@ -158,34 +156,23 @@ describe.each<PortableLanguage>(["js", "ts"])("generated runtime (%s)", (languag
     }
 
     it("hands the stops to the gradients that read them", () => {
-      const mesh = launch({ gradientType: "mesh", colors: RAINBOW.slice(0, 5) }, language);
-      mesh.step(100);
-      expect(mesh.last().u_colorsMix).toEqual(RAINBOW.slice(0, 5).flatMap((c) => [...toMixSpace(c, true)]));
-      expect(mesh.last().u_oklabEnabled).toBe(1);
+      const wall = launch({ gradientType: "lightWall" }, language);
+      wall.step(100);
+      expect(wall.last().u_colors).toEqual(base.colors.flat());
 
-      const srgb = launch({ gradientType: "mesh", oklabEnabled: false }, language);
-      srgb.step(100);
-      expect(srgb.last().u_colorsMix).toEqual(base.colors.flat());
-      expect(srgb.last().u_oklabEnabled).toBe(0);
-
-      const dither = launch({ gradientType: "dither" }, language);
-      dither.step(100);
-      expect(dither.last().u_colors).toEqual(base.colors.flat());
-      expect(dither.last()).not.toHaveProperty("u_colorsMix");
+      const smoke = launch({ gradientType: "inkSmoke" }, language);
+      smoke.step(100);
+      expect(smoke.last()).not.toHaveProperty("u_colors");
     });
 
     it("keeps a Display P3 palette in P3 and presents the canvas so", () => {
       const stops = RAINBOW.slice(0, 5);
       const p3 = launch({ colors: stops, colorProfile: "display-p3" }, language);
-      const { colors, oklab, softness, colorBlend } = p3.settings;
+      const { colors, oklab, softness } = p3.settings;
       const upload = p3.fake.uploads.find((u) => u.call === "texImage2D" && u.format === "RGBA16F");
-      const expected = bakePalette(colors, oklab, effectiveBlend(colorBlend, softness), undefined, true);
+      const expected = bakePalette(colors, oklab, effectiveBlend(softness), undefined, true);
       expect(maxDifference(upload?.data ?? [], expected)).toBeLessThan(1e-6);
       expect(p3.fake.context.drawingBufferColorSpace).toBe("display-p3");
-
-      const mesh = launch({ gradientType: "mesh", colors: stops, colorProfile: "display-p3" }, language);
-      mesh.step(100);
-      expect(mesh.last().u_colorsMix).toEqual(stops.flatMap((c) => [...toMixSpace(c, true, true)]));
 
       // An sRGB export leaves the canvas as it is.
       expect(launch({ colors: stops }, language).fake.context.drawingBufferColorSpace).toBe("srgb");
@@ -205,10 +192,10 @@ describe.each<PortableLanguage>(["js", "ts"])("generated runtime (%s)", (languag
     });
 
     it("compiles the vertex and fragment shaders it carries", () => {
-      const run = launch({ gradientType: "silk" }, language);
+      const run = launch({ gradientType: "inkSmoke" }, language);
       const program = run.fake.programs[0];
       expect(program.vertexSource).toContain("a_position");
-      expect(program.fragmentSource).toContain("vec3 silkGradient(vec2 uv, float time)");
+      expect(program.fragmentSource).toContain("vec3 inkSmokeGradient(vec2 uv, float time)");
       expect(program.fragmentSource.startsWith("#version 300 es")).toBe(true);
     });
 

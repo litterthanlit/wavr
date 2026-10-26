@@ -7,6 +7,7 @@ import {
   moveStop,
   nearestSlot,
   reverseStops,
+  sameStops,
   stopPosition,
   type Rgb,
 } from "./color-stops";
@@ -48,10 +49,17 @@ describe("color stops", () => {
     expect(colors).toEqual([RED, GREEN, BLUE]);
     expect(moveStop(colors, 0, 1)[1]).not.toBe(colors[0]);
   });
+
+  it("tells a palette that is exactly another from one that differs", () => {
+    expect(sameStops([RED, GREEN], [[1, 0, 0], [0, 1, 0]])).toBe(true);
+    expect(sameStops([RED, GREEN], [GREEN, RED])).toBe(false);
+    expect(sameStops([RED, GREEN], [RED, GREEN, BLUE])).toBe(false);
+    expect(sameStops([RED], [[1, 0, 0.001]])).toBe(false);
+  });
 });
 
 describe("the bar's palette", () => {
-  const options = { oklab: false, colorBlend: 0, softness: 0, colorProfile: "srgb" as const };
+  const options = { oklab: false, softness: 0, colorProfile: "srgb" as const };
 
   it("shows each stop's own colour at its position", () => {
     const palette = barPalette([RED, GREEN, BLUE], options);
@@ -66,7 +74,7 @@ describe("the bar's palette", () => {
     const colors = [RED, BLUE];
     const palette = barPalette(colors, { ...options, oklab: true, softness: 0.8 });
     // With blend the table runs past [0, 1]; the bar maps t onto its middle.
-    const table = bakePalette(colors, true, effectiveBlend(0, 0.8));
+    const table = bakePalette(colors, true, effectiveBlend(0.8));
     const middle = palette.sample(0.5);
     expect(middle[0]).toBeCloseTo(table[256 * 4], 2);
     expect(middle[2]).toBeCloseTo(table[256 * 4 + 2], 2);

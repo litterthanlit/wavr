@@ -7,7 +7,6 @@ describe("export fidelity reporting", () => {
       scene3DEnabled: true,
       timelineEnabled: true,
       keyframeCount: 2,
-      audioEnabled: true,
       customGLSL: "return vec3(1.0);",
       layers: [
         { visible: true, imageData: "data:image/png;base64,abc", maskEnabled: true },
@@ -21,7 +20,6 @@ describe("export fidelity reporting", () => {
       "Masks and text masks are not included in portable code exports.",
       "3D scene overlays are included in image/video exports only.",
       "Timeline keyframes are not included in portable code exports.",
-      "Audio reactivity is not included in portable code exports.",
       "Custom GLSL is not included in portable code exports.",
     ]);
   });
@@ -49,12 +47,12 @@ describe("export fidelity reporting", () => {
     expect(warn({ mouseReact: 1, trailEnabled: true }).join("\n")).toContain("pointer reactivity is");
   });
 
-  it("warns that the image gradient is drawn as mesh", () => {
+  it("warns that the image gradient is drawn as a light wall", () => {
     const warnings = getPortableExportWarnings({ layers: [{ visible: true, gradientType: "image" }] });
     expect(warnings).toEqual([
-      "The Image gradient needs its picture, so portable code exports draw a Mesh gradient in its place.",
+      "The Image gradient needs its picture, so portable code exports draw a Light Wall in its place.",
     ]);
-    expect(getPortableExportWarnings({ layers: [{ visible: true, gradientType: "aurora" }] })).toEqual([]);
+    expect(getPortableExportWarnings({ layers: [{ visible: true, gradientType: "halo" }] })).toEqual([]);
     // A hidden image layer is not drawn at all.
     expect(getPortableExportWarnings({ layers: [{ visible: false, gradientType: "image" }] })).toEqual([]);
   });

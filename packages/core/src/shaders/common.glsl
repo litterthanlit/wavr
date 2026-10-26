@@ -11,12 +11,8 @@ uniform float u_time;
 uniform vec2 u_resolution;
 uniform float u_speed;          // post: the last visible layer's, like the palette
 uniform float u_softness;
-uniform vec3 u_colors[8];       // the raw stops, for gradients that don't blend them
+uniform vec3 u_colors[8];       // the raw stops, for the light fields
 uniform int u_colorCount;
-uniform vec3 u_colorsMix[8];    // the stops in blend space: Oklab when u_oklabEnabled, else as given
-uniform bool u_oklabEnabled;
-uniform bool u_displayP3;       // the scene's colour values are Display P3, not sRGB (colorProfile)
-uniform float u_colorBlend;
 uniform sampler2D u_paletteTexture; // baked getGradientColor, see "Palette" below
 uniform vec2 u_paletteDomain;       // post: the last visible layer's palette
 
@@ -37,7 +33,6 @@ uniform float u_mouseReact;
 uniform float u_complexity;
 uniform float u_scale;
 uniform float u_distortion;
-uniform float u_domainWarp;
 uniform float u_layerOpacity;
 
 // [layer] image / texture
@@ -328,33 +323,12 @@ vec2 compositeUV(vec2 uv, vec2 targetSize) {
 // Palette
 // ============================================================
 
-// The layer's palette (stops, Oklab or sRGB interpolation, colour blend and
-// softness) is evaluated on the CPU, once per change, into a 1D texture of
-// PALETTE_TEXELS (palette.ts is the source of the maths). The texture covers
-// t in [-reach, 1 + reach], where reach is how far the blend still moves the
-// colour past the ends; u_paletteDomain maps t to a coordinate along it.
+// The layer's palette (stops, Oklab or sRGB interpolation, softness) is
+// evaluated on the CPU, once per change, into a 1D texture of PALETTE_TEXELS
+// (palette.ts is the source of the maths). The texture covers t in
+// [-reach, 1 + reach], where reach is how far the blend still moves the colour
+// past the ends; u_paletteDomain maps t to a coordinate along it.
 const float PALETTE_TEXELS = 512.0;
-
-// Back from u_colorsMix space to the scene's RGB (sRGB, or Display P3 under
-// u_displayP3), once per pixel for gradients that blend the stops themselves
-// (mesh). The forward conversion is done on the CPU (palette.ts toMixSpace).
-vec3 mixSpaceToRgb(vec3 c) {
-  if (!u_oklabEnabled) return c;
-  float l = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
-  float m = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
-  float s = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
-  vec3 lin = vec3(
-     4.0767416621 * l * l * l - 3.3077115913 * m * m * m + 0.2309699292 * s * s * s,
-    -1.2684380046 * l * l * l + 2.6097574011 * m * m * m - 0.3413193965 * s * s * s,
-    -0.0041960863 * l * l * l - 0.7034186147 * m * m * m + 1.7076147010 * s * s * s
-  );
-  // Linear sRGB (which leaves 0..1 for a P3 colour) to linear Display P3.
-  if (u_displayP3) {
-    lin = mat3(0.8224621, 0.0331941, 0.0170827, 0.1775380, 0.9668058, 0.0723974, 0.0, 0.0, 0.9105199) * lin;
-  }
-  lin = max(lin, vec3(0.0));
-  return mix(lin * 12.92, 1.055 * pow(lin, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), lin));
-}
 
 vec3 getGradientColor(float t) {
   float u = clamp(t * u_paletteDomain.x + u_paletteDomain.y, 0.0, 1.0);
@@ -367,15 +341,6 @@ vec3 getGradientColor(float t) {
 // Gradient field helpers
 // ============================================================
 // The gradient functions turn a smooth scalar field into a palette position.
-// These keep that mapping free of seams, flat plateaus and added white.
-
-float soft01(float v) {
-  return smoothstep(0.02, 0.98, clamp(v, 0.0, 1.0));
-}
-
-float signedTo01(float v) {
-  return clamp(v * 0.5 + 0.5, 0.0, 1.0);
-}
 
 // Centred, aspect-corrected coordinates: one unit is the canvas height, so
 // forms stay round on any viewport.
@@ -389,64 +354,6 @@ vec2 centeredUV(vec2 uv) {
 // (an angle) has to advance by a multiple of 2 per turn.
 float pingPong(float x) {
   return 1.0 - abs(1.0 - 2.0 * fract(x * 0.5));
-}
-
-// Keeps coordinates inside the canvas by folding them back smoothly (a sine
-// that is nearly the identity near the middle and has a zero slope where it
-// turns), so a layout built for one canvas repeats, mirrored, when the scale
-// zooms out past it, with no crease where it folds.
-vec2 softFold(vec2 p) {
-  vec2 h = vec2(0.62 * u_resolution.x / u_resolution.y, 0.62);
-  return h * sin(p / h);
-}
-
-// Contrast about the middle. Noise clusters around 0.5 and rarely reaches the
-// ends of the palette, so a raw field comes out as its average colour. Follow
-// with pingPong() so the stretched tails fold back instead of clamping flat.
-float spread01(float v, float gain) {
-  return 0.5 + (v - 0.5) * gain;
-}
-
-// A palette colour for a field that may leave 0..1.
-vec3 foldedColor(float x) {
-  return getGradientColor(pingPong(x));
-}
-
-vec2 softDomainWarp(vec2 p, float time, float amount) {
-  vec2 q = vec2(
-    sin(p.y * 2.4 + time * 0.38) + 0.45 * sin((p.x + p.y) * 1.6 - time * 0.22),
-    cos(p.x * 2.0 - time * 0.31) + 0.4 * sin((p.x - p.y) * 2.2 + time * 0.18)
-  );
-  q *= 0.18;
-  return p + q * amount;
-}
-
-// Satin light on a height field. The field's own screen-space slope (derivatives,
-// so no extra evaluations) says whether a point faces a light in the upper left:
-// +1 lifts toward it, -1 turns away, 0 is flat. Soft-signed, so it never goes
-// harsh. The slope is per canvas height, so it looks the same at any resolution.
-float satin(float height, float relief) {
-  vec2 slope = vec2(dFdx(height), dFdy(height)) * (u_resolution.y * relief);
-  float lit = dot(slope, vec2(-0.6, 0.8));
-  return lit / (1.0 + abs(lit));
-}
-
-// Multiplier for a colour under satin light. Shadowed folds deepen the colour,
-// lit ones lift it a little; flat areas keep the palette colour as it is, and
-// since it only scales the colour it never pushes it toward white.
-float satinShade(float satinLight, float strength) {
-  return 1.0 + strength * (0.32 * min(satinLight, 0.0) + 0.12 * max(satinLight, 0.0));
-}
-
-// Palette colour at `t` (0..1), lit like satin by the slope of `height`.
-vec3 satinColor(float t, float height, float relief) {
-  return getGradientColor(t) * satinShade(satin(height, relief), 1.0);
-}
-
-// The soft modes' palette lookup: an S-curve on the field (so colours hold in
-// the middle of a form and change at its edges), lit like satin by `relief`.
-vec3 finishSoftGradient(float field, float relief) {
-  return satinColor(smoothstep(0.0, 1.0, clamp(field, 0.0, 1.0)), field, relief);
 }
 
 // ============================================================
@@ -547,19 +454,6 @@ vec3 lightToDisplay(vec3 c) {
   return linearToSrgb(c);
 }
 
-// White noise, one value per `cell` pixels. The cell grows with the canvas
-// (about 540 px of height per grain), so grain looks the same in a 4x export as
-// on screen. An integer hash: no sine, so no pattern, and no drift between GPUs.
-float grain01(vec2 fragCoord) {
-  float cell = max(1.0, floor(u_resolution.y / 540.0 + 0.5));
-  uvec2 q = uvec2(floor(fragCoord / cell)) * uvec2(1597334673u, 3812015801u);
-  uint n = (q.x ^ q.y) * 1597334673u;
-  n ^= n >> 15u;
-  n *= 2246822519u;
-  n ^= n >> 13u;
-  return float(n >> 8u) * (1.0 / 16777216.0);
-}
-
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
@@ -569,68 +463,10 @@ float interleavedGradientNoise(vec2 fragCoord) {
   return fract(magic.z * fract(dot(fragCoord, magic.xy)));
 }
 
-// ============================================================
-// Voronoi / Worley Noise
-// ============================================================
-
 vec2 hash22(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.xx + p3.yz) * p3.zy);
-}
-
-vec2 voronoi(vec2 p) {
-  vec2 n = floor(p);
-  vec2 f = fract(p);
-
-  float md = 8.0;
-  vec2 mr;
-
-  for (int j = -1; j <= 1; j++) {
-    for (int i = -1; i <= 1; i++) {
-      vec2 g = vec2(float(i), float(j));
-      vec2 o = hash22(n + g);
-      vec2 r = g + o - f;
-      float d = dot(r, r);
-      if (d < md) {
-        md = d;
-        mr = r;
-      }
-    }
-  }
-  return vec2(sqrt(md), dot(mr, normalize(mr)));
-}
-
-// Cellular noise whose feature points drift inside their cells, so the cells
-// morph rather than slide. x = distance to the nearest point, y = to the second
-// nearest (y - x is 0 on a border), z = a random 0..1 value of the nearest cell;
-// `id2` is that value for the second nearest, to blend across the border.
-vec3 cellular(vec2 p, float time, out float id2) {
-  vec2 n = floor(p);
-  vec2 f = fract(p);
-  float d1 = 8.0;
-  float d2 = 8.0;
-  float id = 0.0;
-  id2 = 0.0;
-  for (int j = -1; j <= 1; j++) {
-    for (int i = -1; i <= 1; i++) {
-      vec2 g = vec2(float(i), float(j));
-      vec2 h = hash22(n + g);
-      vec2 o = 0.5 + 0.38 * sin(time + 6.2831 * h);
-      vec2 r = g + o - f;
-      float d = dot(r, r);
-      if (d < d1) {
-        d2 = d1;
-        id2 = id;
-        d1 = d;
-        id = hash(n + g + 17.3);
-      } else if (d < d2) {
-        d2 = d;
-        id2 = hash(n + g + 17.3);
-      }
-    }
-  }
-  return vec3(sqrt(d1), sqrt(d2), id);
 }
 
 // ============================================================

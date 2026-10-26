@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { LayerParams, BlendMode, ColorProfile, createLayer, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
-import { RANDOM_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
+import { defaultSoftnessForType, lookPatch, randomLook } from "./gradient-types";
 import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
 import {
   DEFAULT_SCENE_3D_STATE,
@@ -102,7 +102,6 @@ export interface GradientState {
   blurEnabled: boolean;
   blurAmount: number;
   radialBlurAmount: number;
-  colorBlend: number;
   chromaticAberration: number;
   hueShift: number;
   asciiEnabled: boolean;
@@ -121,7 +120,6 @@ export interface GradientState {
   pixelSortEnabled: boolean;
   pixelSortIntensity: number;
   pixelSortThreshold: number;
-  domainWarp: number;
   feedbackEnabled: boolean;
   feedbackDecay: number;
 
@@ -148,14 +146,6 @@ export interface GradientState {
   realBloomEnabled: boolean;
   debandEnabled: boolean;
   debandStrength: number;
-
-  // Audio reactivity
-  audioEnabled: boolean;
-  audioSource: "mic" | "file";
-  audioBassTarget: string;
-  audioTrebleTarget: string;
-  audioEnergyTarget: string;
-  audioSensitivity: number;
 
   // Playback
   playing: boolean;
@@ -209,6 +199,7 @@ export interface GradientState {
   addColor: () => void;
   removeColor: (index: number) => void;
   loadPreset: (preset: Partial<GradientState>) => void;
+  setLook: (type: LayerParams["gradientType"]) => void;
   randomize: () => void;
   undo: () => void;
   redo: () => void;
@@ -225,7 +216,6 @@ export interface GradientState {
 
   // Image actions
   setLayerImage: (layerIndex: number, dataURL: string | null) => void;
-  setLayerDistortionMap: (layerIndex: number, dataURL: string | null) => void;
 
   // Scene actions
   setScene3D: (partial: Partial<Scene3DState>) => void;
@@ -249,10 +239,10 @@ export interface GradientState {
 // Keys excluded from undo snapshots
 const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "playing", "set", "setDiscrete", "commitSet", "setColor", "addColor", "removeColor",
-  "loadPreset", "randomize", "undo", "redo",
+  "loadPreset", "setLook", "randomize", "undo", "redo",
   "addLayer", "removeLayer", "selectLayer", "setLayerParam", "setLayerOpacity",
   "setLayerBlendMode", "toggleLayerVisibility", "moveLayer",
-  "setLayerImage", "setLayerDistortionMap",
+  "setLayerImage",
   "setScene3D", "addSceneObject", "updateSceneObject", "removeSceneObject",
   "selectSceneObject", "addParticleField", "updateParticleField", "removeParticleField",
   "toggleTimeline", "addKeyframe", "removeKeyframe", "setTimelinePosition",
@@ -350,7 +340,6 @@ const DEFAULTS = {
   blurEnabled: false,
   blurAmount: 0,
   radialBlurAmount: 0,
-  colorBlend: 0,
   chromaticAberration: 0,
   hueShift: 0,
   asciiEnabled: false,
@@ -369,7 +358,6 @@ const DEFAULTS = {
   pixelSortEnabled: false,
   pixelSortIntensity: 0.5,
   pixelSortThreshold: 0.5,
-  domainWarp: 0,
   feedbackEnabled: false,
   feedbackDecay: 0.5,
   oklabEnabled: true,
@@ -390,12 +378,6 @@ const DEFAULTS = {
   debandStrength: 1.0,
   // The opening scene's own grain, tone map, bloom, colour profile and HDR headroom.
   ...INITIAL_EFFECTS,
-  audioEnabled: false,
-  audioSource: "mic" as const,
-  audioBassTarget: "distortion",
-  audioTrebleTarget: "brightness",
-  audioEnergyTarget: "scale",
-  audioSensitivity: 0.5,
   playing: true,
   performanceMode: "auto" as PerformanceMode,
   timelineEnabled: false,
@@ -602,31 +584,19 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     });
   },
 
-  randomize: () => {
-    const count = 3 + Math.floor(Math.random() * 3);
-    const baseHue = Math.random() * 360;
-    const colors: [number, number, number][] = [];
-    for (let i = 0; i < count; i++) {
-      const hue = (baseHue + i * (360 / count) + (Math.random() - 0.5) * 30) % 360;
-      colors.push(hslToRgb(hue, 0.6 + Math.random() * 0.4, 0.4 + Math.random() * 0.3));
-    }
-    const types: LayerParams["gradientType"][] = RANDOM_GRADIENT_TYPES;
-    const gradientType = types[Math.floor(Math.random() * types.length)];
-    const speed = 0.2 + Math.random() * 0.8;
-    const complexity = 2 + Math.floor(Math.random() * 4);
-    const scale = 0.5 + Math.random() * 2;
-    const distortion = Math.random() * 0.6;
-    const softness = gradientType === "mesh" || gradientType === "plasma" || gradientType === "dither"
-      ? 0.25 + Math.random() * 0.35
-      : 0.5 + Math.random() * 0.35;
+  setLook: (type) => {
+    const current = useGradientStore.getState();
+    if (current.gradientType === type) return;
+    current.setDiscrete(lookPatch(type));
+  },
 
+  randomize: () => {
     flushPending();
     const current = useGradientStore.getState();
     pushHistory(takeSnapshot(current));
+    const look = randomLook(Math.random, current.colorProfile);
     const newLayers = current.layers.map((l, i) =>
-      i === current.activeLayerIndex
-        ? { ...l, colors, gradientType, speed, complexity, scale, distortion, softness }
-        : l
+      i === current.activeLayerIndex ? { ...l, ...look } : l
     );
     rawSet({
       layers: newLayers,
@@ -673,10 +643,7 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
-    const newLayer = createLayer({
-      colors: [randomHue(), randomHue(), randomHue()],
-      opacity: 0.7,
-    });
+    const newLayer = createLayer({ ...lookPatch("halo"), blendMode: "screen", opacity: 1 });
     const newLayers = [...current.layers, newLayer];
     const newIndex = newLayers.length - 1;
     rawSet({
@@ -782,16 +749,6 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     pushHistory(takeSnapshot(current));
     const newLayers = current.layers.map((l, i) =>
       i === layerIndex ? { ...l, imageData: dataURL } : l
-    );
-    rawSet({ layers: newLayers });
-  },
-
-  setLayerDistortionMap: (layerIndex, dataURL) => {
-    flushPending();
-    const current = useGradientStore.getState();
-    pushHistory(takeSnapshot(current));
-    const newLayers = current.layers.map((l, i) =>
-      i === layerIndex ? { ...l, distortionMapData: dataURL } : l
     );
     rawSet({ layers: newLayers });
   },

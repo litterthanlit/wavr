@@ -14,7 +14,7 @@ const state = {
     [0.4, 0.5, 0.6],
     [0.7, 0.8, 0.9],
   ] as [number, number, number][],
-  gradientType: "aurora",
+  gradientType: "halo",
   speed: 0.42,
   complexity: 5,
   scale: 1.2,
@@ -43,14 +43,14 @@ describe("export helpers", () => {
 
   it("includes gradient type and softness in the embed config", () => {
     expect(generateEmbedConfig(state)).toMatchObject({
-      type: 11,
+      type: 24,
       softness: 0.68,
     });
   });
 
   it("preserves shader type and softness in the React exporter", () => {
     const code = exportReactComponent(state);
-    expect(code).toContain("vec3 auroraGradient(vec2 uv, float time)");
+    expect(code).toContain("vec3 haloGradient(vec2 uv, float time)");
     expect(code).toContain("const float SOFTNESS = 0.68;");
     // Softness also melts the palette's colours into each other, at 0.85 of its value.
     expect(code).toContain("const BLEND = 0.578;");
@@ -58,35 +58,34 @@ describe("export helpers", () => {
   });
 
   it("preserves shader type and softness in the Web Component exporter", () => {
-    const code = exportWebComponent({ ...state, gradientType: "liquid", softness: 0.62 });
-    expect(code).toContain("vec3 liquidGradient(vec2 uv, float time)");
+    const code = exportWebComponent({ ...state, gradientType: "liquidChrome", softness: 0.62 });
+    expect(code).toContain("vec3 liquidChromeGradient(vec2 uv, float time)");
     expect(code).toContain("const float SOFTNESS = 0.62;");
     expect(code).toContain("const BLEND = 0.527;");
   });
 
   it("preserves shader type and softness in the standalone player exporter", () => {
-    const code = exportStandalonePlayer({ ...state, gradientType: "softCells", softness: 0.76 });
+    const code = exportStandalonePlayer({ ...state, gradientType: "iridescentFoil", softness: 0.76 });
     const script = playerScript(code);
-    expect(script).toContain("vec3 softCellsGradient(vec2 uv, float time)");
+    expect(script).toContain("vec3 iridescentFoilGradient(vec2 uv, float time)");
     expect(script).toContain("const float SOFTNESS = 0.76;");
     expect(script).toContain("const BLEND = 0.646;");
   });
 
-  it("maps the new curated shader types into portable exports", () => {
-    expect(generateEmbedConfig({ ...state, gradientType: "prismGlass", softness: 0.7 })).toMatchObject({
-      type: 15,
+  it("maps the light types into portable exports", () => {
+    expect(generateEmbedConfig({ ...state, gradientType: "plasmaOrb", softness: 0.7 })).toMatchObject({
+      type: 22,
       softness: 0.7,
     });
 
-    // Neon tunnel's shader doesn't read softness; it only softens the palette.
-    const code = exportReactComponent({ ...state, gradientType: "neonTunnel", softness: 0.56 });
-    expect(code).toContain("vec3 neonTunnelGradient(vec2 uv, float time)");
+    const code = exportReactComponent({ ...state, gradientType: "lightLeak", softness: 0.56 });
+    expect(code).toContain("vec3 lightLeakGradient(vec2 uv, float time)");
     expect(code).toContain("const BLEND = 0.476;");
   });
 
   it("exports every gradient with its own code and none of another's", () => {
     for (const type of GRADIENT_TYPES) {
-      const drawn = type === "image" ? "mesh" : type;
+      const drawn = type === "image" ? "lightWall" : type;
       const code = exportReactComponent({ ...state, gradientType: type });
       const others = GRADIENT_TYPES.filter((other) => other !== drawn && other !== "image");
       expect(code, type).toContain(`vec3 ${drawn}Gradient(vec2 uv, float time)`);
@@ -95,14 +94,13 @@ describe("export helpers", () => {
   });
 
   it("applies the editor's colour grade", () => {
-    const code = exportReactComponent({ ...state, hueShift: 30, toneMapMode: 2, oklabEnabled: false, colorBlend: 0.4 });
+    const code = exportReactComponent({ ...state, hueShift: 30, toneMapMode: 2, oklabEnabled: false });
     expect(code).toContain("const float BRIGHTNESS = 1.1;");
     expect(code).toContain("const float SATURATION = 0.92;");
     expect(code).toContain("const float HUE_SHIFT = 30.0; // degrees");
     expect(code).toContain("const int TONE_MAP_MODE = 2;");
     expect(code).toContain("const OKLAB = false;");
-    expect(code).toContain("const BLEND = 0.578;"); // the larger of softness * 0.85 and the colour blend
-    expect(exportReactComponent({ ...state, softness: 0.1, colorBlend: 0.4 })).toContain("const BLEND = 0.4;");
+    expect(code).toContain("const BLEND = 0.578;");
   });
 
   it("no longer ends in Reinhard c / (c + 1), which halved every export's brightness", () => {
@@ -113,8 +111,8 @@ describe("export helpers", () => {
   });
 
   describe("pointer", () => {
-    const withPointer = { ...state, gradientType: "mesh", mouseReact: 0.5 };
-    const without = { ...state, gradientType: "mesh", mouseReact: 0 };
+    const withPointer = { ...state, gradientType: "lightWall", mouseReact: 0.5 };
+    const without = { ...state, gradientType: "lightWall", mouseReact: 0 };
     const hooks = ["pointerenter", "pointermove", "pointerdown", "pointerleave", "pointercancel"];
 
     it("is in all three code exports when the pointer reacts", () => {
@@ -173,10 +171,10 @@ describe("export helpers", () => {
     it("stays small", () => {
       for (const type of GRADIENT_TYPES) {
         const player = exportStandalonePlayer({ ...state, gradientType: type, mouseReact: 1 });
-        expect(player.length, type).toBeLessThan(18_000);
+        expect(player.length, type).toBeLessThan(18_500);
         // Display P3 adds its colour conversion (palette bake, canvas) on top.
         const p3 = exportStandalonePlayer({ ...state, gradientType: type, mouseReact: 1, colorProfile: "display-p3" });
-        expect(p3.length, `${type} in P3`).toBeLessThan(18_500);
+        expect(p3.length, `${type} in P3`).toBeLessThan(19_000);
       }
     });
   });

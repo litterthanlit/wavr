@@ -4,6 +4,7 @@ import {
   getEffectDefinition,
   WavrSceneDocument,
   gradientConfigFromSceneDocument,
+  parseSceneDocument,
   sceneDocumentFromGradientConfig,
   type CompatibilityWarning,
   type EffectId,
@@ -56,7 +57,6 @@ const GLOBAL_TIMELINE_PATHS: Partial<Record<keyof KeyframeParams, string>> = {
   saturation: "globals.saturation",
   hueShift: "globals.hueShift",
   vignette: "globals.vignette",
-  colorBlend: "editor.colorBlend",
   noiseIntensity: "postEffects.noise.params.intensity",
 };
 
@@ -174,7 +174,7 @@ export function storeToSceneDocument(
 }
 
 export function sceneDocumentToStorePatch(document: WavrSceneDocumentValue): Partial<GradientState> {
-  const parsed = WavrSceneDocument.parse(document);
+  const parsed = parseSceneDocument(document);
   const config = GradientConfig.parse(gradientConfigFromSceneDocument(parsed));
   const patch = configToStorePatch(config);
   const keyframes = keyframesFromTimeline(parsed.timeline);
@@ -227,7 +227,7 @@ export function importSceneDocumentJson(json: string): SceneDocumentImportResult
 
   let document: WavrSceneDocumentValue;
   try {
-    document = WavrSceneDocument.parse(parsedJson);
+    document = parseSceneDocument(parsedJson);
   } catch (error) {
     const issues = formatSchemaIssues(error);
     throw new SceneDocumentImportError(

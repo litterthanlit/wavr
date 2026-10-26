@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { GradientEngine, bakePalette, createLayer, effectiveBlend, resolveConfig } from "@wavr/core";
+import { GRADIENT_TYPE_IDS, GradientEngine, bakePalette, createLayer, effectiveBlend, resolveConfig } from "@wavr/core";
 import type { EngineState } from "@wavr/core";
 import { createFakeGL, type FakeGLOptions } from "./test-utils/fake-webgl";
 
 function stateWith(overrides: Partial<EngineState>, layerCount = 1): EngineState {
-  const base = resolveConfig({ layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] });
+  const base = resolveConfig({ layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] });
   const layers = Array.from({ length: layerCount }, (_, i) =>
-    createLayer({ gradientType: "mesh", blendMode: i === 0 ? "normal" : "screen" }),
+    createLayer({ gradientType: "lightWall", blendMode: i === 0 ? "normal" : "screen" }),
   );
   return { ...base, layers, ...overrides };
 }
@@ -27,7 +27,7 @@ describe("GradientEngine render passes", () => {
 
     // Layer pass: the gradient into a composite FBO, no global effects.
     expect(layerPass.target).not.toBeNull();
-    expect(programOf(layerPass)?.gradientId).toBe(0);
+    expect(programOf(layerPass)?.gradientId).toBe(GRADIENT_TYPE_IDS.lightWall);
     expect(layerPass.uniforms.u_vignette).toBeUndefined();
 
     // Post pass: global effects on the composited scene, straight to the canvas.
@@ -103,15 +103,15 @@ describe("GradientEngine render passes", () => {
 
   it("post pass takes its palette and clock from the last visible layer", () => {
     const { engine, draws, uploads } = setup();
-    const first = createLayer({ gradientType: "mesh", speed: 0.3, colors: [[1, 0, 0], [0, 1, 0]] });
+    const first = createLayer({ gradientType: "lightWall", speed: 0.3, colors: [[1, 0, 0], [0, 1, 0]] });
     const last = createLayer({
-      gradientType: "plasma",
+      gradientType: "plasmaOrb",
       blendMode: "screen",
       speed: 0.9,
       softness: 0.4,
       colors: [[0, 0, 1], [1, 1, 0], [0, 1, 1]],
     });
-    const hidden = createLayer({ gradientType: "glitch", visible: false, colors: [[1, 1, 1], [0, 0, 0]] });
+    const hidden = createLayer({ gradientType: "image", visible: false, colors: [[1, 1, 1], [0, 0, 0]] });
     engine.render(stateWith({ reactionDiffEnabled: true, layers: [first, last, hidden] }));
 
     const post = draws[draws.length - 1];
@@ -120,7 +120,7 @@ describe("GradientEngine render passes", () => {
     // The palette texture is the one baked from the last visible layer's colours...
     const palette = post.boundTextures.get(7);
     const baked = uploads.find((u) => u.texture === palette);
-    const blend = effectiveBlend(0, last.softness);
+    const blend = effectiveBlend(last.softness);
     expect(baked?.data).toEqual(Array.from(bakePalette(last.colors, true, blend)));
     // ...which is the texture the last layer's own draw used, with the same domain.
     expect(draws[1].boundTextures.get(7)).toBe(palette);
@@ -203,7 +203,7 @@ describe("GradientEngine render passes", () => {
   it("clears the target when no layer is visible, without compiling anything", () => {
     const { engine, draws, programs } = setup();
     const programsAtStart = programs.length;
-    const hidden = createLayer({ gradientType: "radial", visible: false });
+    const hidden = createLayer({ gradientType: "horizonGlow", visible: false });
     expect(engine.render(stateWith({ layers: [hidden] }))).toBe(true);
     expect(draws).toHaveLength(0);
     expect(programs.length).toBe(programsAtStart);

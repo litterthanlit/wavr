@@ -14,17 +14,16 @@ import {
   preloadCustomGLSLPanel,
 } from "@/components/lazy";
 import { GradientEngine } from "@wavr/core";
-import type { SidebarTab } from "@/lib/types";
+import { SIDEBAR_TABS, type SidebarTab } from "@/lib/types";
 
 // The Gradient tab is the default, so it ships eagerly; the rest load on demand
 // (and are prefetched on idle, see prefetchEditorChunks).
-const TABS: { id: SidebarTab; label: string; preload?: () => void }[] = [
-  { id: "gradient", label: "Gradient" },
-  { id: "scene", label: "3D", preload: preloadScenePanel },
-  { id: "effects", label: "Effects", preload: preloadEffectsPanel },
-  { id: "presets", label: "Presets", preload: preloadPresetsPanel },
-  { id: "code", label: "Shader", preload: preloadCustomGLSLPanel },
-];
+const PRELOAD: Partial<Record<SidebarTab, () => void>> = {
+  effects: preloadEffectsPanel,
+  presets: preloadPresetsPanel,
+  scene: preloadScenePanel,
+  code: preloadCustomGLSLPanel,
+};
 
 interface SidebarProps {
   activeTab: SidebarTab;
@@ -42,12 +41,12 @@ export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarPr
 
       {/* Tab bar */}
       <div className="sidebar-tabs">
-        {TABS.map((tab) => (
+        {SIDEBAR_TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            onPointerEnter={tab.preload}
-            onFocus={tab.preload}
+            onPointerEnter={PRELOAD[tab.id]}
+            onFocus={PRELOAD[tab.id]}
             className={`sidebar-tab ${activeTab === tab.id ? "sidebar-tab-active" : ""}`}
           >
             {tab.label}
@@ -58,9 +57,9 @@ export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarPr
       {/* Tab content */}
       <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
         {activeTab === "gradient" && <GradientPanel />}
-        {activeTab === "scene" && <LazyScenePanel />}
         {activeTab === "effects" && <LazyEffectsPanel />}
         {activeTab === "presets" && <LazyPresetsPanel />}
+        {activeTab === "scene" && <LazyScenePanel />}
         {activeTab === "code" && <LazyCustomGLSLPanel engineRef={engineRef} />}
       </div>
     </div>

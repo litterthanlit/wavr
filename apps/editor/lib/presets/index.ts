@@ -24,11 +24,6 @@ export const CATEGORY_LABELS = Object.fromEntries(
 
 export const CATEGORY_ORDER: PresetCategory[] = PRESET_CATEGORIES.map((category) => category.id);
 
-/** Categories of retired presets, which the Presets panel shows collapsed. */
-export const ARCHIVED_CATEGORIES: PresetCategory[] = PRESET_CATEGORIES.filter((category) => category.archived).map(
-  (category) => category.id,
-);
-
 const THUMBNAIL_HASHES: Record<string, string | undefined> = thumbnailHashes;
 
 export const PRESETS: Preset[] = PRESET_CATALOG.map((entry) => ({

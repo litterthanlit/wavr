@@ -1,6 +1,7 @@
 import { GradientConfig, LayerConfig } from "./types";
 import { EngineState } from "./engine";
 import { LayerParams, createLayer } from "./layers";
+import { currentGradientType } from "@wavr/schema/enums";
 
 const LAYER_DEFAULTS: Required<Pick<
   LayerConfig,
@@ -18,7 +19,7 @@ const LAYER_DEFAULTS: Required<Pick<
 
 function resolveLayer(layer: LayerConfig): LayerParams {
   return createLayer({
-    gradientType: layer.type,
+    gradientType: currentGradientType(layer.type),
     colors: layer.colors,
     speed: layer.speed ?? LAYER_DEFAULTS.speed,
     complexity: layer.complexity ?? LAYER_DEFAULTS.complexity,
@@ -69,7 +70,6 @@ export function resolveConfig(config: GradientConfig): EngineState {
     blurEnabled: config.blur?.enabled ?? false,
     blurAmount: config.blur?.amount ?? 0,
     radialBlurAmount: config.radialBlur ?? 0,
-    colorBlend: 0,
     chromaticAberration: config.chromaticAberration ?? 0,
     hueShift: config.hueShift ?? 0,
     asciiEnabled: config.ascii?.enabled ?? false,
@@ -88,7 +88,6 @@ export function resolveConfig(config: GradientConfig): EngineState {
     pixelSortEnabled: config.pixelSort?.enabled ?? false,
     pixelSortIntensity: config.pixelSort?.intensity ?? 0.5,
     pixelSortThreshold: config.pixelSort?.threshold ?? 0.5,
-    domainWarp: config.domainWarp ?? 0,
     feedbackEnabled: config.feedback?.enabled ?? false,
     feedbackDecay: config.feedback?.decay ?? 0.5,
     parallaxEnabled: config.parallax?.enabled ?? false,
@@ -154,7 +153,6 @@ export const CONFIG_FIELD_STATE_KEYS: Record<
   kaleidoscope: ["kaleidoscopeEnabled", "kaleidoscopeSegments", "kaleidoscopeRotation"],
   reactionDiffusion: ["reactionDiffEnabled", "reactionDiffIntensity", "reactionDiffScale"],
   pixelSort: ["pixelSortEnabled", "pixelSortIntensity", "pixelSortThreshold"],
-  domainWarp: ["domainWarp"],
   feedback: ["feedbackEnabled", "feedbackDecay"],
   parallax: ["parallaxEnabled", "parallaxStrength"],
   shape3d: ["threeDEnabled", "threeDShape", "threeDPerspective", "threeDRotationSpeed", "threeDZoom", "threeDLighting"],
@@ -196,7 +194,6 @@ export function stateToConfig(state: EngineState): GradientConfig {
   if (state.vignette) config.vignette = state.vignette;
   if (state.chromaticAberration) config.chromaticAberration = state.chromaticAberration;
   if (state.hueShift) config.hueShift = state.hueShift;
-  if (state.domainWarp) config.domainWarp = state.domainWarp;
   if (state.radialBlurAmount) config.radialBlur = state.radialBlurAmount;
   if (state.mouseReact !== 0.5) config.mouseReact = state.mouseReact;
   if (state.noiseEnabled) config.noise = { enabled: true, intensity: state.noiseIntensity, scale: state.noiseScale };

@@ -37,7 +37,7 @@ Open `http://localhost:3000/editor`.
 Scaffold a shader landing page (compact editor in the preview):
 
 ```bash
-pnpm --filter create-wavr start -- my-site --template hero --preset aurora
+pnpm --filter create-wavr start -- my-site --template hero --preset halo
 ```
 
 ## Validate

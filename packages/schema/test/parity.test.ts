@@ -106,11 +106,11 @@ describe("parity fixtures", () => {
   it("has the minimum fixture set from spec §6.4", () => {
     const required = [
       "solid.json",
-      "mesh-3layer.json",
+      "light-3layer.json",
       "full-effects.json",
-      "animated-plasma.json",
+      "animated-orb.json",
       "dither-bayer.json",
-      "voronoi-classic.json",
+      "aperture.json",
       "shape3d-sphere.json",
     ];
     for (const name of required) {

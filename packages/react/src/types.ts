@@ -13,10 +13,7 @@ export type MaskShape = "none" | "circle" | "roundedRect" | "ellipse" | "polygon
 export type MaskBlendMode = "union" | "subtract" | "intersect" | "smoothUnion";
 export type TextMaskAlign = "left" | "center" | "right";
 export type GradientType =
-  | "mesh" | "radial" | "linear" | "conic" | "plasma"
-  | "dither" | "scanline" | "glitch" | "image" | "voronoi"
-  | "silk" | "aurora" | "liquid" | "softCells" | "grainflow"
-  | "prismGlass" | "neonTunnel" | "liquidChrome" | "iridescentFoil"
+  | "image" | "liquidChrome" | "iridescentFoil"
   | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb"
   | "aperture" | "halo" | "lightWall";
 
@@ -79,7 +76,6 @@ export interface GradientConfig {
   noise?: { enabled: boolean; intensity: number; scale: number };
   chromaticAberration?: number;
   hueShift?: number;
-  domainWarp?: number;
   mouseReact?: number;
   curl?: { enabled: boolean; intensity: number; scale: number };
   kaleidoscope?: { enabled: boolean; segments: number; rotation: number };

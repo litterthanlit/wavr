@@ -14,7 +14,7 @@ import {
   createPaletteKey,
   paletteKeyMatches,
   setPaletteKey,
-  toMixSpace,
+  stopCurve,
 } from "../../../packages/core/src/palette";
 
 type V3 = [number, number, number];
@@ -73,7 +73,6 @@ function glslOklabToLinear(c: V3): V3 {
 interface Uniforms {
   colors: V3[];
   oklab: boolean;
-  colorBlend: number;
   softness: number;
 }
 
@@ -98,7 +97,7 @@ function glslSampleColorAt(u: Uniforms, t: number): V3 {
 }
 
 function glslGetGradientColor(u: Uniforms, t: number): V3 {
-  const blend = Math.max(u.colorBlend, u.softness * 0.85);
+  const blend = u.softness * 0.85;
   if (blend < 0.01) return glslSampleColorAt(u, t);
 
   const spread = blend * 0.15;
@@ -117,25 +116,32 @@ function glslGetGradientColor(u: Uniforms, t: number): V3 {
 
 const PALETTES: Record<string, V3[]> = {
   "two stops": [[0.9, 0.2, 0.3], [0.1, 0.3, 0.95]],
+  "two stops, dark to light": [[0.1, 0.1, 0.4], [1, 0.6, 0.3]],
   "editor default": [[0.388, 0.357, 1.0], [1.0, 0.42, 0.42], [0.251, 0.878, 0.816], [0.98, 0.82, 0.2]],
   "black and white, 8 stops": [[0, 0, 0], [1, 1, 1], [0, 0, 0], [1, 1, 1], [0, 0, 0], [1, 1, 1], [0, 0, 0], [1, 1, 1]],
   "saturated primaries": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
   "rainbow, 8 stops": [[1, 0, 0], [1, 0.6, 0], [1, 1, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1], [0.6, 0, 1], [1, 0, 0.6]],
+  "light leak": [[0.008, 0.004, 0.008], [0.173, 0.031, 0.098], [0.584, 0.086, 0.161], [1, 0.29, 0.11], [1, 0.647, 0.18], [1, 0.945, 0.824]],
   "near black": [[0.001, 0.002, 0.003], [0.02, 0.01, 0.03], [0.035, 0.04, 0.03]],
   "one stop": [[0.8, 0.3, 0.5]],
   "repeated stop": [[0.2, 0.4, 0.6], [0.2, 0.4, 0.6], [0.9, 0.9, 0.1]],
 };
 
-// colorBlend / softness pairs; the effective blend is max(colorBlend, softness * 0.85).
-const BLENDS: [string, number, number][] = [
-  ["no blend", 0, 0],
-  ["blend just under the threshold", 0.009, 0],
-  ["blend just over the threshold", 0.011, 0],
-  ["colour blend 0.2", 0.2, 0],
-  ["colour blend 1", 1, 0],
-  ["softness 0.5", 0, 0.5],
-  ["softness 1", 0, 1],
-  ["both, softness wins", 0.3, 0.9],
+const TWO_STOP_PALETTES = Object.entries(PALETTES).filter(([, colors]) => colors.length === 2);
+
+const MODES: { name: string; oklab: boolean; displayP3: boolean }[] = [
+  { name: "Oklab", oklab: true, displayP3: false },
+  { name: "Oklab, Display P3", oklab: true, displayP3: true },
+  { name: "sRGB", oklab: false, displayP3: false },
+];
+
+const BLENDS: [string, number][] = [
+  ["no blend", 0],
+  ["blend just under the threshold", 0.0105],
+  ["blend just over the threshold", 0.013],
+  ["softness 0.25", 0.25],
+  ["softness 0.5", 0.5],
+  ["softness 1", 1],
 ];
 
 const to8bit = (x: number) => Math.round(clamp(x, 0, 1) * 255);
@@ -151,15 +157,123 @@ function sampleTable(table: Float32Array, blend: number, t: number): V3 {
   return [0, 1, 2].map((c) => table[i0 * 4 + c] * (1 - f) + table[i1 * 4 + c] * f) as V3;
 }
 
-describe("bakePalette", () => {
+function exactPalette(colors: V3[], oklab: boolean, displayP3 = false): (t: number) => V3 {
+  const curve = stopCurve(colors, oklab, displayP3);
+  return (t) => {
+    const out: V3 = [0, 0, 0];
+    curve(t, out);
+    return out;
+  };
+}
+
+// Display P3 to linear sRGB (CSS Color 4), for stops read in a P3 scene.
+const P3_TO_SRGB: V3[] = [
+  [1.2249401, -0.2249404, 0],
+  [-0.0420569, 1.0420571, 0],
+  [-0.0196376, -0.0786361, 1.0982735],
+];
+
+function mixPoint(c: V3, oklab: boolean, displayP3: boolean): V3 {
+  if (!oklab) return c;
+  const lin = glslSrgbToLinear(c);
+  const [r, g, b] = displayP3 ? (P3_TO_SRGB.map((row) => row[0] * lin[0] + row[1] * lin[1] + row[2] * lin[2]) as V3) : lin;
+  // cbrt, not pow: a P3 stop can be negative in linear sRGB.
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+
+const distance = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+function meanSpeed(palette: (t: number) => V3): number {
+  let length = 0;
+  let previous = palette(0);
+  for (let k = 1; k <= 4000; k++) {
+    const colour = palette(k / 4000);
+    length += distance(colour, previous);
+    previous = colour;
+  }
+  return length;
+}
+
+describe("the curve through the stops", () => {
   for (const [name, colors] of Object.entries(PALETTES)) {
+    for (const mode of MODES) {
+      it(`${name}, ${mode.name}: passes through every stop at t = j / (n - 1)`, () => {
+        const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        colors.forEach((stop, j) => {
+          const colour = palette(colors.length === 1 ? 0 : j / (colors.length - 1));
+          // To the precision of the Oklab matrices, which invert each other to about 1e-6.
+          colour.forEach((c, i) => expect(c).toBeCloseTo(stop[i], 5));
+        });
+      });
+    }
+  }
+
+  for (const [name, colors] of Object.entries(PALETTES).filter(([, colors]) => colors.length > 2)) {
+    for (const mode of MODES) {
+      it(`${name}, ${mode.name}: keeps moving through every inner stop a channel carries on through, and rests at the others`, () => {
+        const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        const points = colors.map((c) => mixPoint(c, mode.oklab, mode.displayP3));
+        const mean = meanSpeed(palette);
+        const h = 1e-5;
+        for (let j = 1; j < colors.length - 1; j++) {
+          const carriesOn = [0, 1, 2].some((c) => (points[j][c] - points[j - 1][c]) * (points[j + 1][c] - points[j][c]) > 0);
+          const t = j / (colors.length - 1);
+          const speed = distance(palette(t + h), palette(t - h)) / (2 * h);
+          if (carriesOn) expect(speed / mean, `stop ${j} moves`).toBeGreaterThan(0.1);
+          else expect(speed / mean, `stop ${j} rests`).toBeLessThan(1e-3);
+        }
+      });
+    }
+  }
+
+  it("holds a repeated stop's colour across the whole run", () => {
+    const navy: V3 = [0.1, 0.12, 0.35];
+    const colors: V3[] = [navy, navy, navy, [1, 0.45, 0.4]];
+    for (const mode of MODES) {
+      const table = bakePalette(colors, mode.oklab, 0, undefined, mode.displayP3);
+      for (let i = 0; i <= Math.floor((2 / 3) * (PALETTE_SIZE - 1)); i++) {
+        expect([table[i * 4], table[i * 4 + 1], table[i * 4 + 2]], `${mode.name}, texel ${i}`).toEqual([table[0], table[1], table[2]]);
+      }
+    }
+  });
+
+  for (const [name, colors] of Object.entries(PALETTES).filter(([, colors]) => colors.length > 1)) {
+    for (const mode of MODES) {
+      it(`${name}, ${mode.name}: is flat at both ends`, () => {
+        const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        const mean = meanSpeed(palette);
+        const h = 1e-6;
+        expect(distance(palette(h), palette(0)) / h / mean).toBeLessThan(1e-3);
+        expect(distance(palette(1), palette(1 - h)) / h / mean).toBeLessThan(1e-3);
+      });
+    }
+  }
+
+  it("is never negative", () => {
+    const ramp: V3[] = [[0, 0, 0], [0.1, 0.1, 0.1], [1, 1, 1]];
+    for (const mode of MODES) {
+      const table = bakePalette(ramp, mode.oklab, 0, undefined, mode.displayP3);
+      for (let i = 0; i < table.length; i++) expect(table[i]).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe("bakePalette", () => {
+  for (const [name, colors] of TWO_STOP_PALETTES) {
     for (const oklab of [true, false]) {
-      for (const [blendName, colorBlend, softness] of BLENDS) {
+      for (const [blendName, softness] of BLENDS) {
         it(`${name}, ${oklab ? "Oklab" : "sRGB"}, ${blendName}: every texel is the old shader's colour`, () => {
-          const blend = effectiveBlend(colorBlend, softness);
+          const blend = effectiveBlend(softness);
           const table = bakePalette(colors, oklab, blend);
           const reach = paletteReach(blend);
-          const uniforms: Uniforms = { colors, oklab, colorBlend, softness };
+          const uniforms: Uniforms = { colors, oklab, softness };
 
           let worstFloat = 0;
           let worst8bit = 0;
@@ -178,11 +292,10 @@ describe("bakePalette", () => {
         });
 
         it(`${name}, ${oklab ? "Oklab" : "sRGB"}, ${blendName}: filtering between texels stays within 1/255`, () => {
-          const blend = effectiveBlend(colorBlend, softness);
+          const blend = effectiveBlend(softness);
           const table = bakePalette(colors, oklab, blend);
-          const uniforms: Uniforms = { colors, oklab, colorBlend, softness };
+          const uniforms: Uniforms = { colors, oklab, softness };
 
-          // Past both ends too: with a blend the old function keeps changing beyond [0, 1].
           let worst = 0;
           const steps = 1999;
           for (let i = 0; i <= steps; i++) {
@@ -197,12 +310,29 @@ describe("bakePalette", () => {
     }
   }
 
+  for (const [name, colors] of Object.entries(PALETTES)) {
+    for (const mode of MODES) {
+      it(`${name}, ${mode.name}: filtering between texels stays close to the exact palette`, () => {
+        const table = bakePalette(colors, mode.oklab, 0, undefined, mode.displayP3);
+        const palette = exactPalette(colors, mode.oklab, mode.displayP3);
+        let worst = 0;
+        const steps = 20000;
+        for (let i = 0; i <= steps; i++) {
+          const expected = palette(i / steps);
+          const got = sampleTable(table, 0, i / steps);
+          for (let c = 0; c < 3; c++) worst = Math.max(worst, Math.abs(got[c] - expected[c]));
+        }
+        expect(worst * 255).toBeLessThanOrEqual(1);
+      });
+    }
+  }
+
   it("covers the stretch past [0, 1] that a blend still reaches", () => {
-    const colors = PALETTES["editor default"];
-    const blend = effectiveBlend(1, 0);
-    const uniforms: Uniforms = { colors, oklab: true, colorBlend: 1, softness: 0 };
+    const colors = PALETTES["two stops"];
+    const blend = effectiveBlend(1);
+    const uniforms: Uniforms = { colors, oklab: true, softness: 1 };
     const reach = paletteReach(blend);
-    expect(reach).toBeCloseTo(0.3);
+    expect(reach).toBeCloseTo(0.255);
 
     // Just past 1 the old function still differs from its value at 1: clamping t first would be wrong.
     const atOne = glslGetGradientColor(uniforms, 1);
@@ -327,7 +457,6 @@ describe("Display P3", () => {
     for (const [index, stop] of [[0, stops[0]], [PALETTE_SIZE - 1, stops[2]]] as [number, V3][]) {
       texel(table, index).forEach((c, i) => expect(c).toBeCloseTo(stop[i], 5));
     }
-    toMixSpace(stops[1], true, true).forEach((c, i) => expect(c).not.toBeCloseTo(toMixSpace(stops[1], true)[i], 3));
   });
 
   it("blends in Oklab between the colours the P3 values are, not as if they were sRGB", () => {

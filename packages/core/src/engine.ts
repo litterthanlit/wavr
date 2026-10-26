@@ -35,7 +35,6 @@ import {
   paletteDomain,
   paletteKeyMatches,
   setPaletteKey,
-  toMixSpace,
   type PaletteKey,
 } from "./palette";
 import { RenderScaleController, type RenderScaleOptions } from "./render-scale";
@@ -56,7 +55,6 @@ export interface EngineState {
   blurEnabled: boolean;
   blurAmount: number;
   radialBlurAmount: number;
-  colorBlend: number;
   chromaticAberration: number;
   hueShift: number;
   asciiEnabled: boolean;
@@ -75,7 +73,6 @@ export interface EngineState {
   pixelSortEnabled: boolean;
   pixelSortIntensity: number;
   pixelSortThreshold: number;
-  domainWarp: number;
   feedbackEnabled: boolean;
   feedbackDecay: number;
   parallaxEnabled: boolean;
@@ -128,23 +125,7 @@ type UniformMap = Record<string, WebGLUniformLocation>;
 
 /** Shader id for each gradient type (`u_gradientType`). */
 export const GRADIENT_TYPE_IDS: Readonly<Record<LayerParams["gradientType"], number>> = {
-  mesh: 0,
-  radial: 1,
-  linear: 2,
-  conic: 3,
-  plasma: 4,
-  dither: 5,
-  scanline: 6,
-  glitch: 7,
   image: 8,
-  voronoi: 9,
-  silk: 10,
-  aurora: 11,
-  liquid: 12,
-  softCells: 13,
-  grainflow: 14,
-  prismGlass: 15,
-  neonTunnel: 16,
   liquidChrome: 17,
   iridescentFoil: 18,
   horizonGlow: 19,
@@ -202,7 +183,6 @@ export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_kaleidoscopeEnabled", "u_kaleidoscopeSegments", "u_kaleidoscopeRotation",
   "u_reactionDiffEnabled", "u_reactionDiffIntensity", "u_reactionDiffScale",
   "u_pixelSortEnabled", "u_pixelSortIntensity", "u_pixelSortThreshold",
-  "u_domainWarp", "u_oklabEnabled", "u_displayP3", "u_colorBlend",
   "u_feedbackEnabled", "u_feedbackDecay", "u_prevFrame",
   // Image/texture uniforms
   "u_imageTexture", "u_distortionMap",
@@ -295,18 +275,13 @@ interface BloomLevel {
 const MIN_RENDER_SCALE = 0.25;
 
 /**
- * Gradients whose look is fixed in screen pixels (they read gl_FragCoord for a
- * grid, grain or scanlines) or in image detail. The layer pass is drawn at full
- * resolution whenever one of them is visible, because at a lower scale a pixel
- * of the layer pass is bigger on screen: halftone cells, scanlines and paper
- * grain would grow and an uploaded picture would blur. A test checks this list
- * against the gl_FragCoord users in gradients.glsl.
+ * Gradients whose look is fixed in screen pixels (they read gl_FragCoord) or in
+ * image detail. The layer pass is drawn at full resolution whenever one of them
+ * is visible, because at a lower scale a pixel of the layer pass is bigger on
+ * screen: an uploaded picture would blur. A test checks this list against the
+ * gl_FragCoord users in gradients.glsl.
  */
 export const FULL_RESOLUTION_GRADIENTS: ReadonlySet<LayerParams["gradientType"]> = new Set([
-  "dither",
-  "scanline",
-  "glitch",
-  "grainflow",
   "image",
 ]);
 
@@ -349,8 +324,6 @@ interface ProgramRecord {
   startedAt: number;
   uniforms: UniformMap;
   colorLocations: (WebGLUniformLocation | undefined)[];
-  /** `u_colorsMix[i]`: the stops in the space gradients blend them in (palette.ts toMixSpace). */
-  mixLocations: (WebGLUniformLocation | undefined)[];
 }
 
 export interface CaptureOptions {
@@ -741,7 +714,6 @@ export class GradientEngine {
       startedAt,
       uniforms: {},
       colorLocations: [],
-      mixLocations: [],
     };
     return record;
   }
@@ -793,7 +765,6 @@ export class GradientEngine {
     for (let i = 0; i < 8; i++) {
       const loc = gl.getUniformLocation(record.program, `u_colors[${i}]`);
       record.colorLocations.push(loc ?? undefined);
-      record.mixLocations.push(gl.getUniformLocation(record.program, `u_colorsMix[${i}]`) ?? undefined);
     }
     record.ready = true;
 
@@ -818,7 +789,7 @@ export class GradientEngine {
   private disposeProgram(record: ProgramRecord) {
     const gl = this.gl;
     for (const loc of Object.values(record.uniforms)) this.lastUniformValues.delete(loc);
-    for (const loc of [...record.colorLocations, ...record.mixLocations]) {
+    for (const loc of record.colorLocations) {
       if (loc) this.lastUniformValues.delete(loc);
     }
     for (const shader of record.shaders) {
@@ -855,7 +826,7 @@ export class GradientEngine {
 
   /** The program that draws `layer`: one per gradient type, or the custom one. */
   private getLayerProgram(layer: LayerParams): ProgramRecord {
-    const gradientId = GRADIENT_TYPE_IDS[layer.gradientType] ?? 0;
+    const gradientId = GRADIENT_TYPE_IDS[layer.gradientType] ?? GRADIENT_TYPE_IDS.lightWall;
     const key = this.customSource !== null ? "custom" : `g${gradientId}`;
     let record = this.layerPrograms.get(key);
     if (!record) {
@@ -1775,13 +1746,13 @@ export class GradientEngine {
   /**
    * Binds the baked palette of the layer in slot `slot` (its position among
    * the visible layers) to the palette unit and sets `u_paletteDomain` on the
-   * program in use. The table is baked again only when the layer's colours,
-   * the colour blend or softness, or the Oklab switch differ from what was
+   * program in use. The table is baked again only when the layer's colours, its
+   * softness, the Oklab switch or the colour profile differ from what was
    * baked, so a frame with an unchanged palette uploads nothing.
    */
   private bindPalette(slot: number, layer: LayerParams, state: EngineState) {
     const gl = this.gl;
-    const blend = effectiveBlend(state.colorBlend, layer.softness);
+    const blend = effectiveBlend(layer.softness);
     let entry = this.palettes[slot];
     if (!entry) {
       entry = {
@@ -1824,8 +1795,8 @@ export class GradientEngine {
     }
   }
 
-  /** The raw stops, for the gradients that read `u_colors` / `u_colorsMix` themselves. */
-  private setPalette(layer: LayerParams, oklab: boolean, displayP3: boolean) {
+  /** The raw stops, for the gradients that read `u_colors` themselves (the light fields). */
+  private setPalette(layer: LayerParams) {
     const record = this.active;
     if (!record) return;
     this.setf("u_softness", layer.softness);
@@ -1837,22 +1808,15 @@ export class GradientEngine {
       if (loc !== undefined && this.uniformChanged(loc, 3, color[0], color[1], color[2])) {
         this.gl.uniform3f(loc, color[0], color[1], color[2]);
       }
-      const mixLoc = record.mixLocations[i];
-      if (mixLoc !== undefined) {
-        const mix = toMixSpace(color, oklab, displayP3);
-        if (this.uniformChanged(mixLoc, 3, mix[0], mix[1], mix[2])) {
-          this.gl.uniform3f(mixLoc, mix[0], mix[1], mix[2]);
-        }
-      }
     }
   }
 
-  private setLayerUniforms(layer: LayerParams, oklab: boolean, profile: ColorProfile) {
+  private setLayerUniforms(layer: LayerParams, profile: ColorProfile) {
     this.setf("u_speed", layer.speed);
     this.setf("u_complexity", layer.complexity);
     this.setf("u_scale", layer.scale);
     this.setf("u_distortion", layer.distortion);
-    this.setPalette(layer, oklab, profile === "display-p3");
+    this.setPalette(layer);
     this.setf("u_layerOpacity", layer.opacity);
     // Parallax depth (per-layer)
     this.setf("u_layerDepth", layer.depth);
@@ -1947,11 +1911,6 @@ export class GradientEngine {
     this.set2f("u_mouseVelocity", velocityX, velocityY);
     this.setf("u_mousePresence", pointer.presence.value);
     this.setf("u_mouseReact", state.mouseReact);
-    this.setf("u_domainWarp", state.domainWarp);
-    // For gradients that blend the raw stops themselves (mesh); the rest read the baked palette.
-    this.seti("u_oklabEnabled", state.oklabEnabled ? 1 : 0);
-    this.seti("u_displayP3", state.colorProfile === "display-p3" ? 1 : 0);
-    this.setf("u_colorBlend", state.colorBlend);
     // Parallax
     this.seti("u_parallaxEnabled", state.parallaxEnabled ? 1 : 0);
     this.setf("u_parallaxStrength", state.parallaxStrength);
@@ -2141,7 +2100,7 @@ export class GradientEngine {
 
         this.useProgram(this.getLayerProgram(layer));
         this.setLayerGlobals(state, mvp);
-        this.setLayerUniforms(layer, state.oklabEnabled, state.colorProfile);
+        this.setLayerUniforms(layer, state.colorProfile);
         this.bindPalette(i, layer, state);
         this.set2f("u_compositeScale", compositeScaleX, compositeScaleY);
         this.seti("u_compositeEnabled", i === 0 ? 0 : 1);

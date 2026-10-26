@@ -2,7 +2,7 @@
 // fixture at a fixed time to PNGs, so a change to the shaders or engine can be
 // looked at, or diffed against a run from another commit.
 //
-//   pnpm snapshots [outDir] [--only mesh,fixture-solid] [--time 1] [--size 512]
+//   pnpm snapshots [outDir] [--only halo,fixture-solid] [--time 1] [--size 512]
 //                  [--width 768 --height 432]
 //                  [--mouse 0.4,0.6] [--stroke 0.2,0.5,0.8,0.5[,0.4]] [--ripple 0.5,0.5[,0.4]]
 //                  [--state mouseReact=1,trailEnabled=true]
@@ -44,8 +44,8 @@
 // outDir defaults to test-results/snapshots. Files are type-<gradient>.png and
 // fixture-<name>.png, plus manifest.json with the timings and pixel stats.
 // --scenes adds images of your own: a JSON array of { name, type | config,
-// state? } (a gradient type or a GradientConfig, plus engine-state overrides
-// such as colorBlend). They are written as scene-<name>.png.
+// state? } (a gradient type or a GradientConfig, plus engine-state overrides).
+// They are written as scene-<name>.png.
 // `pnpm snapshots` rebuilds the page bundle first (tests/parity/pages/snapshot.ts).
 //
 // Frames are rendered by engine.captureImageData in headless Chromium on

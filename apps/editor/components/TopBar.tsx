@@ -6,7 +6,6 @@ import {
   Download,
   FolderOpen,
   Keyboard,
-  LayoutGrid,
   Link2,
   Moon,
   Pause,
@@ -24,18 +23,16 @@ import { preloadUrlCodec } from "@/lib/url-sync";
 import {
   preloadExportModal,
   preloadProjectsModal,
-  preloadSceneGalleryModal,
   preloadShortcutsModal,
 } from "@/components/lazy";
 
 interface TopBarProps {
-  onScenes: () => void;
   onExport: () => void;
   onShowShortcuts: () => void;
   onProjects: () => void;
 }
 
-export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects }: TopBarProps) {
+export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBarProps) {
   const store = useGradientStore();
   const { playing, randomize, set, undo, redo } = store;
   const { theme, cycleTheme } = useTheme();
@@ -61,18 +58,7 @@ export default function TopBar({ onScenes, onExport, onShowShortcuts, onProjects
         </button>
       </div>
 
-      {/* Center: Browse + Playback */}
       <div className="topbar-group">
-        <button
-          onClick={onScenes}
-          onPointerEnter={preloadSceneGalleryModal}
-          onFocus={preloadSceneGalleryModal}
-          aria-label="Gallery"
-          className="topbar-btn"
-        >
-          <LayoutGrid size={14} aria-hidden="true" />
-          <span className="topbar-label">Gallery</span>
-        </button>
         <button onClick={randomize} aria-label="Randomize" title="Randomize (R)" className="topbar-btn">
           <Shuffle size={14} aria-hidden="true" />
           <span className="topbar-label">Randomize</span>

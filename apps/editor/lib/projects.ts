@@ -1,5 +1,5 @@
 import { GradientState, type PerformanceMode } from "./store";
-import { ColorProfile, LayerParams } from "@wavr/core";
+import { ColorProfile, LayerParams, RETIRED_GLOBALS, currentGradientType } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
 import { cloneScene3D, type Scene3DState } from "./scene3d";
 import { sceneDocumentToStorePatch, storeToSceneDocument } from "./scene-document";
@@ -37,7 +37,6 @@ export interface ProjectState {
   blurEnabled: boolean;
   blurAmount: number;
   radialBlurAmount: number;
-  colorBlend: number;
   chromaticAberration: number;
   hueShift: number;
   asciiEnabled: boolean;
@@ -56,7 +55,6 @@ export interface ProjectState {
   pixelSortEnabled: boolean;
   pixelSortIntensity: number;
   pixelSortThreshold: number;
-  domainWarp: number;
   feedbackEnabled: boolean;
   feedbackDecay: number;
   oklabEnabled: boolean;
@@ -82,12 +80,6 @@ export interface ProjectState {
   debandEnabled: boolean;
   debandStrength: number;
   customGLSL: string | null;
-  audioEnabled: boolean;
-  audioSource: "mic" | "file";
-  audioBassTarget: string;
-  audioTrebleTarget: string;
-  audioEnergyTarget: string;
-  audioSensitivity: number;
   performanceMode: PerformanceMode;
   timelineEnabled: boolean;
   timelineDuration: number;
@@ -112,6 +104,10 @@ export interface ProjectState {
 
 const STORAGE_KEY = "wavr-projects";
 
+const RETIRED_EDITOR_FIELDS = [
+  "colorBlend", "audioEnabled", "audioSource", "audioBassTarget", "audioTrebleTarget", "audioEnergyTarget", "audioSensitivity",
+];
+
 export function exportProjectState(state: GradientState): ProjectState {
   return {
     layers: (state.layers as LayerParams[]).map((l) => ({
@@ -132,7 +128,6 @@ export function exportProjectState(state: GradientState): ProjectState {
     blurEnabled: state.blurEnabled as boolean,
     blurAmount: state.blurAmount as number,
     radialBlurAmount: state.radialBlurAmount as number,
-    colorBlend: state.colorBlend as number,
     chromaticAberration: state.chromaticAberration as number,
     hueShift: state.hueShift as number,
     asciiEnabled: state.asciiEnabled as boolean,
@@ -151,7 +146,6 @@ export function exportProjectState(state: GradientState): ProjectState {
     pixelSortEnabled: state.pixelSortEnabled as boolean,
     pixelSortIntensity: state.pixelSortIntensity as number,
     pixelSortThreshold: state.pixelSortThreshold as number,
-    domainWarp: state.domainWarp as number,
     feedbackEnabled: state.feedbackEnabled as boolean,
     feedbackDecay: state.feedbackDecay as number,
     oklabEnabled: state.oklabEnabled as boolean,
@@ -175,12 +169,6 @@ export function exportProjectState(state: GradientState): ProjectState {
     debandEnabled: state.debandEnabled as boolean,
     debandStrength: state.debandStrength as number,
     customGLSL: state.customGLSL as string | null,
-    audioEnabled: state.audioEnabled as boolean,
-    audioSource: state.audioSource as "mic" | "file",
-    audioBassTarget: state.audioBassTarget as string,
-    audioTrebleTarget: state.audioTrebleTarget as string,
-    audioEnergyTarget: state.audioEnergyTarget as string,
-    audioSensitivity: state.audioSensitivity as number,
     performanceMode: (state.performanceMode ?? "auto") as PerformanceMode,
     timelineEnabled: state.timelineEnabled as boolean,
     timelineDuration: state.timelineDuration as number,
@@ -340,7 +328,7 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
   const store = getImageBackend();
   let missingImages = 0;
   const layers = await Promise.all(project.state.layers.map(async (layer) => {
-    const next = { ...layer };
+    const next = { ...layer, gradientType: currentGradientType(layer.gradientType) };
     for (const field of IMAGE_FIELDS) {
       const value = layer[field];
       if (!isImageRef(value)) continue;
@@ -355,7 +343,9 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
     }
     return next;
   }));
-  return { patch: { ...project.state, layers } as Partial<GradientState>, missingImages };
+  const state: Record<string, unknown> = { ...project.state };
+  for (const k of [...RETIRED_GLOBALS, ...RETIRED_EDITOR_FIELDS]) delete state[k];
+  return { patch: { ...state, layers } as Partial<GradientState>, missingImages };
 }
 
 export function deleteProject(name: string): Promise<void> {

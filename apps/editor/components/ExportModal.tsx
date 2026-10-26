@@ -131,7 +131,7 @@ export default function ExportModal({
   const [pngScale, setPngScale] = useState<(typeof PNG_SCALES)[number]>(1);
   const [pngExporting, setPngExporting] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"ship" | "image" | "code" | "embed">("ship");
+  const [tab, setTab] = useState<"image" | "code" | "embed" | "ship">("image");
   const store = useGradientStore();
   const colors = store.colors as [number, number, number][];
 
@@ -201,8 +201,6 @@ export default function ExportModal({
     brightness: store.brightness,
     saturation: store.saturation,
     hueShift: store.hueShift,
-    domainWarp: store.domainWarp,
-    colorBlend: store.colorBlend,
     oklabEnabled: store.oklabEnabled,
     toneMapMode: store.toneMapMode,
     colorProfile: store.colorProfile,
@@ -218,7 +216,6 @@ export default function ExportModal({
     scene3DEnabled: store.scene3DEnabled,
     timelineEnabled: store.timelineEnabled,
     keyframeCount: store.keyframes.length,
-    audioEnabled: store.audioEnabled,
     customGLSL: store.customGLSL,
     mouseReact: store.mouseReact,
     rippleEnabled: store.rippleEnabled,
@@ -273,10 +270,10 @@ export default function ExportModal({
   };
 
   const tabs = [
-    { key: "ship" as const, label: "Ship" },
     { key: "image" as const, label: "Image / Video" },
     { key: "code" as const, label: "Code" },
     { key: "embed" as const, label: "Embed" },
+    { key: "ship" as const, label: "Ship" },
   ];
 
   return (
@@ -525,7 +522,6 @@ export default function ExportModal({
                     vignette: store.vignette,
                     chromaticAberration: store.chromaticAberration,
                     hueShift: store.hueShift,
-                    domainWarp: store.domainWarp,
                   };
                   const config = generateEmbedConfig(embedState);
                   await copyToClipboard(generateEmbedSnippet(config));

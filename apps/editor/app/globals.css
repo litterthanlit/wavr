@@ -364,15 +364,8 @@ body {
 }
 
 /* ============================================================
-   SECTION — collapsible panel sections
+   SECTION — panel section titles
    ============================================================ */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 0;
-}
-
 .section-title {
   font-size: 10px;
   font-weight: 600;
@@ -380,10 +373,6 @@ body {
   letter-spacing: 0.08em;
   color: var(--color-text-tertiary);
   transition: color 0.15s;
-}
-
-.section-header:hover .section-title {
-  color: var(--color-text-secondary);
 }
 
 /* ============================================================

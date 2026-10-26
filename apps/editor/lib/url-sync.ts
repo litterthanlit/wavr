@@ -132,20 +132,13 @@ function shapeKindToNumber(k: Shape3DKind): number {
 
 /**
  * Build a GradientConfig from the store state. Only reads schema-owned fields
- * (spec 0001 §3.4 bucket A). Editor-only fields (`activeLayerIndex`,
- * `timeline*`, `audio*`, `customGLSL`, `colorBlend`, layer masks/images/text)
- * are NOT written to the URL — they live in the editor-state envelope (future
- * spec 0002).
+ * (spec 0001 §3.4 bucket A).
  */
 export function storeToConfig(state: GradientState): GradientConfig {
   const layers = state.layers.map(layerParamsToConfig);
 
   const config: GradientConfig = {
     version: "2.0.0",
-    // Skip: activeLayerIndex (editor-only), colorBlend (editor-only),
-    //       timelineEnabled/Duration/PlaybackMode/keyframes/timelinePosition (editor-only),
-    //       audioEnabled/Source/*Target/Sensitivity (editor-only),
-    //       customGLSL (editor-only), playing (ephemeral).
     colorSpace: "linear",
     layers,
     brightness: state.brightness,
@@ -154,7 +147,6 @@ export function storeToConfig(state: GradientState): GradientConfig {
     vignette: state.vignette,
     chromaticAberration: state.chromaticAberration,
     hueShift: state.hueShift,
-    domainWarp: state.domainWarp,
     radialBlur: state.radialBlurAmount, // rename: radialBlurAmount → radialBlur
     mouseReact: state.mouseReact,
     oklabEnabled: state.oklabEnabled,
@@ -297,7 +289,6 @@ export function configToStorePatch(config: GradientConfig): Partial<GradientStat
     vignette: config.vignette,
     chromaticAberration: config.chromaticAberration,
     hueShift: config.hueShift,
-    domainWarp: config.domainWarp,
     radialBlurAmount: config.radialBlur,
     mouseReact: config.mouseReact,
     oklabEnabled: config.oklabEnabled,

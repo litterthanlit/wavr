@@ -30,7 +30,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     blurEnabled: false,
     blurAmount: 0,
     radialBlurAmount: 0,
-    colorBlend: 0,
     chromaticAberration: 0,
     hueShift: 0,
     asciiEnabled: false,
@@ -49,7 +48,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     pixelSortEnabled: false,
     pixelSortIntensity: 0.5,
     pixelSortThreshold: 0.5,
-    domainWarp: 0,
     feedbackEnabled: false,
     feedbackDecay: 0.5,
     oklabEnabled: true,
@@ -72,12 +70,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     realBloomEnabled: false,
     debandEnabled: true,
     debandStrength: 1,
-    audioEnabled: false,
-    audioSource: "mic",
-    audioBassTarget: "distortion",
-    audioTrebleTarget: "brightness",
-    audioEnergyTarget: "scale",
-    audioSensitivity: 0.5,
     performanceMode: "auto",
     playing: true,
     timelineEnabled: false,
@@ -114,6 +106,7 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     addColor: () => {},
     removeColor: () => {},
     loadPreset: () => {},
+    setLook: () => {},
     randomize: () => {},
     undo: () => {},
     redo: () => {},
@@ -126,7 +119,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     toggleLayerVisibility: () => {},
     moveLayer: () => {},
     setLayerImage: () => {},
-    setLayerDistortionMap: () => {},
     setScene3D: () => {},
     addSceneObject: () => {},
     updateSceneObject: () => {},
@@ -148,14 +140,14 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
 describe("editor scene document adapter", () => {
   it("exports schema-owned editor state as a valid scene document", () => {
     const layer = createLayer({
-      gradientType: "aurora",
+      gradientType: "halo",
       opacity: 0.72,
       blendMode: "screen",
       depth: 0.25,
     });
     const document = storeToSceneDocument(minimalState({
       layers: [layer],
-      gradientType: "aurora",
+      gradientType: "halo",
       brightness: 1.2,
       noiseEnabled: true,
       noiseIntensity: 0.45,
@@ -176,7 +168,7 @@ describe("editor scene document adapter", () => {
       source: {
         kind: "gradient",
         gradient: {
-          type: "aurora",
+          type: "halo",
           depth: 0.25,
         },
       },
@@ -189,8 +181,8 @@ describe("editor scene document adapter", () => {
   });
 
   it("preserves editor layer visibility in the scene document", () => {
-    const visibleLayer = createLayer({ gradientType: "mesh", visible: true });
-    const hiddenLayer = createLayer({ gradientType: "plasma", visible: false });
+    const visibleLayer = createLayer({ gradientType: "lightWall", visible: true });
+    const hiddenLayer = createLayer({ gradientType: "plasmaOrb", visible: false });
 
     const document = storeToSceneDocument(minimalState({
       layers: [visibleLayer, hiddenLayer],
@@ -279,8 +271,8 @@ describe("editor scene document adapter", () => {
 
   it("imports valid scene document JSON into a store patch", () => {
     const document = storeToSceneDocument(minimalState({
-      layers: [createLayer({ gradientType: "plasma", speed: 0.7 })],
-      gradientType: "plasma",
+      layers: [createLayer({ gradientType: "plasmaOrb", speed: 0.7 })],
+      gradientType: "plasmaOrb",
       speed: 0.7,
       brightness: 1.3,
       performanceMode: "quality",
@@ -296,11 +288,24 @@ describe("editor scene document adapter", () => {
       performanceMode: "quality",
       layers: [
         expect.objectContaining({
-          gradientType: "plasma",
+          gradientType: "plasmaOrb",
           speed: 0.7,
         }),
       ],
     });
+  });
+
+  it("imports a scene document naming a retired gradient type as lightWall", () => {
+    const colors: [number, number, number][] = [[0.9, 0.2, 0.3], [0.2, 0.3, 0.9]];
+    const document = JSON.parse(sceneDocumentToJson(storeToSceneDocument(minimalState({
+      layers: [createLayer({ colors, speed: 0.7 })],
+    }))));
+    document.layers[0].source.gradient.type = "mesh";
+
+    const imported = importSceneDocumentJson(JSON.stringify(document));
+
+    expect(imported.document.layers[0]?.source).toMatchObject({ gradient: { type: "lightWall", colors } });
+    expect(imported.patch.layers).toEqual([expect.objectContaining({ gradientType: "lightWall", colors, speed: 0.7 })]);
   });
 
   it("reports invalid JSON during scene document import", () => {

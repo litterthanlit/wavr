@@ -4,12 +4,12 @@ Vanilla compact editor overlay for Wavr shader previews. Use this in HTML landin
 
 ```ts
 import { mountWavrPreview, mountWavrEditor } from "@wavr/preview";
-import { aurora } from "@wavr/gradient/presets";
+import { halo } from "@wavr/gradient/presets";
 
 const root = document.getElementById("hero");
 if (root) {
   mountWavrPreview(root, {
-    config: aurora,
+    config: halo,
     editor: true,
     onApply(config) {
       console.log(config);

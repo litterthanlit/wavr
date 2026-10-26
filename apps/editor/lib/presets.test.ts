@@ -7,12 +7,12 @@ import * as corePresets from "@wavr/core/presets";
 import { PRESET_CATALOG, PRESET_CATEGORIES } from "@wavr/core/presets";
 import { presets as allPresets } from "@wavr/core/presets/all";
 import { presetToStorePatch } from "./preset-patch";
-import { ARCHIVED_CATEGORIES, PRESETS } from "./presets";
+import { PRESETS } from "./presets";
 import { PRESETS as CREATE_WAVR_PRESETS, parseArgs } from "../../../packages/create-wavr/src/args";
 
 const THUMBNAIL_DIR = path.join(__dirname, "../public/presets");
 
-const BASE: GradientConfig = { layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] };
+const BASE: GradientConfig = { layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] };
 
 // A non-default value for every mappable config field.
 const SAMPLES: { [K in keyof typeof CONFIG_FIELD_STATE_KEYS]: GradientConfig[K] } = {
@@ -31,7 +31,6 @@ const SAMPLES: { [K in keyof typeof CONFIG_FIELD_STATE_KEYS]: GradientConfig[K] 
   kaleidoscope: { enabled: true, segments: 9, rotation: 21 },
   reactionDiffusion: { enabled: true, intensity: 0.81, scale: 1.7 },
   pixelSort: { enabled: true, intensity: 0.62, threshold: 0.33 },
-  domainWarp: 0.29,
   feedback: { enabled: true, decay: 0.88 },
   parallax: { enabled: true, strength: 0.93 },
   shape3d: { enabled: true, shape: "torus", perspective: 2.2, rotationSpeed: 0.9, zoom: 1.6, lighting: 0.2 },
@@ -85,19 +84,17 @@ describe("preset catalog", () => {
     expect(PRESETS.map((preset) => preset.id)).toEqual(PRESET_CATALOG.map((entry) => entry.id));
   });
 
-  it("lists its categories in display order, with the archive last", () => {
-    expect(PRESET_CATEGORIES.map((category) => category.id)).toEqual(["lightFields", "light", "soft", "texture", "archive"]);
-    expect(ARCHIVED_CATEGORIES).toEqual(["archive"]);
+  it("lists its categories in display order", () => {
+    expect(PRESET_CATEGORIES.map((category) => category.id)).toEqual(["lightFields", "light"]);
     // The catalogue is grouped: each category's presets sit together, in category order.
     const order = PRESET_CATEGORIES.map((category) => category.id);
     const indexes = PRESET_CATALOG.map((entry) => order.indexOf(entry.category));
     expect(indexes).toEqual([...indexes].sort((a, b) => a - b));
   });
 
-  it("doesn't scaffold new pages from an archived preset", () => {
-    const archived = new Set(PRESET_CATALOG.filter((entry) => entry.category === "archive").map((entry) => entry.id));
+  it("lets create-wavr scaffold from every preset, and only those", () => {
+    expect([...CREATE_WAVR_PRESETS]).toEqual(PRESET_CATALOG.map((entry) => entry.id));
     expect(CREATE_WAVR_PRESETS).toContain(parseArgs([]).preset);
-    expect(archived.has(parseArgs([]).preset)).toBe(false);
   });
 });
 
@@ -122,9 +119,9 @@ describe("preset thumbnails", () => {
 
 describe("presetToStorePatch", () => {
   it("always sets the layer look, brightness and saturation", () => {
-    const patch = presetToStorePatch({ layers: [{ type: "silk", colors: [[0.1, 0.2, 0.3]], speed: 0.7 }] });
+    const patch = presetToStorePatch({ layers: [{ type: "halo", colors: [[0.1, 0.2, 0.3]], speed: 0.7 }] });
     expect(patch).toEqual({
-      gradientType: "silk",
+      gradientType: "halo",
       speed: 0.7,
       complexity: 3,
       scale: 1,
@@ -144,6 +141,6 @@ describe("presetToStorePatch", () => {
 
   it("includes softness only when the preset sets it", () => {
     expect(presetToStorePatch(BASE)).not.toHaveProperty("softness");
-    expect(presetToStorePatch({ layers: [{ type: "silk", colors: [[1, 1, 1]], softness: 0.8 }] }).softness).toBe(0.8);
+    expect(presetToStorePatch({ layers: [{ type: "halo", colors: [[1, 1, 1]], softness: 0.8 }] }).softness).toBe(0.8);
   });
 });

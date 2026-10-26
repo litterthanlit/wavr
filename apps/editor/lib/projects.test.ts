@@ -38,7 +38,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     blurEnabled: false,
     blurAmount: 0,
     radialBlurAmount: 0,
-    colorBlend: 0,
     chromaticAberration: 0,
     hueShift: 0,
     asciiEnabled: false,
@@ -57,7 +56,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     pixelSortEnabled: false,
     pixelSortIntensity: 0,
     pixelSortThreshold: 0.5,
-    domainWarp: 0,
     feedbackEnabled: false,
     feedbackDecay: 0,
     oklabEnabled: true,
@@ -78,12 +76,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     realBloomEnabled: false,
     debandEnabled: true,
     debandStrength: 1,
-    audioEnabled: false,
-    audioSource: "mic",
-    audioBassTarget: "distortion",
-    audioTrebleTarget: "brightness",
-    audioEnergyTarget: "scale",
-    audioSensitivity: 0.5,
     performanceMode: "auto",
     playing: true,
     timelineEnabled: false,
@@ -106,7 +98,7 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     meshSpeed: 0,
     scene3DEnabled: false,
     scene3D: cloneScene3D(DEFAULT_SCENE_3D_STATE),
-    gradientType: "mesh",
+    gradientType: "lightWall",
     speed: 0.4,
     complexity: 3,
     scale: 1,
@@ -123,6 +115,7 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     reorderLayers: () => {},
     mergeLayerDown: () => {},
     flattenLayers: () => {},
+    setLook: () => {},
     randomize: () => {},
     randomizePalette: () => {},
     setPreset: () => {},
@@ -214,7 +207,7 @@ describe("project export", () => {
 
   it("can load from scene-document-only saved projects", async () => {
     const state = minimalState({
-      layers: [createLayer({ gradientType: "plasma", speed: 0.7 })],
+      layers: [createLayer({ gradientType: "plasmaOrb", speed: 0.7 })],
       brightness: 1.3,
     });
     await saveProject("Future scene", state);
@@ -227,11 +220,49 @@ describe("project export", () => {
       brightness: 1.3,
       layers: [
         expect.objectContaining({
-          gradientType: "plasma",
+          gradientType: "plasmaOrb",
           speed: 0.7,
         }),
       ],
     });
+  });
+
+  it("opens a project saved with a retired gradient type as lightWall, with its colours", async () => {
+    const colors = [[0.1, 0.2, 0.9], [0.9, 0.3, 0.2], [0.2, 0.9, 0.5]];
+    const layer = { ...createLayer({ speed: 0.7 }), gradientType: "mesh", colors };
+    const project = { name: "Mesh", timestamp: 1, state: { ...exportProjectState(minimalState()), domainWarp: 0.3, layers: [layer] } };
+    localStorage.setItem("wavr-projects", JSON.stringify([project]));
+
+    const { patch } = await projectStateForLoad(loadProjects()[0]);
+
+    expect(patch.layers).toEqual([{ ...layer, gradientType: "lightWall" }]);
+    expect(patch).not.toHaveProperty("domainWarp");
+  });
+
+  it("opens a project saved with the colour blend or audio reactivity without their fields", async () => {
+    const retired = {
+      colorBlend: 0.4, audioEnabled: true, audioSource: "mic", audioBassTarget: "distortion",
+      audioTrebleTarget: "brightness", audioEnergyTarget: "scale", audioSensitivity: 0.5,
+    };
+    const project = { name: "Loud", timestamp: 1, state: { ...exportProjectState(minimalState()), ...retired } };
+    localStorage.setItem("wavr-projects", JSON.stringify([project]));
+
+    const { patch } = await projectStateForLoad(loadProjects()[0]);
+
+    for (const key of Object.keys(retired)) expect(patch).not.toHaveProperty(key);
+    expect(patch).toMatchObject({ grain: project.state.grain });
+  });
+
+  it("opens a scene-document-only project naming a retired gradient type as lightWall", async () => {
+    const colors: [number, number, number][] = [[0.01, 0.02, 0.06], [0.18, 0.92, 0.55]];
+    await saveProject("Aurora", minimalState({ layers: [createLayer({ colors, speed: 0.2 })] }));
+    const saved = JSON.parse(localStorage.getItem("wavr-projects") ?? "[]")[0];
+    delete saved.state;
+    saved.sceneDocument.layers[0].source.gradient.type = "aurora";
+
+    const { patch } = await projectStateForLoad(saved);
+
+    expect(patch.layers).toEqual([expect.objectContaining({ gradientType: "lightWall", colors, speed: 0.2 })]);
   });
 });
 

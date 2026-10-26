@@ -3,57 +3,17 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { GradientEngine, attachPointer, type EngineMetrics } from "@wavr/core";
 import type { WebGPUHdrOutput } from "@wavr/core/webgpu-hdr-output";
-import {
-  useGradientStore,
-  GradientState,
-  getEditorPerformanceSettings,
-} from "@/lib/store";
+import { useGradientStore, getEditorPerformanceSettings } from "@/lib/store";
 import { normalizeTimelineTime, type PlaybackMode } from "@/lib/timeline";
 import { applyEnginePerformanceSettings, applyTimeline, withPerformanceMode } from "@/lib/frame-state";
-import { AudioAnalyzer, AudioBands } from "@/lib/audio";
 import { setHdrStatus } from "@/lib/hdr-status";
 import { useHdrDisplay } from "@/lib/useHdrDisplay";
 import { useRenderStats } from "@/lib/useRenderStats";
 import Toast from "@/components/ui/Toast";
 
-// Shared audio analyzer instance (persists across re-renders)
-let sharedAnalyzer: AudioAnalyzer | null = null;
-export function getAudioAnalyzer(): AudioAnalyzer {
-  if (!sharedAnalyzer) sharedAnalyzer = new AudioAnalyzer();
-  return sharedAnalyzer;
-}
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function applyAudioBands(state: GradientState, bands: AudioBands): Partial<GradientState> {
-  const s = state.audioSensitivity;
-  const mods: Partial<GradientState> = {};
-  const targets: Record<string, keyof GradientState> = {
-    distortion: "distortion",
-    scale: "scale",
-    speed: "speed",
-    brightness: "brightness",
-    complexity: "complexity",
-    noiseIntensity: "noiseIntensity",
-    grain: "grain",
-    bloomIntensity: "bloomIntensity",
-  };
-
-  function apply(target: string, value: number) {
-    const key = targets[target];
-    if (!key) return;
-    const base = state[key] as number;
-    (mods as Record<string, number>)[key] = base + value * s;
-  }
-
-  apply(state.audioBassTarget, bands.bass);
-  apply(state.audioTrebleTarget, bands.treble);
-  apply(state.audioEnergyTarget, bands.energy);
-
-  return mods;
 }
 
 interface CanvasProps {
@@ -294,16 +254,6 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
         lastTimelineUpdate = performance.now();
         timelineSampleTime = state.timelinePosition;
         lastSyncedTimelinePosition = state.timelinePosition;
-      }
-
-      // Audio reactivity: modulate params from frequency bands
-      if (state.audioEnabled) {
-        const analyzer = getAudioAnalyzer();
-        if (analyzer.active) {
-          const bands = analyzer.getBands();
-          const mods = applyAudioBands(state, bands);
-          return withPerformanceMode({ ...state, ...mods });
-        }
       }
 
       return withPerformanceMode(state);

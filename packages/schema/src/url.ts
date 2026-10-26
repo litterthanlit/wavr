@@ -158,7 +158,7 @@ function stripDefaults(config: GC): Record<string, unknown> {
   // Globals with scalar defaults
   const globals: Array<keyof GC> = [
     "brightness", "saturation", "grain", "vignette",
-    "chromaticAberration", "hueShift", "domainWarp", "radialBlur",
+    "chromaticAberration", "hueShift", "radialBlur",
     "mouseReact", "oklabEnabled", "toneMapMode", "colorProfile", "hdrHeadroom",
   ];
   for (const k of globals) {

@@ -24,7 +24,6 @@ export interface PortableExportFidelityInput {
   scene3DEnabled?: boolean;
   timelineEnabled?: boolean;
   keyframeCount?: number;
-  audioEnabled?: boolean;
   customGLSL?: string | null;
   /** Mouse reactivity, 0..1. Portable exports carry the pointer warp, but not the click ripple, trail or parallax below. */
   mouseReact?: number;
@@ -46,7 +45,7 @@ export function getPortableExportWarnings(input: PortableExportFidelityInput): s
   }
 
   if (visibleLayers.some((layer) => layer.gradientType === "image")) {
-    warnings.push("The Image gradient needs its picture, so portable code exports draw a Mesh gradient in its place.");
+    warnings.push("The Image gradient needs its picture, so portable code exports draw a Light Wall in its place.");
   }
 
   if (visibleLayers.some((layer) => layer.maskEnabled || layer.textMaskEnabled)) {
@@ -59,10 +58,6 @@ export function getPortableExportWarnings(input: PortableExportFidelityInput): s
 
   if (input.timelineEnabled && (input.keyframeCount ?? 0) > 0) {
     warnings.push("Timeline keyframes are not included in portable code exports.");
-  }
-
-  if (input.audioEnabled) {
-    warnings.push("Audio reactivity is not included in portable code exports.");
   }
 
   if (input.rippleEnabled || input.trailEnabled || input.parallaxEnabled) {
@@ -281,7 +276,6 @@ interface EmbedConfig {
   bloomIntensity?: number;
   vignette?: number;
   chromaticAberration?: number;
-  domainWarp?: number;
 }
 
 export function generateEmbedConfig(state: ExportableState & {
@@ -294,7 +288,6 @@ export function generateEmbedConfig(state: ExportableState & {
   vignette?: number;
   chromaticAberration?: number;
   hueShift?: number;
-  domainWarp?: number;
 }): EmbedConfig {
 
   const config: EmbedConfig = {
@@ -322,7 +315,6 @@ export function generateEmbedConfig(state: ExportableState & {
   }
   if (state.vignette) config.vignette = +state.vignette.toFixed(2);
   if (state.chromaticAberration) config.chromaticAberration = +state.chromaticAberration.toFixed(3);
-  if (state.domainWarp) config.domainWarp = +state.domainWarp.toFixed(2);
   if (state.softness) config.softness = +state.softness.toFixed(2);
 
   return config;
@@ -399,9 +391,8 @@ module.exports = {
  */
 export type ExportableState = PortableState;
 
-/** Shader id for a gradient type, falling back to mesh for unknown values. */
 function gradientTypeId(type: string): number {
-  return (GRADIENT_TYPE_IDS as Record<string, number>)[type] ?? GRADIENT_TYPE_IDS.mesh;
+  return (GRADIENT_TYPE_IDS as Record<string, number>)[type] ?? GRADIENT_TYPE_IDS.lightWall;
 }
 
 /** The pointer is read over the canvas itself, so an export that reacts to it says what that means for the page. */

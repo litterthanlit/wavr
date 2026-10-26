@@ -1,5 +1,6 @@
 import { GradientConfig, type GradientConfig as GC } from "./schema";
 import { DEFAULT_CONFIG } from "./defaults";
+import { RETIRED_GLOBALS, currentGradientType } from "./enums";
 import { SCHEMA_VERSION, type SchemaVersion } from "./version";
 
 export type LegacyShape = "types-v1" | "project-state-v1";
@@ -113,7 +114,7 @@ function migrateTypesV1(input: Record<string, unknown>, opts: MigrateOptions | u
   }
 
   // Drop known legacy extras that V1 may or may not carry
-  for (const k of ["activeLayerIndex", "colorBlend", "customGLSL"]) {
+  for (const k of ["activeLayerIndex", "colorBlend", "customGLSL", ...RETIRED_GLOBALS]) {
     if (k in out) {
       droppedKeys.push(k);
       delete out[k];
@@ -146,7 +147,7 @@ function migrateProjectStateV1(input: Record<string, unknown>, opts: MigrateOpti
   // Simple passthrough globals (flat → flat, same name)
   const passthrough: string[] = [
     "brightness", "saturation", "grain", "vignette", "mouseReact",
-    "chromaticAberration", "hueShift", "domainWarp",
+    "chromaticAberration", "hueShift",
     "oklabEnabled", "toneMapMode", "colorProfile", "hdrHeadroom",
   ];
   for (const k of passthrough) {
@@ -215,7 +216,7 @@ function migrateProjectStateV1(input: Record<string, unknown>, opts: MigrateOpti
     "activeLayerIndex", "colorBlend",
     "timelineEnabled", "timelineDuration", "timelinePlaybackMode", "keyframes", "timelinePosition",
     "audioEnabled", "audioSource", "audioBassTarget", "audioTrebleTarget", "audioEnergyTarget", "audioSensitivity",
-    "customGLSL", "playing",
+    "customGLSL", "playing", ...RETIRED_GLOBALS,
   ];
   for (const k of editorOnly) {
     if (k in input) droppedKeys.push(k);
@@ -250,7 +251,7 @@ function migrateLayer(
   }
   const out: Record<string, unknown> = {};
   const type = layer.type ?? layer.gradientType;
-  if (typeof type === "string") out.type = type;
+  if (typeof type === "string") out.type = openedType(type, `${path}.type`, warnings, opts);
   if (Array.isArray(layer.colors)) out.colors = layer.colors;
 
   const passthrough = ["speed", "complexity", "scale", "distortion", "softness", "opacity", "blendMode", "depth"];
@@ -275,18 +276,50 @@ function migrateLayer(
   return out;
 }
 
+function openedType(type: string, path: string, warnings: MigrateWarning[], opts: MigrateOptions | undefined): string {
+  const current = currentGradientType(type);
+  if (current !== type) {
+    WARN(warnings, opts, { path, message: `Gradient type "${type}" no longer exists; opened as "${current}"` });
+  }
+  return current;
+}
+
+function withoutRetired(
+  input: Record<string, unknown>,
+  droppedKeys: string[],
+  warnings: MigrateWarning[],
+  opts: MigrateOptions | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...input };
+  for (const k of RETIRED_GLOBALS) {
+    if (k in out) {
+      droppedKeys.push(k);
+      delete out[k];
+    }
+  }
+  if (Array.isArray(input.layers)) {
+    out.layers = input.layers.map((layer: unknown, i: number) =>
+      isRecord(layer) && typeof layer.type === "string"
+        ? { ...layer, type: openedType(layer.type, `layers[${i}].type`, warnings, opts) }
+        : layer,
+    );
+  }
+  return out;
+}
+
 // --- Public API ------------------------------------------------------------
 
 export function migrate(input: unknown, opts?: MigrateOptions): MigrateResult {
   const shape = detectShape(input);
-  if (shape === "v2") {
-    // V2 is already valid; run parse for default-fill and strict validation.
-    const config = GradientConfig.parse(input);
-    return { config, droppedKeys: [], warnings: [], detectedShape: "v2" };
-  }
   if (!isRecord(input)) {
     // Not an object — can't salvage. finalize will throw via parse.
     return finalize({}, [], [], shape);
+  }
+  if (shape === "v2") {
+    const droppedKeys: string[] = [];
+    const warnings: MigrateWarning[] = [];
+    const config = GradientConfig.parse(withoutRetired(input, droppedKeys, warnings, opts));
+    return { config, droppedKeys, warnings, detectedShape: "v2" };
   }
   if (shape === "types-v1") return migrateTypesV1(input, opts);
   return migrateProjectStateV1(input, opts);

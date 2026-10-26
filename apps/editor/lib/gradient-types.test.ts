@@ -6,7 +6,9 @@ import {
   GRADIENT_TYPES,
   GRADIENT_TYPE_IDS,
   LIGHT_FIELD_PALETTES,
+  LIGHT_FIELD_PALETTE_ROLES,
   LIGHT_GRADIENT_PALETTES,
+  defaultSoftnessForGradientType,
   isLightFieldType,
   isLightGradientType,
   isLightRampPalette,
@@ -16,11 +18,12 @@ import { GradientType as SchemaGradientType } from "@wavr/schema";
 import {
   COMMAND_GRADIENT_TYPES,
   GRADIENT_OPTIONS,
-  PREMIUM_GRADIENT_TYPES,
-  RANDOM_GRADIENT_TYPES,
   gradientTypeLabel,
+  lookPatch,
+  lookThumbnail,
 } from "./gradient-types";
 import { INITIAL_LAYER_PARAMS } from "./initial-scene";
+import { useGradientStore } from "./store";
 
 // Guards the places a new gradient type must be wired up that the type
 // system can't check (see "Adding a Gradient Mode" in CLAUDE.md).
@@ -48,29 +51,33 @@ describe("gradient types", () => {
 
   it("types are shown by their picker name", () => {
     expect(gradientTypeLabel("liquidChrome")).toBe("Liquid Chrome");
-    expect(gradientTypeLabel("softCells")).toBe("Soft Cells");
+    expect(gradientTypeLabel("lightWall")).toBe("Light Wall");
   });
 
-  it("the picker leads with the premium modes and keeps the stylized ones apart", () => {
-    const groupOrder = [...new Set(GRADIENT_OPTIONS.map((option) => option.group))];
-    expect(groupOrder).toEqual(["Premium", "Classic", "Stylized", "Media"]);
-    const stylized = GRADIENT_OPTIONS.filter((o) => o.group === "Stylized").map((o) => o.value);
-    expect(stylized.sort()).toEqual(["dither", "glitch", "scanline"]);
-    const premium = GRADIENT_OPTIONS.filter((o) => o.group === "Premium").map((o) => o.value);
-    expect(premium).toEqual(PREMIUM_GRADIENT_TYPES);
+  it("the Look grid shows the light fields, then the light modes, then the uploaded picture", () => {
+    expect(GRADIENT_OPTIONS.map((option) => option.value)).toEqual([
+      "aperture", "halo", "lightWall",
+      "horizonGlow", "lightLeak", "liquidChrome", "iridescentFoil", "inkSmoke", "plasmaOrb",
+      "image",
+    ]);
+    for (const option of GRADIENT_OPTIONS.slice(3, 9)) expect(isLightGradientType(option.value), option.value).toBe(true);
   });
 
-  it("Randomize only picks modes that work with any palette", () => {
-    const group = (type: string) => GRADIENT_OPTIONS.find((o) => o.value === type)?.group;
-    for (const type of RANDOM_GRADIENT_TYPES) {
-      expect(["Premium", "Classic"], `${type} is ${group(type)}`).toContain(group(type));
-    }
-    // These depend on the palette's order or contrast, so a random one can ruin them.
-    for (const type of ["aurora", "dither", "scanline", "glitch", "voronoi", "image"] as const) {
-      expect(RANDOM_GRADIENT_TYPES).not.toContain(type);
-    }
-    for (const type of RANDOM_GRADIENT_TYPES) {
-      expect(isLightGradientType(type), `${type} reads the palette as light`).toBe(false);
+  it("each look says what it is, and the light fields how they read their stops", () => {
+    for (const option of GRADIENT_OPTIONS) expect(option.description, option.value).toMatch(/^[A-Z].*\.$/);
+    const description = (type: string) => GRADIENT_OPTIONS.find((option) => option.value === type)?.description;
+    expect(description("aperture")).toContain(LIGHT_FIELD_PALETTE_ROLES.aperture);
+    expect(description("lightWall")).toContain(LIGHT_FIELD_PALETTE_ROLES.lightWall);
+  });
+
+  it("each look but image shows its flagship preset's thumbnail", () => {
+    for (const { value } of GRADIENT_OPTIONS) {
+      if (value === "image") {
+        expect(lookThumbnail(value)).toBeNull();
+        continue;
+      }
+      expect(lookThumbnail(value)).toMatch(new RegExp(`^/presets/${value}\\.webp\\?v=[0-9a-f]{10}$`));
+      expect(fs.existsSync(path.resolve(__dirname, `../public/presets/${value}.webp`)), value).toBe(true);
     }
   });
 
@@ -89,17 +96,25 @@ describe("gradient types", () => {
     }
   });
 
-  it("the opening scene is a light field on its own palette, so the panel offers no swap", () => {
-    const type = INITIAL_LAYER_PARAMS.gradientType ?? "mesh";
+  it("the opening scene is a light field on its own palette", () => {
+    const type = INITIAL_LAYER_PARAMS.gradientType ?? "lightWall";
     expect(isLightFieldType(type)).toBe(true);
     expect(isLightGradientType(type)).toBe(false);
     if (isLightFieldType(type)) expect(INITIAL_LAYER_PARAMS.colors).toEqual(LIGHT_FIELD_PALETTES[type]);
   });
 
-  it("the light-ramp hint shows on a bright first colour", () => {
+  it("a light ramp starts dark and ends clearly lighter", () => {
     expect(isLightRampPalette(LIGHT_GRADIENT_PALETTES.horizonGlow)).toBe(true);
     expect(isLightRampPalette(DEFAULT_LAYER.colors)).toBe(false);
     expect(isLightRampPalette([[0, 0, 0]])).toBe(false);
+  });
+
+  it("a look brings its own palette and softness; image keeps the colours it doesn't read", () => {
+    const halo = lookPatch("halo");
+    expect(halo).toEqual({ gradientType: "halo", softness: defaultSoftnessForGradientType("halo"), colors: LIGHT_GRADIENT_PALETTES.halo });
+    expect(lookPatch("lightWall").colors).toEqual(LIGHT_FIELD_PALETTES.lightWall);
+    expect(lookPatch("image")).toEqual({ gradientType: "image", softness: defaultSoftnessForGradientType("image") });
+    expect(halo.colors?.[0]).not.toBe(LIGHT_GRADIENT_PALETTES.halo[0]);
   });
 
   it("the command palette offers every type but image", () => {
@@ -108,6 +123,21 @@ describe("gradient types", () => {
 
   it("no gradient function reads the mouse (mouseWarp in layer.glsl does that once)", () => {
     expect(GRADIENTS_SHADER).not.toMatch(/u_mouse\w*|\w+Displace\b|rippleEffect/);
+  });
+
+  it("keeps each type's shader id, which code exports and embeds compile in", () => {
+    expect(GRADIENT_TYPE_IDS).toEqual({
+      image: 8,
+      liquidChrome: 17,
+      iridescentFoil: 18,
+      horizonGlow: 19,
+      lightLeak: 20,
+      inkSmoke: 21,
+      plasmaOrb: 22,
+      aperture: 23,
+      halo: 24,
+      lightWall: 25,
+    });
   });
 
   it("every type has a unique shader id", () => {
@@ -133,5 +163,27 @@ describe("gradient types", () => {
         `${type}Gradient is not guarded by #if WAVR_GRADIENT == ${id}`,
       ).toMatch(new RegExp(`#if WAVR_GRADIENT == ${id}\\nvec3 ${type}Gradient\\(vec2 uv, float time\\) \\{`));
     }
+  });
+});
+
+describe("picking a look", () => {
+  it("sets the type, softness and palette in one undo step", () => {
+    const store = useGradientStore.getState;
+    const before = { gradientType: store().gradientType, colors: store().colors, softness: store().softness };
+    expect(before.gradientType).not.toBe("lightLeak");
+
+    store().setLook("lightLeak");
+    expect(store().layers[store().activeLayerIndex]).toMatchObject(lookPatch("lightLeak"));
+
+    store().undo();
+    expect({ gradientType: store().gradientType, colors: store().colors, softness: store().softness }).toEqual(before);
+  });
+
+  it("does nothing for the look the layer already has", () => {
+    const store = useGradientStore.getState;
+    store().setDiscrete({ colors: [[0.1, 0.1, 0.1], [0.9, 0.8, 0.7]] });
+    const colors = store().colors;
+    store().setLook(store().gradientType);
+    expect(store().colors).toBe(colors);
   });
 });

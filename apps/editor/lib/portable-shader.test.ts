@@ -20,7 +20,7 @@ const state: PortableState = {
     [0.251, 0.878, 0.816],
     [0.98, 0.82, 0.2],
   ],
-  gradientType: "mesh",
+  gradientType: "lightWall",
   speed: 0.4,
   complexity: 3,
   scale: 1,
@@ -77,8 +77,7 @@ describe("the undeclared-name check", () => {
 
 describe("portable fragment shader", () => {
   for (const type of GRADIENT_TYPES) {
-    // The image gradient has no picture in an export and falls back to mesh.
-    const drawn = type === "image" ? "mesh" : type;
+    const drawn = type === "image" ? "lightWall" : type;
 
     describe(type, () => {
       for (const mouseReact of [0, 0.5]) {
@@ -113,7 +112,7 @@ describe("portable fragment shader", () => {
         const body = engine.slice(start, engine.indexOf("\n}\n", start) + 2);
         expect(start).toBeGreaterThan(0);
         const renamed = body.replace(
-          /\bu_(speed|scale|complexity|distortion|softness|domainWarp|colorBlend|colorCount)\b/g,
+          /\bu_(speed|scale|complexity|distortion|softness|colorCount)\b/g,
           (_, name: string) => name.replace(/([A-Z])/g, "_$1").toUpperCase(),
         );
         expect(shaderFor(type)).toContain(renamed);
@@ -122,7 +121,7 @@ describe("portable fragment shader", () => {
       it("maps the palette without fract() and tone maps without Reinhard", () => {
         const source = stripComments(shaderFor(type));
         // A palette lookup is never fed fract(): the palette folds (pingPong) instead of jumping from its last colour to its first.
-        expect(source).not.toMatch(/(?:getGradientColor|foldedColor|satinColor|getColor|softColor)\(\s*fract\(/);
+        expect(source).not.toMatch(/(?:getGradientColor|getColor|softColor)\(\s*fract\(/);
         // The old export ended in c / (c + 1), which sends 1.0 to 0.5.
         expect(source).not.toMatch(/\/\s*\(\s*[A-Za-z_]\w*\s*\+\s*1(?:\.0*)?\s*\)/);
         expect(source).not.toMatch(/\bsoftColor\b|\bgetColor\b|\bfieldFor\b/);
@@ -141,20 +140,12 @@ describe("portable fragment shader", () => {
       [...buildPortableShader(resolvePortableSettings({ ...state, gradientType: type })).uniforms].filter((u) =>
         /^u_colors/.test(u),
       );
-    expect(uniformsOf("mesh")).toEqual(["u_colorsMix"]);
-    expect(uniformsOf("dither")).toEqual(["u_colors"]);
-    expect(uniformsOf("scanline")).toEqual(["u_colors"]);
-    expect(uniformsOf("aurora")).toEqual([]);
-    expect(shaderFor("mesh")).toContain("uniform vec3 u_colorsMix[4];");
-    expect(shaderFor("mesh")).toContain("const int COLOR_COUNT = 4;");
-    expect(shaderFor("mesh", { colors: [[1, 0, 0], [0, 0, 1]] })).toContain("uniform vec3 u_colorsMix[2];");
-  });
-
-  it("fixes the colour profile as a constant where the gradient blends the stops itself", () => {
-    expect(shaderFor("mesh")).toContain("const bool DISPLAY_P3 = false;");
-    expect(shaderFor("mesh", { colorProfile: "display-p3" })).toContain("const bool DISPLAY_P3 = true;");
-    expect(shaderFor("mesh", { colorProfile: "display-p3" })).not.toContain("u_displayP3");
-    expect(shaderFor("aurora", { colorProfile: "display-p3" })).not.toContain("DISPLAY_P3");
+    expect(uniformsOf("lightWall")).toEqual(["u_colors"]);
+    expect(uniformsOf("aperture")).toEqual(["u_colors"]);
+    expect(uniformsOf("inkSmoke")).toEqual([]);
+    expect(shaderFor("lightWall")).toContain("uniform vec3 u_colors[4];");
+    expect(shaderFor("lightWall")).toContain("const int COLOR_COUNT = 4;");
+    expect(shaderFor("lightWall", { colors: [[1, 0, 0], [0, 0, 1]] })).toContain("uniform vec3 u_colors[2];");
   });
 
   describe("the pointer", () => {
@@ -171,7 +162,7 @@ describe("portable fragment shader", () => {
     });
 
     for (const type of GRADIENT_TYPES) {
-      const drawn = type === "image" ? "mesh" : type;
+      const drawn = type === "image" ? "lightWall" : type;
       it(`${type} warps with the style the engine gives ${drawn}`, () => {
         const source = stripComments(shaderFor(type, { mouseReact: 0.5 }));
         const style = table.get(GRADIENT_TYPE_IDS[drawn as keyof typeof GRADIENT_TYPE_IDS]);
@@ -187,7 +178,7 @@ describe("portable fragment shader", () => {
     }
 
     it("is left out entirely when the pointer is off", () => {
-      const source = shaderFor("mesh", { mouseReact: 0 });
+      const source = shaderFor("lightWall", { mouseReact: 0 });
       expect(source).not.toMatch(/mouse|MOUSE/i);
       expect(source).toContain("vec2 uv = v_uv;");
     });
@@ -195,7 +186,7 @@ describe("portable fragment shader", () => {
 
   describe("the colour grade", () => {
     it("carries brightness, saturation, tone map and deband, in the post pass's order", () => {
-      const source = shaderFor("silk", { brightness: 1.2, saturation: 0.8, toneMapMode: 2 });
+      const source = shaderFor("inkSmoke", { brightness: 1.2, saturation: 0.8, toneMapMode: 2 });
       expect(source).toContain("const float BRIGHTNESS = 1.2;");
       expect(source).toContain("const float SATURATION = 0.8;");
       expect(source).toContain("const int TONE_MAP_MODE = 2;");
@@ -207,14 +198,14 @@ describe("portable fragment shader", () => {
     });
 
     it("rotates the hue only when asked to", () => {
-      expect(shaderFor("silk")).not.toContain("rotateHue");
-      const shifted = shaderFor("silk", { hueShift: -40 });
+      expect(shaderFor("inkSmoke")).not.toContain("rotateHue");
+      const shifted = shaderFor("inkSmoke", { hueShift: -40 });
       expect(shifted).toContain("const float HUE_SHIFT = -40.0; // degrees");
       expect(shifted).toContain("color = rotateHue(color, HUE_SHIFT * 6.28318 / 360.0);");
     });
 
     it("leaves the anti-banding noise out when it is off", () => {
-      const source = shaderFor("silk", { debandEnabled: false });
+      const source = shaderFor("inkSmoke", { debandEnabled: false });
       expect(source).not.toContain("DEBAND");
       expect(source).not.toContain("interleavedGradientNoise");
     });
@@ -227,8 +218,6 @@ describe("portable fragment shader", () => {
         toneMapMode: 1,
         deband: 1,
         mouseReact: 0,
-        colorBlend: 0,
-        domainWarp: 0,
         hueShift: 0,
       });
     });
@@ -239,20 +228,19 @@ describe("portable fragment shader", () => {
         complexity: 99,
         mouseReact: 7,
         toneMapMode: 9,
-        colorBlend: -1,
         speed: Number.NaN,
         colors: Array.from({ length: 12 }, () => [1, 1, 1] as [number, number, number]),
       });
-      expect(settings).toMatchObject({ complexity: 8, mouseReact: 1, toneMapMode: 1, colorBlend: 0, speed: 0.4 });
+      expect(settings).toMatchObject({ complexity: 8, mouseReact: 1, toneMapMode: 1, speed: 0.4 });
       expect(settings.colors).toHaveLength(8);
       expect(resolvePortableSettings({ ...state, colors: [] }).colors).toEqual([[0, 0, 0]]);
     });
 
-    it("draw mesh where an export has nothing to draw", () => {
+    it("draw a light wall where an export has nothing to draw", () => {
       for (const type of ["image", "nonsense"]) {
         expect(resolvePortableSettings({ ...state, gradientType: type })).toMatchObject({
-          gradientType: "mesh",
-          gradientId: GRADIENT_TYPE_IDS.mesh,
+          gradientType: "lightWall",
+          gradientId: GRADIENT_TYPE_IDS.lightWall,
         });
       }
     });
@@ -284,9 +272,9 @@ describe("portable fragment shader", () => {
     });
 
     it("a gradient that needs a uniform an export can't provide fails loudly instead of emitting a shader that won't compile", () => {
-      const gradients = parts.gradients.replace("float bands = 0.6 + 0.15 * u_complexity;", "float bands = 0.6 + 0.15 * u_complexity * u_imageScale;");
+      const gradients = parts.gradients.replace("float f = 0.16 + 0.11 * u_complexity;", "float f = 0.16 + 0.11 * u_complexity * u_imageScale;");
       expect(gradients).not.toBe(parts.gradients);
-      expect(() => buildPortableShader(resolvePortableSettings({ ...state, gradientType: "silk" }), { ...parts, gradients })).toThrow(
+      expect(() => buildPortableShader(resolvePortableSettings({ ...state, gradientType: "liquidChrome" }), { ...parts, gradients })).toThrow(
         /u_imageScale/,
       );
     });
@@ -297,7 +285,7 @@ describe("portable fragment shader", () => {
     });
 
     it("a gradient with no dispatch branch is reported", () => {
-      const gradients = parts.gradients.replace("return meshGradient(uv, time);", "return vec3(0.0);");
+      const gradients = parts.gradients.replace("return lightWallGradient(uv, time);", "return vec3(0.0);");
       expect(() => buildPortableShader(settings, { ...parts, gradients })).toThrow(/no gradient function/);
     });
   });

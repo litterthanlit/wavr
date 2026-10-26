@@ -6,13 +6,28 @@
  */
 
 export const GRADIENT_TYPES = [
-  "mesh", "radial", "linear", "conic", "plasma",
-  "dither", "scanline", "glitch", "voronoi", "image",
-  "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
+  "image",
   "liquidChrome", "iridescentFoil", "horizonGlow", "lightLeak", "inkSmoke", "plasmaOrb",
   "aperture", "halo", "lightWall",
 ] as const;
 export type GradientType = (typeof GRADIENT_TYPES)[number];
+
+/** Gradient types that have been removed, and the type a scene naming one opens as. */
+export const RETIRED_GRADIENT_TYPES: ReadonlyMap<string, GradientType> = new Map(
+  [
+    "mesh", "radial", "linear", "conic", "plasma",
+    "dither", "scanline", "glitch", "voronoi",
+    "silk", "aurora", "liquid", "softCells", "grainflow", "prismGlass", "neonTunnel",
+  ].map((type): [string, GradientType] => [type, "lightWall"]),
+);
+
+/** The type a layer naming `type` opens as: its replacement if it was retired, else `type`. */
+export function currentGradientType<T extends string>(type: T): T | GradientType {
+  return RETIRED_GRADIENT_TYPES.get(type) ?? type;
+}
+
+/** Global config fields only retired gradient types read. Old configs still carry them; they are dropped. */
+export const RETIRED_GLOBALS: readonly string[] = ["domainWarp"];
 
 // 26-value Photoshop set.
 export const BLEND_MODES = [
