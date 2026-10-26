@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { LayerParams, BlendMode, ColorProfile, createLayer, LIGHT_GRADIENT_PALETTES, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
-import { defaultSoftnessForType, randomLook } from "./gradient-types";
+import { defaultSoftnessForType, lookPatch, randomLook } from "./gradient-types";
 import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
 import {
   DEFAULT_SCENE_3D_STATE,
@@ -199,6 +199,8 @@ export interface GradientState {
   addColor: () => void;
   removeColor: (index: number) => void;
   loadPreset: (preset: Partial<GradientState>) => void;
+  /** Gives the active layer another look (see lookPatch), as one undo step; picking the current one does nothing. */
+  setLook: (type: LayerParams["gradientType"]) => void;
   randomize: () => void;
   undo: () => void;
   redo: () => void;
@@ -239,7 +241,7 @@ export interface GradientState {
 // Keys excluded from undo snapshots
 const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "playing", "set", "setDiscrete", "commitSet", "setColor", "addColor", "removeColor",
-  "loadPreset", "randomize", "undo", "redo",
+  "loadPreset", "setLook", "randomize", "undo", "redo",
   "addLayer", "removeLayer", "selectLayer", "setLayerParam", "setLayerOpacity",
   "setLayerBlendMode", "toggleLayerVisibility", "moveLayer",
   "setLayerImage", "setLayerDistortionMap",
@@ -582,6 +584,12 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
       layers: newLayers,
       ...deriveActiveLayerFields(newLayers, current.activeLayerIndex),
     });
+  },
+
+  setLook: (type) => {
+    const current = useGradientStore.getState();
+    if (current.gradientType === type) return;
+    current.setDiscrete(lookPatch(type));
   },
 
   randomize: () => {

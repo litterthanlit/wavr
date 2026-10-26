@@ -10,7 +10,7 @@ const STEPS = [
   },
   {
     title: "Gradient Controls",
-    desc: "Use the Gradient tab in the sidebar to change type, colors, speed, and distortion. Each type says how it reads its palette and offers its own.",
+    desc: "Pick a look in the Gradient tab, then shape its colours and motion. Each look brings its own palette, and Reset brings it back.",
   },
   {
     title: "Effects",
@@ -18,7 +18,7 @@ const STEPS = [
   },
   {
     title: "Layers",
-    desc: "Add up to 4 layers at the top of the sidebar. Each layer has its own gradient type, colors, and blend mode.",
+    desc: "Add up to 4 layers at the top of the sidebar. Each layer has its own look, colours and blend mode.",
   },
   {
     title: "Export & Share",

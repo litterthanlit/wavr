@@ -115,6 +115,7 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     reorderLayers: () => {},
     mergeLayerDown: () => {},
     flattenLayers: () => {},
+    setLook: () => {},
     randomize: () => {},
     randomizePalette: () => {},
     setPreset: () => {},

@@ -14,7 +14,7 @@ import { PRESETS } from "./presets";
 import { MAX_LAYERS } from "@wavr/core";
 import type { LayerParams } from "@wavr/core";
 import { SIDEBAR_TABS, type SidebarTab } from "./types";
-import { COMMAND_GRADIENT_TYPES, defaultSoftnessForType } from "./gradient-types";
+import { COMMAND_GRADIENT_TYPES, gradientTypeLabel } from "./gradient-types";
 import { renderStatsShown, toggleRenderStats } from "./useRenderStats";
 
 export type CommandGroup =
@@ -70,10 +70,6 @@ function tokenize(camel: string): string[] {
     .toLowerCase()
     .split(/[\s_-]+/)
     .filter(Boolean);
-}
-
-function titleCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /**
@@ -176,17 +172,15 @@ export function getCommands(ui: UiActions): Command[] {
     });
   }
 
-  // ── Gradient types (9, no image) ────────────────────────────────────────
+  // ── Gradient types (9, no image): the Look tiles, palette and all ──────
   for (const type of GRADIENT_TYPES) {
+    const label = gradientTypeLabel(type);
     commands.push({
       id: `gradient.${type}`,
-      label: `Set gradient: ${titleCase(type)}`,
+      label: `Set gradient: ${label}`,
       group: "Gradient",
-      keywords: ["gradient", "type", type],
-      run: () => useGradientStore.getState().setLayerParam({
-        gradientType: type,
-        softness: defaultSoftnessForType(type),
-      }),
+      keywords: ["gradient", "type", "look", type, ...tokenize(label)],
+      run: () => useGradientStore.getState().setLook(type),
     });
   }
 

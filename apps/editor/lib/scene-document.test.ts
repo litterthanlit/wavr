@@ -106,6 +106,7 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     addColor: () => {},
     removeColor: () => {},
     loadPreset: () => {},
+    setLook: () => {},
     randomize: () => {},
     undo: () => {},
     redo: () => {},

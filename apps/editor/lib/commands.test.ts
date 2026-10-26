@@ -72,6 +72,12 @@ describe("command registry", () => {
     ]);
   });
 
+  it("names each look as the Look grid does", () => {
+    const label = (id: string) => getCommands(noopUi()).find((c) => c.id === id)?.label;
+    expect(label("gradient.lightWall")).toBe("Set gradient: Light Wall");
+    expect(label("gradient.iridescentFoil")).toBe("Set gradient: Iridescent Foil");
+  });
+
   it("no gradient command for the image type", () => {
     const commands = getCommands(noopUi());
     const imageCmd = commands.find((c) => c.id === "gradient.image");
