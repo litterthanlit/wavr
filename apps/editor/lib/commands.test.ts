@@ -60,6 +60,18 @@ describe("command registry", () => {
     ]);
   });
 
+  it("switches only the effects the panels offer", () => {
+    const effects = getCommands(noopUi()).filter((c) => c.group === "Effects").map((c) => c.id);
+    expect(effects).toEqual([
+      "effect.realBloomEnabled",
+      "effect.blurEnabled",
+      "effect.rippleEnabled",
+      "effect.trailEnabled",
+      "effect.debandEnabled",
+      "effect.scene3DEnabled",
+    ]);
+  });
+
   it("no gradient command for the image type", () => {
     const commands = getCommands(noopUi());
     const imageCmd = commands.find((c) => c.id === "gradient.image");

@@ -51,43 +51,17 @@ export interface UiActions {
 // payload the palette can't provide; stays reachable via the Gradient panel.
 const GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = COMMAND_GRADIENT_TYPES;
 
-// ── Effect flags on the store root. Hand-listed per spec; any missing field
-// (e.g. `debandEnabled` before that PR merges) is skipped at runtime via the
-// `typeof` guard in `getCommands`. ────────────────────────────────────────
-const EFFECT_FLAGS = [
-  "noiseEnabled", "bloomEnabled", "blurEnabled", "curlEnabled",
-  "kaleidoscopeEnabled", "reactionDiffEnabled", "pixelSortEnabled",
-  "feedbackEnabled", "asciiEnabled", "ditherEnabled", "scene3DEnabled", "parallaxEnabled",
-  "threeDEnabled", "meshDistortionEnabled", "rippleEnabled", "glowEnabled",
-  "causticEnabled", "liquifyEnabled", "trailEnabled", "realBloomEnabled",
-  "debandEnabled",
-] as const;
-
-type EffectFlag = (typeof EFFECT_FLAGS)[number];
-
-const EFFECT_LABELS: Record<EffectFlag, string> = {
-  noiseEnabled: "noise",
-  bloomEnabled: "classic bloom",
-  blurEnabled: "blur",
-  curlEnabled: "curl",
-  kaleidoscopeEnabled: "kaleidoscope",
-  reactionDiffEnabled: "reaction-diffusion",
-  pixelSortEnabled: "pixel sort",
-  feedbackEnabled: "feedback",
-  asciiEnabled: "ASCII",
-  ditherEnabled: "dither",
-  scene3DEnabled: "scene 3D",
-  parallaxEnabled: "parallax",
-  threeDEnabled: "3D",
-  meshDistortionEnabled: "mesh distortion",
-  rippleEnabled: "ripple",
-  glowEnabled: "soft glow",
-  causticEnabled: "caustic",
-  liquifyEnabled: "liquify",
-  trailEnabled: "trail",
+// ── The switches the panels offer, by the names they show. Effects the editor
+// no longer offers get no command; the Effects tab lists them while a scene has
+// one on. ────────────────────────────────────────────────────────────────────
+const EFFECT_TOGGLES = {
   realBloomEnabled: "bloom",
-  debandEnabled: "deband",
-};
+  blurEnabled: "blur",
+  rippleEnabled: "click ripple",
+  trailEnabled: "mouse trail",
+  debandEnabled: "anti-banding",
+  scene3DEnabled: "3D objects",
+} as const satisfies Partial<Record<keyof GradientState, string>>;
 
 // camelCase → [lower tokens]: "sunsetBloom" → ["sunset", "bloom"].
 function tokenize(camel: string): string[] {
@@ -216,32 +190,18 @@ export function getCommands(ui: UiActions): Command[] {
     });
   }
 
-  // ── Effects (one toggle per effect flag present on the store) ──────────
-  for (const flag of EFFECT_FLAGS) {
-    // Guard: skip flags the current store build doesn't have yet.
-    if (typeof (state as unknown as Record<string, unknown>)[flag] === "undefined") continue;
-    const name = EFFECT_LABELS[flag];
+  // ── Effects: one switch each, labelled with its state when the palette opened
+  for (const [flag, name] of Object.entries(EFFECT_TOGGLES) as [keyof typeof EFFECT_TOGGLES, string][]) {
     commands.push({
       id: `effect.${flag}`,
-      label: `Toggle ${name}`,
+      label: `Toggle ${name} (${state[flag] ? "on" : "off"})`,
       group: "Effects",
       keywords: ["toggle", "effect", ...tokenize(name)],
-      // Label extension: "(on)" / "(off)" — computed in getter because the
-      // `Command.label` is static for this snapshot. We append post-hoc here
-      // so palette rows read "Toggle bloom (on)" at open time.
       run: () => {
-        const s = useGradientStore.getState() as unknown as Record<string, unknown>;
-        const current = Boolean(s[flag]);
-        useGradientStore.getState().setDiscrete({
-          [flag]: !current,
-        } as Partial<GradientState>);
+        const s = useGradientStore.getState();
+        s.setDiscrete({ [flag]: !s[flag] });
       },
     });
-    // Patch the label to include the current state (computed from the
-    // snapshot we already took).
-    const cmd = commands[commands.length - 1];
-    const current = Boolean((state as unknown as Record<string, unknown>)[flag]);
-    cmd.label = `Toggle ${name} (${current ? "on" : "off"})`;
   }
 
   // ── Presets ─────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ const STEPS = [
   },
   {
     title: "Effects",
-    desc: "Switch to the Effects tab for noise, bloom, blur, curl noise, kaleidoscope, dithering, ASCII art, and more. Sections collapse to keep things tidy.",
+    desc: "The Effects tab finishes the scene: bloom, grain, colour grading, lens blur, how the pointer plays with the light, and the colour profile and HDR it is shown in.",
   },
   {
     title: "Layers",

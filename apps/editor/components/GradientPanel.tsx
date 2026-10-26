@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useGradientStore } from "@/lib/store";
 import Select from "@/components/ui/Select";
 import Slider from "@/components/ui/Slider";
-import { degrees, em, percent, px, radiansAsDegrees, times } from "@/lib/units";
+import { em, px, radiansAsDegrees, times } from "@/lib/units";
 import ColorInput from "@/components/ui/ColorInput";
 import GradientBar from "@/components/ui/GradientBar";
 import { MAX_STOPS, barPalette, insertStop, reverseStops, stopPosition, type Rgb } from "@/lib/color-stops";
@@ -590,15 +590,6 @@ export default function GradientPanel() {
         <Slider label="Softness" value={store.softness} min={0} max={1} step={0.01} onChange={(v) => store.set({ softness: v })} onCommit={() => store.commitSet()} />
       </div>
 
-      <div className="border-t border-border" />
-
-      {/* Appearance */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Appearance</SectionHeader>
-        <Slider label="Brightness" value={store.brightness} min={0.1} max={2} step={0.01} format={percent} onChange={(v) => store.set({ brightness: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} format={percent} onChange={(v) => store.set({ saturation: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Hue Shift" value={store.hueShift} min={0} max={360} step={1} format={degrees} onChange={(v) => store.set({ hueShift: v })} onCommit={() => store.commitSet()} />
-      </div>
     </div>
   );
 }
