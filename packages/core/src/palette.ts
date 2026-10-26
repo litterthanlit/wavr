@@ -6,20 +6,26 @@
 // the user edits colours, so it is evaluated once instead and the shader does
 // a single texture fetch (`getGradientColor` in common.glsl).
 //
-// The maths below is a port of the GLSL it replaced (sampleColorAt and the
-// 7-tap blend), in float64; palette.test.ts checks it against a straight port
-// of that GLSL.
+// The colour conversions and the 7-tap blend are a port of the GLSL it
+// replaced (sampleColorAt, getGradientColor), in float64. The curve through
+// the stops is not: that one was a smoothstep from each stop to the next, which
+// brings the colour to rest at every stop and leaves each one a flat band.
+// This one passes through the inner stops on Catmull-Rom tangents, as the
+// light fields' lightStops (common.glsl) does, and is flat at both ends.
 
 type Rgb = readonly [number, number, number];
 
 /**
  * Texels in the table: linear filtering between them must stay within one
  * 8-bit level of the exact function. Smooth palettes need far fewer (256 gives
- * 0.1/255 for the editor's defaults), but 8 saturated stops in Oklab clip at
- * the sRGB gamut edge, which leaves kinks in the curve: the worst case measured
- * (a rainbow, 8 stops) is 3.4/255 at 128 texels, 1.35/255 at 256 and 0.35/255
- * at 512. At 512 the table is 4 KB of half-float per layer and a bake is
- * 512 x 7 colour evaluations, a fraction of a millisecond.
+ * 0.05/255 for the editor's defaults), but saturated stops in Oklab clip at
+ * the sRGB gamut edge, which leaves kinks in the curve: a rainbow of 8 stops is
+ * off by 14/255 at 128 texels, 7.4/255 at 256 and 0.74/255 at 512. The curve
+ * runs through a stop on the gamut edge without slowing, so the edge cuts it
+ * there: pure red, green and blue are off by 3.2/255 at 512 (halving with each
+ * doubling), within the one texel around green. At 512 the table is 4 KB of
+ * half-float per layer and a bake is 512 x 7 colour evaluations, a fraction of
+ * a millisecond.
  * Must match PALETTE_TEXELS in common.glsl.
  */
 export const PALETTE_SIZE = 512;
@@ -157,36 +163,49 @@ function oklabToLinear(L: number, a: number, b: number): [number, number, number
 }
 
 /**
- * Colour at position `t` along the stops (smoothstep between neighbours); `t`
- * is clamped to [0, 1]. Out of Oklab, `displayP3` gives Display P3 values.
+ * The palette before the blend: stop j of n at t = j / (n - 1), joined by
+ * cubic Hermite segments in the space the stops mix in (Oklab when `oklab` is
+ * on, else the stop values). Inner stops get Catmull-Rom tangents, so the
+ * colour keeps moving through a stop instead of resting on it; the first and
+ * last get none, so the palette is flat at both ends, where pingPong() folds
+ * it. With two stops it is a smoothstep. The returned function writes the
+ * colour at `t` (clamped to [0, 1]) into `out`, never negative; out of Oklab,
+ * `displayP3` gives Display P3 values.
  */
-function sampleStops(stops: readonly Rgb[], labs: readonly Rgb[] | null, t: number, out: number[], displayP3: boolean) {
-  const last = stops.length - 1;
-  const scaled = clamp01(t) * last;
-  const index = Math.floor(scaled);
-  const next = Math.min(index + 1, last);
-  const f = scaled - index;
-  const frac = f * f * (3 - 2 * f);
+export function stopCurve(stops: readonly Rgb[], oklab: boolean, displayP3 = false): (t: number, out: number[]) => void {
+  const points = oklab ? stops.map((c): Rgb => linearToOklab(...stopToLinearSrgb(c, displayP3))) : stops;
+  const last = points.length - 1;
+  const tangents = points.map((_, j): Rgb => {
+    if (j === 0 || j === last) return [0, 0, 0];
+    const before = points[j - 1];
+    const after = points[j + 1];
+    return [0.5 * (after[0] - before[0]), 0.5 * (after[1] - before[1]), 0.5 * (after[2] - before[2])];
+  });
 
-  if (labs) {
-    const a = labs[index];
-    const b = labs[next];
-    const srgb = oklabToLinear(
-      a[0] + (b[0] - a[0]) * frac,
-      a[1] + (b[1] - a[1]) * frac,
-      a[2] + (b[2] - a[2]) * frac,
-    );
+  return (t, out) => {
+    const scaled = clamp01(t) * last;
+    const index = Math.floor(scaled);
+    const next = Math.min(index + 1, last);
+    const f = scaled - index;
+    const step = f * f * (3 - 2 * f);
+    const leave = f * (1 - f) * (1 - f);
+    const arrive = f * f * (f - 1);
+    const a = points[index];
+    const b = points[next];
+    const ta = tangents[index];
+    const tb = tangents[next];
+    for (let c = 0; c < 3; c++) out[c] = a[c] + (b[c] - a[c]) * step + ta[c] * leave + tb[c] * arrive;
+
+    if (!oklab) {
+      for (let c = 0; c < 3; c++) out[c] = Math.max(out[c], 0);
+      return;
+    }
+    const srgb = oklabToLinear(out[0], out[1], out[2]);
     const lin = displayP3 ? applyMatrix(SRGB_TO_P3, srgb[0], srgb[1], srgb[2]) : srgb;
     out[0] = linearToSrgb(Math.max(lin[0], 0));
     out[1] = linearToSrgb(Math.max(lin[1], 0));
     out[2] = linearToSrgb(Math.max(lin[2], 0));
-    return;
-  }
-  const a = stops[index];
-  const b = stops[next];
-  out[0] = a[0] + (b[0] - a[0]) * frac;
-  out[1] = a[1] + (b[1] - a[1]) * frac;
-  out[2] = a[2] + (b[2] - a[2]) * frac;
+  };
 }
 
 /**
@@ -205,7 +224,7 @@ export function bakePalette(
   displayP3 = false,
 ): Float32Array {
   const stops = colors.length === 0 ? [[0, 0, 0] as Rgb] : colors.slice(0, MAX_PALETTE_COLORS);
-  const labs = oklab ? stops.map((c): Rgb => linearToOklab(...stopToLinearSrgb(c, displayP3))) : null;
+  const sample = stopCurve(stops, oklab, displayP3);
 
   const reach = paletteReach(blend);
   const span = 1 + 2 * reach;
@@ -220,13 +239,13 @@ export function bakePalette(
     let b = 0;
     if (blended) {
       for (const [offset, weight] of TAPS) {
-        sampleStops(stops, labs, t + offset * spread, tap, displayP3);
+        sample(t + offset * spread, tap);
         r += tap[0] * weight;
         g += tap[1] * weight;
         b += tap[2] * weight;
       }
     } else {
-      sampleStops(stops, labs, t, tap, displayP3);
+      sample(t, tap);
       [r, g, b] = tap;
     }
     out[i * 4] = r;

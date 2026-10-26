@@ -54,8 +54,8 @@ export function portableModule(settings: PortableSettings, language: PortableLan
 
   const colors = settings.colors.map((c) => `  [${c.map(jsNumber).join(", ")}],`).join("\n");
 
-  const palette = `// The palette is baked into a ${PALETTE_SIZE} x 1 texture that the shader reads with one fetch: smooth steps
-// between the stops, in Oklab or sRGB, then averaged over a few neighbours by BLEND. This is the editor's own
+  const palette = `// The palette is baked into a ${PALETTE_SIZE} x 1 texture that the shader reads with one fetch: a smooth curve
+// through the stops, in Oklab or sRGB, then averaged over a few neighbours by BLEND. This is the editor's own
 // palette maths.
 const toLinear = (c${t(": number")}) => (c >= 0.04045 ? Math.pow((c + 0.055) / 1.055, 2.4) : c / 12.92);
 const toSrgb = (c${t(": number")}) => (c >= 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : c * 12.92);
@@ -100,6 +100,11 @@ ${settings.displayP3 ? `  const r = 4.0767416621 * l3 - 3.3077115913 * m3 + 0.23
   ].map((c) => toSrgb(Math.max(c, 0)));`}
 };
 const mixStops = COLORS.map((c) => (OKLAB ? toOklab(c) : c));
+// The direction the curve passes each stop in: toward the next stop from the one before, so the colour never
+// rests on a stop; none at the two ends, so the palette is flat where the shader folds it back.
+const tangents = mixStops.map((c, j) =>
+  j === 0 || j === mixStops.length - 1 ? [0, 0, 0] : c.map((_, i) => 0.5 * (mixStops[j + 1][i] - mixStops[j - 1][i])),
+);
 // The texture covers t from -REACH to 1 + REACH: how far the blend still moves the colour past the ends.
 const REACH = BLEND < 0.01 ? 0 : BLEND * 0.3;
 const SPAN = 1 + 2 * REACH;
@@ -111,11 +116,15 @@ const sampleStops = (t${t(": number")}) => {
   const index = Math.floor(scaled);
   const next = Math.min(index + 1, last);
   const f = scaled - index;
-  const k = f * f * (3 - 2 * f);
+  const step = f * f * (3 - 2 * f);
+  const leave = f * (1 - f) * (1 - f);
+  const arrive = f * f * (f - 1);
   const a = mixStops[index];
   const b = mixStops[next];
-  const c = [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * k);
-  return OKLAB ? fromOklab(c) : c;
+  const ta = tangents[index];
+  const tb = tangents[next];
+  const c = [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * step + ta[i] * leave + tb[i] * arrive);
+  return OKLAB ? fromOklab(c) : c.map((v) => Math.max(v, 0));
 };
 
 const bakePalette = () => {

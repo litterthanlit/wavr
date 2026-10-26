@@ -55,8 +55,9 @@ describe("the bar's palette", () => {
 
   it("shows each stop's own colour at its position", () => {
     const palette = barPalette([RED, GREEN, BLUE], options);
-    // To within the table's resolution: 0.5 falls between two of its 512 texels.
-    const near = (actual: Rgb, expected: Rgb) => actual.forEach((v, i) => expect(v).toBeCloseTo(expected[i], 3));
+    // To within the table's resolution: 0.5 falls between two of its 512 texels,
+    // and the colour doesn't stop at green, so half a texel off it differs by 1e-3.
+    const near = (actual: Rgb, expected: Rgb) => actual.forEach((v, i) => expect(v).toBeCloseTo(expected[i], 2));
     near(palette.sample(0), RED);
     near(palette.sample(0.5), GREEN);
     near(palette.sample(1), BLUE);
