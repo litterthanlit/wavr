@@ -29,7 +29,6 @@ export const DEFAULT_CONFIG: GradientConfig = {
   vignette: 0,
   chromaticAberration: 0,
   hueShift: 0,
-  domainWarp: 0,
   radialBlur: 0,
   mouseReact: 0.5,
   oklabEnabled: true,

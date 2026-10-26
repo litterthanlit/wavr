@@ -14,7 +14,6 @@ import {
   createPaletteKey,
   paletteKeyMatches,
   setPaletteKey,
-  toMixSpace,
 } from "../../../packages/core/src/palette";
 
 type V3 = [number, number, number];
@@ -327,7 +326,6 @@ describe("Display P3", () => {
     for (const [index, stop] of [[0, stops[0]], [PALETTE_SIZE - 1, stops[2]]] as [number, V3][]) {
       texel(table, index).forEach((c, i) => expect(c).toBeCloseTo(stop[i], 5));
     }
-    toMixSpace(stops[1], true, true).forEach((c, i) => expect(c).not.toBeCloseTo(toMixSpace(stops[1], true)[i], 3));
   });
 
   it("blends in Oklab between the colours the P3 values are, not as if they were sRGB", () => {

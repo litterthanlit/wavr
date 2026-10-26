@@ -281,7 +281,6 @@ interface EmbedConfig {
   bloomIntensity?: number;
   vignette?: number;
   chromaticAberration?: number;
-  domainWarp?: number;
 }
 
 export function generateEmbedConfig(state: ExportableState & {
@@ -294,7 +293,6 @@ export function generateEmbedConfig(state: ExportableState & {
   vignette?: number;
   chromaticAberration?: number;
   hueShift?: number;
-  domainWarp?: number;
 }): EmbedConfig {
 
   const config: EmbedConfig = {
@@ -322,7 +320,6 @@ export function generateEmbedConfig(state: ExportableState & {
   }
   if (state.vignette) config.vignette = +state.vignette.toFixed(2);
   if (state.chromaticAberration) config.chromaticAberration = +state.chromaticAberration.toFixed(3);
-  if (state.domainWarp) config.domainWarp = +state.domainWarp.toFixed(2);
   if (state.softness) config.softness = +state.softness.toFixed(2);
 
   return config;

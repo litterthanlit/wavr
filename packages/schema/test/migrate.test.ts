@@ -256,6 +256,14 @@ describe("migrate(v2)", () => {
     expect(result.warnings.map((w) => w.path)).toEqual(["layers[0].type", "layers[1].type"]);
   });
 
+  it("drops the global domain warp, which only retired types read", () => {
+    const result = migrate({ ...DEFAULT_CONFIG, domainWarp: 0.4 });
+    expect(result.droppedKeys).toEqual(["domainWarp"]);
+    expect(result.config).toEqual(DEFAULT_CONFIG);
+    expect(migrate({ ...V1_PROJECT_STATE, domainWarp: 0.4 }).droppedKeys).toContain("domainWarp");
+    expect(migrate({ ...V1_TYPES, domainWarp: 0.4 }).droppedKeys).toContain("domainWarp");
+  });
+
   it("still rejects a gradient type that never existed", () => {
     expect(() => migrate({ ...DEFAULT_CONFIG, layers: [{ type: "sparkle", colors: [[0, 0, 0], [1, 1, 1]] }] })).toThrow();
   });

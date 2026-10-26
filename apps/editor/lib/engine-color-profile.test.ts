@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GradientEngine, PALETTE_SIZE, bakePalette, createLayer, effectiveBlend, resolveConfig } from "@wavr/core";
 import type { EngineState } from "@wavr/core";
-import { toMixSpace } from "../../../packages/core/src/palette";
 import { createFakeGL } from "./test-utils/fake-webgl";
 
 const globals = globalThis as Record<string, unknown>;
@@ -61,21 +60,11 @@ describe("GradientEngine colour profile", () => {
     expect("drawingBufferColorSpace" in context).toBe(false);
   });
 
-  it("tells the layer passes, and hands the mesh its stops through Oklab from P3", () => {
+  it("hands the light fields their raw stops, the values themselves whatever the profile", () => {
     const { engine, draws } = setup();
     engine.render(state({ colorProfile: "display-p3" }));
-    const [layerPass, post] = draws;
-    expect(layerPass.uniforms.u_displayP3).toBe(1);
-    COLORS.forEach((color, i) => {
-      expect(layerPass.uniforms[`u_colorsMix[${i}]`]).toEqual([...toMixSpace(color, true, true)]);
-      // The raw stops are the values themselves, whatever the profile.
-      expect(layerPass.uniforms[`u_colors[${i}]`]).toEqual(color);
-    });
-    expect(post.uniforms.u_displayP3).toBeUndefined();
-
-    engine.render(state());
-    expect(draws[2].uniforms.u_displayP3).toBe(0);
-    expect(draws[2].uniforms["u_colorsMix[0]"]).toEqual([...toMixSpace(COLORS[0], true)]);
+    const [layerPass] = draws;
+    COLORS.forEach((color, i) => expect(layerPass.uniforms[`u_colors[${i}]`]).toEqual(color));
   });
 
   it("bakes the palette in the scene's profile, and again when the profile changes", () => {

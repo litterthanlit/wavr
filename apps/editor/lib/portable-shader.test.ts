@@ -113,7 +113,7 @@ describe("portable fragment shader", () => {
         const body = engine.slice(start, engine.indexOf("\n}\n", start) + 2);
         expect(start).toBeGreaterThan(0);
         const renamed = body.replace(
-          /\bu_(speed|scale|complexity|distortion|softness|domainWarp|colorBlend|colorCount)\b/g,
+          /\bu_(speed|scale|complexity|distortion|softness|colorCount)\b/g,
           (_, name: string) => name.replace(/([A-Z])/g, "_$1").toUpperCase(),
         );
         expect(shaderFor(type)).toContain(renamed);
@@ -122,7 +122,7 @@ describe("portable fragment shader", () => {
       it("maps the palette without fract() and tone maps without Reinhard", () => {
         const source = stripComments(shaderFor(type));
         // A palette lookup is never fed fract(): the palette folds (pingPong) instead of jumping from its last colour to its first.
-        expect(source).not.toMatch(/(?:getGradientColor|foldedColor|satinColor|getColor|softColor)\(\s*fract\(/);
+        expect(source).not.toMatch(/(?:getGradientColor|getColor|softColor)\(\s*fract\(/);
         // The old export ended in c / (c + 1), which sends 1.0 to 0.5.
         expect(source).not.toMatch(/\/\s*\(\s*[A-Za-z_]\w*\s*\+\s*1(?:\.0*)?\s*\)/);
         expect(source).not.toMatch(/\bsoftColor\b|\bgetColor\b|\bfieldFor\b/);
@@ -220,7 +220,6 @@ describe("portable fragment shader", () => {
         deband: 1,
         mouseReact: 0,
         colorBlend: 0,
-        domainWarp: 0,
         hueShift: 0,
       });
     });

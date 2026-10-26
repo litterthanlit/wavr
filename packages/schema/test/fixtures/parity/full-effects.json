@@ -16,7 +16,6 @@
   "vignette": 0.3,
   "chromaticAberration": 0.05,
   "hueShift": 15,
-  "domainWarp": 0.2,
   "radialBlur": 0.1,
   "noise": { "enabled": true, "intensity": 0.3, "scale": 1 },
   "bloom": { "enabled": true, "intensity": 0.5 },

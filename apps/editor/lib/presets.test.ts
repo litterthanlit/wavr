@@ -31,7 +31,6 @@ const SAMPLES: { [K in keyof typeof CONFIG_FIELD_STATE_KEYS]: GradientConfig[K] 
   kaleidoscope: { enabled: true, segments: 9, rotation: 21 },
   reactionDiffusion: { enabled: true, intensity: 0.81, scale: 1.7 },
   pixelSort: { enabled: true, intensity: 0.62, threshold: 0.33 },
-  domainWarp: 0.29,
   feedback: { enabled: true, decay: 0.88 },
   parallax: { enabled: true, strength: 0.93 },
   shape3d: { enabled: true, shape: "torus", perspective: 2.2, rotationSpeed: 0.9, zoom: 1.6, lighting: 0.2 },

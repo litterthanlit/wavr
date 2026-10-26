@@ -120,17 +120,6 @@ function stopToLinearSrgb(c: Rgb, displayP3: boolean): [number, number, number] 
   return displayP3 ? applyMatrix(P3_TO_SRGB, r, g, b) : [r, g, b];
 }
 
-/**
- * A stop in the space gradients blend raw stops in (`u_colorsMix`): Oklab when
- * `oklab` is on, else the stop itself. `displayP3`: the stop is Display P3
- * values. Shaders convert back with mixSpaceToRgb(), once per pixel instead of
- * once per stop.
- */
-export function toMixSpace(color: Rgb, oklab: boolean, displayP3 = false): Rgb {
-  if (!oklab) return color;
-  return linearToOklab(...stopToLinearSrgb(color, displayP3));
-}
-
 function linearToOklab(r: number, g: number, b: number): [number, number, number] {
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);

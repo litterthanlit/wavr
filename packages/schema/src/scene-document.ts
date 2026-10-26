@@ -136,7 +136,6 @@ export const WavrSceneGlobals = z.object({
   vignette: z.number().min(0).max(1),
   chromaticAberration: z.number().min(0).max(1),
   hueShift: z.number().min(-180).max(180),
-  domainWarp: z.number().min(0).max(1),
   radialBlur: z.number().min(0).max(1),
   mouseReact: z.number().min(0).max(1),
   oklabEnabled: z.boolean(),
@@ -177,17 +176,25 @@ function isRecord(x: unknown): x is Record<string, unknown> {
 /**
  * Parse a scene document from outside (a file, local storage). One saved by an
  * earlier Wavr may name a retired gradient type, which opens as its
- * replacement.
+ * replacement, and carry the global domain warp, which only retired types read.
  */
 export function parseSceneDocument(input: unknown): WavrSceneDocument {
-  if (!isRecord(input) || !Array.isArray(input.layers)) return WavrSceneDocument.parse(input);
-  const layers = input.layers.map((layer: unknown) => {
-    if (!isRecord(layer) || !isRecord(layer.source) || !isRecord(layer.source.gradient)) return layer;
-    const gradient = layer.source.gradient;
-    if (typeof gradient.type !== "string") return layer;
-    return { ...layer, source: { ...layer.source, gradient: { ...gradient, type: currentGradientType(gradient.type) } } };
-  });
-  return WavrSceneDocument.parse({ ...input, layers });
+  if (!isRecord(input)) return WavrSceneDocument.parse(input);
+  const document: Record<string, unknown> = { ...input };
+  if (isRecord(input.globals)) {
+    const globals: Record<string, unknown> = { ...input.globals };
+    delete globals.domainWarp;
+    document.globals = globals;
+  }
+  if (Array.isArray(input.layers)) {
+    document.layers = input.layers.map((layer: unknown) => {
+      if (!isRecord(layer) || !isRecord(layer.source) || !isRecord(layer.source.gradient)) return layer;
+      const gradient = layer.source.gradient;
+      if (typeof gradient.type !== "string") return layer;
+      return { ...layer, source: { ...layer.source, gradient: { ...gradient, type: currentGradientType(gradient.type) } } };
+    });
+  }
+  return WavrSceneDocument.parse(document);
 }
 
 export interface SceneDocumentFromConfigOptions {
@@ -230,7 +237,6 @@ function globalsFromConfig(config: GradientConfigValue): WavrSceneGlobals {
     vignette: config.vignette,
     chromaticAberration: config.chromaticAberration,
     hueShift: config.hueShift,
-    domainWarp: config.domainWarp,
     radialBlur: config.radialBlur,
     mouseReact: config.mouseReact,
     oklabEnabled: config.oklabEnabled,

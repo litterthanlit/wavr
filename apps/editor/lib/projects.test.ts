@@ -57,7 +57,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     pixelSortEnabled: false,
     pixelSortIntensity: 0,
     pixelSortThreshold: 0.5,
-    domainWarp: 0,
     feedbackEnabled: false,
     feedbackDecay: 0,
     oklabEnabled: true,
@@ -237,12 +236,13 @@ describe("project export", () => {
   it("opens a project saved with a retired gradient type as lightWall, with its colours", async () => {
     const colors = [[0.1, 0.2, 0.9], [0.9, 0.3, 0.2], [0.2, 0.9, 0.5]];
     const layer = { ...createLayer({ speed: 0.7 }), gradientType: "mesh", colors };
-    const project = { name: "Mesh", timestamp: 1, state: { ...exportProjectState(minimalState()), layers: [layer] } };
+    const project = { name: "Mesh", timestamp: 1, state: { ...exportProjectState(minimalState()), domainWarp: 0.3, layers: [layer] } };
     localStorage.setItem("wavr-projects", JSON.stringify([project]));
 
     const { patch } = await projectStateForLoad(loadProjects()[0]);
 
     expect(patch.layers).toEqual([{ ...layer, gradientType: "lightWall" }]);
+    expect(patch).not.toHaveProperty("domainWarp");
   });
 
   it("opens a scene-document-only project naming a retired gradient type as lightWall", async () => {

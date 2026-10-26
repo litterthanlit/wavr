@@ -35,7 +35,6 @@ export interface PortableState {
   saturation: number;
   /** Degrees. */
   hueShift?: number;
-  domainWarp?: number;
   /** Global colour blend, 0..1: how far neighbouring palette colours melt into each other. */
   colorBlend?: number;
   /** Mix colours in Oklab (default) rather than sRGB. */
@@ -65,7 +64,6 @@ export interface PortableSettings {
   brightness: number;
   saturation: number;
   hueShift: number;
-  domainWarp: number;
   colorBlend: number;
   oklab: boolean;
   toneMapMode: number;
@@ -102,7 +100,6 @@ export function resolvePortableSettings(state: PortableState): PortableSettings 
     brightness: finite(state.brightness, 1),
     saturation: finite(state.saturation, 1),
     hueShift: finite(state.hueShift, 0),
-    domainWarp: finite(state.domainWarp, 0),
     colorBlend: clamp(finite(state.colorBlend, 0), 0, 1),
     oklab: state.oklabEnabled !== false,
     toneMapMode: toneMapMode >= 0 && toneMapMode <= 2 ? toneMapMode : 1,
@@ -288,8 +285,6 @@ function uniformDeclarations(colorCount: number): Record<string, string> {
     u_paletteTexture: "uniform sampler2D u_paletteTexture;",
     u_paletteDomain: "uniform vec2 u_paletteDomain;",
     u_colors: `uniform vec3 u_colors[${colorCount}];`,
-    u_colorsMix: `uniform vec3 u_colorsMix[${colorCount}];`,
-    u_oklabEnabled: "uniform bool u_oklabEnabled;",
     u_mouseSmooth: "uniform vec2 u_mouseSmooth;",
     u_mouseVelocity: "uniform vec2 u_mouseVelocity;",
     u_mousePresence: "uniform float u_mousePresence;",
@@ -306,17 +301,11 @@ function constantDeclarations(s: PortableSettings): Record<string, { name: strin
     u_complexity: float("COMPLEXITY", s.complexity),
     u_distortion: float("DISTORTION", s.distortion),
     u_softness: float("SOFTNESS", s.softness),
-    u_domainWarp: float("DOMAIN_WARP", s.domainWarp),
-    u_colorBlend: float("COLOR_BLEND", s.colorBlend),
     u_colorCount: int("COLOR_COUNT", s.colors.length),
     u_mouseReact: float("MOUSE_REACT", s.mouseReact),
     u_toneMapMode: {
       name: "TONE_MAP_MODE",
       declaration: `const int TONE_MAP_MODE = ${s.toneMapMode}; // 0 none, 1 highlight shoulder, 2 ACES filmic`,
-    },
-    u_displayP3: {
-      name: "DISPLAY_P3",
-      declaration: `const bool DISPLAY_P3 = ${s.displayP3}; // the colours are Display P3`,
     },
   };
 }
@@ -330,9 +319,9 @@ const STANDARD_RANGE: Record<string, string> = {
 
 /** Order the constants appear in, with a comment per group. */
 const CONSTANT_GROUPS: { comment: string; names: string[] }[] = [
-  { comment: "Look: edit and reload", names: ["SPEED", "SCALE", "COMPLEXITY", "DISTORTION", "SOFTNESS", "DOMAIN_WARP", "COLOR_BLEND", "COLOR_COUNT"] },
+  { comment: "Look: edit and reload", names: ["SPEED", "SCALE", "COMPLEXITY", "DISTORTION", "SOFTNESS", "COLOR_COUNT"] },
   { comment: "Pointer: 0 switches it off", names: ["MOUSE_REACT"] },
-  { comment: "Colour grade", names: ["BRIGHTNESS", "SATURATION", "HUE_SHIFT", "TONE_MAP_MODE", "DISPLAY_P3", "DEBAND"] },
+  { comment: "Colour grade", names: ["BRIGHTNESS", "SATURATION", "HUE_SHIFT", "TONE_MAP_MODE", "DEBAND"] },
 ];
 
 /** A GLSL float literal with at most 3 decimals: 0.4, 1.0, -0.25. */

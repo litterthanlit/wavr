@@ -58,7 +58,6 @@ function buildRealisticState(): GradientState {
     vignette: 0.3,
     chromaticAberration: 0.05,
     hueShift: 45,
-    domainWarp: 0.22,
     radialBlurAmount: 0.18,
     mouseReact: 0.75,
     oklabEnabled: false,
@@ -112,7 +111,6 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(patch.vignette).toBe(state.vignette);
     expect(patch.chromaticAberration).toBe(state.chromaticAberration);
     expect(patch.hueShift).toBe(state.hueShift);
-    expect(patch.domainWarp).toBe(state.domainWarp);
     expect(patch.radialBlurAmount).toBe(state.radialBlurAmount);
     expect(patch.mouseReact).toBe(state.mouseReact);
     expect(patch.oklabEnabled).toBe(state.oklabEnabled);
@@ -182,7 +180,6 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(patch.vignette).toBe(defaults.vignette);
     expect(patch.chromaticAberration).toBe(defaults.chromaticAberration);
     expect(patch.hueShift).toBe(defaults.hueShift);
-    expect(patch.domainWarp).toBe(defaults.domainWarp);
     expect(patch.radialBlurAmount).toBe(defaults.radialBlurAmount);
     expect(patch.mouseReact).toBe(defaults.mouseReact);
     expect(patch.oklabEnabled).toBe(defaults.oklabEnabled);

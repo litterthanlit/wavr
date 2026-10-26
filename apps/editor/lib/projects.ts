@@ -56,7 +56,6 @@ export interface ProjectState {
   pixelSortEnabled: boolean;
   pixelSortIntensity: number;
   pixelSortThreshold: number;
-  domainWarp: number;
   feedbackEnabled: boolean;
   feedbackDecay: number;
   oklabEnabled: boolean;
@@ -151,7 +150,6 @@ export function exportProjectState(state: GradientState): ProjectState {
     pixelSortEnabled: state.pixelSortEnabled as boolean,
     pixelSortIntensity: state.pixelSortIntensity as number,
     pixelSortThreshold: state.pixelSortThreshold as number,
-    domainWarp: state.domainWarp as number,
     feedbackEnabled: state.feedbackEnabled as boolean,
     feedbackDecay: state.feedbackDecay as number,
     oklabEnabled: state.oklabEnabled as boolean,
@@ -355,7 +353,10 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
     }
     return next;
   }));
-  return { patch: { ...project.state, layers } as Partial<GradientState>, missingImages };
+  // Projects saved while the retired gradient types existed carry their domain warp.
+  const state: Partial<ProjectState> & { domainWarp?: unknown } = { ...project.state };
+  delete state.domainWarp;
+  return { patch: { ...state, layers } as Partial<GradientState>, missingImages };
 }
 
 export function deleteProject(name: string): Promise<void> {

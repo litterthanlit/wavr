@@ -121,7 +121,6 @@ export interface GradientState {
   pixelSortEnabled: boolean;
   pixelSortIntensity: number;
   pixelSortThreshold: number;
-  domainWarp: number;
   feedbackEnabled: boolean;
   feedbackDecay: number;
 
@@ -369,7 +368,6 @@ const DEFAULTS = {
   pixelSortEnabled: false,
   pixelSortIntensity: 0.5,
   pixelSortThreshold: 0.5,
-  domainWarp: 0,
   feedbackEnabled: false,
   feedbackDecay: 0.5,
   oklabEnabled: true,

@@ -217,7 +217,6 @@ async function main() {
       brightness: engine.brightness,
       saturation: engine.saturation,
       hueShift: engine.hueShift,
-      domainWarp: engine.domainWarp,
       colorBlend: engine.colorBlend,
       oklabEnabled: engine.oklabEnabled,
       toneMapMode: engine.toneMapMode,

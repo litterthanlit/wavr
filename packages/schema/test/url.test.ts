@@ -57,7 +57,6 @@ function randomConfig(rand: () => number): GC {
     vignette: rand(),
     chromaticAberration: rand(),
     hueShift: rand() * 360 - 180,
-    domainWarp: rand(),
     radialBlur: rand(),
     mouseReact: rand(),
     oklabEnabled: rand() > 0.5,
@@ -323,6 +322,9 @@ describe("share URLs naming a retired gradient type", () => {
       depth: 0,
     }]);
     expect(result.config.grain).toBe(0.05);
+    // Its domain warp, read only by the retired types, is dropped rather than refused.
+    expect(result.droppedKeys).toEqual(["domainWarp"]);
+    expect(result.config).not.toHaveProperty("domainWarp");
   });
 
   it("opens an aurora scene as lightWall, with its colours and effects", () => {

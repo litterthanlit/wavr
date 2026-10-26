@@ -63,6 +63,9 @@ export function detectShape(input: unknown): DetectedShape {
   return "project-state-v1";
 }
 
+/** Globals that only retired gradient types read. Old configs still carry them. */
+const RETIRED_GLOBALS = ["domainWarp"];
+
 const WARN = (warnings: MigrateWarning[], opts: MigrateOptions | undefined, w: MigrateWarning) => {
   warnings.push(w);
   opts?.onWarning?.(w);
@@ -114,7 +117,7 @@ function migrateTypesV1(input: Record<string, unknown>, opts: MigrateOptions | u
   }
 
   // Drop known legacy extras that V1 may or may not carry
-  for (const k of ["activeLayerIndex", "colorBlend", "customGLSL"]) {
+  for (const k of ["activeLayerIndex", "colorBlend", "customGLSL", ...RETIRED_GLOBALS]) {
     if (k in out) {
       droppedKeys.push(k);
       delete out[k];
@@ -147,7 +150,7 @@ function migrateProjectStateV1(input: Record<string, unknown>, opts: MigrateOpti
   // Simple passthrough globals (flat → flat, same name)
   const passthrough: string[] = [
     "brightness", "saturation", "grain", "vignette", "mouseReact",
-    "chromaticAberration", "hueShift", "domainWarp",
+    "chromaticAberration", "hueShift",
     "oklabEnabled", "toneMapMode", "colorProfile", "hdrHeadroom",
   ];
   for (const k of passthrough) {
@@ -216,7 +219,7 @@ function migrateProjectStateV1(input: Record<string, unknown>, opts: MigrateOpti
     "activeLayerIndex", "colorBlend",
     "timelineEnabled", "timelineDuration", "timelinePlaybackMode", "keyframes", "timelinePosition",
     "audioEnabled", "audioSource", "audioBassTarget", "audioTrebleTarget", "audioEnergyTarget", "audioSensitivity",
-    "customGLSL", "playing",
+    "customGLSL", "playing", ...RETIRED_GLOBALS,
   ];
   for (const k of editorOnly) {
     if (k in input) droppedKeys.push(k);
@@ -285,18 +288,31 @@ function openedType(type: string, path: string, warnings: MigrateWarning[], opts
   return current;
 }
 
-function withCurrentLayerTypes(
+/**
+ * A V2 config as this Wavr reads it: retired layer types open as their
+ * replacement, and the globals only retired types read are dropped.
+ */
+function withoutRetired(
   input: Record<string, unknown>,
+  droppedKeys: string[],
   warnings: MigrateWarning[],
   opts: MigrateOptions | undefined,
 ): Record<string, unknown> {
-  if (!Array.isArray(input.layers)) return input;
-  const layers = input.layers.map((layer: unknown, i: number) =>
-    isRecord(layer) && typeof layer.type === "string"
-      ? { ...layer, type: openedType(layer.type, `layers[${i}].type`, warnings, opts) }
-      : layer,
-  );
-  return { ...input, layers };
+  const out: Record<string, unknown> = { ...input };
+  for (const k of RETIRED_GLOBALS) {
+    if (k in out) {
+      droppedKeys.push(k);
+      delete out[k];
+    }
+  }
+  if (Array.isArray(input.layers)) {
+    out.layers = input.layers.map((layer: unknown, i: number) =>
+      isRecord(layer) && typeof layer.type === "string"
+        ? { ...layer, type: openedType(layer.type, `layers[${i}].type`, warnings, opts) }
+        : layer,
+    );
+  }
+  return out;
 }
 
 // --- Public API ------------------------------------------------------------
@@ -304,11 +320,12 @@ function withCurrentLayerTypes(
 export function migrate(input: unknown, opts?: MigrateOptions): MigrateResult {
   const shape = detectShape(input);
   if (shape === "v2" && isRecord(input)) {
-    // V2: open retired layer types as their replacement, then parse for
+    // V2: drop what retired gradient types left behind, then parse for
     // default-fill and strict validation.
+    const droppedKeys: string[] = [];
     const warnings: MigrateWarning[] = [];
-    const config = GradientConfig.parse(withCurrentLayerTypes(input, warnings, opts));
-    return { config, droppedKeys: [], warnings, detectedShape: "v2" };
+    const config = GradientConfig.parse(withoutRetired(input, droppedKeys, warnings, opts));
+    return { config, droppedKeys, warnings, detectedShape: "v2" };
   }
   if (!isRecord(input)) {
     // Not an object — can't salvage. finalize will throw via parse.

@@ -49,7 +49,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     pixelSortEnabled: false,
     pixelSortIntensity: 0.5,
     pixelSortThreshold: 0.5,
-    domainWarp: 0,
     feedbackEnabled: false,
     feedbackDecay: 0.5,
     oklabEnabled: true,

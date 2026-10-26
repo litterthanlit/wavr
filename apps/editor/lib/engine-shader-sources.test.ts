@@ -242,8 +242,8 @@ describe("shader uniforms", () => {
   }
 
   it("every uniform a shader declares is listed in PROGRAM_UNIFORM_NAMES", () => {
-    // u_colors and u_colorsMix are arrays; their elements are looked up as u_colors[i].
-    const arrays = new Set(["u_colors", "u_colorsMix"]);
+    // u_colors is an array; its elements are looked up as u_colors[i].
+    const arrays = new Set(["u_colors"]);
     const missing = [...declared].filter((name) => !arrays.has(name) && !PROGRAM_UNIFORM_NAMES.includes(name));
     expect(missing, "uniforms the engine would never set").toEqual([]);
   });

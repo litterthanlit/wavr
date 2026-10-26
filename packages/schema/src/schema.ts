@@ -38,7 +38,6 @@ export const GradientConfig = d(
     vignette: d("GradientConfig.vignette", z.number().min(0).max(1)).default(0),
     chromaticAberration: d("GradientConfig.chromaticAberration", z.number().min(0).max(1)).default(0),
     hueShift: d("GradientConfig.hueShift", z.number().min(-180).max(180)).default(0),
-    domainWarp: d("GradientConfig.domainWarp", z.number().min(0).max(1)).default(0),
     radialBlur: d("GradientConfig.radialBlur", z.number().min(0).max(1)).default(0),
     mouseReact: d("GradientConfig.mouseReact", z.number().min(0).max(1)).default(0.5),
     oklabEnabled: d("GradientConfig.oklabEnabled", z.boolean()).default(true),
