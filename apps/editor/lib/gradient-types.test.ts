@@ -114,7 +114,6 @@ describe("gradient types", () => {
     expect(halo).toEqual({ gradientType: "halo", softness: defaultSoftnessForGradientType("halo"), colors: LIGHT_GRADIENT_PALETTES.halo });
     expect(lookPatch("lightWall").colors).toEqual(LIGHT_FIELD_PALETTES.lightWall);
     expect(lookPatch("image")).toEqual({ gradientType: "image", softness: defaultSoftnessForGradientType("image") });
-    // A copy: editing the layer's colours never edits the curated palette.
     expect(halo.colors?.[0]).not.toBe(LIGHT_GRADIENT_PALETTES.halo[0]);
   });
 

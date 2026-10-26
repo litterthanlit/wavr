@@ -10,10 +10,7 @@ import { GRADIENT_TYPE_IDS, SHADER_PARTS, type ColorProfile, type ShaderParts } 
  * mouseWarp() and the helpers they call, found by following the calls from the
  * gradient function down, in the order the engine has them. So an export can't
  * fall behind the editor, and it holds only what its gradient uses, as the
- * engine's program does. Values the engine sets as uniforms (scale, softness,
- * ...) become `const`s at the top of the output, named in capitals, where a
- * user can edit them; the palette, the stops the light fields read as lights
- * and the pointer stay uniforms, set by the runtime in portable-runtime.ts.
+ * engine's program does.
  *
  * The cutting is by names, so it relies on how the shader files are written:
  * every function and `const` starts in column 0, and a function ends with a `}`
@@ -50,7 +47,6 @@ export interface PortableState {
 
 /** A PortableState with every default applied and every value in range. */
 export interface PortableSettings {
-  /** The gradient the shader holds: the state's type, or the light wall where a portable export has nothing to draw (image, unknown). */
   gradientType: string;
   gradientId: number;
   colors: [number, number, number][];

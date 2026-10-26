@@ -41,7 +41,6 @@ export function reverseStops(colors: readonly Rgb[]): Rgb[] {
   return colors.map((c) => [...c] as Rgb).reverse();
 }
 
-/** Whether two palettes hold exactly the same stops, in the same order. */
 export function sameStops(a: readonly Rgb[], b: readonly Rgb[]): boolean {
   return a.length === b.length && a.every((c, i) => c.every((v, j) => v === b[i][j]));
 }
@@ -51,7 +50,6 @@ export interface BarPalette {
   sample: (t: number) => Rgb;
 }
 
-/** The layer's palette as the engine bakes it (softness, Oklab, colour profile). */
 export function barPalette(
   colors: readonly Rgb[],
   options: { oklab: boolean; softness: number; colorProfile: ColorProfile },

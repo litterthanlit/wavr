@@ -7,7 +7,6 @@ import { GRADIENT_OPTIONS, lookThumbnail } from "@/lib/gradient-types";
 
 const COLUMNS = 5;
 
-/** Where each key moves focus from tile `i`, in a grid of `count` tiles; null for other keys. Off the grid's edge it stays. */
 function keyTarget(key: string, i: number, count: number): number | null {
   const targets: Record<string, number> = {
     ArrowLeft: i - 1,
@@ -22,16 +21,10 @@ function keyTarget(key: string, i: number, count: number): number | null {
   return target >= 0 && target < count ? target : i;
 }
 
-/**
- * The looks as a grid of picture tiles, a radio group. Arrow keys, Home and End
- * move focus; Enter or Space picks, so browsing with the keyboard doesn't make
- * an undo step (and a shader compile) per tile.
- */
 export default function LookPicker({ value, onPick }: { value: GradientType; onPick: (type: GradientType) => void }) {
   const tiles = useRef<(HTMLButtonElement | null)[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
   const selected = Math.max(0, GRADIENT_OPTIONS.findIndex((option) => option.value === value));
-  // Roving tabindex: Tab enters the grid on the picked tile, and leaves from the focused one.
   const tabStop = focused ?? selected;
 
   const onKeyDown = (e: KeyboardEvent, i: number) => {

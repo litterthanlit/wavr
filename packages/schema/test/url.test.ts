@@ -298,10 +298,7 @@ describe("V1 backwards-compat (live URL sample)", () => {
   });
 });
 
-// ---------- Retired gradient types ----------------------------------------
-
 describe("share URLs naming a retired gradient type", () => {
-  // Encoded by main's encodeUrl before mesh and aurora were removed.
   const MESH_URL = "s2.N4IgbgpgTgzglgewHYgFwgEwDoAMuQA0IANgIYCe0MaA2qAC7kAOEaIAthDABaEgDGCYgli0aeAMwAOKQUkBWAOwEAjAF0CNFXKwAWDDv0bxWDPO14pi2ZZUA2Y3gCcNrFIN4MajSBgsIACZoeHZEguxMxBAAHnCMaLpEMPykUWgqWBJEAXAw9CL0iCioeLrySQgAZvRIXNQlpgC+PgDmUKRwxXg45SABCOwdSADqpFBMwZnyjUA";
   const AURORA_URL = "s2.N4IgbgpgTgzglgewHYgFwgEwDoAMuQA0IANgIYCe0MaA2qAC7kAOEaIpArlAlKYSAGMExHtVQ0aeHAEYCUjHNwA2ALoFJuBXgDMi7RjUbpADkUBOLVgCsVw3gDsp2XmOq1IGCwgATNHhNEQgC2TMQQAB5wjGhKRDACpGFo0li6IN5wMPQ89IgoqDqmHggAZvRIEDBiLgC+7gDmvHD5UlZEYHD1FfT0rAWpRNkVALKkTMMI3n0KIEgImX2gEEikAEZhvqgliTAQRM29SPDR-WnxiX3SNUTrCAhBaEsr6z5o28S7+0iHx+R+qdcQFAIIkAEIie6PEDLNYbND0KAcCA1GpAA";
 
@@ -322,7 +319,6 @@ describe("share URLs naming a retired gradient type", () => {
       depth: 0,
     }]);
     expect(result.config.grain).toBe(0.05);
-    // Its domain warp, read only by the retired types, is dropped rather than refused.
     expect(result.droppedKeys).toEqual(["domainWarp"]);
     expect(result.config).not.toHaveProperty("domainWarp");
   });

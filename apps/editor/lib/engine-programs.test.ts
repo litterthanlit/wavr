@@ -164,7 +164,7 @@ describe("parallel shader compilation", () => {
     for (let frame = 0; frame < 3; frame++) expect(engine.render(state)).toBe(false);
     expect(draws).toHaveLength(0);
     expect(engine.isReady(state)).toBe(false);
-    expect(engine.getMetrics().pendingPrograms).toBe(2); // light wall layer + post
+    expect(engine.getMetrics().pendingPrograms).toBe(2);
     // Link/compile status queries would stall the thread until the compile finishes.
     expect(blockingQueries).toEqual([]);
 
@@ -189,7 +189,6 @@ describe("parallel shader compilation", () => {
     expect(engine.render(orb)).toBe(false);
     expect(draws).toHaveLength(drawn);
     expect(layerPrograms()).toHaveLength(2);
-    // The finished light wall program is still fine to draw with meanwhile.
     expect(engine.render(wall)).toBe(true);
 
     controls.compileComplete = true;
@@ -199,7 +198,6 @@ describe("parallel shader compilation", () => {
 
   it("stops reporting a compile once it finishes, even for a type no longer drawn", () => {
     const { engine, controls } = setup({ parallelCompile: true });
-    // Switch away from the orb before its compile finishes; nothing draws it again.
     expect(engine.render(stateWith([layerOf("plasmaOrb")]))).toBe(false);
     const smoke = stateWith([layerOf("inkSmoke")]);
     expect(engine.render(smoke)).toBe(false);

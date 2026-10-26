@@ -104,7 +104,6 @@ export interface ProjectState {
 
 const STORAGE_KEY = "wavr-projects";
 
-/** Fields of editor features that are gone (the colour blend, audio reactivity), which older saved projects still carry. */
 const RETIRED_EDITOR_FIELDS = [
   "colorBlend", "audioEnabled", "audioSource", "audioBassTarget", "audioTrebleTarget", "audioEnergyTarget", "audioSensitivity",
 ];
@@ -344,7 +343,6 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
     }
     return next;
   }));
-  // Projects saved while the retired gradient types or editor features existed carry their fields.
   const state: Record<string, unknown> = { ...project.state };
   for (const k of [...RETIRED_GLOBALS, ...RETIRED_EDITOR_FIELDS]) delete state[k];
   return { patch: { ...state, layers } as Partial<GradientState>, missingImages };

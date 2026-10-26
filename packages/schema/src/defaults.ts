@@ -1,7 +1,6 @@
 import type { GradientConfig } from "./schema";
 import { SCHEMA_VERSION } from "./version";
 
-// Minimal valid config — a 2-colour light wall, no effects.
 // Used as the baseline for `migrate()` fills, `get_preset("default")`, and boot state.
 export const DEFAULT_CONFIG: GradientConfig = {
   version: SCHEMA_VERSION,

@@ -145,7 +145,6 @@ function ImageUpload({
   );
 }
 
-/** The shape mask's controls; "no mask" is the Mask control's None. */
 function ShapeMaskControls({
   mask,
   onUpdate,
@@ -218,7 +217,6 @@ export default function GradientPanel() {
     store.set({ layers: newLayers } as Partial<typeof store>);
   };
 
-  // A shape or a switch is one undo step; a slider's drag is one too, closed on release.
   const updateMask = (field: string, value: number | boolean | string | [number, number]) => {
     const mask1 = { ...activeLayer.mask1, [field]: value };
     if (typeof value === "string" || typeof value === "boolean") {
@@ -231,7 +229,6 @@ export default function GradientPanel() {
   const look = GRADIENT_OPTIONS.find((option) => option.value === store.gradientType);
   const mask = maskMode(activeLayer);
   const extras = layerExtrasOn(activeLayer);
-  // The look's own palette, offered back once the colours differ from it.
   const curated = curatedPalette(store.gradientType);
   const canReset = curated !== null && !sameStops(colors, curated);
 

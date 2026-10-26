@@ -1746,9 +1746,7 @@ export class GradientEngine {
   /**
    * Binds the baked palette of the layer in slot `slot` (its position among
    * the visible layers) to the palette unit and sets `u_paletteDomain` on the
-   * program in use. The table is baked again only when the layer's colours,
-   * its softness or the Oklab switch differ from what was baked, so a frame
-   * with an unchanged palette uploads nothing.
+   * program in use.
    */
   private bindPalette(slot: number, layer: LayerParams, state: EngineState) {
     const gl = this.gl;
@@ -1795,7 +1793,6 @@ export class GradientEngine {
     }
   }
 
-  /** The raw stops, for the gradients that read `u_colors` themselves (the light fields). */
   private setPalette(layer: LayerParams) {
     const record = this.active;
     if (!record) return;

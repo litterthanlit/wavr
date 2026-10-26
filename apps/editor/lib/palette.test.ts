@@ -23,8 +23,6 @@ type V3 = [number, number, number];
 // A straight port of the GLSL the palette texture replaced (sampleColorAt and
 // getGradientColor, common.glsl before the palette bake), written the way the
 // GLSL reads: vec3 maths, mix/step/pow/clamp, one function per GLSL function.
-// It walked a smoothstep from stop to stop. Between two stops the curve still
-// is that smoothstep, so a two-stop palette must bake to exactly these colours.
 // ---------------------------------------------------------------------------
 const map3 = (a: V3, f: (x: number) => number): V3 => [f(a[0]), f(a[1]), f(a[2])];
 const mix1 = (x: number, y: number, a: number) => x * (1 - a) + y * a;
@@ -131,14 +129,12 @@ const PALETTES: Record<string, V3[]> = {
 
 const TWO_STOP_PALETTES = Object.entries(PALETTES).filter(([, colors]) => colors.length === 2);
 
-/** The spaces a palette can mix in: Oklab from sRGB or Display P3 stops, or the stop values themselves. */
 const MODES: { name: string; oklab: boolean; displayP3: boolean }[] = [
   { name: "Oklab", oklab: true, displayP3: false },
   { name: "Oklab, Display P3", oklab: true, displayP3: true },
   { name: "sRGB", oklab: false, displayP3: false },
 ];
 
-// Softness values; the blend is softness * 0.85.
 const BLENDS: [string, number][] = [
   ["no blend", 0],
   ["blend just under the threshold", 0.0105],
@@ -161,7 +157,6 @@ function sampleTable(table: Float32Array, blend: number, t: number): V3 {
   return [0, 1, 2].map((c) => table[i0 * 4 + c] * (1 - f) + table[i1 * 4 + c] * f) as V3;
 }
 
-/** The unblended palette, exactly: the function the table holds samples of. */
 function exactPalette(colors: V3[], oklab: boolean, displayP3 = false): (t: number) => V3 {
   const curve = stopCurve(colors, oklab, displayP3);
   return (t) => {
@@ -178,7 +173,6 @@ const P3_TO_SRGB: V3[] = [
   [-0.0196376, -0.0786361, 1.0982735],
 ];
 
-/** A stop in the space the curve runs in: Oklab, or the stop's own values. */
 function mixPoint(c: V3, oklab: boolean, displayP3: boolean): V3 {
   if (!oklab) return c;
   const lin = glslSrgbToLinear(c);
@@ -196,7 +190,6 @@ function mixPoint(c: V3, oklab: boolean, displayP3: boolean): V3 {
 
 const distance = (a: V3, b: V3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
-/** How far the colour travels per unit of t, on average: the palette's length. */
 function meanSpeed(palette: (t: number) => V3): number {
   let length = 0;
   let previous = palette(0);
@@ -222,10 +215,6 @@ describe("the curve through the stops", () => {
     }
   }
 
-  // The defect this curve fixes: a smoothstep from stop to stop brings the
-  // colour to rest at every stop, so each stop shows as a flat band. It may
-  // rest only where no channel (in the space the stops mix in) carries on
-  // through the stop: a repeated stop holds, a peak or dip doesn't overshoot.
   for (const [name, colors] of Object.entries(PALETTES).filter(([, colors]) => colors.length > 2)) {
     for (const mode of MODES) {
       it(`${name}, ${mode.name}: keeps moving through every inner stop a channel carries on through, and rests at the others`, () => {
@@ -245,19 +234,16 @@ describe("the curve through the stops", () => {
   }
 
   it("holds a repeated stop's colour across the whole run", () => {
-    // Stops have no positions, so repeating one is how a colour is held longer.
     const navy: V3 = [0.1, 0.12, 0.35];
     const colors: V3[] = [navy, navy, navy, [1, 0.45, 0.4]];
     for (const mode of MODES) {
       const table = bakePalette(colors, mode.oklab, 0, undefined, mode.displayP3);
-      // Texels 0 to 340 are t = 0 to 2/3, the three navy stops.
       for (let i = 0; i <= Math.floor((2 / 3) * (PALETTE_SIZE - 1)); i++) {
         expect([table[i * 4], table[i * 4 + 1], table[i * 4 + 2]], `${mode.name}, texel ${i}`).toEqual([table[0], table[1], table[2]]);
       }
     }
   });
 
-  // pingPong() folds the palette at both ends; a slope there would leave a crease.
   for (const [name, colors] of Object.entries(PALETTES).filter(([, colors]) => colors.length > 1)) {
     for (const mode of MODES) {
       it(`${name}, ${mode.name}: is flat at both ends`, () => {
@@ -271,8 +257,6 @@ describe("the curve through the stops", () => {
   }
 
   it("is never negative", () => {
-    // A dark ramp that brightens fast after its middle stop: the curve arrives
-    // there on that steep tangent, which first pulls it below black.
     const ramp: V3[] = [[0, 0, 0], [0.1, 0.1, 0.1], [1, 1, 1]];
     for (const mode of MODES) {
       const table = bakePalette(ramp, mode.oklab, 0, undefined, mode.displayP3);
@@ -312,7 +296,6 @@ describe("bakePalette", () => {
           const table = bakePalette(colors, oklab, blend);
           const uniforms: Uniforms = { colors, oklab, softness };
 
-          // Past both ends too: with a blend the function keeps changing beyond [0, 1].
           let worst = 0;
           const steps = 1999;
           for (let i = 0; i <= steps; i++) {

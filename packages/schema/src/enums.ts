@@ -12,13 +12,7 @@ export const GRADIENT_TYPES = [
 ] as const;
 export type GradientType = (typeof GRADIENT_TYPES)[number];
 
-/**
- * Gradient types that have been removed, and the type a scene naming one opens
- * as. Light wall shows any palette's colours as they are; the other light modes
- * read the palette as a ramp from dark to light. Applied wherever a config
- * enters: migrate(), parseSceneDocument(), core's resolveConfig() and the
- * editor's project load.
- */
+/** Gradient types that have been removed, and the type a scene naming one opens as. */
 export const RETIRED_GRADIENT_TYPES: ReadonlyMap<string, GradientType> = new Map(
   [
     "mesh", "radial", "linear", "conic", "plasma",

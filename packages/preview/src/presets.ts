@@ -3,7 +3,6 @@ import type { GradientConfig } from "@wavr/core";
 
 export const presets: Record<string, GradientConfig> = allPresets;
 
-// The overlay offers one preset per look; getPreset resolves any of them.
 export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "aperture", label: "Aperture" },
   { id: "ganzfeld", label: "Ganzfeld" },

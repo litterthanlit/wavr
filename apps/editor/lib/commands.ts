@@ -51,9 +51,6 @@ export interface UiActions {
 // payload the palette can't provide; stays reachable via the Gradient panel.
 const GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = COMMAND_GRADIENT_TYPES;
 
-// ── The switches the panels offer, by the names they show. Effects the editor
-// no longer offers get no command; the Effects tab lists them while a scene has
-// one on. ────────────────────────────────────────────────────────────────────
 const EFFECT_TOGGLES = {
   realBloomEnabled: "bloom",
   blurEnabled: "blur",
@@ -172,7 +169,6 @@ export function getCommands(ui: UiActions): Command[] {
     });
   }
 
-  // ── Gradient types (9, no image): the Look tiles, palette and all ──────
   for (const type of GRADIENT_TYPES) {
     const label = gradientTypeLabel(type);
     commands.push({
@@ -184,7 +180,6 @@ export function getCommands(ui: UiActions): Command[] {
     });
   }
 
-  // ── Effects: one switch each, labelled with its state when the palette opened
   for (const [flag, name] of Object.entries(EFFECT_TOGGLES) as [keyof typeof EFFECT_TOGGLES, string][]) {
     commands.push({
       id: `effect.${flag}`,

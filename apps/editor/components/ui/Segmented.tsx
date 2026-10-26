@@ -11,7 +11,6 @@ interface SegmentedProps<T extends string> {
 
 const STEPS: Record<string, number> = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 };
 
-/** Mutually exclusive choices in a row: a radio group whose arrow keys move and choose, wrapping round. */
 export default function Segmented<T extends string>({ label, value, options, onChange }: SegmentedProps<T>) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
 

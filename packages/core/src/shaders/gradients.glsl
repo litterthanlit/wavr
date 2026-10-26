@@ -23,8 +23,7 @@
 // Light on a surface or in the dark: a mirror, a film, a planet's limb, a leak,
 // smoke, a glass orb. Their palette is a light ramp, from the deepest shadow (the
 // first stop) to the brightest light (the last), so they need a palette that
-// starts dark and ends light (their presets have one). Specular highlights and
-// hot cores past the last stop may mix toward white.
+// starts dark and ends light (their presets have one).
 
 // liquidChrome: flowing mirror metal. A smooth, slow height field (domain-warped
 // simplex, a few broad folds) lit as a perfect mirror: the surface normal reflects

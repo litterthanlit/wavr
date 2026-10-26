@@ -199,9 +199,6 @@ describe("assembled post source", () => {
 
 describe("render scale", () => {
   it("every gradient that reads gl_FragCoord is drawn at full resolution by the engine", () => {
-    // At a reduced render scale a pixel of the layer pass is bigger on screen, so a pattern laid out in
-    // gl_FragCoord would change size. FULL_RESOLUTION_GRADIENTS is how the engine avoids that; a
-    // gradient added to this file with such a pattern must join it.
     // A type can have several guarded blocks (its helpers get their own, ahead of it).
     const blocks = [...stripComments(parts.gradients).matchAll(/^#if WAVR_GRADIENT == (\d+)\n([\s\S]*?)^#endif/gm)];
     expect(new Set(blocks.map((b) => Number(b[1]))).size).toBe(GRADIENT_TYPES.length);
@@ -242,7 +239,6 @@ describe("shader uniforms", () => {
   }
 
   it("every uniform a shader declares is listed in PROGRAM_UNIFORM_NAMES", () => {
-    // u_colors is an array; its elements are looked up as u_colors[i].
     const arrays = new Set(["u_colors"]);
     const missing = [...declared].filter((name) => !arrays.has(name) && !PROGRAM_UNIFORM_NAMES.includes(name));
     expect(missing, "uniforms the engine would never set").toEqual([]);

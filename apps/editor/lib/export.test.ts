@@ -78,7 +78,6 @@ describe("export helpers", () => {
       softness: 0.7,
     });
 
-    // The light leak's shader doesn't read softness; it only softens the palette.
     const code = exportReactComponent({ ...state, gradientType: "lightLeak", softness: 0.56 });
     expect(code).toContain("vec3 lightLeakGradient(vec2 uv, float time)");
     expect(code).toContain("const BLEND = 0.476;");
@@ -101,7 +100,7 @@ describe("export helpers", () => {
     expect(code).toContain("const float HUE_SHIFT = 30.0; // degrees");
     expect(code).toContain("const int TONE_MAP_MODE = 2;");
     expect(code).toContain("const OKLAB = false;");
-    expect(code).toContain("const BLEND = 0.578;"); // softness * 0.85
+    expect(code).toContain("const BLEND = 0.578;");
   });
 
   it("no longer ends in Reinhard c / (c + 1), which halved every export's brightness", () => {

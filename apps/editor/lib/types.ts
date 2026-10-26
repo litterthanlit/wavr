@@ -1,4 +1,3 @@
-/** The sidebar's tabs, in order: number keys 1 to 5 open them. */
 export const SIDEBAR_TABS = [
   { id: "gradient", label: "Gradient" },
   { id: "effects", label: "Effects" },

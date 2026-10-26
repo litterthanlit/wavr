@@ -391,7 +391,6 @@ module.exports = {
  */
 export type ExportableState = PortableState;
 
-/** Shader id for a gradient type, falling back to light wall for unknown values. */
 function gradientTypeId(type: string): number {
   return (GRADIENT_TYPE_IDS as Record<string, number>)[type] ?? GRADIENT_TYPE_IDS.lightWall;
 }

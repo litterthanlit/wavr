@@ -48,7 +48,6 @@ describe("layer extras", () => {
       mask2: { ...layer.mask2, shape: "circle" as const },
     };
     expect(labels(everything)).toEqual(LAYER_EXTRAS.map((extra) => extra.label));
-    // Without a first shape (or under a text mask) the second does nothing, so it isn't listed.
     expect(labels({ ...everything, mask1: layer.mask1 })).not.toContain("Mask 2");
     expect(labels({ ...everything, textMaskEnabled: true })).not.toContain("Mask 2");
 
@@ -58,7 +57,6 @@ describe("layer extras", () => {
   });
 });
 
-/** The patch that switches an extra on: true for a flag, a nonzero amount for radial blur. */
 function invert(off: object) {
   return Object.fromEntries(Object.entries(off).map(([key, value]) => [key, value === false ? true : 0.5]));
 }

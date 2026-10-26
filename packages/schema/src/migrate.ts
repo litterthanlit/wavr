@@ -276,7 +276,6 @@ function migrateLayer(
   return out;
 }
 
-/** A retired gradient type opens as its replacement, with a warning. */
 function openedType(type: string, path: string, warnings: MigrateWarning[], opts: MigrateOptions | undefined): string {
   const current = currentGradientType(type);
   if (current !== type) {
@@ -285,10 +284,6 @@ function openedType(type: string, path: string, warnings: MigrateWarning[], opts
   return current;
 }
 
-/**
- * A V2 config as this Wavr reads it: retired layer types open as their
- * replacement, and the globals only retired types read are dropped.
- */
 function withoutRetired(
   input: Record<string, unknown>,
   droppedKeys: string[],
@@ -317,8 +312,6 @@ function withoutRetired(
 export function migrate(input: unknown, opts?: MigrateOptions): MigrateResult {
   const shape = detectShape(input);
   if (shape === "v2" && isRecord(input)) {
-    // V2: drop what retired gradient types left behind, then parse for
-    // default-fill and strict validation.
     const droppedKeys: string[] = [];
     const warnings: MigrateWarning[] = [];
     const config = GradientConfig.parse(withoutRetired(input, droppedKeys, warnings, opts));

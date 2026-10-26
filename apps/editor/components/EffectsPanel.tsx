@@ -91,7 +91,6 @@ export default function EffectsPanel() {
         )}
         <Slider label="HDR Headroom" value={store.hdrHeadroom} min={0} max={3} step={0.25} format={hdrPeakLabel} onChange={(v) => store.set({ hdrHeadroom: v })} onCommit={commit} />
         {store.hdrHeadroom > 0 && <Caption live>{hdrCaption(store.hdrHeadroom, hdrDisplay, hdrStatus)}</Caption>}
-        {/* Sub-pixel noise that hides 8-bit banding; on unless a posterized look is the point. */}
         <Toggle label="Anti-banding" checked={store.debandEnabled} onChange={(v) => store.setDiscrete({ debandEnabled: v })} />
         {store.debandEnabled && <Slider label="Strength" value={store.debandStrength} min={0} max={2} step={0.1} onChange={(v) => store.set({ debandStrength: v })} onCommit={commit} />}
         <Select label="Performance" value={store.performanceMode} options={PERFORMANCE_OPTIONS} onChange={(v) => store.setDiscrete({ performanceMode: v as PerformanceMode })} />

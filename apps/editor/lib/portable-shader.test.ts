@@ -77,7 +77,6 @@ describe("the undeclared-name check", () => {
 
 describe("portable fragment shader", () => {
   for (const type of GRADIENT_TYPES) {
-    // The image gradient has no picture in an export and falls back to the light wall.
     const drawn = type === "image" ? "lightWall" : type;
 
     describe(type, () => {

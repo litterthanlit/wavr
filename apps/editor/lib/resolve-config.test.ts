@@ -11,7 +11,6 @@ describe("resolveConfig", () => {
 
   it("draws a layer naming a retired gradient type as lightWall, with its colours", () => {
     const colors: [number, number, number][] = [[0.1, 0.2, 0.9], [0.9, 0.3, 0.2]];
-    // As a page or an old wavr.config.ts may still pass it to @wavr/gradient.
     const config = JSON.parse(JSON.stringify({ layers: [{ type: "mesh", colors, speed: 0.6 }] })) as GradientConfig;
     expect(resolveConfig(config).layers[0]).toMatchObject({ gradientType: "lightWall", colors, speed: 0.6 });
   });

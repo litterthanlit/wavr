@@ -2,12 +2,6 @@ import type { LayerParams } from "@wavr/core";
 import type { GradientState } from "./store";
 import { maskMode } from "./layer-mask";
 
-/**
- * An effect the editor no longer offers but still renders, which an older
- * link, project or preset can have switched on: how to tell it is on, and the
- * patch that turns it off. The Effects tab lists the ones a scene uses, so
- * nothing on screen comes from a control the user can't see.
- */
 export interface SceneExtra {
   label: string;
   isOn: (state: GradientState) => boolean;
@@ -45,7 +39,6 @@ export function sceneExtrasOn(state: GradientState): SceneExtra[] {
   return SCENE_EXTRAS.filter((extra) => extra.isOn(state));
 }
 
-/** The same for a layer's own parts the Gradient tab no longer offers: how to tell, and the patch that removes it. */
 export interface LayerExtra {
   label: string;
   isOn: (layer: LayerParams) => boolean;

@@ -58,7 +58,6 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBar
         </button>
       </div>
 
-      {/* Center: Randomize + Playback */}
       <div className="topbar-group">
         <button onClick={randomize} aria-label="Randomize" title="Randomize (R)" className="topbar-btn">
           <Shuffle size={14} aria-hidden="true" />

@@ -12,8 +12,6 @@ import { useGradientStore } from "./store";
 
 type Rgb = readonly [number, number, number];
 
-// Oklab per Björn Ottosson's reference, written out here rather than taken from
-// palette.ts, so the test doesn't check rotateHue against its own conversion.
 const toLinear = (c: number) => (c >= 0.04045 ? ((c + 0.055) / 1.055) ** 2.4 : c / 12.92);
 const P3_TO_SRGB = [[1.2249401, -0.2249404, 0], [-0.0420569, 1.0420571, 0], [-0.0196376, -0.0786361, 1.0982735]];
 
@@ -33,7 +31,6 @@ function oklch(color: Rgb, displayP3 = false): { L: number; C: number; h: number
 
 const hueDelta = (from: number, to: number) => ((to - from + 540) % 360) - 180;
 
-/** Deterministic stand-in for Math.random. */
 function sequence(...values: number[]): () => number {
   let i = 0;
   return () => values[i++ % values.length]!;
@@ -57,7 +54,6 @@ describe("rotateHue", () => {
   });
 
   it("keeps a colour it would push out of gamut inside it, at the same hue and lightness", () => {
-    // Saturated red turned to cyan has more chroma than sRGB can show there.
     const red: Rgb = [1, 0, 0];
     const before = oklch(red);
     const after = rotateHue(red, 180);

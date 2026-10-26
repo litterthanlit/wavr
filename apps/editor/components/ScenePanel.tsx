@@ -198,7 +198,6 @@ export default function ScenePanel() {
 
           <div className="border-t border-border" />
 
-          {/* The whole canvas's performance mode is in Effects > Output. */}
           <Section title="Quality">
             <Slider label="DPR Cap" value={scene.quality.dpr} min={1} max={2} step={0.1} format={times} onChange={(v) => store.setScene3D({ quality: { ...scene.quality, dpr: v } })} onCommit={() => store.commitSet()} />
             <Slider label="Max FPS" value={scene.quality.maxFps} min={24} max={60} step={1} format={fps} onChange={(v) => store.setScene3D({ quality: { ...scene.quality, maxFps: v } })} onCommit={() => store.commitSet()} />

@@ -60,7 +60,6 @@ describe("palette textures", () => {
 
     const uploads = paletteUploads();
     expect(uploads.map((u) => u.data)).toEqual(state.layers.map((layer) => bakedFor(layer, state)));
-    // cool's softness blends its colours (0.6 * 0.85 = 0.51).
     expect(effectiveBlend(cool.softness)).toBeCloseTo(0.51);
   });
 
@@ -122,7 +121,6 @@ describe("palette textures", () => {
     engine.render(stateWith([layer]));
     expect(paletteUploads()).toHaveLength(1);
 
-    // Opacity and speed: the table is the same.
     engine.render(stateWith([{ ...layer, opacity: 0.5, speed: 2 }]));
     expect(paletteUploads()).toHaveLength(1);
 

@@ -199,7 +199,6 @@ export interface GradientState {
   addColor: () => void;
   removeColor: (index: number) => void;
   loadPreset: (preset: Partial<GradientState>) => void;
-  /** Gives the active layer another look (see lookPatch), as one undo step; picking the current one does nothing. */
   setLook: (type: LayerParams["gradientType"]) => void;
   randomize: () => void;
   undo: () => void;
@@ -644,7 +643,6 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     markPushPoint();
     flushPending();
     pushHistory(takeSnapshot(current));
-    // Light adds over what is below.
     const newLayer = createLayer({
       gradientType: "halo",
       colors: LIGHT_GRADIENT_PALETTES.halo.map((c) => [...c] as [number, number, number]),
