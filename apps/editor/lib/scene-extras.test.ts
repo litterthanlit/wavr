@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createLayer } from "@wavr/core";
 import { useGradientStore } from "./store";
-import { SCENE_EXTRAS, sceneExtrasOn } from "./scene-extras";
+import { LAYER_EXTRAS, SCENE_EXTRAS, layerExtrasOn, sceneExtrasOn } from "./scene-extras";
 
 const initial = () => useGradientStore.getState();
 const labels = (state: ReturnType<typeof initial>) => sceneExtrasOn(state).map((extra) => extra.label);
@@ -23,6 +24,36 @@ describe("scene extras", () => {
     expect(labels(everything)).toEqual(SCENE_EXTRAS.map((extra) => extra.label));
     for (const extra of SCENE_EXTRAS) {
       expect(extra.isOn({ ...everything, ...extra.off }), extra.label).toBe(false);
+    }
+  });
+});
+
+describe("layer extras", () => {
+  const layer = createLayer({ gradientType: "halo" });
+  const star = { ...layer.mask1, shape: "star" as const };
+  const labels = (l: typeof layer) => layerExtrasOn(l).map((extra) => extra.label);
+
+  it("lists nothing for a fresh layer, or for an image layer's own picture", () => {
+    expect(labels(layer)).toEqual([]);
+    expect(labels({ ...layer, gradientType: "image", imageData: "data:image/png;base64,AA" })).toEqual([]);
+  });
+
+  it("lists a texture overlay, a distortion map and a second mask the shader applies", () => {
+    const everything = {
+      ...layer,
+      imageData: "data:image/png;base64,AA",
+      distortionMapEnabled: true,
+      maskEnabled: true,
+      mask1: star,
+      mask2: { ...layer.mask2, shape: "circle" as const },
+    };
+    expect(labels(everything)).toEqual(LAYER_EXTRAS.map((extra) => extra.label));
+    // Without a first shape (or under a text mask) the second does nothing, so it isn't listed.
+    expect(labels({ ...everything, mask1: layer.mask1 })).not.toContain("Mask 2");
+    expect(labels({ ...everything, textMaskEnabled: true })).not.toContain("Mask 2");
+
+    for (const extra of LAYER_EXTRAS) {
+      expect(extra.isOn({ ...everything, ...extra.clear(everything) }), extra.label).toBe(false);
     }
   });
 });

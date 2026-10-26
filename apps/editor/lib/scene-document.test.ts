@@ -119,7 +119,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     toggleLayerVisibility: () => {},
     moveLayer: () => {},
     setLayerImage: () => {},
-    setLayerDistortionMap: () => {},
     setScene3D: () => {},
     addSceneObject: () => {},
     updateSceneObject: () => {},

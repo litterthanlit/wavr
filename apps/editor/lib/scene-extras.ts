@@ -1,4 +1,6 @@
+import type { LayerParams } from "@wavr/core";
 import type { GradientState } from "./store";
+import { maskMode } from "./layer-mask";
 
 /**
  * An effect the editor no longer offers but still renders, which an older
@@ -39,7 +41,35 @@ export const SCENE_EXTRAS: readonly SceneExtra[] = [
   flag("Feedback Loop", "feedbackEnabled"),
 ];
 
-/** The extras switched on in this scene. */
 export function sceneExtrasOn(state: GradientState): SceneExtra[] {
   return SCENE_EXTRAS.filter((extra) => extra.isOn(state));
+}
+
+/** The same for a layer's own parts the Gradient tab no longer offers: how to tell, and the patch that removes it. */
+export interface LayerExtra {
+  label: string;
+  isOn: (layer: LayerParams) => boolean;
+  clear: (layer: LayerParams) => Partial<LayerParams>;
+}
+
+export const LAYER_EXTRAS: readonly LayerExtra[] = [
+  {
+    label: "Texture Overlay",
+    isOn: (layer) => layer.gradientType !== "image" && layer.imageData !== null,
+    clear: () => ({ imageData: null }),
+  },
+  {
+    label: "Distortion Map",
+    isOn: (layer) => layer.distortionMapEnabled,
+    clear: () => ({ distortionMapEnabled: false, distortionMapData: null }),
+  },
+  {
+    label: "Mask 2",
+    isOn: (layer) => maskMode(layer) === "shape" && layer.mask2.shape !== "none",
+    clear: (layer) => ({ mask2: { ...layer.mask2, shape: "none" } }),
+  },
+];
+
+export function layerExtrasOn(layer: LayerParams): LayerExtra[] {
+  return LAYER_EXTRAS.filter((extra) => extra.isOn(layer));
 }

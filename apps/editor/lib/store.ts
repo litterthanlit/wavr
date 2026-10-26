@@ -217,7 +217,6 @@ export interface GradientState {
 
   // Image actions
   setLayerImage: (layerIndex: number, dataURL: string | null) => void;
-  setLayerDistortionMap: (layerIndex: number, dataURL: string | null) => void;
 
   // Scene actions
   setScene3D: (partial: Partial<Scene3DState>) => void;
@@ -244,7 +243,7 @@ const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "loadPreset", "setLook", "randomize", "undo", "redo",
   "addLayer", "removeLayer", "selectLayer", "setLayerParam", "setLayerOpacity",
   "setLayerBlendMode", "toggleLayerVisibility", "moveLayer",
-  "setLayerImage", "setLayerDistortionMap",
+  "setLayerImage",
   "setScene3D", "addSceneObject", "updateSceneObject", "removeSceneObject",
   "selectSceneObject", "addParticleField", "updateParticleField", "removeParticleField",
   "toggleTimeline", "addKeyframe", "removeKeyframe", "setTimelinePosition",
@@ -757,16 +756,6 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     pushHistory(takeSnapshot(current));
     const newLayers = current.layers.map((l, i) =>
       i === layerIndex ? { ...l, imageData: dataURL } : l
-    );
-    rawSet({ layers: newLayers });
-  },
-
-  setLayerDistortionMap: (layerIndex, dataURL) => {
-    flushPending();
-    const current = useGradientStore.getState();
-    pushHistory(takeSnapshot(current));
-    const newLayers = current.layers.map((l, i) =>
-      i === layerIndex ? { ...l, distortionMapData: dataURL } : l
     );
     rawSet({ layers: newLayers });
   },

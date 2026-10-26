@@ -12,9 +12,10 @@ import Toggle from "@/components/ui/Toggle";
 import Section from "@/components/ui/Section";
 import Segmented from "@/components/ui/Segmented";
 import LookPicker from "@/components/LookPicker";
-import { LayerParams, MaskParams, TextMaskAlign } from "@wavr/core";
+import type { MaskParams, TextMaskAlign } from "@wavr/core";
 import { GRADIENT_OPTIONS, curatedPalette } from "@/lib/gradient-types";
 import { maskMode, maskModePatch, type MaskMode } from "@/lib/layer-mask";
+import { layerExtrasOn } from "@/lib/scene-extras";
 
 const MASK_MODE_OPTIONS: { value: MaskMode; label: string }[] = [
   { value: "none", label: "None" },
@@ -229,6 +230,7 @@ export default function GradientPanel() {
 
   const look = GRADIENT_OPTIONS.find((option) => option.value === store.gradientType);
   const mask = maskMode(activeLayer);
+  const extras = layerExtrasOn(activeLayer);
   // The look's own palette, offered back once the colours differ from it.
   const curated = curatedPalette(store.gradientType);
   const canReset = curated !== null && !sameStops(colors, curated);
@@ -325,63 +327,6 @@ export default function GradientPanel() {
         </Section>
       )}
 
-      {/* Texture Overlay — for non-image types */}
-      {!isImageType && (
-        <Section title="Texture Overlay">
-          <ImageUpload
-            label="Blend image"
-            imageData={activeLayer.imageData}
-            onUpload={(url) => store.setLayerImage(store.activeLayerIndex, url)}
-            onRemove={() => store.setLayerImage(store.activeLayerIndex, null)}
-          />
-          {activeLayer.imageData && (
-            <>
-              <Select
-                label="Blend Mode"
-                value={activeLayer.imageBlendMode}
-                options={[
-                  { value: "normal", label: "Normal" },
-                  { value: "multiply", label: "Multiply" },
-                  { value: "screen", label: "Screen" },
-                  { value: "overlay", label: "Overlay" },
-                  { value: "replace", label: "Replace" },
-                ]}
-                onChange={(v) => store.setLayerParam({ imageBlendMode: v as LayerParams["imageBlendMode"] })}
-              />
-              <Slider label="Blend Opacity" value={activeLayer.imageBlendOpacity} min={0} max={1} step={0.01}
-                onChange={(v) => updateLayerField("imageBlendOpacity", v)}
-                onCommit={() => store.commitSet()} />
-              <Slider label="Image Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01} format={times}
-                onChange={(v) => updateLayerField("imageScale", v)}
-                onCommit={() => store.commitSet()} />
-            </>
-          )}
-        </Section>
-      )}
-
-      <Section title="Distortion Map">
-        <Toggle
-          label="Enable Distortion Map"
-          checked={activeLayer.distortionMapEnabled}
-          onChange={(v) => store.setLayerParam({ distortionMapEnabled: v })}
-        />
-        {activeLayer.distortionMapEnabled && (
-          <>
-            <ImageUpload
-              label="Distortion map"
-              imageData={activeLayer.distortionMapData}
-              onUpload={(url) => store.setLayerDistortionMap(store.activeLayerIndex, url)}
-              onRemove={() => store.setLayerDistortionMap(store.activeLayerIndex, null)}
-            />
-            {activeLayer.distortionMapData && (
-              <Slider label="Intensity" value={activeLayer.distortionMapIntensity} min={0} max={1} step={0.01}
-                onChange={(v) => updateLayerField("distortionMapIntensity", v)}
-                onCommit={() => store.commitSet()} />
-            )}
-          </>
-        )}
-      </Section>
-
       <Section title="Mask">
         <Segmented
           label="Mask"
@@ -431,6 +376,27 @@ export default function GradientPanel() {
         <Slider label="Distortion" value={store.distortion} min={0} max={1} step={0.01} onChange={(v) => store.set({ distortion: v })} onCommit={() => store.commitSet()} />
         <Slider label="Softness" value={store.softness} min={0} max={1} step={0.01} onChange={(v) => store.set({ softness: v })} onCommit={() => store.commitSet()} />
       </Section>
+
+      {extras.length > 0 && (
+        <Section title="Also on this layer">
+          <p className="text-[11px] leading-snug text-text-tertiary">
+            Parts of this layer the editor no longer offers. Remove one to drop it.
+          </p>
+          {extras.map((extra) => (
+            <div key={extra.label} className="flex items-center justify-between text-xs">
+              <span className="text-text-secondary">{extra.label}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${extra.label}`}
+                onClick={() => store.setLayerParam(extra.clear(activeLayer))}
+                className="text-text-secondary hover:text-accent transition-colors py-1"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </Section>
+      )}
     </div>
   );
 }
