@@ -46,12 +46,12 @@ export interface BarPalette {
   sample: (t: number) => Rgb;
 }
 
-/** The layer's palette as the engine bakes it (blend, softness, Oklab, colour profile). */
+/** The layer's palette as the engine bakes it (softness, Oklab, colour profile). */
 export function barPalette(
   colors: readonly Rgb[],
-  options: { oklab: boolean; colorBlend: number; softness: number; colorProfile: ColorProfile },
+  options: { oklab: boolean; softness: number; colorProfile: ColorProfile },
 ): BarPalette {
-  const blend = effectiveBlend(options.colorBlend, options.softness);
+  const blend = effectiveBlend(options.softness);
   const table = bakePalette(colors, options.oklab, blend, undefined, options.colorProfile === "display-p3");
   const reach = paletteReach(blend);
   const span = 1 + 2 * reach;

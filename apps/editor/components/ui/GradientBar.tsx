@@ -23,7 +23,6 @@ interface GradientBarProps {
   onColorsChange: (colors: Rgb[]) => void;
   colorProfile: ColorProfile;
   oklab: boolean;
-  colorBlend: number;
   softness: number;
 }
 
@@ -46,7 +45,6 @@ export default function GradientBar({
   onColorsChange,
   colorProfile,
   oklab,
-  colorBlend,
   softness,
 }: GradientBarProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -55,8 +53,8 @@ export default function GradientBar({
   const [drag, setDrag] = useState<{ from: number; to: number; pointerId: number } | null>(null);
 
   const palette = useMemo(
-    () => barPalette(colors, { oklab, colorBlend, softness, colorProfile }),
-    [colors, oklab, colorBlend, softness, colorProfile],
+    () => barPalette(colors, { oklab, softness, colorProfile }),
+    [colors, oklab, softness, colorProfile],
   );
   const background = useMemo(() => {
     const stops = Array.from({ length: BAR_SAMPLES }, (_, i) => {

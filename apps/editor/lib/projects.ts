@@ -37,7 +37,6 @@ export interface ProjectState {
   blurEnabled: boolean;
   blurAmount: number;
   radialBlurAmount: number;
-  colorBlend: number;
   chromaticAberration: number;
   hueShift: number;
   asciiEnabled: boolean;
@@ -105,9 +104,9 @@ export interface ProjectState {
 
 const STORAGE_KEY = "wavr-projects";
 
-/** Fields of editor features that are gone (audio reactivity), which older saved projects still carry. */
+/** Fields of editor features that are gone (the colour blend, audio reactivity), which older saved projects still carry. */
 const RETIRED_EDITOR_FIELDS = [
-  "audioEnabled", "audioSource", "audioBassTarget", "audioTrebleTarget", "audioEnergyTarget", "audioSensitivity",
+  "colorBlend", "audioEnabled", "audioSource", "audioBassTarget", "audioTrebleTarget", "audioEnergyTarget", "audioSensitivity",
 ];
 
 export function exportProjectState(state: GradientState): ProjectState {
@@ -130,7 +129,6 @@ export function exportProjectState(state: GradientState): ProjectState {
     blurEnabled: state.blurEnabled as boolean,
     blurAmount: state.blurAmount as number,
     radialBlurAmount: state.radialBlurAmount as number,
-    colorBlend: state.colorBlend as number,
     chromaticAberration: state.chromaticAberration as number,
     hueShift: state.hueShift as number,
     asciiEnabled: state.asciiEnabled as boolean,

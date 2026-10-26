@@ -55,7 +55,6 @@ export interface EngineState {
   blurEnabled: boolean;
   blurAmount: number;
   radialBlurAmount: number;
-  colorBlend: number;
   chromaticAberration: number;
   hueShift: number;
   asciiEnabled: boolean;
@@ -1748,12 +1747,12 @@ export class GradientEngine {
    * Binds the baked palette of the layer in slot `slot` (its position among
    * the visible layers) to the palette unit and sets `u_paletteDomain` on the
    * program in use. The table is baked again only when the layer's colours,
-   * the colour blend or softness, or the Oklab switch differ from what was
-   * baked, so a frame with an unchanged palette uploads nothing.
+   * its softness or the Oklab switch differ from what was baked, so a frame
+   * with an unchanged palette uploads nothing.
    */
   private bindPalette(slot: number, layer: LayerParams, state: EngineState) {
     const gl = this.gl;
-    const blend = effectiveBlend(state.colorBlend, layer.softness);
+    const blend = effectiveBlend(layer.softness);
     let entry = this.palettes[slot];
     if (!entry) {
       entry = {

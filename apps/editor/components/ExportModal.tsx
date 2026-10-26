@@ -201,7 +201,6 @@ export default function ExportModal({
     brightness: store.brightness,
     saturation: store.saturation,
     hueShift: store.hueShift,
-    colorBlend: store.colorBlend,
     oklabEnabled: store.oklabEnabled,
     toneMapMode: store.toneMapMode,
     colorProfile: store.colorProfile,

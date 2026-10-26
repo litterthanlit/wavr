@@ -1,6 +1,6 @@
 // Palette lookup table: `getGradientColor(t)` baked on the CPU into a 1D
 // texture, one per layer. The shader used to evaluate the palette per pixel:
-// up to 7 taps (colour blend / softness), each interpolating two stops through
+// up to 7 taps (softness), each interpolating two stops through
 // sRGB -> linear -> Oklab and back, i.e. dozens of pow/cbrt per call and
 // several calls per pixel in the premium modes. A palette only changes when
 // the user edits colours, so it is evaluated once instead and the shader does
@@ -46,9 +46,9 @@ const TAPS: readonly (readonly [number, number])[] = [
   [0.5, 0.05],
 ];
 
-/** How far the colours melt into each other: the global colour blend, or the layer's softness. */
-export function effectiveBlend(colorBlend: number, softness: number): number {
-  return Math.max(colorBlend, softness * 0.85);
+/** How far the colours melt into each other, from the layer's softness. */
+export function effectiveBlend(softness: number): number {
+  return softness * 0.85;
 }
 
 /**

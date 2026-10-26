@@ -50,7 +50,7 @@ export function portableModule(settings: PortableSettings, language: PortableLan
   const bang = t("!");
   const uses = (uniform: string) => shader.uniforms.has(uniform);
   const pointer = settings.mouseReact > 0;
-  const blend = effectiveBlend(settings.colorBlend, settings.softness);
+  const blend = effectiveBlend(settings.softness);
 
   const colors = settings.colors.map((c) => `  [${c.map(jsNumber).join(", ")}],`).join("\n");
 

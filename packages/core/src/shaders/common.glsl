@@ -323,8 +323,8 @@ vec2 compositeUV(vec2 uv, vec2 targetSize) {
 // Palette
 // ============================================================
 
-// The layer's palette (stops, Oklab or sRGB interpolation, colour blend and
-// softness) is evaluated on the CPU, once per change, into a 1D texture of
+// The layer's palette (stops, Oklab or sRGB interpolation, softness) is
+// evaluated on the CPU, once per change, into a 1D texture of
 // PALETTE_TEXELS (palette.ts is the source of the maths). The texture covers
 // t in [-reach, 1 + reach], where reach is how far the blend still moves the
 // colour past the ends; u_paletteDomain maps t to a coordinate along it.

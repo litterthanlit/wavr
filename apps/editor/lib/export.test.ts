@@ -95,14 +95,13 @@ describe("export helpers", () => {
   });
 
   it("applies the editor's colour grade", () => {
-    const code = exportReactComponent({ ...state, hueShift: 30, toneMapMode: 2, oklabEnabled: false, colorBlend: 0.4 });
+    const code = exportReactComponent({ ...state, hueShift: 30, toneMapMode: 2, oklabEnabled: false });
     expect(code).toContain("const float BRIGHTNESS = 1.1;");
     expect(code).toContain("const float SATURATION = 0.92;");
     expect(code).toContain("const float HUE_SHIFT = 30.0; // degrees");
     expect(code).toContain("const int TONE_MAP_MODE = 2;");
     expect(code).toContain("const OKLAB = false;");
-    expect(code).toContain("const BLEND = 0.578;"); // the larger of softness * 0.85 and the colour blend
-    expect(exportReactComponent({ ...state, softness: 0.1, colorBlend: 0.4 })).toContain("const BLEND = 0.4;");
+    expect(code).toContain("const BLEND = 0.578;"); // softness * 0.85
   });
 
   it("no longer ends in Reinhard c / (c + 1), which halved every export's brightness", () => {

@@ -30,7 +30,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     blurEnabled: false,
     blurAmount: 0,
     radialBlurAmount: 0,
-    colorBlend: 0,
     chromaticAberration: 0,
     hueShift: 0,
     asciiEnabled: false,

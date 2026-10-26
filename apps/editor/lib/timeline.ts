@@ -11,7 +11,6 @@ export interface KeyframeParams {
   brightness?: number;
   saturation?: number;
   hueShift?: number;
-  colorBlend?: number;
   noiseIntensity?: number;
   vignette?: number;
 }
@@ -20,7 +19,7 @@ export type PlaybackMode = "loop" | "bounce" | "once";
 
 export const KEYFRAMEABLE_PARAMS: (keyof KeyframeParams)[] = [
   "speed", "complexity", "scale", "distortion",
-  "brightness", "saturation", "hueShift", "colorBlend",
+  "brightness", "saturation", "hueShift",
   "noiseIntensity", "vignette",
 ];
 

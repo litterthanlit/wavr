@@ -120,7 +120,7 @@ describe("GradientEngine render passes", () => {
     // The palette texture is the one baked from the last visible layer's colours...
     const palette = post.boundTextures.get(7);
     const baked = uploads.find((u) => u.texture === palette);
-    const blend = effectiveBlend(0, last.softness);
+    const blend = effectiveBlend(last.softness);
     expect(baked?.data).toEqual(Array.from(bakePalette(last.colors, true, blend)));
     // ...which is the texture the last layer's own draw used, with the same domain.
     expect(draws[1].boundTextures.get(7)).toBe(palette);

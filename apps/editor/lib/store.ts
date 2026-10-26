@@ -102,7 +102,6 @@ export interface GradientState {
   blurEnabled: boolean;
   blurAmount: number;
   radialBlurAmount: number;
-  colorBlend: number;
   chromaticAberration: number;
   hueShift: number;
   asciiEnabled: boolean;
@@ -341,7 +340,6 @@ const DEFAULTS = {
   blurEnabled: false,
   blurAmount: 0,
   radialBlurAmount: 0,
-  colorBlend: 0,
   chromaticAberration: 0,
   hueShift: 0,
   asciiEnabled: false,

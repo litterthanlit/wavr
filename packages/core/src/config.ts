@@ -70,7 +70,6 @@ export function resolveConfig(config: GradientConfig): EngineState {
     blurEnabled: config.blur?.enabled ?? false,
     blurAmount: config.blur?.amount ?? 0,
     radialBlurAmount: config.radialBlur ?? 0,
-    colorBlend: 0,
     chromaticAberration: config.chromaticAberration ?? 0,
     hueShift: config.hueShift ?? 0,
     asciiEnabled: config.ascii?.enabled ?? false,

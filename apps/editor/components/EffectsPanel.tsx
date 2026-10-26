@@ -117,7 +117,6 @@ export default function EffectsPanel() {
             {wideGamut === false && " This screen shows sRGB, so here you see the nearest sRGB colours."}
           </p>
         )}
-        <Slider label="Color Blend" value={store.colorBlend} min={0} max={1} step={0.01} onChange={(v) => store.set({ colorBlend: v })} onCommit={() => store.commitSet()} />
         <Slider label="Chromatic Aberration" value={store.chromaticAberration} min={0} max={1} step={0.01} onChange={(v) => store.set({ chromaticAberration: v })} onCommit={() => store.commitSet()} />
       </Section>
 

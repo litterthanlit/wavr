@@ -38,7 +38,6 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     blurEnabled: false,
     blurAmount: 0,
     radialBlurAmount: 0,
-    colorBlend: 0,
     chromaticAberration: 0,
     hueShift: 0,
     asciiEnabled: false,
@@ -239,17 +238,17 @@ describe("project export", () => {
     expect(patch).not.toHaveProperty("domainWarp");
   });
 
-  it("opens a project saved with audio reactivity without its fields", async () => {
-    const audio = {
-      audioEnabled: true, audioSource: "mic", audioBassTarget: "distortion",
+  it("opens a project saved with the colour blend or audio reactivity without their fields", async () => {
+    const retired = {
+      colorBlend: 0.4, audioEnabled: true, audioSource: "mic", audioBassTarget: "distortion",
       audioTrebleTarget: "brightness", audioEnergyTarget: "scale", audioSensitivity: 0.5,
     };
-    const project = { name: "Loud", timestamp: 1, state: { ...exportProjectState(minimalState()), ...audio } };
+    const project = { name: "Loud", timestamp: 1, state: { ...exportProjectState(minimalState()), ...retired } };
     localStorage.setItem("wavr-projects", JSON.stringify([project]));
 
     const { patch } = await projectStateForLoad(loadProjects()[0]);
 
-    for (const key of Object.keys(audio)) expect(patch).not.toHaveProperty(key);
+    for (const key of Object.keys(retired)) expect(patch).not.toHaveProperty(key);
     expect(patch).toMatchObject({ grain: project.state.grain });
   });
 

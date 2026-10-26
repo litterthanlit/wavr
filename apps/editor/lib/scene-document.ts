@@ -57,7 +57,6 @@ const GLOBAL_TIMELINE_PATHS: Partial<Record<keyof KeyframeParams, string>> = {
   saturation: "globals.saturation",
   hueShift: "globals.hueShift",
   vignette: "globals.vignette",
-  colorBlend: "editor.colorBlend",
   noiseIntensity: "postEffects.noise.params.intensity",
 };
 

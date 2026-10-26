@@ -33,7 +33,7 @@ const mist = createLayer({
 });
 
 const bakedFor = (layer: LayerParams, state: EngineState) =>
-  Array.from(bakePalette(layer.colors, state.oklabEnabled, effectiveBlend(state.colorBlend, layer.softness)));
+  Array.from(bakePalette(layer.colors, state.oklabEnabled, effectiveBlend(layer.softness)));
 
 describe("palette textures", () => {
   it("uploads each layer's table once, however many frames follow", () => {
@@ -53,16 +53,15 @@ describe("palette textures", () => {
     expect(paletteUploads()).toHaveLength(3);
   });
 
-  it("bakes what the old shader computed: the stops, Oklab switch and blend of each layer", () => {
+  it("bakes what the old shader computed: the stops, Oklab switch and softness of each layer", () => {
     const { engine, paletteUploads } = setup();
-    const state = stateWith([warm, cool, mist], { colorBlend: 0.25, oklabEnabled: false });
+    const state = stateWith([warm, cool, mist], { oklabEnabled: false });
     engine.render(state);
 
     const uploads = paletteUploads();
     expect(uploads.map((u) => u.data)).toEqual(state.layers.map((layer) => bakedFor(layer, state)));
-    // warm: the colour blend (0.25); cool: its softness (0.6 * 0.85 = 0.51) wins.
-    expect(effectiveBlend(0.25, warm.softness)).toBe(0.25);
-    expect(effectiveBlend(0.25, cool.softness)).toBeCloseTo(0.51);
+    // cool's softness blends its colours (0.6 * 0.85 = 0.51).
+    expect(effectiveBlend(cool.softness)).toBeCloseTo(0.51);
   });
 
   it("binds each layer's table to the palette unit for its own draw, and the last one for post", () => {
@@ -78,7 +77,7 @@ describe("palette textures", () => {
     expect(post.boundTextures.get(UNIT_PALETTE)).toBe(textures[2]);
 
     for (const [i, layer] of state.layers.entries()) {
-      const domain = paletteDomain(effectiveBlend(0, layer.softness));
+      const domain = paletteDomain(effectiveBlend(layer.softness));
       expect(draws[i].uniforms.u_paletteTexture).toBe(UNIT_PALETTE);
       expect(draws[i].uniforms.u_paletteDomain).toEqual([domain.scale, domain.bias]);
     }
@@ -117,26 +116,23 @@ describe("palette textures", () => {
     expect(uploads[2].data).toEqual(bakedFor(recoloured, next));
   });
 
-  it("bakes again when softness, the colour blend or Oklab change the table, and not otherwise", () => {
+  it("bakes again when softness or Oklab change the table, and not otherwise", () => {
     const { engine, paletteUploads } = setup();
-    const layer = { ...warm, softness: 0.2 }; // 0.17 effective
+    const layer = { ...warm, softness: 0.2 };
     engine.render(stateWith([layer]));
     expect(paletteUploads()).toHaveLength(1);
 
-    // Opacity, speed, and a colour blend under the softness: the table is the same.
-    engine.render(stateWith([{ ...layer, opacity: 0.5, speed: 2 }], { colorBlend: 0.1 }));
+    // Opacity and speed: the table is the same.
+    engine.render(stateWith([{ ...layer, opacity: 0.5, speed: 2 }]));
     expect(paletteUploads()).toHaveLength(1);
 
     engine.render(stateWith([{ ...layer, softness: 0.5 }]));
     expect(paletteUploads()).toHaveLength(2);
 
-    engine.render(stateWith([{ ...layer, softness: 0.5 }], { colorBlend: 0.7 }));
+    engine.render(stateWith([{ ...layer, softness: 0.5 }], { oklabEnabled: false }));
     expect(paletteUploads()).toHaveLength(3);
-
-    engine.render(stateWith([{ ...layer, softness: 0.5 }], { colorBlend: 0.7, oklabEnabled: false }));
-    expect(paletteUploads()).toHaveLength(4);
-    expect(paletteUploads()[3].data).toEqual(
-      Array.from(bakePalette(layer.colors, false, effectiveBlend(0.7, 0.5))),
+    expect(paletteUploads()[2].data).toEqual(
+      Array.from(bakePalette(layer.colors, false, effectiveBlend(0.5))),
     );
   });
 

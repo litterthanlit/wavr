@@ -237,7 +237,6 @@ export default function GradientPanel() {
     const t = (stopPosition(index - 1, colors.length) + stopPosition(index, colors.length)) / 2;
     const color = barPalette(colors, {
       oklab: store.oklabEnabled,
-      colorBlend: store.colorBlend,
       softness: store.softness,
       colorProfile: store.colorProfile,
     }).sample(t);
@@ -369,7 +368,6 @@ export default function GradientPanel() {
               onColorsChange={(next) => store.setDiscrete({ colors: next })}
               colorProfile={store.colorProfile}
               oklab={store.oklabEnabled}
-              colorBlend={store.colorBlend}
               softness={store.softness}
             />
             <ColorInput
