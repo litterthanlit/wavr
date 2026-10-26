@@ -436,6 +436,7 @@ describe("empty hash", () => {
       toneMapMode: 2,
       realBloomEnabled: !INITIAL_EFFECTS.realBloomEnabled,
       colorProfile: "srgb",
+      hdrHeadroom: 0,
     });
 
     // An empty hash applies synchronously; there's no codec to wait for.
@@ -451,6 +452,7 @@ describe("empty hash", () => {
     expect(state.toneMapMode).toBe(INITIAL_EFFECTS.toneMapMode);
     expect(state.realBloomEnabled).toBe(INITIAL_EFFECTS.realBloomEnabled);
     expect(state.colorProfile).toBe(INITIAL_EFFECTS.colorProfile);
+    expect(state.hdrHeadroom).toBe(INITIAL_EFFECTS.hdrHeadroom);
   });
 
   it("the initial scene is a valid config", () => {

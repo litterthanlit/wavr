@@ -21,12 +21,14 @@ export const INITIAL_LAYER_PARAMS: Partial<LayerParams> = {
 /**
  * The opening scene's global effects. The aperture rolls its own light toward
  * white, so the tone map is off (its shoulder would dim the most saturated
- * colours), cinematic bloom gives the glare a camera sees around light, and
- * its colours are Display P3.
+ * colours), cinematic bloom gives the glare a camera sees around light, its
+ * colours are Display P3, and on an HDR screen its light shines a stop and a
+ * half brighter than white.
  */
 export const INITIAL_EFFECTS = {
   grain: 0.03,
   toneMapMode: 0,
   realBloomEnabled: true,
   colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
 } satisfies Partial<EngineState>;

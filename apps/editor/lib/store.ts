@@ -388,8 +388,7 @@ const DEFAULTS = {
   trailWidth: 0.05,
   debandEnabled: true,
   debandStrength: 1.0,
-  hdrHeadroom: 0,
-  // The opening scene's own grain, tone map, bloom and colour profile.
+  // The opening scene's own grain, tone map, bloom, colour profile and HDR headroom.
   ...INITIAL_EFFECTS,
   audioEnabled: false,
   audioSource: "mic" as const,
