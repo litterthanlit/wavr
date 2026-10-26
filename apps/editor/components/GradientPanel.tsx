@@ -10,25 +10,25 @@ import GradientBar from "@/components/ui/GradientBar";
 import { MAX_STOPS, barPalette, insertStop, reverseStops, sameStops, stopPosition, type Rgb } from "@/lib/color-stops";
 import Toggle from "@/components/ui/Toggle";
 import Section from "@/components/ui/Section";
+import Segmented from "@/components/ui/Segmented";
 import LookPicker from "@/components/LookPicker";
 import { LayerParams, MaskParams, TextMaskAlign } from "@wavr/core";
 import { GRADIENT_OPTIONS, curatedPalette } from "@/lib/gradient-types";
+import { maskMode, maskModePatch, type MaskMode } from "@/lib/layer-mask";
+
+const MASK_MODE_OPTIONS: { value: MaskMode; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "shape", label: "Shape" },
+  { value: "text", label: "Text" },
+];
 
 const MASK_SHAPE_OPTIONS = [
-  { value: "none", label: "None" },
   { value: "circle", label: "Circle" },
   { value: "roundedRect", label: "Rounded Rect" },
   { value: "ellipse", label: "Ellipse" },
   { value: "polygon", label: "Polygon" },
   { value: "star", label: "Star" },
   { value: "blob", label: "Blob" },
-];
-
-const MASK_BLEND_OPTIONS = [
-  { value: "union", label: "Union" },
-  { value: "subtract", label: "Subtract" },
-  { value: "intersect", label: "Intersect" },
-  { value: "smoothUnion", label: "Smooth Union" },
 ];
 
 const TEXT_ALIGN_OPTIONS = [
@@ -144,66 +144,46 @@ function ImageUpload({
   );
 }
 
-function MaskControls({
-  label,
+/** The shape mask's controls; "no mask" is the Mask control's None. */
+function ShapeMaskControls({
   mask,
   onUpdate,
 }: {
-  label: string;
   mask: MaskParams;
   onUpdate: (field: string, value: number | boolean | string | [number, number]) => void;
 }) {
+  const commit = () => useGradientStore.getState().commitSet();
   return (
-    <div className="flex flex-col gap-3">
-      <span className="text-[10px] font-medium text-text-tertiary">{label}</span>
-      <Select
-        label="Shape"
-        value={mask.shape}
-        options={MASK_SHAPE_OPTIONS}
-        onChange={(v) => onUpdate("shape", v)}
-      />
-      {mask.shape !== "none" && (
-        <>
-          <Slider label="Position X" value={mask.position[0]} min={-1} max={1} step={0.01}
-            onChange={(v) => onUpdate("position", [v, mask.position[1]])}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Position Y" value={mask.position[1]} min={-1} max={1} step={0.01}
-            onChange={(v) => onUpdate("position", [mask.position[0], v])}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Scale X" value={mask.scale[0]} min={0.1} max={4} step={0.01} format={times}
-            onChange={(v) => onUpdate("scale", [v, mask.scale[1]])}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Scale Y" value={mask.scale[1]} min={0.1} max={4} step={0.01} format={times}
-            onChange={(v) => onUpdate("scale", [mask.scale[0], v])}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Rotation" value={mask.rotation} min={0} max={6.28} step={0.01} format={radiansAsDegrees}
-            onChange={(v) => onUpdate("rotation", v)}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Feather" value={mask.feather} min={0} max={0.5} step={0.001}
-            onChange={(v) => onUpdate("feather", v)}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Toggle label="Invert" checked={mask.invert} onChange={(v) => onUpdate("invert", v)} />
-          {mask.shape === "roundedRect" && (
-            <Slider label="Corner Radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
-              onChange={(v) => onUpdate("cornerRadius", v)}
-              onCommit={() => useGradientStore.getState().commitSet()} />
-          )}
-          {(mask.shape === "polygon" || mask.shape === "star") && (
-            <Slider label="Sides" value={mask.sides} min={3} max={12} step={1}
-              onChange={(v) => onUpdate("sides", v)}
-              onCommit={() => useGradientStore.getState().commitSet()} />
-          )}
-          {mask.shape === "star" && (
-            <Slider label="Inner Radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
-              onChange={(v) => onUpdate("starInnerRadius", v)}
-              onCommit={() => useGradientStore.getState().commitSet()} />
-          )}
-          <Slider label="Noise Edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
-            onChange={(v) => onUpdate("noiseDistortion", v)}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-        </>
+    <>
+      <Select label="Shape" value={mask.shape} options={MASK_SHAPE_OPTIONS} onChange={(v) => onUpdate("shape", v)} />
+      <Slider label="Position X" value={mask.position[0]} min={-1} max={1} step={0.01}
+        onChange={(v) => onUpdate("position", [v, mask.position[1]])} onCommit={commit} />
+      <Slider label="Position Y" value={mask.position[1]} min={-1} max={1} step={0.01}
+        onChange={(v) => onUpdate("position", [mask.position[0], v])} onCommit={commit} />
+      <Slider label="Scale X" value={mask.scale[0]} min={0.1} max={4} step={0.01} format={times}
+        onChange={(v) => onUpdate("scale", [v, mask.scale[1]])} onCommit={commit} />
+      <Slider label="Scale Y" value={mask.scale[1]} min={0.1} max={4} step={0.01} format={times}
+        onChange={(v) => onUpdate("scale", [mask.scale[0], v])} onCommit={commit} />
+      <Slider label="Rotation" value={mask.rotation} min={0} max={6.28} step={0.01} format={radiansAsDegrees}
+        onChange={(v) => onUpdate("rotation", v)} onCommit={commit} />
+      <Slider label="Feather" value={mask.feather} min={0} max={0.5} step={0.001}
+        onChange={(v) => onUpdate("feather", v)} onCommit={commit} />
+      <Toggle label="Invert" checked={mask.invert} onChange={(v) => onUpdate("invert", v)} />
+      {mask.shape === "roundedRect" && (
+        <Slider label="Corner Radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
+          onChange={(v) => onUpdate("cornerRadius", v)} onCommit={commit} />
       )}
-    </div>
+      {(mask.shape === "polygon" || mask.shape === "star") && (
+        <Slider label="Sides" value={mask.sides} min={3} max={12} step={1}
+          onChange={(v) => onUpdate("sides", v)} onCommit={commit} />
+      )}
+      {mask.shape === "star" && (
+        <Slider label="Inner Radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
+          onChange={(v) => onUpdate("starInnerRadius", v)} onCommit={commit} />
+      )}
+      <Slider label="Noise Edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
+        onChange={(v) => onUpdate("noiseDistortion", v)} onCommit={commit} />
+    </>
   );
 }
 
@@ -237,22 +217,18 @@ export default function GradientPanel() {
     store.set({ layers: newLayers } as Partial<typeof store>);
   };
 
-  const updateMask = (maskKey: "mask1" | "mask2", field: string, value: number | boolean | string | [number, number]) => {
-    const currentMask = activeLayer[maskKey];
-    const updatedMask = { ...currentMask, [field]: value };
-    if (typeof value === "string" && field === "shape") {
-      store.setLayerParam({ [maskKey]: updatedMask });
-    } else if (typeof value === "boolean") {
-      store.setLayerParam({ [maskKey]: updatedMask });
+  // A shape or a switch is one undo step; a slider's drag is one too, closed on release.
+  const updateMask = (field: string, value: number | boolean | string | [number, number]) => {
+    const mask1 = { ...activeLayer.mask1, [field]: value };
+    if (typeof value === "string" || typeof value === "boolean") {
+      store.setLayerParam({ mask1 });
     } else {
-      const newLayers = store.layers.map((l, i) =>
-        i === store.activeLayerIndex ? { ...l, [maskKey]: updatedMask } : l
-      );
-      store.set({ layers: newLayers } as Partial<typeof store>);
+      store.set({ layers: store.layers.map((l, i) => (i === store.activeLayerIndex ? { ...l, mask1 } : l)) });
     }
   };
 
   const look = GRADIENT_OPTIONS.find((option) => option.value === store.gradientType);
+  const mask = maskMode(activeLayer);
   // The look's own palette, offered back once the colours differ from it.
   const curated = curatedPalette(store.gradientType);
   const canReset = curated !== null && !sameStops(colors, curated);
@@ -407,82 +383,28 @@ export default function GradientPanel() {
       </Section>
 
       <Section title="Mask">
-        <Toggle
-          label="Enable Mask"
-          checked={activeLayer.maskEnabled}
-          onChange={(v) => {
-            const updates: Partial<LayerParams> = { maskEnabled: v };
-            if (v) updates.textMaskEnabled = false;
-            store.setLayerParam(updates);
-          }}
+        <Segmented
+          label="Mask"
+          value={mask}
+          options={MASK_MODE_OPTIONS}
+          onChange={(mode) => store.setLayerParam(maskModePatch(activeLayer, mode))}
         />
-        {activeLayer.maskEnabled && (
+        {mask === "shape" && <ShapeMaskControls mask={activeLayer.mask1} onUpdate={updateMask} />}
+        {mask === "text" && (
           <>
-            <MaskControls
-              label="Mask 1"
-              mask={activeLayer.mask1}
-              onUpdate={(field, value) => updateMask("mask1", field, value)}
-            />
-            {activeLayer.mask1.shape !== "none" && (
-              <>
-                <MaskControls
-                  label="Mask 2"
-                  mask={activeLayer.mask2}
-                  onUpdate={(field, value) => updateMask("mask2", field, value)}
-                />
-                {activeLayer.mask2.shape !== "none" && (
-                  <div className="flex flex-col gap-3">
-                    <span className="text-[10px] font-medium text-text-tertiary">Combine</span>
-                    <Select
-                      label="Blend Mode"
-                      value={activeLayer.maskBlendMode}
-                      options={MASK_BLEND_OPTIONS}
-                      onChange={(v) => store.setLayerParam({ maskBlendMode: v as LayerParams["maskBlendMode"] })}
-                    />
-                    {activeLayer.maskBlendMode === "smoothUnion" && (
-                      <Slider label="Smoothness" value={activeLayer.maskSmoothness} min={0} max={0.5} step={0.01}
-                        onChange={(v) => updateLayerField("maskSmoothness", v)}
-                        onCommit={() => store.commitSet()} />
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </Section>
-
-      <Section title="Text Mask">
-        <Toggle
-          label="Enable Text Mask"
-          checked={activeLayer.textMaskEnabled}
-          onChange={(v) => {
-            // Mutually exclusive with shape mask
-            const updates: Partial<LayerParams> = { textMaskEnabled: v };
-            if (v) updates.maskEnabled = false;
-            store.setLayerParam(updates);
-          }}
-        />
-        {activeLayer.textMaskEnabled && (
-          <>
-            <div className="flex flex-col gap-1">
+            <label className="flex flex-col gap-1">
               <span className="text-[10px] font-medium text-text-tertiary">Text</span>
               <input
                 type="text"
                 value={activeLayer.textMaskContent}
-                onChange={(e) => {
-                  const newLayers = store.layers.map((l, i) =>
-                    i === store.activeLayerIndex ? { ...l, textMaskContent: e.target.value } : l
-                  );
-                  store.set({ layers: newLayers } as Partial<typeof store>);
-                }}
+                onChange={(e) => updateLayerField("textMaskContent", e.target.value)}
                 onBlur={() => store.commitSet()}
                 placeholder="Enter text..."
                 className="w-full px-2 py-1.5 text-xs bg-surface border border-border rounded-md
                   text-text-primary placeholder:text-text-tertiary focus:outline-none
                   focus:border-accent transition-colors"
               />
-            </div>
+            </label>
             <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1} format={px}
               onChange={(v) => updateLayerField("textMaskFontSize", v)}
               onCommit={() => store.commitSet()} />
