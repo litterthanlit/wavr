@@ -6,7 +6,11 @@ import { GradientConfig } from "../types";
 // map off (its shoulder would dim their most saturated colours), and most use
 // the cinematic bloom for the glare a camera sees around light. Their colours
 // are Display P3: on a wide-gamut screen they reach saturation sRGB can't, and
-// elsewhere they show as the nearest sRGB colours.
+// elsewhere they show as the nearest sRGB colours. On an HDR screen their
+// light shines brighter than white (hdrHeadroom), by as much as the frame
+// carries: a screen holds a small bright area far brighter than a full one, so
+// a loop of light in a dark room gets two stops, an opening in a wall one and
+// a half, and a room or wall of light, the whole frame, one.
 
 // A tall opening in a slate wall: pale at its edges, through magenta and
 // violet to a cornflower core.
@@ -23,6 +27,7 @@ export const aperture: GradientConfig = {
   grain: 0.03,
   toneMapMode: 0,
   colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
   realBloomEnabled: true,
 };
 
@@ -40,6 +45,7 @@ export const cobaltAperture: GradientConfig = {
   grain: 0.03,
   toneMapMode: 0,
   colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
   realBloomEnabled: true,
 };
 
@@ -57,6 +63,7 @@ export const duskAperture: GradientConfig = {
   grain: 0.04,
   toneMapMode: 0,
   colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
   realBloomEnabled: true,
 };
 
@@ -75,6 +82,7 @@ export const ganzfeld: GradientConfig = {
   grain: 0.03,
   toneMapMode: 0,
   colorProfile: "display-p3",
+  hdrHeadroom: 1,
 };
 
 // A loop of rose light in a dark, hazy room; its ends burn white.
@@ -91,6 +99,7 @@ export const halo: GradientConfig = {
   grain: 0.08,
   toneMapMode: 0,
   colorProfile: "display-p3",
+  hdrHeadroom: 2,
   realBloomEnabled: true,
 };
 
@@ -107,6 +116,7 @@ export const iceHalo: GradientConfig = {
   grain: 0.05,
   toneMapMode: 0,
   colorProfile: "display-p3",
+  hdrHeadroom: 2,
   realBloomEnabled: true,
 };
 
@@ -124,6 +134,7 @@ export const lightWall: GradientConfig = {
   grain: 0.04,
   toneMapMode: 0,
   colorProfile: "display-p3",
+  hdrHeadroom: 1,
 };
 
 export const lagoonWall: GradientConfig = {
@@ -139,5 +150,6 @@ export const lagoonWall: GradientConfig = {
   grain: 0.04,
   toneMapMode: 0,
   colorProfile: "display-p3",
+  hdrHeadroom: 1,
   realBloomEnabled: true,
 };
