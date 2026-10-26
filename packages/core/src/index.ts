@@ -20,6 +20,8 @@ export {
   MASK_SHAPES,
   MASK_BLEND_MODES,
   TEXT_MASK_ALIGNS,
+  RETIRED_GRADIENT_TYPES,
+  currentGradientType,
 } from "@wavr/schema/enums";
 export { mat4Perspective, mat4LookAt, mat4RotateX, mat4RotateY, mat4Multiply, mat4Identity, flipRowsRGBA } from "./math";
 export type { GradientConfig, LayerConfig, RGBColor, GradientHandle, CreateGradientOptions, AnimateOptions } from "./types";

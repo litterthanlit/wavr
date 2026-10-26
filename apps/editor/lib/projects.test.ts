@@ -214,7 +214,7 @@ describe("project export", () => {
 
   it("can load from scene-document-only saved projects", async () => {
     const state = minimalState({
-      layers: [createLayer({ gradientType: "plasma", speed: 0.7 })],
+      layers: [createLayer({ gradientType: "plasmaOrb", speed: 0.7 })],
       brightness: 1.3,
     });
     await saveProject("Future scene", state);
@@ -227,11 +227,34 @@ describe("project export", () => {
       brightness: 1.3,
       layers: [
         expect.objectContaining({
-          gradientType: "plasma",
+          gradientType: "plasmaOrb",
           speed: 0.7,
         }),
       ],
     });
+  });
+
+  it("opens a project saved with a retired gradient type as lightWall, with its colours", async () => {
+    const colors = [[0.1, 0.2, 0.9], [0.9, 0.3, 0.2], [0.2, 0.9, 0.5]];
+    const layer = { ...createLayer({ speed: 0.7 }), gradientType: "mesh", colors };
+    const project = { name: "Mesh", timestamp: 1, state: { ...exportProjectState(minimalState()), layers: [layer] } };
+    localStorage.setItem("wavr-projects", JSON.stringify([project]));
+
+    const { patch } = await projectStateForLoad(loadProjects()[0]);
+
+    expect(patch.layers).toEqual([{ ...layer, gradientType: "lightWall" }]);
+  });
+
+  it("opens a scene-document-only project naming a retired gradient type as lightWall", async () => {
+    const colors: [number, number, number][] = [[0.01, 0.02, 0.06], [0.18, 0.92, 0.55]];
+    await saveProject("Aurora", minimalState({ layers: [createLayer({ colors, speed: 0.2 })] }));
+    const saved = JSON.parse(localStorage.getItem("wavr-projects") ?? "[]")[0];
+    delete saved.state;
+    saved.sceneDocument.layers[0].source.gradient.type = "aurora";
+
+    const { patch } = await projectStateForLoad(saved);
+
+    expect(patch.layers).toEqual([expect.objectContaining({ gradientType: "lightWall", colors, speed: 0.2 })]);
   });
 });
 

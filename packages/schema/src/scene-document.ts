@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BlendMode, ColorSpace } from "./primitives";
+import { currentGradientType } from "./enums";
 import { LayerConfig } from "./layer";
 import { GradientConfig, type GradientConfig as GradientConfigValue } from "./schema";
 import { DEFAULT_CONFIG } from "./defaults";
@@ -168,6 +169,26 @@ export const WavrSceneDocument = z.object({
   performanceProfile: PerformanceProfile,
 }).strict();
 export type WavrSceneDocument = z.infer<typeof WavrSceneDocument>;
+
+function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null && !Array.isArray(x);
+}
+
+/**
+ * Parse a scene document from outside (a file, local storage). One saved by an
+ * earlier Wavr may name a retired gradient type, which opens as its
+ * replacement.
+ */
+export function parseSceneDocument(input: unknown): WavrSceneDocument {
+  if (!isRecord(input) || !Array.isArray(input.layers)) return WavrSceneDocument.parse(input);
+  const layers = input.layers.map((layer: unknown) => {
+    if (!isRecord(layer) || !isRecord(layer.source) || !isRecord(layer.source.gradient)) return layer;
+    const gradient = layer.source.gradient;
+    if (typeof gradient.type !== "string") return layer;
+    return { ...layer, source: { ...layer.source, gradient: { ...gradient, type: currentGradientType(gradient.type) } } };
+  });
+  return WavrSceneDocument.parse({ ...input, layers });
+}
 
 export interface SceneDocumentFromConfigOptions {
   id?: string;

@@ -161,7 +161,7 @@ export interface LayerParams {
 }
 
 export const DEFAULT_LAYER: LayerParams = {
-  gradientType: "mesh",
+  gradientType: "lightWall",
   speed: 0.4,
   complexity: 3,
   scale: 1.0,

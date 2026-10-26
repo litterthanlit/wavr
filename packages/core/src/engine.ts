@@ -855,7 +855,7 @@ export class GradientEngine {
 
   /** The program that draws `layer`: one per gradient type, or the custom one. */
   private getLayerProgram(layer: LayerParams): ProgramRecord {
-    const gradientId = GRADIENT_TYPE_IDS[layer.gradientType] ?? 0;
+    const gradientId = GRADIENT_TYPE_IDS[layer.gradientType] ?? GRADIENT_TYPE_IDS.lightWall;
     const key = this.customSource !== null ? "custom" : `g${gradientId}`;
     let record = this.layerPrograms.get(key);
     if (!record) {

@@ -1,5 +1,5 @@
 import { GradientState, type PerformanceMode } from "./store";
-import { ColorProfile, LayerParams } from "@wavr/core";
+import { ColorProfile, LayerParams, currentGradientType } from "@wavr/core";
 import { Keyframe, PlaybackMode } from "./timeline";
 import { cloneScene3D, type Scene3DState } from "./scene3d";
 import { sceneDocumentToStorePatch, storeToSceneDocument } from "./scene-document";
@@ -340,7 +340,7 @@ export async function projectStateForLoad(project: SavedProject): Promise<Projec
   const store = getImageBackend();
   let missingImages = 0;
   const layers = await Promise.all(project.state.layers.map(async (layer) => {
-    const next = { ...layer };
+    const next = { ...layer, gradientType: currentGradientType(layer.gradientType) };
     for (const field of IMAGE_FIELDS) {
       const value = layer[field];
       if (!isImageRef(value)) continue;

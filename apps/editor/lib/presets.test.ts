@@ -12,7 +12,7 @@ import { PRESETS as CREATE_WAVR_PRESETS, parseArgs } from "../../../packages/cre
 
 const THUMBNAIL_DIR = path.join(__dirname, "../public/presets");
 
-const BASE: GradientConfig = { layers: [{ type: "mesh", colors: [[1, 0, 0], [0, 0, 1]] }] };
+const BASE: GradientConfig = { layers: [{ type: "lightWall", colors: [[1, 0, 0], [0, 0, 1]] }] };
 
 // A non-default value for every mappable config field.
 const SAMPLES: { [K in keyof typeof CONFIG_FIELD_STATE_KEYS]: GradientConfig[K] } = {
@@ -120,9 +120,9 @@ describe("preset thumbnails", () => {
 
 describe("presetToStorePatch", () => {
   it("always sets the layer look, brightness and saturation", () => {
-    const patch = presetToStorePatch({ layers: [{ type: "silk", colors: [[0.1, 0.2, 0.3]], speed: 0.7 }] });
+    const patch = presetToStorePatch({ layers: [{ type: "halo", colors: [[0.1, 0.2, 0.3]], speed: 0.7 }] });
     expect(patch).toEqual({
-      gradientType: "silk",
+      gradientType: "halo",
       speed: 0.7,
       complexity: 3,
       scale: 1,
@@ -142,6 +142,6 @@ describe("presetToStorePatch", () => {
 
   it("includes softness only when the preset sets it", () => {
     expect(presetToStorePatch(BASE)).not.toHaveProperty("softness");
-    expect(presetToStorePatch({ layers: [{ type: "silk", colors: [[1, 1, 1]], softness: 0.8 }] }).softness).toBe(0.8);
+    expect(presetToStorePatch({ layers: [{ type: "halo", colors: [[1, 1, 1]], softness: 0.8 }] }).softness).toBe(0.8);
   });
 });

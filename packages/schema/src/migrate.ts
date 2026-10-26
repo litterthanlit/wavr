@@ -1,5 +1,6 @@
 import { GradientConfig, type GradientConfig as GC } from "./schema";
 import { DEFAULT_CONFIG } from "./defaults";
+import { currentGradientType } from "./enums";
 import { SCHEMA_VERSION, type SchemaVersion } from "./version";
 
 export type LegacyShape = "types-v1" | "project-state-v1";
@@ -250,7 +251,7 @@ function migrateLayer(
   }
   const out: Record<string, unknown> = {};
   const type = layer.type ?? layer.gradientType;
-  if (typeof type === "string") out.type = type;
+  if (typeof type === "string") out.type = openedType(type, `${path}.type`, warnings, opts);
   if (Array.isArray(layer.colors)) out.colors = layer.colors;
 
   const passthrough = ["speed", "complexity", "scale", "distortion", "softness", "opacity", "blendMode", "depth"];
@@ -275,14 +276,39 @@ function migrateLayer(
   return out;
 }
 
+/** A retired gradient type opens as its replacement, with a warning. */
+function openedType(type: string, path: string, warnings: MigrateWarning[], opts: MigrateOptions | undefined): string {
+  const current = currentGradientType(type);
+  if (current !== type) {
+    WARN(warnings, opts, { path, message: `Gradient type "${type}" no longer exists; opened as "${current}"` });
+  }
+  return current;
+}
+
+function withCurrentLayerTypes(
+  input: Record<string, unknown>,
+  warnings: MigrateWarning[],
+  opts: MigrateOptions | undefined,
+): Record<string, unknown> {
+  if (!Array.isArray(input.layers)) return input;
+  const layers = input.layers.map((layer: unknown, i: number) =>
+    isRecord(layer) && typeof layer.type === "string"
+      ? { ...layer, type: openedType(layer.type, `layers[${i}].type`, warnings, opts) }
+      : layer,
+  );
+  return { ...input, layers };
+}
+
 // --- Public API ------------------------------------------------------------
 
 export function migrate(input: unknown, opts?: MigrateOptions): MigrateResult {
   const shape = detectShape(input);
-  if (shape === "v2") {
-    // V2 is already valid; run parse for default-fill and strict validation.
-    const config = GradientConfig.parse(input);
-    return { config, droppedKeys: [], warnings: [], detectedShape: "v2" };
+  if (shape === "v2" && isRecord(input)) {
+    // V2: open retired layer types as their replacement, then parse for
+    // default-fill and strict validation.
+    const warnings: MigrateWarning[] = [];
+    const config = GradientConfig.parse(withCurrentLayerTypes(input, warnings, opts));
+    return { config, droppedKeys: [], warnings, detectedShape: "v2" };
   }
   if (!isRecord(input)) {
     // Not an object — can't salvage. finalize will throw via parse.

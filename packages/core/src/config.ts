@@ -1,6 +1,7 @@
 import { GradientConfig, LayerConfig } from "./types";
 import { EngineState } from "./engine";
 import { LayerParams, createLayer } from "./layers";
+import { currentGradientType } from "@wavr/schema/enums";
 
 const LAYER_DEFAULTS: Required<Pick<
   LayerConfig,
@@ -18,7 +19,7 @@ const LAYER_DEFAULTS: Required<Pick<
 
 function resolveLayer(layer: LayerConfig): LayerParams {
   return createLayer({
-    gradientType: layer.type,
+    gradientType: currentGradientType(layer.type),
     colors: layer.colors,
     speed: layer.speed ?? LAYER_DEFAULTS.speed,
     complexity: layer.complexity ?? LAYER_DEFAULTS.complexity,

@@ -271,7 +271,7 @@ export function mountWavrEditor(
 
   function syncFields(): void {
     const layer = activeLayer(current);
-    typeSelect.value = GRADIENT_TYPES.includes(layer.type) ? layer.type : "mesh";
+    typeSelect.value = GRADIENT_TYPES.includes(layer.type) ? layer.type : "lightWall";
     const colors = padColors(layer.colors);
     colorInputs.forEach((input, index) => {
       const color = colors[index] ?? [0, 0, 0];

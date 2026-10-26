@@ -151,11 +151,15 @@ describe("migrate(project-state-v1)", () => {
     expect(result.config.hueShift).toBe(10);
   });
 
-  it("maps layers: gradientType → type, colors preserved", () => {
+  it("maps layers: gradientType → type (a retired one opens as lightWall), colors preserved", () => {
     expect(result.config.layers).toHaveLength(1);
-    expect(result.config.layers[0]!.type).toBe("mesh");
+    expect(result.config.layers[0]!.type).toBe("lightWall");
     expect(result.config.layers[0]!.colors).toEqual(V1_PROJECT_STATE.layers[0]!.colors);
     expect(result.config.layers[0]!.speed).toBe(0.5);
+    expect(result.warnings).toContainEqual({
+      path: "layers[0].type",
+      message: 'Gradient type "mesh" no longer exists; opened as "lightWall"',
+    });
   });
 
   it("drops editor-only globals into droppedKeys", () => {
@@ -213,8 +217,10 @@ describe("migrate(types-v1)", () => {
     expect(result.config.colorSpace).toBe("linear");
   });
 
-  it("maps layers with `type` field (not `gradientType`) unchanged", () => {
-    expect(result.config.layers[0]!.type).toBe("mesh");
+  it("maps layers with `type` field (not `gradientType`), a retired one to lightWall", () => {
+    expect(result.config.layers[0]!.type).toBe("lightWall");
+    expect(result.config.layers[0]!.colors).toEqual(V1_TYPES.layers[0]!.colors);
+    expect(migrate({ layers: [{ type: "halo", colors: [[0, 0, 0], [1, 1, 1]] }] }).config.layers[0]!.type).toBe("halo");
   });
 
   it("is idempotent", () => {
@@ -232,6 +238,26 @@ describe("migrate(v2)", () => {
     expect(result.detectedShape).toBe("v2");
     expect(result.config).toEqual(DEFAULT_CONFIG);
     expect(result.droppedKeys).toEqual([]);
+  });
+
+  it("opens a layer of a retired type as lightWall, keeping the rest of the layer", () => {
+    const colors: [number, number, number][] = [[0.01, 0.02, 0.06], [0.18, 0.92, 0.55], [0.78, 1, 0.86]];
+    const result = migrate({
+      ...DEFAULT_CONFIG,
+      layers: [
+        { type: "aurora", colors, speed: 0.18, complexity: 6, softness: 0.8 },
+        { type: "mesh", colors, opacity: 0.5, blendMode: "screen" },
+        { type: "halo", colors },
+      ],
+    });
+    expect(result.config.layers.map((layer) => layer.type)).toEqual(["lightWall", "lightWall", "halo"]);
+    expect(result.config.layers[0]).toMatchObject({ colors, speed: 0.18, complexity: 6, softness: 0.8 });
+    expect(result.config.layers[1]).toMatchObject({ colors, opacity: 0.5, blendMode: "screen" });
+    expect(result.warnings.map((w) => w.path)).toEqual(["layers[0].type", "layers[1].type"]);
+  });
+
+  it("still rejects a gradient type that never existed", () => {
+    expect(() => migrate({ ...DEFAULT_CONFIG, layers: [{ type: "sparkle", colors: [[0, 0, 0], [1, 1, 1]] }] })).toThrow();
   });
 
   it("throws via parse on a V2-tagged payload with invalid fields", () => {
