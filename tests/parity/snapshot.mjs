@@ -44,8 +44,8 @@
 // outDir defaults to test-results/snapshots. Files are type-<gradient>.png and
 // fixture-<name>.png, plus manifest.json with the timings and pixel stats.
 // --scenes adds images of your own: a JSON array of { name, type | config,
-// state? } (a gradient type or a GradientConfig, plus engine-state overrides
-// such as colorBlend). They are written as scene-<name>.png.
+// state? } (a gradient type or a GradientConfig, plus engine-state overrides).
+// They are written as scene-<name>.png.
 // `pnpm snapshots` rebuilds the page bundle first (tests/parity/pages/snapshot.ts).
 //
 // Frames are rendered by engine.captureImageData in headless Chromium on

@@ -41,17 +41,22 @@ export function reverseStops(colors: readonly Rgb[]): Rgb[] {
   return colors.map((c) => [...c] as Rgb).reverse();
 }
 
+/** Whether two palettes hold exactly the same stops, in the same order. */
+export function sameStops(a: readonly Rgb[], b: readonly Rgb[]): boolean {
+  return a.length === b.length && a.every((c, i) => c.every((v, j) => v === b[i][j]));
+}
+
 export interface BarPalette {
   /** The colour at `t` (0–1) along the bar, as the engine's baked palette has it. */
   sample: (t: number) => Rgb;
 }
 
-/** The layer's palette as the engine bakes it (blend, softness, Oklab, colour profile). */
+/** The layer's palette as the engine bakes it (softness, Oklab, colour profile). */
 export function barPalette(
   colors: readonly Rgb[],
-  options: { oklab: boolean; colorBlend: number; softness: number; colorProfile: ColorProfile },
+  options: { oklab: boolean; softness: number; colorProfile: ColorProfile },
 ): BarPalette {
-  const blend = effectiveBlend(options.colorBlend, options.softness);
+  const blend = effectiveBlend(options.softness);
   const table = bakePalette(colors, options.oklab, blend, undefined, options.colorProfile === "display-p3");
   const reach = paletteReach(blend);
   const span = 1 + 2 * reach;

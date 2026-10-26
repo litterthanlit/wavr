@@ -70,7 +70,7 @@ describe("GradientEngine colour profile", () => {
   it("bakes the palette in the scene's profile, and again when the profile changes", () => {
     const { engine, uploads } = setup();
     const halo = createLayer({ gradientType: "halo", colors: COLORS });
-    const blend = effectiveBlend(0, halo.softness);
+    const blend = effectiveBlend(halo.softness);
     const palettes = () => uploads.filter((u) => u.format === "RGBA16F" && u.width === PALETTE_SIZE && u.height === 1);
 
     engine.render(state({ layers: [halo], colorProfile: "display-p3" }));

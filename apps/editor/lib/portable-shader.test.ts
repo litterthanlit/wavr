@@ -219,7 +219,6 @@ describe("portable fragment shader", () => {
         toneMapMode: 1,
         deband: 1,
         mouseReact: 0,
-        colorBlend: 0,
         hueShift: 0,
       });
     });
@@ -230,11 +229,10 @@ describe("portable fragment shader", () => {
         complexity: 99,
         mouseReact: 7,
         toneMapMode: 9,
-        colorBlend: -1,
         speed: Number.NaN,
         colors: Array.from({ length: 12 }, () => [1, 1, 1] as [number, number, number]),
       });
-      expect(settings).toMatchObject({ complexity: 8, mouseReact: 1, toneMapMode: 1, colorBlend: 0, speed: 0.4 });
+      expect(settings).toMatchObject({ complexity: 8, mouseReact: 1, toneMapMode: 1, speed: 0.4 });
       expect(settings.colors).toHaveLength(8);
       expect(resolvePortableSettings({ ...state, colors: [] }).colors).toEqual([[0, 0, 0]]);
     });

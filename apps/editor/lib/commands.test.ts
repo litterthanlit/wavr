@@ -49,6 +49,35 @@ describe("command registry", () => {
     expect(presetCommands.length).toBe(PRESETS.length);
   });
 
+  it("opens the tabs with keys 1 to 5: Gradient, Effects, Presets, 3D, Shader", () => {
+    const tabs = getCommands(noopUi()).filter((c) => c.id.startsWith("view.tab."));
+    expect(tabs.map((c) => [c.shortcut, c.label])).toEqual([
+      ["1", "Switch to Gradient tab"],
+      ["2", "Switch to Effects tab"],
+      ["3", "Switch to Presets tab"],
+      ["4", "Switch to 3D tab"],
+      ["5", "Switch to Shader tab"],
+    ]);
+  });
+
+  it("switches only the effects the panels offer", () => {
+    const effects = getCommands(noopUi()).filter((c) => c.group === "Effects").map((c) => c.id);
+    expect(effects).toEqual([
+      "effect.realBloomEnabled",
+      "effect.blurEnabled",
+      "effect.rippleEnabled",
+      "effect.trailEnabled",
+      "effect.debandEnabled",
+      "effect.scene3DEnabled",
+    ]);
+  });
+
+  it("names each look as the Look grid does", () => {
+    const label = (id: string) => getCommands(noopUi()).find((c) => c.id === id)?.label;
+    expect(label("gradient.lightWall")).toBe("Set gradient: Light Wall");
+    expect(label("gradient.iridescentFoil")).toBe("Set gradient: Iridescent Foil");
+  });
+
   it("no gradient command for the image type", () => {
     const commands = getCommands(noopUi());
     const imageCmd = commands.find((c) => c.id === "gradient.image");

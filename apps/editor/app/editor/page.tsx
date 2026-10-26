@@ -21,7 +21,7 @@ import { applyHashToStore, initializeUrlSync, preloadUrlCodec } from "@/lib/url-
 import { hasSeenOnboarding } from "@/lib/onboarding";
 import { useEverOpened } from "@/lib/useEverOpened";
 import { GradientEngine } from "@wavr/core";
-import type { SidebarTab } from "@/lib/types";
+import { SIDEBAR_TABS, type SidebarTab } from "@/lib/types";
 import type { SceneCapture } from "@/components/Scene3DCanvas";
 
 // A shared link carries its state in the hash. Start fetching the decoder as
@@ -118,27 +118,16 @@ export default function EditorPage() {
           setShortcutsOpen(false);
           setProjectsOpen(false);
           break;
-        case "1":
-          setActiveTab("gradient");
-          break;
-        case "2":
-          setActiveTab("scene");
-          break;
-        case "3":
-          setActiveTab("effects");
-          break;
-        case "4":
-          setActiveTab("presets");
-          break;
-        case "5":
-          setActiveTab("code");
-          break;
         case "?":
           setShortcutsOpen((prev) => !prev);
           break;
         case "s":
           if (!isMeta) toggleRenderStats();
           break;
+        default: {
+          const tab = SIDEBAR_TABS.find((_, i) => e.key === String(i + 1));
+          if (tab) setActiveTab(tab.id);
+        }
       }
     },
     []

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { SIDEBAR_TABS } from "@/lib/types";
 
 interface ShortcutsModalProps {
   open: boolean;
@@ -14,7 +15,7 @@ const SHORTCUTS = [
   { key: "E", action: "Export" },
   { key: "P", action: "Projects" },
   { key: "Esc", action: "Close modal" },
-  { key: "1 – 5", action: "Switch tab" },
+  { key: "1 – 5", action: `Tabs: ${SIDEBAR_TABS.map((tab) => tab.label).join(", ")}` },
   { key: "S", action: "Show or hide render stats" },
   { key: "\u2318/Ctrl + Z", action: "Undo" },
   { key: "\u2318/Ctrl + Shift + Z", action: "Redo" },

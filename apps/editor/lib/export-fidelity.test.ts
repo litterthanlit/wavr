@@ -7,7 +7,6 @@ describe("export fidelity reporting", () => {
       scene3DEnabled: true,
       timelineEnabled: true,
       keyframeCount: 2,
-      audioEnabled: true,
       customGLSL: "return vec3(1.0);",
       layers: [
         { visible: true, imageData: "data:image/png;base64,abc", maskEnabled: true },
@@ -21,7 +20,6 @@ describe("export fidelity reporting", () => {
       "Masks and text masks are not included in portable code exports.",
       "3D scene overlays are included in image/video exports only.",
       "Timeline keyframes are not included in portable code exports.",
-      "Audio reactivity is not included in portable code exports.",
       "Custom GLSL is not included in portable code exports.",
     ]);
   });

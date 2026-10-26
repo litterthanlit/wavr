@@ -24,7 +24,6 @@ export interface PortableExportFidelityInput {
   scene3DEnabled?: boolean;
   timelineEnabled?: boolean;
   keyframeCount?: number;
-  audioEnabled?: boolean;
   customGLSL?: string | null;
   /** Mouse reactivity, 0..1. Portable exports carry the pointer warp, but not the click ripple, trail or parallax below. */
   mouseReact?: number;
@@ -59,10 +58,6 @@ export function getPortableExportWarnings(input: PortableExportFidelityInput): s
 
   if (input.timelineEnabled && (input.keyframeCount ?? 0) > 0) {
     warnings.push("Timeline keyframes are not included in portable code exports.");
-  }
-
-  if (input.audioEnabled) {
-    warnings.push("Audio reactivity is not included in portable code exports.");
   }
 
   if (input.rippleEnabled || input.trailEnabled || input.parallaxEnabled) {

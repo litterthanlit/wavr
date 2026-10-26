@@ -4,39 +4,32 @@ import React, { useState } from "react";
 import { useGradientStore } from "@/lib/store";
 import Select from "@/components/ui/Select";
 import Slider from "@/components/ui/Slider";
-import { degrees, em, percent, px, radiansAsDegrees, times } from "@/lib/units";
+import { em, px, radiansAsDegrees, times } from "@/lib/units";
 import ColorInput from "@/components/ui/ColorInput";
 import GradientBar from "@/components/ui/GradientBar";
-import { MAX_STOPS, barPalette, insertStop, reverseStops, stopPosition, type Rgb } from "@/lib/color-stops";
+import { MAX_STOPS, barPalette, insertStop, reverseStops, sameStops, stopPosition, type Rgb } from "@/lib/color-stops";
 import Toggle from "@/components/ui/Toggle";
-import {
-  LIGHT_FIELD_PALETTES,
-  LIGHT_FIELD_PALETTE_ROLES,
-  LIGHT_GRADIENT_PALETTES,
-  LayerParams,
-  MaskParams,
-  TextMaskAlign,
-  isLightFieldType,
-  isLightGradientType,
-  isLightRampPalette,
-} from "@wavr/core";
-import { GRADIENT_OPTIONS, defaultSoftnessForType } from "@/lib/gradient-types";
+import Section from "@/components/ui/Section";
+import Segmented from "@/components/ui/Segmented";
+import LookPicker from "@/components/LookPicker";
+import type { MaskParams, TextMaskAlign } from "@wavr/core";
+import { GRADIENT_OPTIONS, curatedPalette } from "@/lib/gradient-types";
+import { maskMode, maskModePatch, type MaskMode } from "@/lib/layer-mask";
+import { layerExtrasOn } from "@/lib/scene-extras";
+
+const MASK_MODE_OPTIONS: { value: MaskMode; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "shape", label: "Shape" },
+  { value: "text", label: "Text" },
+];
 
 const MASK_SHAPE_OPTIONS = [
-  { value: "none", label: "None" },
   { value: "circle", label: "Circle" },
   { value: "roundedRect", label: "Rounded Rect" },
   { value: "ellipse", label: "Ellipse" },
   { value: "polygon", label: "Polygon" },
   { value: "star", label: "Star" },
   { value: "blob", label: "Blob" },
-];
-
-const MASK_BLEND_OPTIONS = [
-  { value: "union", label: "Union" },
-  { value: "subtract", label: "Subtract" },
-  { value: "intersect", label: "Intersect" },
-  { value: "smoothUnion", label: "Smooth Union" },
 ];
 
 const TEXT_ALIGN_OPTIONS = [
@@ -152,72 +145,46 @@ function ImageUpload({
   );
 }
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="section-title">{children}</span>
-  );
-}
-
-function MaskControls({
-  label,
+/** The shape mask's controls; "no mask" is the Mask control's None. */
+function ShapeMaskControls({
   mask,
   onUpdate,
 }: {
-  label: string;
   mask: MaskParams;
   onUpdate: (field: string, value: number | boolean | string | [number, number]) => void;
 }) {
+  const commit = () => useGradientStore.getState().commitSet();
   return (
-    <div className="flex flex-col gap-3">
-      <span className="text-[10px] font-medium text-text-tertiary">{label}</span>
-      <Select
-        label="Shape"
-        value={mask.shape}
-        options={MASK_SHAPE_OPTIONS}
-        onChange={(v) => onUpdate("shape", v)}
-      />
-      {mask.shape !== "none" && (
-        <>
-          <Slider label="Position X" value={mask.position[0]} min={-1} max={1} step={0.01}
-            onChange={(v) => onUpdate("position", [v, mask.position[1]])}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Position Y" value={mask.position[1]} min={-1} max={1} step={0.01}
-            onChange={(v) => onUpdate("position", [mask.position[0], v])}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Scale X" value={mask.scale[0]} min={0.1} max={4} step={0.01} format={times}
-            onChange={(v) => onUpdate("scale", [v, mask.scale[1]])}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Scale Y" value={mask.scale[1]} min={0.1} max={4} step={0.01} format={times}
-            onChange={(v) => onUpdate("scale", [mask.scale[0], v])}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Rotation" value={mask.rotation} min={0} max={6.28} step={0.01} format={radiansAsDegrees}
-            onChange={(v) => onUpdate("rotation", v)}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Slider label="Feather" value={mask.feather} min={0} max={0.5} step={0.001}
-            onChange={(v) => onUpdate("feather", v)}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-          <Toggle label="Invert" checked={mask.invert} onChange={(v) => onUpdate("invert", v)} />
-          {mask.shape === "roundedRect" && (
-            <Slider label="Corner Radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
-              onChange={(v) => onUpdate("cornerRadius", v)}
-              onCommit={() => useGradientStore.getState().commitSet()} />
-          )}
-          {(mask.shape === "polygon" || mask.shape === "star") && (
-            <Slider label="Sides" value={mask.sides} min={3} max={12} step={1}
-              onChange={(v) => onUpdate("sides", v)}
-              onCommit={() => useGradientStore.getState().commitSet()} />
-          )}
-          {mask.shape === "star" && (
-            <Slider label="Inner Radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
-              onChange={(v) => onUpdate("starInnerRadius", v)}
-              onCommit={() => useGradientStore.getState().commitSet()} />
-          )}
-          <Slider label="Noise Edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
-            onChange={(v) => onUpdate("noiseDistortion", v)}
-            onCommit={() => useGradientStore.getState().commitSet()} />
-        </>
+    <>
+      <Select label="Shape" value={mask.shape} options={MASK_SHAPE_OPTIONS} onChange={(v) => onUpdate("shape", v)} />
+      <Slider label="Position X" value={mask.position[0]} min={-1} max={1} step={0.01}
+        onChange={(v) => onUpdate("position", [v, mask.position[1]])} onCommit={commit} />
+      <Slider label="Position Y" value={mask.position[1]} min={-1} max={1} step={0.01}
+        onChange={(v) => onUpdate("position", [mask.position[0], v])} onCommit={commit} />
+      <Slider label="Scale X" value={mask.scale[0]} min={0.1} max={4} step={0.01} format={times}
+        onChange={(v) => onUpdate("scale", [v, mask.scale[1]])} onCommit={commit} />
+      <Slider label="Scale Y" value={mask.scale[1]} min={0.1} max={4} step={0.01} format={times}
+        onChange={(v) => onUpdate("scale", [mask.scale[0], v])} onCommit={commit} />
+      <Slider label="Rotation" value={mask.rotation} min={0} max={6.28} step={0.01} format={radiansAsDegrees}
+        onChange={(v) => onUpdate("rotation", v)} onCommit={commit} />
+      <Slider label="Feather" value={mask.feather} min={0} max={0.5} step={0.001}
+        onChange={(v) => onUpdate("feather", v)} onCommit={commit} />
+      <Toggle label="Invert" checked={mask.invert} onChange={(v) => onUpdate("invert", v)} />
+      {mask.shape === "roundedRect" && (
+        <Slider label="Corner Radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
+          onChange={(v) => onUpdate("cornerRadius", v)} onCommit={commit} />
       )}
-    </div>
+      {(mask.shape === "polygon" || mask.shape === "star") && (
+        <Slider label="Sides" value={mask.sides} min={3} max={12} step={1}
+          onChange={(v) => onUpdate("sides", v)} onCommit={commit} />
+      )}
+      {mask.shape === "star" && (
+        <Slider label="Inner Radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
+          onChange={(v) => onUpdate("starInnerRadius", v)} onCommit={commit} />
+      )}
+      <Slider label="Noise Edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
+        onChange={(v) => onUpdate("noiseDistortion", v)} onCommit={commit} />
+    </>
   );
 }
 
@@ -237,7 +204,6 @@ export default function GradientPanel() {
     const t = (stopPosition(index - 1, colors.length) + stopPosition(index, colors.length)) / 2;
     const color = barPalette(colors, {
       oklab: store.oklabEnabled,
-      colorBlend: store.colorBlend,
       softness: store.softness,
       colorProfile: store.colorProfile,
     }).sample(t);
@@ -252,315 +218,138 @@ export default function GradientPanel() {
     store.set({ layers: newLayers } as Partial<typeof store>);
   };
 
-  const updateMask = (maskKey: "mask1" | "mask2", field: string, value: number | boolean | string | [number, number]) => {
-    const currentMask = activeLayer[maskKey];
-    const updatedMask = { ...currentMask, [field]: value };
-    if (typeof value === "string" && field === "shape") {
-      store.setLayerParam({ [maskKey]: updatedMask });
-    } else if (typeof value === "boolean") {
-      store.setLayerParam({ [maskKey]: updatedMask });
+  // A shape or a switch is one undo step; a slider's drag is one too, closed on release.
+  const updateMask = (field: string, value: number | boolean | string | [number, number]) => {
+    const mask1 = { ...activeLayer.mask1, [field]: value };
+    if (typeof value === "string" || typeof value === "boolean") {
+      store.setLayerParam({ mask1 });
     } else {
-      const newLayers = store.layers.map((l, i) =>
-        i === store.activeLayerIndex ? { ...l, [maskKey]: updatedMask } : l
-      );
-      store.set({ layers: newLayers } as Partial<typeof store>);
+      store.set({ layers: store.layers.map((l, i) => (i === store.activeLayerIndex ? { ...l, mask1 } : l)) });
     }
   };
 
+  const look = GRADIENT_OPTIONS.find((option) => option.value === store.gradientType);
+  const mask = maskMode(activeLayer);
+  const extras = layerExtrasOn(activeLayer);
+  // The look's own palette, offered back once the colours differ from it.
+  const curated = curatedPalette(store.gradientType);
+  const canReset = curated !== null && !sameStops(colors, curated);
+
   return (
-    <div className="flex flex-col gap-5 p-4">
-      {/* Type */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Type</SectionHeader>
-        <Select
-          label="Gradient Type"
-          value={store.gradientType}
-          options={GRADIENT_OPTIONS}
-          onChange={(v) => {
-            const gradientType = v as typeof store.gradientType;
-            store.setDiscrete({
-              gradientType,
-              softness: defaultSoftnessForType(gradientType),
-            });
-          }}
-        />
-        {/* The light modes read the palette as darkest-to-brightest; offer theirs when it doesn't run that way. */}
-        {isLightGradientType(store.gradientType) && !isLightRampPalette(store.colors) && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-            <p className="text-[11px] leading-snug text-text-tertiary">
-              Reads the palette as light: darkest colour first, brightest last.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                if (!isLightGradientType(store.gradientType)) return;
-                const palette = LIGHT_GRADIENT_PALETTES[store.gradientType];
-                store.setDiscrete({ colors: palette.map((c) => [...c] as [number, number, number]) });
-              }}
-              className="shrink-0 text-xs text-text-secondary hover:text-accent transition-colors"
-            >
-              Use its palette
-            </button>
-          </div>
-        )}
-        {/* The aperture and light wall read the palette by role; say which, and offer theirs. */}
-        {isLightFieldType(store.gradientType) && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-            <p className="text-[11px] leading-snug text-text-tertiary">
-              {LIGHT_FIELD_PALETTE_ROLES[store.gradientType]}
-            </p>
-            {JSON.stringify(store.colors) !== JSON.stringify(LIGHT_FIELD_PALETTES[store.gradientType]) && (
+    <div className="flex flex-col divide-y divide-border p-4">
+      <Section title="Look" aside={<span className="text-xs font-medium text-text-primary">{look?.label}</span>}>
+        <LookPicker value={store.gradientType} onPick={store.setLook} />
+        <p className="text-[11px] leading-snug text-text-tertiary">{look?.description}</p>
+      </Section>
+
+      {isImageType && (
+        <Section title="Image Source">
+          <ImageUpload
+            label="Color image"
+            imageData={activeLayer.imageData}
+            onUpload={(url) => store.setLayerImage(store.activeLayerIndex, url)}
+            onRemove={() => store.setLayerImage(store.activeLayerIndex, null)}
+          />
+          {activeLayer.imageData && (
+            <>
+              <Slider label="Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01} format={times}
+                onChange={(v) => updateLayerField("imageScale", v)}
+                onCommit={() => store.commitSet()} />
+              <Slider label="Offset X" value={activeLayer.imageOffset[0]} min={-1} max={1} step={0.01}
+                onChange={(v) => updateLayerField("imageOffset", [v, activeLayer.imageOffset[1]])}
+                onCommit={() => store.commitSet()} />
+              <Slider label="Offset Y" value={activeLayer.imageOffset[1]} min={-1} max={1} step={0.01}
+                onChange={(v) => updateLayerField("imageOffset", [activeLayer.imageOffset[0], v])}
+                onCommit={() => store.commitSet()} />
+            </>
+          )}
+        </Section>
+      )}
+
+      {!isImageType && (
+        <Section title="Colors">
+          <GradientBar
+            colors={colors}
+            selected={stop}
+            onSelect={setSelectedStop}
+            onColorsChange={(next) => store.setDiscrete({ colors: next })}
+            colorProfile={store.colorProfile}
+            oklab={store.oklabEnabled}
+            softness={store.softness}
+          />
+          <ColorInput
+            key={`${store.activeLayerIndex}-${stop}`}
+            color={colors[stop]}
+            colorProfile={store.colorProfile}
+            onChange={(c) => store.setColor(stop, c)}
+            onCommit={() => store.commitSet()}
+            onRemove={() => {
+              store.removeColor(stop);
+              setSelectedStop(Math.max(0, stop - 1));
+            }}
+            canRemove={colors.length > 2}
+          />
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-text-tertiary">
+              Color {stop + 1} of {colors.length}
+            </span>
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => {
-                  if (!isLightFieldType(store.gradientType)) return;
-                  const palette = LIGHT_FIELD_PALETTES[store.gradientType];
-                  store.setDiscrete({ colors: palette.map((c) => [...c] as [number, number, number]) });
+                  store.setDiscrete({ colors: reverseStops(colors) });
+                  setSelectedStop(colors.length - 1 - stop);
                 }}
-                className="shrink-0 text-xs text-text-secondary hover:text-accent transition-colors"
+                className="text-text-secondary hover:text-accent transition-colors py-1"
               >
-                Use its palette
+                Reverse
               </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Image Source — shown when type is "image" */}
-      {isImageType && (
-        <>
-          <div className="border-t border-border" />
-          <div className="flex flex-col gap-3">
-            <SectionHeader>Image Source</SectionHeader>
-            <ImageUpload
-              label="Color image"
-              imageData={activeLayer.imageData}
-              onUpload={(url) => store.setLayerImage(store.activeLayerIndex, url)}
-              onRemove={() => store.setLayerImage(store.activeLayerIndex, null)}
-            />
-            {activeLayer.imageData && (
-              <>
-                <Slider label="Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01} format={times}
-                  onChange={(v) => updateLayerField("imageScale", v)}
-                  onCommit={() => store.commitSet()} />
-                <Slider label="Offset X" value={activeLayer.imageOffset[0]} min={-1} max={1} step={0.01}
-                  onChange={(v) => updateLayerField("imageOffset", [v, activeLayer.imageOffset[1]])}
-                  onCommit={() => store.commitSet()} />
-                <Slider label="Offset Y" value={activeLayer.imageOffset[1]} min={-1} max={1} step={0.01}
-                  onChange={(v) => updateLayerField("imageOffset", [activeLayer.imageOffset[0], v])}
-                  onCommit={() => store.commitSet()} />
-              </>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className="border-t border-border" />
-
-      {/* Colors — hidden when type is "image" */}
-      {!isImageType && (
-        <>
-          <div className="flex flex-col gap-2">
-            <SectionHeader>Colors</SectionHeader>
-            <GradientBar
-              colors={colors}
-              selected={stop}
-              onSelect={setSelectedStop}
-              onColorsChange={(next) => store.setDiscrete({ colors: next })}
-              colorProfile={store.colorProfile}
-              oklab={store.oklabEnabled}
-              colorBlend={store.colorBlend}
-              softness={store.softness}
-            />
-            <ColorInput
-              key={`${store.activeLayerIndex}-${stop}`}
-              color={colors[stop]}
-              colorProfile={store.colorProfile}
-              onChange={(c) => store.setColor(stop, c)}
-              onCommit={() => store.commitSet()}
-              onRemove={() => {
-                store.removeColor(stop);
-                setSelectedStop(Math.max(0, stop - 1));
-              }}
-              canRemove={colors.length > 2}
-            />
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-text-tertiary">
-                Color {stop + 1} of {colors.length}
-              </span>
-              <div className="flex items-center gap-3">
+              {canReset && (
                 <button
                   type="button"
-                  onClick={() => {
-                    store.setDiscrete({ colors: reverseStops(colors) });
-                    setSelectedStop(colors.length - 1 - stop);
-                  }}
+                  onClick={() => store.setDiscrete({ colors: curated })}
                   className="text-text-secondary hover:text-accent transition-colors py-1"
                 >
-                  Reverse
+                  Reset
                 </button>
-                {colors.length < MAX_STOPS && (
-                  <button
-                    type="button"
-                    onClick={addStop}
-                    className="text-text-secondary hover:text-accent transition-colors py-1"
-                  >
-                    + Add color
-                  </button>
-                )}
-              </div>
+              )}
+              {colors.length < MAX_STOPS && (
+                <button
+                  type="button"
+                  onClick={addStop}
+                  className="text-text-secondary hover:text-accent transition-colors py-1"
+                >
+                  + Add color
+                </button>
+              )}
             </div>
           </div>
-
-          <div className="border-t border-border" />
-
-          {/* Texture Overlay — for non-image types */}
-          <div className="flex flex-col gap-3">
-            <SectionHeader>Texture Overlay</SectionHeader>
-            <ImageUpload
-              label="Blend image"
-              imageData={activeLayer.imageData}
-              onUpload={(url) => store.setLayerImage(store.activeLayerIndex, url)}
-              onRemove={() => store.setLayerImage(store.activeLayerIndex, null)}
-            />
-            {activeLayer.imageData && (
-              <>
-                <Select
-                  label="Blend Mode"
-                  value={activeLayer.imageBlendMode}
-                  options={[
-                    { value: "normal", label: "Normal" },
-                    { value: "multiply", label: "Multiply" },
-                    { value: "screen", label: "Screen" },
-                    { value: "overlay", label: "Overlay" },
-                    { value: "replace", label: "Replace" },
-                  ]}
-                  onChange={(v) => store.setLayerParam({ imageBlendMode: v as LayerParams["imageBlendMode"] })}
-                />
-                <Slider label="Blend Opacity" value={activeLayer.imageBlendOpacity} min={0} max={1} step={0.01}
-                  onChange={(v) => updateLayerField("imageBlendOpacity", v)}
-                  onCommit={() => store.commitSet()} />
-                <Slider label="Image Scale" value={activeLayer.imageScale} min={0.1} max={4} step={0.01} format={times}
-                  onChange={(v) => updateLayerField("imageScale", v)}
-                  onCommit={() => store.commitSet()} />
-              </>
-            )}
-          </div>
-
-          <div className="border-t border-border" />
-        </>
+        </Section>
       )}
 
-      {/* Distortion Map — available for all types */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Distortion Map</SectionHeader>
-        <Toggle
-          label="Enable Distortion Map"
-          checked={activeLayer.distortionMapEnabled}
-          onChange={(v) => store.setLayerParam({ distortionMapEnabled: v })}
+      <Section title="Mask">
+        <Segmented
+          label="Mask"
+          value={mask}
+          options={MASK_MODE_OPTIONS}
+          onChange={(mode) => store.setLayerParam(maskModePatch(activeLayer, mode))}
         />
-        {activeLayer.distortionMapEnabled && (
+        {mask === "shape" && <ShapeMaskControls mask={activeLayer.mask1} onUpdate={updateMask} />}
+        {mask === "text" && (
           <>
-            <ImageUpload
-              label="Distortion map"
-              imageData={activeLayer.distortionMapData}
-              onUpload={(url) => store.setLayerDistortionMap(store.activeLayerIndex, url)}
-              onRemove={() => store.setLayerDistortionMap(store.activeLayerIndex, null)}
-            />
-            {activeLayer.distortionMapData && (
-              <Slider label="Intensity" value={activeLayer.distortionMapIntensity} min={0} max={1} step={0.01}
-                onChange={(v) => updateLayerField("distortionMapIntensity", v)}
-                onCommit={() => store.commitSet()} />
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="border-t border-border" />
-
-      {/* Mask */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Mask</SectionHeader>
-        <Toggle
-          label="Enable Mask"
-          checked={activeLayer.maskEnabled}
-          onChange={(v) => {
-            const updates: Partial<LayerParams> = { maskEnabled: v };
-            if (v) updates.textMaskEnabled = false;
-            store.setLayerParam(updates);
-          }}
-        />
-        {activeLayer.maskEnabled && (
-          <>
-            <MaskControls
-              label="Mask 1"
-              mask={activeLayer.mask1}
-              onUpdate={(field, value) => updateMask("mask1", field, value)}
-            />
-            {activeLayer.mask1.shape !== "none" && (
-              <>
-                <MaskControls
-                  label="Mask 2"
-                  mask={activeLayer.mask2}
-                  onUpdate={(field, value) => updateMask("mask2", field, value)}
-                />
-                {activeLayer.mask2.shape !== "none" && (
-                  <div className="flex flex-col gap-3">
-                    <span className="text-[10px] font-medium text-text-tertiary">Combine</span>
-                    <Select
-                      label="Blend Mode"
-                      value={activeLayer.maskBlendMode}
-                      options={MASK_BLEND_OPTIONS}
-                      onChange={(v) => store.setLayerParam({ maskBlendMode: v as LayerParams["maskBlendMode"] })}
-                    />
-                    {activeLayer.maskBlendMode === "smoothUnion" && (
-                      <Slider label="Smoothness" value={activeLayer.maskSmoothness} min={0} max={0.5} step={0.01}
-                        onChange={(v) => updateLayerField("maskSmoothness", v)}
-                        onCommit={() => store.commitSet()} />
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="border-t border-border" />
-
-      {/* Text Mask */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Text Mask</SectionHeader>
-        <Toggle
-          label="Enable Text Mask"
-          checked={activeLayer.textMaskEnabled}
-          onChange={(v) => {
-            // Mutually exclusive with shape mask
-            const updates: Partial<LayerParams> = { textMaskEnabled: v };
-            if (v) updates.maskEnabled = false;
-            store.setLayerParam(updates);
-          }}
-        />
-        {activeLayer.textMaskEnabled && (
-          <>
-            <div className="flex flex-col gap-1">
+            <label className="flex flex-col gap-1">
               <span className="text-[10px] font-medium text-text-tertiary">Text</span>
               <input
                 type="text"
                 value={activeLayer.textMaskContent}
-                onChange={(e) => {
-                  const newLayers = store.layers.map((l, i) =>
-                    i === store.activeLayerIndex ? { ...l, textMaskContent: e.target.value } : l
-                  );
-                  store.set({ layers: newLayers } as Partial<typeof store>);
-                }}
+                onChange={(e) => updateLayerField("textMaskContent", e.target.value)}
                 onBlur={() => store.commitSet()}
                 placeholder="Enter text..."
                 className="w-full px-2 py-1.5 text-xs bg-surface border border-border rounded-md
                   text-text-primary placeholder:text-text-tertiary focus:outline-none
                   focus:border-accent transition-colors"
               />
-            </div>
+            </label>
             <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1} format={px}
               onChange={(v) => updateLayerField("textMaskFontSize", v)}
               onCommit={() => store.commitSet()} />
@@ -578,29 +367,36 @@ export default function GradientPanel() {
             />
           </>
         )}
-      </div>
+      </Section>
 
-      <div className="border-t border-border" />
-
-      {/* Animation */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Animation</SectionHeader>
+      <Section title="Motion">
         <Slider label="Speed" value={store.speed} min={0} max={2} step={0.01} format={times} onChange={(v) => store.set({ speed: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} onCommit={() => store.commitSet()} />
         <Slider label="Scale" value={store.scale} min={0.2} max={4} step={0.01} format={times} onChange={(v) => store.set({ scale: v })} onCommit={() => store.commitSet()} />
+        <Slider label="Complexity" value={store.complexity} min={1} max={8} step={1} onChange={(v) => store.set({ complexity: v })} onCommit={() => store.commitSet()} />
         <Slider label="Distortion" value={store.distortion} min={0} max={1} step={0.01} onChange={(v) => store.set({ distortion: v })} onCommit={() => store.commitSet()} />
         <Slider label="Softness" value={store.softness} min={0} max={1} step={0.01} onChange={(v) => store.set({ softness: v })} onCommit={() => store.commitSet()} />
-      </div>
+      </Section>
 
-      <div className="border-t border-border" />
-
-      {/* Appearance */}
-      <div className="flex flex-col gap-3">
-        <SectionHeader>Appearance</SectionHeader>
-        <Slider label="Brightness" value={store.brightness} min={0.1} max={2} step={0.01} format={percent} onChange={(v) => store.set({ brightness: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Saturation" value={store.saturation} min={0} max={2} step={0.01} format={percent} onChange={(v) => store.set({ saturation: v })} onCommit={() => store.commitSet()} />
-        <Slider label="Hue Shift" value={store.hueShift} min={0} max={360} step={1} format={degrees} onChange={(v) => store.set({ hueShift: v })} onCommit={() => store.commitSet()} />
-      </div>
+      {extras.length > 0 && (
+        <Section title="Also on this layer">
+          <p className="text-[11px] leading-snug text-text-tertiary">
+            Parts of this layer the editor no longer offers. Remove one to drop it.
+          </p>
+          {extras.map((extra) => (
+            <div key={extra.label} className="flex items-center justify-between text-xs">
+              <span className="text-text-secondary">{extra.label}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${extra.label}`}
+                onClick={() => store.setLayerParam(extra.clear(activeLayer))}
+                className="text-text-secondary hover:text-accent transition-colors py-1"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </Section>
+      )}
     </div>
   );
 }

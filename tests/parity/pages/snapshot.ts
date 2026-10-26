@@ -32,8 +32,7 @@ import { PRESET_CATALOG } from "@wavr/core/presets";
 /**
  * A default layer of one gradient type (optionally with another palette and
  * layer overrides), a whole parity-fixture config, or a built-in preset.
- * `state` overrides engine-state fields after the config is resolved, for the
- * ones a config can't set (colorBlend, ...).
+ * `state` overrides engine-state fields after the config is resolved.
  */
 export type SnapshotJob =
   | {

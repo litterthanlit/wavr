@@ -75,7 +75,6 @@ function glslOklabToLinear(c: V3): V3 {
 interface Uniforms {
   colors: V3[];
   oklab: boolean;
-  colorBlend: number;
   softness: number;
 }
 
@@ -100,7 +99,7 @@ function glslSampleColorAt(u: Uniforms, t: number): V3 {
 }
 
 function glslGetGradientColor(u: Uniforms, t: number): V3 {
-  const blend = Math.max(u.colorBlend, u.softness * 0.85);
+  const blend = u.softness * 0.85;
   if (blend < 0.01) return glslSampleColorAt(u, t);
 
   const spread = blend * 0.15;
@@ -139,16 +138,14 @@ const MODES: { name: string; oklab: boolean; displayP3: boolean }[] = [
   { name: "sRGB", oklab: false, displayP3: false },
 ];
 
-// colorBlend / softness pairs; the effective blend is max(colorBlend, softness * 0.85).
-const BLENDS: [string, number, number][] = [
-  ["no blend", 0, 0],
-  ["blend just under the threshold", 0.009, 0],
-  ["blend just over the threshold", 0.011, 0],
-  ["colour blend 0.2", 0.2, 0],
-  ["colour blend 1", 1, 0],
-  ["softness 0.5", 0, 0.5],
-  ["softness 1", 0, 1],
-  ["both, softness wins", 0.3, 0.9],
+// Softness values; the blend is softness * 0.85.
+const BLENDS: [string, number][] = [
+  ["no blend", 0],
+  ["blend just under the threshold", 0.0105],
+  ["blend just over the threshold", 0.013],
+  ["softness 0.25", 0.25],
+  ["softness 0.5", 0.5],
+  ["softness 1", 1],
 ];
 
 const to8bit = (x: number) => Math.round(clamp(x, 0, 1) * 255);
@@ -287,12 +284,12 @@ describe("the curve through the stops", () => {
 describe("bakePalette", () => {
   for (const [name, colors] of TWO_STOP_PALETTES) {
     for (const oklab of [true, false]) {
-      for (const [blendName, colorBlend, softness] of BLENDS) {
+      for (const [blendName, softness] of BLENDS) {
         it(`${name}, ${oklab ? "Oklab" : "sRGB"}, ${blendName}: every texel is the old shader's colour`, () => {
-          const blend = effectiveBlend(colorBlend, softness);
+          const blend = effectiveBlend(softness);
           const table = bakePalette(colors, oklab, blend);
           const reach = paletteReach(blend);
-          const uniforms: Uniforms = { colors, oklab, colorBlend, softness };
+          const uniforms: Uniforms = { colors, oklab, softness };
 
           let worstFloat = 0;
           let worst8bit = 0;
@@ -311,9 +308,9 @@ describe("bakePalette", () => {
         });
 
         it(`${name}, ${oklab ? "Oklab" : "sRGB"}, ${blendName}: filtering between texels stays within 1/255`, () => {
-          const blend = effectiveBlend(colorBlend, softness);
+          const blend = effectiveBlend(softness);
           const table = bakePalette(colors, oklab, blend);
-          const uniforms: Uniforms = { colors, oklab, colorBlend, softness };
+          const uniforms: Uniforms = { colors, oklab, softness };
 
           // Past both ends too: with a blend the function keeps changing beyond [0, 1].
           let worst = 0;
@@ -349,10 +346,10 @@ describe("bakePalette", () => {
 
   it("covers the stretch past [0, 1] that a blend still reaches", () => {
     const colors = PALETTES["two stops"];
-    const blend = effectiveBlend(1, 0);
-    const uniforms: Uniforms = { colors, oklab: true, colorBlend: 1, softness: 0 };
+    const blend = effectiveBlend(1);
+    const uniforms: Uniforms = { colors, oklab: true, softness: 1 };
     const reach = paletteReach(blend);
-    expect(reach).toBeCloseTo(0.3);
+    expect(reach).toBeCloseTo(0.255);
 
     // Just past 1 the old function still differs from its value at 1: clamping t first would be wrong.
     const atOne = glslGetGradientColor(uniforms, 1);

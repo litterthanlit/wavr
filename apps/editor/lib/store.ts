@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { LayerParams, BlendMode, ColorProfile, createLayer, LIGHT_GRADIENT_PALETTES, MAX_LAYERS } from "@wavr/core";
 import { Keyframe, KeyframeParams, PlaybackMode, KEYFRAMEABLE_PARAMS, interpolateKeyframes } from "./timeline";
-import { defaultSoftnessForType, randomLook } from "./gradient-types";
+import { defaultSoftnessForType, lookPatch, randomLook } from "./gradient-types";
 import { INITIAL_EFFECTS, INITIAL_LAYER_PARAMS } from "./initial-scene";
 import {
   DEFAULT_SCENE_3D_STATE,
@@ -102,7 +102,6 @@ export interface GradientState {
   blurEnabled: boolean;
   blurAmount: number;
   radialBlurAmount: number;
-  colorBlend: number;
   chromaticAberration: number;
   hueShift: number;
   asciiEnabled: boolean;
@@ -147,14 +146,6 @@ export interface GradientState {
   realBloomEnabled: boolean;
   debandEnabled: boolean;
   debandStrength: number;
-
-  // Audio reactivity
-  audioEnabled: boolean;
-  audioSource: "mic" | "file";
-  audioBassTarget: string;
-  audioTrebleTarget: string;
-  audioEnergyTarget: string;
-  audioSensitivity: number;
 
   // Playback
   playing: boolean;
@@ -208,6 +199,8 @@ export interface GradientState {
   addColor: () => void;
   removeColor: (index: number) => void;
   loadPreset: (preset: Partial<GradientState>) => void;
+  /** Gives the active layer another look (see lookPatch), as one undo step; picking the current one does nothing. */
+  setLook: (type: LayerParams["gradientType"]) => void;
   randomize: () => void;
   undo: () => void;
   redo: () => void;
@@ -224,7 +217,6 @@ export interface GradientState {
 
   // Image actions
   setLayerImage: (layerIndex: number, dataURL: string | null) => void;
-  setLayerDistortionMap: (layerIndex: number, dataURL: string | null) => void;
 
   // Scene actions
   setScene3D: (partial: Partial<Scene3DState>) => void;
@@ -248,10 +240,10 @@ export interface GradientState {
 // Keys excluded from undo snapshots
 const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "playing", "set", "setDiscrete", "commitSet", "setColor", "addColor", "removeColor",
-  "loadPreset", "randomize", "undo", "redo",
+  "loadPreset", "setLook", "randomize", "undo", "redo",
   "addLayer", "removeLayer", "selectLayer", "setLayerParam", "setLayerOpacity",
   "setLayerBlendMode", "toggleLayerVisibility", "moveLayer",
-  "setLayerImage", "setLayerDistortionMap",
+  "setLayerImage",
   "setScene3D", "addSceneObject", "updateSceneObject", "removeSceneObject",
   "selectSceneObject", "addParticleField", "updateParticleField", "removeParticleField",
   "toggleTimeline", "addKeyframe", "removeKeyframe", "setTimelinePosition",
@@ -349,7 +341,6 @@ const DEFAULTS = {
   blurEnabled: false,
   blurAmount: 0,
   radialBlurAmount: 0,
-  colorBlend: 0,
   chromaticAberration: 0,
   hueShift: 0,
   asciiEnabled: false,
@@ -388,12 +379,6 @@ const DEFAULTS = {
   debandStrength: 1.0,
   // The opening scene's own grain, tone map, bloom, colour profile and HDR headroom.
   ...INITIAL_EFFECTS,
-  audioEnabled: false,
-  audioSource: "mic" as const,
-  audioBassTarget: "distortion",
-  audioTrebleTarget: "brightness",
-  audioEnergyTarget: "scale",
-  audioSensitivity: 0.5,
   playing: true,
   performanceMode: "auto" as PerformanceMode,
   timelineEnabled: false,
@@ -600,6 +585,12 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     });
   },
 
+  setLook: (type) => {
+    const current = useGradientStore.getState();
+    if (current.gradientType === type) return;
+    current.setDiscrete(lookPatch(type));
+  },
+
   randomize: () => {
     flushPending();
     const current = useGradientStore.getState();
@@ -765,16 +756,6 @@ export const useGradientStore = create<GradientState>((rawSet) => ({
     pushHistory(takeSnapshot(current));
     const newLayers = current.layers.map((l, i) =>
       i === layerIndex ? { ...l, imageData: dataURL } : l
-    );
-    rawSet({ layers: newLayers });
-  },
-
-  setLayerDistortionMap: (layerIndex, dataURL) => {
-    flushPending();
-    const current = useGradientStore.getState();
-    pushHistory(takeSnapshot(current));
-    const newLayers = current.layers.map((l, i) =>
-      i === layerIndex ? { ...l, distortionMapData: dataURL } : l
     );
     rawSet({ layers: newLayers });
   },

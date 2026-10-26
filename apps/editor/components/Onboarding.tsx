@@ -10,15 +10,15 @@ const STEPS = [
   },
   {
     title: "Gradient Controls",
-    desc: "Use the Gradient tab in the sidebar to change type, colors, speed, and distortion. Each type says how it reads its palette and offers its own.",
+    desc: "Pick a look in the Gradient tab, then shape its colours and motion. Each look brings its own palette, and Reset brings it back.",
   },
   {
     title: "Effects",
-    desc: "Switch to the Effects tab for noise, bloom, blur, curl noise, kaleidoscope, dithering, ASCII art, and more. Sections collapse to keep things tidy.",
+    desc: "The Effects tab finishes the scene: bloom, grain, colour grading, lens blur, how the pointer plays with the light, and the colour profile and HDR it is shown in.",
   },
   {
     title: "Layers",
-    desc: "Add up to 4 layers at the top of the sidebar. Each layer has its own gradient type, colors, and blend mode.",
+    desc: "Add up to 4 layers at the top of the sidebar. Each layer has its own look, colours and blend mode.",
   },
   {
     title: "Export & Share",

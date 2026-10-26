@@ -35,8 +35,6 @@ export interface PortableState {
   saturation: number;
   /** Degrees. */
   hueShift?: number;
-  /** Global colour blend, 0..1: how far neighbouring palette colours melt into each other. */
-  colorBlend?: number;
   /** Mix colours in Oklab (default) rather than sRGB. */
   oklabEnabled?: boolean;
   /** 0 = none, 1 = highlight shoulder, 2 = ACES (default 1). */
@@ -64,7 +62,6 @@ export interface PortableSettings {
   brightness: number;
   saturation: number;
   hueShift: number;
-  colorBlend: number;
   oklab: boolean;
   toneMapMode: number;
   /** The colours are Display P3 values. */
@@ -100,7 +97,6 @@ export function resolvePortableSettings(state: PortableState): PortableSettings 
     brightness: finite(state.brightness, 1),
     saturation: finite(state.saturation, 1),
     hueShift: finite(state.hueShift, 0),
-    colorBlend: clamp(finite(state.colorBlend, 0), 0, 1),
     oklab: state.oklabEnabled !== false,
     toneMapMode: toneMapMode >= 0 && toneMapMode <= 2 ? toneMapMode : 1,
     displayP3: state.colorProfile === "display-p3",
