@@ -486,13 +486,16 @@ vec3 inkSmokeGradient(vec2 uv, float time) {
 // a room lit by the first stop. There is no rim and no highlight: the edge is a
 // falloff.
 #if WAVR_GRADIENT == 22
-// The melted blob colour at q (in orb radii), in linear light.
-vec3 plasmaOrbField(vec2 q, float time) {
+// The melted blob colour at q (in orb radii) in linear light, and how much of
+// the blobs is there (0..1).
+vec4 plasmaOrbField(vec2 q, float time) {
   q += u_distortion * 0.35 * vec2(snoise(q * 0.6 + vec2(0.0, time * 0.02)),
                                   snoise(q * 0.6 + vec2(5.2, 1.3 - time * 0.02)));
   float width = mix(0.8, 0.48, (u_complexity - 1.0) / 9.0);
-  vec3 acc = vec3(0.0);
-  float sum = 0.0;
+  // A faint weight on the middle stop, so far out, where the blobs' weights
+  // underflow, the colour settles on it instead of jumping.
+  float sum = 1e-4;
+  vec3 acc = sum * srgbToLinear(getGradientColor(0.5));
   for (int i = 0; i < 7; i++) {
     float fi = float(i);
     vec2 ha = hash22(vec2(fi, 1.7));
@@ -509,9 +512,9 @@ vec3 plasmaOrbField(vec2 q, float time) {
     acc += w * srgbToLinear(getGradientColor(pingPong(0.3 + 0.7 * fract(fi * 0.43))));
     sum += w;
   }
-  // Dimmed smoothly where the blobs thin out, so the body's outline stays soft
-  // and drifts with them; far out, where the weights underflow, it goes to 0.
-  return acc / max(sum, 1e-3) * (1.0 - exp(-2.0 * sum));
+  // Coverage falls smoothly where the blobs thin out, so the body's outline
+  // stays soft and drifts with them.
+  return vec4(acc / sum, 1.0 - exp(-2.0 * sum));
 }
 #endif
 
@@ -522,12 +525,17 @@ vec3 plasmaOrbGradient(vec2 uv, float time) {
   vec2 q = p / R;
   float r2 = dot(q, q);
   float body = exp(-mix(2.0, 0.8, u_softness) * r2);
-  vec3 light = plasmaOrbField(q, time) * body * 2.2
-             + srgbToLinear(getGradientColor(0.5)) * 0.25 * exp(-sqrt(r2 + 0.05))
+  vec4 field = plasmaOrbField(q, time);
+  // The wide glow takes the lobes' colour near the body, so the edge varies
+  // with them, and settles on the middle stop further out.
+  vec3 glow = mix(srgbToLinear(getGradientColor(0.5)), field.rgb, exp(-0.25 * r2));
+  vec3 light = field.rgb * field.a * body * 2.2
+             + glow * 0.25 * exp(-sqrt(r2 + 0.05))
              + srgbToLinear(getGradientColor(0.0)) * 0.06;
-  // A gentle shoulder: bright lobes stay saturated rather than turning white.
-  light /= 1.0 + 0.25 * max(max(light.r, light.g), light.b);
-  return linearToSrgb(min(light, vec3(1.0)));
+  // A shoulder on the brightest channel that only approaches 1, so bright
+  // lobes keep their hue and nothing clips flat.
+  float m = max(max(light.r, light.g), max(light.b, 1e-5));
+  return linearToSrgb(light * (1.0 - exp(-1.2 * m)) / m);
 }
 #endif
 
