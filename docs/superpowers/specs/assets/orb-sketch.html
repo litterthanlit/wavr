@@ -1,0 +1,44 @@
+<!doctype html><html><body style="margin:0;background:#000"><canvas id=c width=960 height=540></canvas><script>
+const FS=`#version 300 es
+precision highp float; out vec4 o; uniform vec2 R; uniform float T; uniform int V;
+vec3 P[5]=vec3[5](vec3(.047,.055,.267),vec3(.169,.275,1.),vec3(.545,.302,1.),vec3(1.,.31,.627),vec3(1.,.816,.761));
+vec3 lin(vec3 c){return pow(c,vec3(2.2));}
+vec3 disp(vec3 l){l=l/(1.+.25*max(max(l.r,l.g),l.b));return pow(l,vec3(1./2.2));}
+vec3 hash3(float n){return fract(sin(vec3(n,n+1.3,n+2.7))*43758.5453);}
+float g(vec2 d,float s){return exp(-dot(d,d)/(2.*s*s));}
+// Smooth blob field: several drifting gaussians of palette colours, mixed by weight (so they melt, not stack)
+vec3 field(vec2 p,float t,float spread,float size){
+  vec3 acc=vec3(0); float w=0.;
+  for(int i=0;i<7;i++){ vec3 h=hash3(float(i)*7.1);
+    vec2 c=spread*vec2(sin(t*.11*(.6+h.x)+h.y*6.3)*1.4, cos(t*.09*(.6+h.z)+h.x*6.3)*.8);
+    float k=g(p-c,size*(.7+.6*h.z)); vec3 col=lin(P[1+i%4]); acc+=col*k; w+=k;}
+  return acc/max(w,1e-3)*clamp(w,0.,1.);
+}
+float box(vec2 p,vec2 b,float s){vec2 d=abs(p)-b; float r=length(max(d,0.))+min(max(d.x,d.y),0.); return 1.-smoothstep(-s,s,r);}
+void main(){ vec2 p=(gl_FragCoord.xy-.5*R)/R.y; float t=T; vec3 L;
+  vec3 room=lin(P[0])*.06;
+  if(V==0){ // soft orb: round glow, no rim, colours melting inside
+    float r=length(p); vec3 f=field(p*1.6,t,.25,.22);
+    float body=exp(-pow(r/.33,2.)*1.2); L=room+ f*body*2.2 + lin(P[2])*.25*exp(-r*3.);
+  } else if(V==1){ // diffused light wall in a dark room, like the photos
+    vec3 f=field(p*vec2(.9,1.4),t,.6,.25)+lin(P[3])*.25;
+    float m=box(p,vec2(.72,.24),.06); float spill=exp(-max(length(max(abs(p)-vec2(.72,.24),0.)),0.)*6.);
+    L=room+f*m*2.4+f*(1.-m)*spill*.35;
+    if(p.y<-.3){ float refl=box(vec2(p.x,-.6-p.y),vec2(.72,.24),.25); L+=f*refl*.12;}
+  } else if(V==2){ // full-frame field: the whole frame is light
+    L=field(p*1.1,t,.55,.32)*1.6+lin(P[1])*.15;
+  } else { // out-of-focus lights: overlapping soft discs of colour
+    L=room; for(int i=0;i<6;i++){vec3 h=hash3(float(i)*3.7+1.);
+      vec2 c=vec2(sin(t*.07+h.x*6.3)*.6,cos(t*.05+h.y*6.3)*.28); float rad=.16+.14*h.z;
+      L+=lin(P[1+i%4])*(1.-smoothstep(rad*.4,rad*1.25,length(p-c)))*.7;}
+  }
+  vec2 u=gl_FragCoord.xy/R; float grain=(fract(sin(dot(u*R,vec2(12.9898,78.233)))*43758.5453)-.5)*.02;
+  o=vec4(disp(L)+grain,1.);
+}`;
+const gl=document.getElementById('c').getContext('webgl2',{preserveDrawingBuffer:true});
+const sh=(t,s)=>{const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);if(!gl.getShaderParameter(x,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(x);return x};
+const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,`#version 300 es
+in vec2 a;void main(){gl_Position=vec4(a,0,1);}`));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(pr);gl.useProgram(pr);
+const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+window.draw=(v,t)=>{gl.uniform2f(gl.getUniformLocation(pr,'R'),960,540);gl.uniform1f(gl.getUniformLocation(pr,'T'),t);gl.uniform1i(gl.getUniformLocation(pr,'V'),v);gl.drawArrays(gl.TRIANGLES,0,3);};
+</script></body></html>
