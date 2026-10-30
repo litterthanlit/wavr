@@ -479,39 +479,39 @@ vec3 inkSmokeGradient(vec2 uv, float time) {
 #endif
 
 // plasmaOrb: a soft round glow in a dark room, like light through a diffuser.
-// The body is a gaussian falloff from the centre. Inside it seven broad gaussian
-// blobs drift on slow sines, each holding a place on the upper palette; the
-// colour is their weighted average position, so where two meet their colours
-// melt along the ramp instead of stacking. Only the centre burns toward the last
-// stop, and the body's tail fades into a room lit by the first. There is no rim
-// and no highlight: the edge is a falloff.
+// Inside a gaussian body seven broad gaussian blobs drift on slow sines, each
+// carrying its own colour from the palette; their colours are averaged in linear
+// light, weighted by the blobs, so neighbouring lobes melt into each other as
+// light does instead of stacking. The body's tail and a faint wide glow fade into
+// a room lit by the first stop. There is no rim and no highlight: the edge is a
+// falloff.
 #if WAVR_GRADIENT == 22
-// Palette position of the melted blobs at q (in orb radii).
-float plasmaOrbField(vec2 q, float time) {
+// The melted blob colour at q (in orb radii), in linear light.
+vec3 plasmaOrbField(vec2 q, float time) {
   q += u_distortion * 0.35 * vec2(snoise(q * 0.6 + vec2(0.0, time * 0.02)),
                                   snoise(q * 0.6 + vec2(5.2, 1.3 - time * 0.02)));
   float width = mix(0.8, 0.48, (u_complexity - 1.0) / 9.0);
-  // Away from the middle the colour settles on the blobs' deepest stop, so the
-  // glow goes into the room the colour it came from (and where the blobs'
-  // weights underflow, the average still has a weight to stand on).
-  float sum = 0.1 * dot(q, q);
-  float acc = 0.35 * sum;
+  vec3 acc = vec3(0.0);
+  float sum = 0.0;
   for (int i = 0; i < 7; i++) {
     float fi = float(i);
     vec2 ha = hash22(vec2(fi, 1.7));
     vec2 hb = hash22(vec2(fi, 4.3));
-    // Angular rates under 0.15: every period is over 40 s at speed 1. The
-    // later, brighter stops keep nearer the middle, so the edge never goes pale.
-    float t = 0.35 + 0.65 * fi / 6.0;
-    vec2 c = (0.8 - 0.3 * fi / 6.0) * vec2(sin(time * (0.06 + 0.08 * ha.x) + 6.283 * ha.y),
-                                           cos(time * (0.05 + 0.08 * hb.x) + 6.283 * hb.y));
-    float s = width * (0.85 + 0.3 * hb.y);
+    vec2 hc = hash22(vec2(fi, 8.9));
+    // Angular rates under 0.15: every period is over 40 s at speed 1.
+    vec2 c = 0.7 * vec2(sin(time * (0.06 + 0.08 * ha.x) + 6.283 * ha.y),
+                        cos(time * (0.05 + 0.08 * hb.x) + 6.283 * hb.y));
+    float s = width * (0.85 + 0.3 * hc.x);
     vec2 d = q - c;
     float w = exp(-dot(d, d) / (s * s));
-    acc += w * t;
+    // Palette places spread over the upper stops, in no order, so lobes of
+    // different colours sit side by side.
+    acc += w * srgbToLinear(getGradientColor(pingPong(0.3 + 0.7 * fract(fi * 0.43))));
     sum += w;
   }
-  return acc / max(sum, 1e-6);
+  // Dimmed smoothly where the blobs thin out, so the body's outline stays soft
+  // and drifts with them; far out, where the weights underflow, it goes to 0.
+  return acc / max(sum, 1e-3) * (1.0 - exp(-2.0 * sum));
 }
 #endif
 
@@ -522,13 +522,12 @@ vec3 plasmaOrbGradient(vec2 uv, float time) {
   vec2 q = p / R;
   float r2 = dot(q, q);
   float body = exp(-mix(2.0, 0.8, u_softness) * r2);
-  vec3 col = getGradientColor(pingPong(plasmaOrbField(q, time)));
-  col = mix(col, getGradientColor(1.0), 0.1 * exp(-3.0 * r2));
-  // In linear light, so the glow sums with its tail and the room as light does.
-  vec3 light = srgbToLinear(col) * body * 1.2
-             + srgbToLinear(getGradientColor(0.6)) * 0.08 * exp(-1.2 * sqrt(r2 + 0.05))
+  vec3 light = plasmaOrbField(q, time) * body * 2.2
+             + srgbToLinear(getGradientColor(0.5)) * 0.25 * exp(-sqrt(r2 + 0.05))
              + srgbToLinear(getGradientColor(0.0)) * 0.06;
-  return lightToDisplay(light);
+  // A gentle shoulder: bright lobes stay saturated rather than turning white.
+  light /= 1.0 + 0.25 * max(max(light.r, light.g), light.b);
+  return linearToSrgb(min(light, vec3(1.0)));
 }
 #endif
 
