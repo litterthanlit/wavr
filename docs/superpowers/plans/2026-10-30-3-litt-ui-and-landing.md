@@ -112,7 +112,7 @@
 
 **Files:**
 - Install: litt `switch`, `select`, `segmented`, `toast`, `button`
-- Modify: `apps/editor/components/ui/Toggle.tsx`, `Select.tsx`, `Segmented.tsx`, `Section.tsx`, `Toast.tsx`, `ColorInput.tsx`, `GradientBar.tsx` (tokens only)
+- Modify: `apps/editor/components/ui/Toggle.tsx`, `Select.tsx`, `Segmented.tsx`, `Section.tsx`, `Toast.tsx`, `ColorInput.tsx`, `Disclosure.tsx`, `GradientBar.tsx` (tokens only)
 
 **Interfaces:**
 - Consumes: Task 1 tokens.
@@ -144,6 +144,9 @@
 - [ ] **Step 1: Implement.**
   - The modals stay lazy with `useEverOpened`.
   - The Sidebar keeps the tool-tab behaviour from the dials plan.
+    - A litt tab cannot contain a button, so the tool tab's close control sits beside the tab, not inside it.
+    - `CommandPalette` keeps its effect that preloads the 3D and Shader panels when the palette opens.
+    - The top bar keeps its command-palette button, which is the only way to open the palette on a phone.
   - The TopBar's single primary action (Export) is the view's one accent fill. Everything else is secondary or ghost.
 - [ ] **Step 2: Run tests and build.** Run `pnpm --filter editor test && pnpm --filter editor build`. Expected: PASS. Compare the `/editor` first-load JS against the Task 3 build (no more than +25 kB gzip).
 - [ ] **Step 3: Look.**
