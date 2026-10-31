@@ -36,10 +36,10 @@ export default function MobileDrawer({ activeTab, onTabChange, engineRef }: Mobi
 
   const close = useCallback(() => {
     setOpen(false);
-    // The button comes back as the sheet goes; focus returns to it, unless something else took focus meanwhile.
+    // The button comes back as the sheet goes; focus left on the page or in the closing sheet returns to it.
     requestAnimationFrame(() => {
       const active = document.activeElement;
-      if (!active || active === document.body) opener.current?.focus({ preventScroll: true });
+      if (!active || active === document.body || active.closest(".mobile-controls-drawer")) opener.current?.focus({ preventScroll: true });
     });
   }, []);
 
