@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { buttonClassName } from "@/components/litt/button";
+import { buttonClassName } from "@/lib/litt-button-classes";
 import { Media } from "@/components/litt/media";
 import type { PresetId } from "@/lib/preset-entry";
 import { presetThumbnail } from "@/lib/preset-thumbnail";

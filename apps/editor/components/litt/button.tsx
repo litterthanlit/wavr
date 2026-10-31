@@ -114,12 +114,6 @@ function label(children: ReactNode): ReactNode {
   return out;
 }
 
-/** Wavr: the Button's classes, for a link that looks like one. Litt's Button always renders a <button>, and a link
- *  to another page is an <a> (build.md), so the landing's links take these and wrap their label in .litt-trim. */
-export function buttonClassName({ variant = "secondary", size = "md" }: { variant?: ButtonVariant; size?: ButtonSize } = {}) {
-  return [base, sizes[size], variants[variant], "rounded-litt-control"].join(" ");
-}
-
 export function Button({
   variant = "secondary",
   size = "md",

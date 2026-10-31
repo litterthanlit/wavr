@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId } from "react";
-import { buttonClassName } from "@/components/litt/button";
+import { buttonClassName } from "@/lib/litt-button-classes";
 import { Media } from "@/components/litt/media";
 import { LandingHero } from "@/components/LandingHero";
 import type { PresetId } from "@/lib/preset-entry";
