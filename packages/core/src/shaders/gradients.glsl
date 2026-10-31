@@ -21,7 +21,7 @@
 // Light gradients
 // ============================================================
 // Light on a surface or in the dark: a mirror, a film, a planet's limb, a leak,
-// smoke, a glass orb. Their palette is a light ramp, from the deepest shadow (the
+// smoke, a soft orb. Their palette is a light ramp, from the deepest shadow (the
 // first stop) to the brightest light (the last), so they need a palette that
 // starts dark and ends light (their presets have one).
 
@@ -496,6 +496,7 @@ vec4 plasmaOrbField(vec2 q, float time) {
   // underflow, the colour settles on it instead of jumping.
   float sum = 1e-4;
   vec3 acc = sum * srgbToLinear(getGradientColor(0.5));
+  const float places[7] = float[7](0.3, 0.601, 0.902, 0.503, 0.804, 0.405, 0.706);
   for (int i = 0; i < 7; i++) {
     float fi = float(i);
     vec2 ha = hash22(vec2(fi, 1.7));
@@ -509,7 +510,7 @@ vec4 plasmaOrbField(vec2 q, float time) {
     float w = exp(-dot(d, d) / (s * s));
     // Palette places spread over the upper stops, in no order, so lobes of
     // different colours sit side by side.
-    acc += w * srgbToLinear(getGradientColor(pingPong(0.3 + 0.7 * fract(fi * 0.43))));
+    acc += w * srgbToLinear(getGradientColor(places[i]));
     sum += w;
   }
   // Coverage falls smoothly where the blobs thin out, so the body's outline
