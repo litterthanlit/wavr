@@ -3,6 +3,8 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import type { ColorProfile } from "@wavr/core";
 import { cssColor } from "@/lib/css-color";
+import { Button } from "@/components/litt/button";
+import { XIcon } from "@/components/litt/icons";
 
 interface ColorInputProps {
   color: [number, number, number];
@@ -90,6 +92,10 @@ function useDrag(onDrag: (x: number, y: number) => void) {
 
 // --- Picker popup ---
 
+// A ring that reads on any colour under it: white with a dark hairline.
+const PICKER_CURSOR =
+  "pointer-events-none absolute -mt-1.5 -ml-1.5 size-3 rounded-litt-pill border-2 border-white shadow-[0_0_0_1px_rgb(0_0_0/0.3)]";
+
 function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
   color: [number, number, number];
   colorProfile: ColorProfile;
@@ -143,20 +149,20 @@ function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
   }, [onClose, onCommit]);
 
   return (
-    <div ref={popupRef} className="picker-popup">
+    <div ref={popupRef} className="litt-glass absolute top-full left-0 z-50 mt-2 flex w-60 flex-col gap-3 p-3">
       {/* SV area */}
       <div
         ref={svRef}
-        className="picker-sv"
+        className="relative h-36 w-full cursor-crosshair touch-none overflow-hidden rounded-litt-control"
         style={{ backgroundColor: cssColor(hsvToRgb(hsv[0], 1, 1), colorProfile) }}
         onPointerDown={onSvPointerDown}
         onPointerMove={onSvPointerMove}
         onPointerUp={onSvPointerUp}
       >
-        <div className="picker-sv-white" />
-        <div className="picker-sv-black" />
+        <div className="absolute inset-0 bg-linear-to-r from-white to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent to-black" />
         <div
-          className="picker-sv-cursor"
+          className={PICKER_CURSOR}
           style={{ left: `${hsv[1] * 100}%`, top: `${(1 - hsv[2]) * 100}%` }}
         />
       </div>
@@ -164,19 +170,19 @@ function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
       {/* Hue bar */}
       <div
         ref={hueRef}
-        className="picker-hue"
+        className="picker-hue relative h-3 w-full cursor-pointer touch-none rounded-litt-pill"
         onPointerDown={onHuePointerDown}
         onPointerMove={onHuePointerMove}
         onPointerUp={onHuePointerUp}
       >
         <div
-          className="picker-hue-cursor"
+          className={`${PICKER_CURSOR} top-1/2`}
           style={{ left: `${hsv[0] * 100}%` }}
         />
       </div>
 
       {/* Hex input */}
-      <div className="picker-hex-row">
+      <div className="flex items-center gap-2">
         <input
           type="text"
           value={hexInput}
@@ -194,10 +200,11 @@ function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
             setHexInput(hexFromHsv);
             onCommit?.();
           }}
-          className="picker-hex-input"
+          aria-label="Hex"
+          className="h-litt-control-sm min-w-0 flex-1 rounded-litt-control bg-litt-block px-litt-control-pad-sm font-litt-mono text-litt-caption text-litt-fg shadow-(--litt-block-lift) outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-litt-focus"
           spellCheck={false}
         />
-        <span className="picker-hex-label">HEX</span>
+        <span aria-hidden="true" className="text-litt-caption font-litt-label text-litt-fg-subtle">Hex</span>
       </div>
     </div>
   );
@@ -210,9 +217,12 @@ export default function ColorInput({ color, colorProfile = "srgb", onChange, onC
   const hex = rgbToHex(...color);
 
   return (
-    <div className="color-input-row group" style={{ position: "relative" }}>
+    <div className="relative flex h-litt-control-sm items-center gap-2 rounded-litt-control bg-litt-block pr-1 pl-1 shadow-(--litt-block-lift)">
       <button
-        className="color-swatch"
+        type="button"
+        aria-label="Pick a colour"
+        aria-expanded={open}
+        className="size-6 shrink-0 cursor-pointer rounded-litt-control shadow-[inset_0_0_0_1px_var(--litt-line-strong)]"
         style={{ backgroundColor: cssColor(color, colorProfile) }}
         onClick={() => setOpen(!open)}
       />
@@ -226,10 +236,12 @@ export default function ColorInput({ color, colorProfile = "srgb", onChange, onC
           }
         }}
         onBlur={() => onCommit?.()}
-        className="color-hex-input"
+        aria-label="Hex"
+        spellCheck={false}
+        className="min-w-0 flex-1 bg-transparent font-litt-mono text-litt-caption text-litt-fg outline-none"
       />
       {canRemove && (
-        <button onClick={onRemove} className="color-remove">&times;</button>
+        <Button variant="ghost" size="sm" iconOnly aria-label="Remove colour" icon={<XIcon />} onClick={onRemove} />
       )}
       {open && (
         <ColorPicker

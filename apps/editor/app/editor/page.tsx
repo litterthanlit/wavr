@@ -13,6 +13,7 @@ import {
   LazyProjectsModal,
   LazyCommandPalette,
   LazyOnboarding,
+  LazyToaster,
   prefetchEditorChunks,
 } from "@/components/lazy";
 import { useGradientStore } from "@/lib/store";
@@ -223,6 +224,7 @@ export default function EditorPage() {
       )}
       <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
       {onboardingNeeded && <LazyOnboarding />}
+      <LazyToaster />
     </div>
   );
 }

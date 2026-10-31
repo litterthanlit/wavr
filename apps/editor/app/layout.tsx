@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
-// litt's --litt-canvas in each theme (app/litt.css).
+// litt's --litt-canvas in each theme (lib/litt/tokens.css).
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fcfbfa" },

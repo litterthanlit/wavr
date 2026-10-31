@@ -1,23 +1,14 @@
 "use client";
 
+import { Switch } from "@/components/litt/switch";
+
 interface ToggleProps {
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }
 
+/** litt's Switch in a settings row: label first, the switch at the row's end, neutral (R6). */
 export default function Toggle({ label, checked, onChange }: ToggleProps) {
-  return (
-    <label className="toggle-row">
-      <span className="toggle-label">{label}</span>
-      <button
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`toggle-switch ${checked ? "toggle-on" : "toggle-off"}`}
-      >
-        <span className={`toggle-knob ${checked ? "translate-x-[18px]" : "translate-x-0"}`} />
-      </button>
-    </label>
-  );
+  return <Switch label={label} checked={checked} onCheckedChange={onChange} tone="neutral" align="end" />;
 }

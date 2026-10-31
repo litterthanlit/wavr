@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
+import { ChevronRightIcon } from "@/components/litt/icons";
 
 export default function Disclosure({ label, ariaLabel, children }: { label: string; ariaLabel?: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -13,16 +14,11 @@ export default function Disclosure({ label, ariaLabel, children }: { label: stri
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={ariaLabel}
-        className="flex items-center gap-1.5 self-start py-1 text-xs text-text-secondary hover:text-text-primary transition-colors"
+        className="flex h-litt-control-sm items-center gap-1 self-start rounded-litt-control text-litt-small font-litt-title text-litt-fg-muted transition-colors duration-(--litt-dur-instant) ease-litt hover:text-litt-fg"
       >
-        <svg
-          className={`w-3 h-3 text-text-tertiary transition-transform duration-150 ${open ? "rotate-90" : ""}`}
-          viewBox="0 0 12 12"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path d="M4 2l4 4-4 4z" />
-        </svg>
+        <ChevronRightIcon
+          className={`text-litt-fg-subtle transition-transform duration-(--litt-dur-responsive) ease-litt-responsive ${open ? "rotate-90" : ""}`}
+        />
         {label}
       </button>
       <div id={panelId} className="flex flex-col gap-3 empty:hidden">

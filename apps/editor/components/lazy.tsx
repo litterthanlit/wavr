@@ -12,6 +12,7 @@
  * warms everything one chunk per idle slot after startup.
  */
 
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { runOnePerIdle, prefersSavedData } from "@/lib/idle";
 import { loadUrlCodec } from "@/lib/url-sync";
@@ -28,6 +29,12 @@ const loadShortcutsModal = () => import("@/components/ShortcutsModal");
 const loadCommandPalette = () => import("@/components/CommandPalette");
 const loadOnboarding = () => import("@/components/Onboarding");
 const loadMobileDrawerBody = () => import("@/components/MobileDrawerBody");
+// litt's Select (Radix Select and the glide), Segmented (motion's animated components) and Toaster:
+// only the mask controls use the first two, and a toast comes after startup, so none belongs in the
+// initial bundle.
+const loadSelect = () => import("@/components/litt/select");
+const loadSegmented = () => import("@/components/litt/segmented");
+const loadToast = () => import("@/components/litt/toast");
 
 export const LazyScenePanel = dynamic(loadScenePanel, { ssr: false, loading: () => null });
 export const LazyEffectsPanel = dynamic(loadEffectsPanel, { ssr: false, loading: () => null });
@@ -39,6 +46,37 @@ export const LazyShortcutsModal = dynamic(loadShortcutsModal, { ssr: false, load
 export const LazyCommandPalette = dynamic(loadCommandPalette, { ssr: false, loading: () => null });
 export const LazyOnboarding = dynamic(loadOnboarding, { ssr: false, loading: () => null });
 export const LazyMobileDrawerBody = dynamic(loadMobileDrawerBody, { ssr: false, loading: () => null });
+export const LazySelectField = dynamic(() => loadSelect().then((m) => m.SelectField), { ssr: false, loading: () => null });
+// Holds the track's height (sm, 32px) while it loads, so the mask controls don't jump.
+export const LazySegmented = dynamic(() => loadSegmented().then((m) => m.Segmented), {
+  ssr: false,
+  loading: () => <div className="h-litt-control-sm" />,
+});
+type ToastOptions = import("@/components/litt/toast").ToastOptions;
+
+// Resolves once a Toaster has mounted. Its sink registers in an effect of the Toaster's own, which
+// runs before the effect of the component around it, so toast() reaches it from then on.
+let toasterMounted: (send: (options: ToastOptions) => void) => void = () => undefined;
+const toasterReady = new Promise<(options: ToastOptions) => void>((resolve) => {
+  toasterMounted = resolve;
+});
+
+export const LazyToaster = dynamic(
+  () =>
+    loadToast().then(({ Toaster, toast }) => {
+      function MountedToaster() {
+        useEffect(() => toasterMounted(toast), []);
+        return <Toaster />;
+      }
+      return MountedToaster;
+    }),
+  { ssr: false, loading: () => null },
+);
+
+/** Shows a litt toast, waiting for LazyToaster (mounted with the editor) if it hasn't loaded yet. */
+export function showToast(options: ToastOptions): void {
+  void toasterReady.then((send) => send(options));
+}
 
 function preloader(load: Loader): () => void {
   return () => {
@@ -81,6 +119,8 @@ export function prefetchEditorChunks(): () => void {
     loadProjectsModal,
     loadShortcutsModal,
     loadCustomGLSLPanel,
+    loadSegmented,
+    loadSelect,
   ];
   if (window.matchMedia(MOBILE_QUERY).matches) loaders.unshift(loadMobileDrawerBody);
 
