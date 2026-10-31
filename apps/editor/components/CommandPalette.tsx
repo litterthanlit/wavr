@@ -11,13 +11,8 @@
 import { useEffect, useMemo } from "react";
 import { CommandMenu, type CommandGroup as MenuGroup } from "@/components/litt/command-menu";
 import { preloadCustomGLSLPanel, preloadScenePanel } from "@/components/lazy";
-import {
-  getCommands,
-  COMMAND_GROUP_ORDER,
-  type Command,
-  type CommandGroup,
-  type UiActions,
-} from "@/lib/commands";
+import { getCommands, type Command, type UiActions } from "@/lib/commands";
+import { toMenuGroups } from "@/lib/command-groups";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -41,29 +36,7 @@ export default function CommandPalette({ open, onOpenChange, ui }: CommandPalett
     preloadCustomGLSLPanel();
   }, [open]);
 
-  const groups = useMemo<MenuGroup[]>(() => {
-    const byGroup = new Map<CommandGroup, Command[]>();
-    for (const cmd of commands) {
-      const list = byGroup.get(cmd.group);
-      if (list) list.push(cmd);
-      else byGroup.set(cmd.group, [cmd]);
-    }
-    return COMMAND_GROUP_ORDER.flatMap((group) => {
-      const items = byGroup.get(group);
-      if (!items) return [];
-      return [{
-        id: group,
-        heading: group,
-        items: items.map((cmd) => ({
-          id: cmd.id,
-          label: cmd.label,
-          shortcut: cmd.shortcut,
-          disabled: cmd.disabled?.() ?? false,
-        })),
-      }];
-    });
-  }, [commands]);
-
+  const groups = useMemo<MenuGroup[]>(() => toMenuGroups(commands), [commands]);
   const byId = useMemo(() => new Map(commands.map((cmd) => [cmd.id, cmd])), [commands]);
 
   return (

@@ -3,7 +3,13 @@
 import React from "react";
 import GradientPanel from "@/components/GradientPanel";
 import LayerPanel from "@/components/LayerPanel";
-import { useSidebarTabs } from "@/components/lazy";
+import {
+  useSidebarTabs,
+  LazyCustomGLSLPanel,
+  LazyEffectsPanel,
+  LazyPresetsPanel,
+  LazyScenePanel,
+} from "@/components/lazy";
 import { GradientEngine } from "@wavr/core";
 import { SIDEBAR_TABS, TOOL_TABS, type SidebarTab } from "@/lib/types";
 
@@ -14,10 +20,11 @@ interface SidebarProps {
 }
 
 /**
- * Until litt's Tabs have loaded (just after startup, see useLoaded): the same row drawn still, with the Gradient
- * panel under it, so the sidebar doesn't jump when they arrive. Nothing in the row is a control yet.
+ * Until litt's Tabs have loaded (just after startup, or after a retry, see useLoaded): the same row drawn still,
+ * with the active tab's panel under it, so the sidebar doesn't jump when they arrive and keys 1–3 still switch
+ * panels. Nothing in the row is a control yet.
  */
-function TabsPlaceholder({ activeTab }: { activeTab: SidebarTab }) {
+function TabsPlaceholder({ activeTab, engineRef }: Pick<SidebarProps, "activeTab" | "engineRef">) {
   const toolTab = TOOL_TABS.find((tab) => tab.id === activeTab);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -28,7 +35,7 @@ function TabsPlaceholder({ activeTab }: { activeTab: SidebarTab }) {
               <span
                 key={tab.id}
                 className={
-                  "relative flex h-litt-control-sm flex-1 items-center justify-center px-litt-control-pad-sm text-litt-small font-litt-title " +
+                  "relative flex h-litt-control-sm pointer-coarse:h-litt-control-md flex-1 items-center justify-center px-litt-control-pad-sm text-litt-small font-litt-title " +
                   (tab.id === activeTab ? "text-litt-fg" : "text-litt-fg-subtle")
                 }
               >
@@ -41,6 +48,10 @@ function TabsPlaceholder({ activeTab }: { activeTab: SidebarTab }) {
       </div>
       <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         {activeTab === "gradient" && <GradientPanel />}
+        {activeTab === "effects" && <LazyEffectsPanel />}
+        {activeTab === "presets" && <LazyPresetsPanel />}
+        {activeTab === "scene" && <LazyScenePanel />}
+        {activeTab === "code" && <LazyCustomGLSLPanel engineRef={engineRef} />}
       </div>
     </div>
   );
@@ -57,7 +68,7 @@ export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarPr
       {SidebarTabs ? (
         <SidebarTabs activeTab={activeTab} onTabChange={onTabChange} engineRef={engineRef} />
       ) : (
-        <TabsPlaceholder activeTab={activeTab} />
+        <TabsPlaceholder activeTab={activeTab} engineRef={engineRef} />
       )}
     </div>
   );

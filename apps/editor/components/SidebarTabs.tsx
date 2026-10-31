@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsPanels, TabsPanel } from "@/components/litt/tabs";
 import { Button } from "@/components/litt/button";
 import { XIcon } from "@/components/litt/icons";
+import { Tooltip } from "@/components/litt/tooltip";
 import { SIDEBAR_TABS, TOOL_TABS, type SidebarTab } from "@/lib/types";
 import type { GradientEngine } from "@wavr/core";
 
@@ -70,9 +71,11 @@ export default function SidebarTabs({ activeTab, onTabChange, engineRef }: Sideb
         </TabsList>
         {toolTab && (
           <span className="absolute inset-y-0 right-2 flex items-center">
-            <Button iconOnly size="sm" variant="ghost" aria-label={`Close ${toolTab.label}`} onClick={() => onTabChange("gradient")}>
-              <XIcon />
-            </Button>
+            <Tooltip content={`Close ${toolTab.label}`} side="bottom">
+              <Button iconOnly size="sm" variant="ghost" aria-label={`Close ${toolTab.label}`} onClick={() => onTabChange("gradient")}>
+                <XIcon />
+              </Button>
+            </Tooltip>
           </span>
         )}
       </div>

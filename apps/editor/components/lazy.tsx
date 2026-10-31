@@ -97,20 +97,26 @@ export function showToast(options: ToastOptions): void {
 
 /**
  * A lazily loaded module, or null until it has loaded. It starts loading after the first render, so the server
- * and the client's first render agree (the prerendered /editor hydrates without a mismatch).
+ * and the client's first render agree (the prerendered /editor hydrates without a mismatch). A failed load is
+ * tried again after 1s, then 2s, 4s and so on up to 30s, so a dropped chunk never strands the part that needs it.
  */
 export function useLoaded<T>(load: () => Promise<T>): T | null {
   const [loaded, setLoaded] = useState<T | null>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
+    let retry: number | undefined;
     load().then(
       (mod) => live && setLoaded(() => mod),
-      () => undefined,
+      () => {
+        if (live) retry = window.setTimeout(() => setAttempt((n) => n + 1), Math.min(30_000, 1000 * 2 ** attempt));
+      },
     );
     return () => {
       live = false;
+      window.clearTimeout(retry);
     };
-  }, [load]);
+  }, [load, attempt]);
   return loaded;
 }
 

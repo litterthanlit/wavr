@@ -68,6 +68,8 @@ export type CommandItem = {
   shortcut?: string;
   /** Dims the row. It is never lit and Enter and clicks skip it. */
   disabled?: boolean;
+  /** Wavr's local extension (to upstream into litt.md): more words the search matches, never shown. */
+  keywords?: string[];
 };
 /** A heading and its rows. A group with no match for the query is hidden. */
 export type CommandGroup = {
@@ -80,15 +82,15 @@ export type CommandGroup = {
 
 type Section = { id: string; heading: string; rows: (CommandItem & { index: number })[] };
 
-/** Keeps the original order. Matches the label, ignoring case. */
-function filter(groups: CommandGroup[], query: string) {
+/** Keeps the original order. Matches the label, and (Wavr's local extension, exported for its test) the keywords, ignoring case. */
+export function filter(groups: CommandGroup[], query: string) {
   const q = query.trim().toLowerCase();
   const flat: CommandItem[] = [];
   const sections: Section[] = [];
   for (const g of groups) {
     const rows: Section["rows"] = [];
     for (const item of g.items) {
-      if (q && !item.label.toLowerCase().includes(q)) continue;
+      if (q && !item.label.toLowerCase().includes(q) && !item.keywords?.some((k) => k.toLowerCase().includes(q))) continue;
       rows.push({ ...item, index: flat.length });
       flat.push(item);
     }

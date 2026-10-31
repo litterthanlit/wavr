@@ -59,8 +59,8 @@ export default function Onboarding() {
 
   const current = STEPS[step];
 
-  // A floating glass card, not a dialog: the editor stays usable behind it. It sits over the page as its own
-  // view, so Next is its one primary action.
+  // A floating glass card, not a dialog: the editor stays usable behind it, so it is part of the page's view,
+  // whose one accent fill is Export. Next is secondary.
   return (
     <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center p-litt-gutter">
       <section
@@ -78,7 +78,7 @@ export default function Onboarding() {
           <Button size="sm" variant="ghost" onClick={dismiss}>
             Skip
           </Button>
-          <Button size="sm" variant="primary" onClick={next}>
+          <Button size="sm" onClick={next}>
             {step === STEPS.length - 1 ? "Get started" : "Next"}
           </Button>
         </div>
