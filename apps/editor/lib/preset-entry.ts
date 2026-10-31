@@ -24,15 +24,18 @@ export function presetFromSearch(search: string, hash: string): PresetId | null 
  * query, so url-sync mirrors the scene into the hash as usual. The visit
  * starts here, so that write replaces the history entry rather than pushing
  * one Back would return to. An unknown name leaves the initial scene.
+ *
+ * `search` and `hash` are the URL the page opened on, read before this module
+ * loaded: by the time it has, url-sync may have written a hash of its own.
  */
-export function openPresetFromSearch(): void {
-  const { pathname, search, hash } = window.location;
+export function openPresetFromSearch(search: string, hash: string): void {
   if (!new URLSearchParams(search).has("preset")) return;
   const id = presetFromSearch(search, hash);
   // State null, as url-sync writes it: Next.js leaves a replaceState that
   // carries its own state (`__NA`) out of its router, which would then put the
   // query back on its next history update.
-  window.history.replaceState(null, "", pathname + hash);
+  const { pathname, hash: current } = window.location;
+  window.history.replaceState(null, "", pathname + current);
   const entry = PRESET_CATALOG.find((preset) => preset.id === id);
   if (!entry) return;
   useGradientStore.getState().loadPreset(presetToStorePatch(entry.config));

@@ -145,8 +145,11 @@ export default function EditorPage() {
     void applyHashToStore();
     const dispose = initializeUrlSync();
     // `?preset=<id>` (the landing's looks) opens on that preset once its module loads.
-    if (window.location.search) {
-      void import("@/lib/preset-entry").then((entry) => entry.openPresetFromSearch());
+    const { search, hash } = window.location;
+    if (search) {
+      import("@/lib/preset-entry")
+        .then((entry) => entry.openPresetFromSearch(search, hash))
+        .catch((e) => console.info("[wavr] ?preset=: the preset module failed to load", e));
     }
     return dispose;
   }, []);
