@@ -60,9 +60,9 @@ const EFFECT_TOGGLES = {
 } as const satisfies Partial<Record<keyof GradientState, string>>;
 
 const PERFORMANCE_COMMANDS: { mode: PerformanceMode; label: string }[] = [
-  { mode: "auto", label: "Performance: Auto" },
-  { mode: "quality", label: "Performance: Quality" },
-  { mode: "battery", label: "Performance: Battery" },
+  { mode: "auto", label: "Performance: auto" },
+  { mode: "quality", label: "Performance: quality" },
+  { mode: "battery", label: "Performance: battery" },
 ];
 
 // camelCase → [lower tokens]: "sunsetBloom" → ["sunset", "bloom"].
@@ -136,9 +136,9 @@ export function getCommands(ui: UiActions): Command[] {
   for (const tab of TOOL_TABS) {
     commands.push({
       id: `view.open.${tab.id}`,
-      label: `Open ${tab.label}`,
+      label: `${tab.label} tab`,
       group: "View",
-      keywords: ["tab", "panel", "tool", tab.id],
+      keywords: [`open ${tab.label.toLowerCase()}`, "tab", "panel", "tool", tab.id],
       run: () => ui.setTab(tab.id),
     });
   }
@@ -249,9 +249,9 @@ export function getCommands(ui: UiActions): Command[] {
   // ── Export ──────────────────────────────────────────────────────────────
   commands.push({
     id: "export.open",
-    label: "Open Export\u2026",
+    label: "Export\u2026",
     group: "Export",
-    keywords: ["export", "download", "png", "css", "video", "webm", "gif"],
+    keywords: ["open export", "download", "png", "css", "video", "webm", "gif"],
     shortcut: "E",
     run: () => ui.openExport(),
   });
@@ -268,9 +268,9 @@ export function getCommands(ui: UiActions): Command[] {
   // ── Projects ────────────────────────────────────────────────────────────
   commands.push({
     id: "projects.open",
-    label: "Open Projects\u2026",
+    label: "Projects\u2026",
     group: "Projects",
-    keywords: ["projects", "save", "load"],
+    keywords: ["open projects", "save", "load"],
     shortcut: "P",
     run: () => ui.openProjects(),
   });

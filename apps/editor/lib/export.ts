@@ -45,7 +45,7 @@ export function getPortableExportWarnings(input: PortableExportFidelityInput): s
   }
 
   if (visibleLayers.some((layer) => layer.gradientType === "image")) {
-    warnings.push("The Image gradient needs its picture, so portable code exports draw a Light Wall in its place.");
+    warnings.push("The Image gradient needs its picture, so portable code exports draw a light wall in its place.");
   }
 
   if (visibleLayers.some((layer) => layer.maskEnabled || layer.textMaskEnabled)) {

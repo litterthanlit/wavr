@@ -50,7 +50,7 @@ describe("export fidelity reporting", () => {
   it("warns that the image gradient is drawn as a light wall", () => {
     const warnings = getPortableExportWarnings({ layers: [{ visible: true, gradientType: "image" }] });
     expect(warnings).toEqual([
-      "The Image gradient needs its picture, so portable code exports draw a Light Wall in its place.",
+      "The Image gradient needs its picture, so portable code exports draw a light wall in its place.",
     ]);
     expect(getPortableExportWarnings({ layers: [{ visible: true, gradientType: "halo" }] })).toEqual([]);
     // A hidden image layer is not drawn at all.

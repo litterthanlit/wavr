@@ -16,13 +16,13 @@ describe("scene extras", () => {
   it("lists an effect the editor no longer offers while a scene has it on", () => {
     expect(labels({ ...initial(), asciiEnabled: true })).toEqual(["ASCII"]);
     expect(labels({ ...initial(), radialBlurAmount: 0.3, threeDEnabled: true })).toEqual([
-      "Radial Blur",
-      "Shader Shape Projection",
+      "Radial blur",
+      "Shader shape projection",
     ]);
   });
 
   it("lists the colour, lens and pointer effects in table order", () => {
-    expect(labels({ ...initial(), trailEnabled: true, brightness: 1.3 })).toEqual(["Brightness", "Mouse Trail"]);
+    expect(labels({ ...initial(), trailEnabled: true, brightness: 1.3 })).toEqual(["Brightness", "Mouse trail"]);
   });
 
   it("lists nothing after loading any preset", () => {

@@ -25,29 +25,29 @@ const value = (label: string, key: Amount, rest: number): SceneExtra => ({
 });
 
 export const SCENE_EXTRAS: readonly SceneExtra[] = [
-  flag("Noise Overlay", "noiseEnabled"),
-  flag("Reaction-Diffusion", "reactionDiffEnabled"),
-  flag("Classic Bloom", "bloomEnabled"),
-  flag("Soft Glow", "glowEnabled"),
+  flag("Noise overlay", "noiseEnabled"),
+  flag("Reaction-diffusion", "reactionDiffEnabled"),
+  flag("Classic bloom", "bloomEnabled"),
+  flag("Soft glow", "glowEnabled"),
   flag("Caustics", "causticEnabled"),
-  { label: "Radial Blur", isOn: (state) => state.radialBlurAmount > 0, off: { radialBlurAmount: 0 } },
-  flag("Curl Noise", "curlEnabled"),
+  { label: "Radial blur", isOn: (state) => state.radialBlurAmount > 0, off: { radialBlurAmount: 0 } },
+  flag("Curl noise", "curlEnabled"),
   flag("Liquify", "liquifyEnabled"),
   flag("Kaleidoscope", "kaleidoscopeEnabled"),
   flag("Dither", "ditherEnabled"),
   flag("ASCII", "asciiEnabled"),
-  flag("Pixel Sort", "pixelSortEnabled"),
+  flag("Pixel sort", "pixelSortEnabled"),
   flag("Parallax", "parallaxEnabled"),
-  flag("Mesh Distortion", "meshDistortionEnabled"),
-  flag("Shader Shape Projection", "threeDEnabled"),
-  flag("Feedback Loop", "feedbackEnabled"),
+  flag("Mesh distortion", "meshDistortionEnabled"),
+  flag("Shader shape projection", "threeDEnabled"),
+  flag("Feedback loop", "feedbackEnabled"),
   value("Brightness", "brightness", 1),
   value("Saturation", "saturation", 1),
-  value("Hue Shift", "hueShift", 0),
-  value("Chromatic Aberration", "chromaticAberration", 0),
+  value("Hue shift", "hueShift", 0),
+  value("Chromatic aberration", "chromaticAberration", 0),
   flag("Blur", "blurEnabled"),
-  flag("Click Ripple", "rippleEnabled"),
-  flag("Mouse Trail", "trailEnabled"),
+  flag("Click ripple", "rippleEnabled"),
+  flag("Mouse trail", "trailEnabled"),
 ];
 
 export function sceneExtrasOn(state: GradientState): SceneExtra[] {
@@ -62,12 +62,12 @@ export interface LayerExtra {
 
 export const LAYER_EXTRAS: readonly LayerExtra[] = [
   {
-    label: "Texture Overlay",
+    label: "Texture overlay",
     isOn: (layer) => layer.gradientType !== "image" && layer.imageData !== null,
     clear: () => ({ imageData: null }),
   },
   {
-    label: "Distortion Map",
+    label: "Distortion map",
     isOn: (layer) => layer.distortionMapEnabled,
     clear: () => ({ distortionMapEnabled: false, distortionMapData: null }),
   },

@@ -7,13 +7,13 @@ export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "aperture", label: "Aperture" },
   { id: "ganzfeld", label: "Ganzfeld" },
   { id: "halo", label: "Halo" },
-  { id: "lightWall", label: "Light Wall" },
-  { id: "liquidChrome", label: "Liquid Chrome" },
-  { id: "horizonGlow", label: "Horizon Glow" },
-  { id: "inkSmoke", label: "Ink Smoke" },
+  { id: "lightWall", label: "Light wall" },
+  { id: "liquidChrome", label: "Liquid chrome" },
+  { id: "horizonGlow", label: "Horizon glow" },
+  { id: "inkSmoke", label: "Ink smoke" },
   { id: "plasmaOrb", label: "Orb" },
-  { id: "iridescentFoil", label: "Iridescent Foil" },
-  { id: "lightLeak", label: "Light Leak" },
+  { id: "iridescentFoil", label: "Iridescent foil" },
+  { id: "lightLeak", label: "Light leak" },
 ];
 
 export function getPreset(id: string): GradientConfig | undefined {

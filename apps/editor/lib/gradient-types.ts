@@ -29,32 +29,32 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
   },
   {
     value: "lightWall",
-    label: "Light Wall",
+    label: "Light wall",
     description: `Coloured light behind a wall of frosted glass. ${LIGHT_FIELD_PALETTE_ROLES.lightWall}`,
   },
   {
     value: "horizonGlow",
-    label: "Horizon Glow",
+    label: "Horizon glow",
     description: "A planet's rim lit against a dark sky. Colours run from the night to the brightest light.",
   },
   {
     value: "lightLeak",
-    label: "Light Leak",
+    label: "Light leak",
     description: "Warm light bleeding in over the edge of the film. Colours run from the dark frame to the hottest light.",
   },
   {
     value: "liquidChrome",
-    label: "Liquid Chrome",
+    label: "Liquid chrome",
     description: "Flowing mirror metal. Colours run from its deepest shadow to its brightest highlight.",
   },
   {
     value: "iridescentFoil",
-    label: "Iridescent Foil",
+    label: "Iridescent foil",
     description: "Holographic foil whose colour shifts across its folds. Colours run from the shadow to the brightest sheen.",
   },
   {
     value: "inkSmoke",
-    label: "Ink Smoke",
+    label: "Ink smoke",
     description: "A plume of smoke curling through dark water. Colours run from the water to the brightest strand.",
   },
   {
@@ -109,7 +109,7 @@ export function randomLook(
   };
 }
 
-/** The picker's name for a type ("Liquid Chrome"), for anywhere a type is shown. */
+/** The picker's name for a type ("Liquid chrome"), for anywhere a type is shown. */
 export function gradientTypeLabel(type: LayerParams["gradientType"]): string {
   return GRADIENT_OPTIONS.find((option) => option.value === type)?.label ?? type;
 }

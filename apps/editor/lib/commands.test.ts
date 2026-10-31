@@ -65,8 +65,8 @@ describe("command registry", () => {
     const commands = getCommands({ ...noopUi(), setTab: (tab) => opened.push(tab) });
     const tools = commands.filter((c) => c.id.startsWith("view.open."));
     expect(tools.map((c) => [c.id, c.label, c.shortcut])).toEqual([
-      ["view.open.scene", "Open 3D", undefined],
-      ["view.open.code", "Open Shader", undefined],
+      ["view.open.scene", "3D tab", undefined],
+      ["view.open.code", "Shader tab", undefined],
     ]);
     for (const tool of tools) tool.run();
     expect(opened).toEqual(["scene", "code"]);
@@ -112,8 +112,8 @@ describe("command registry", () => {
 
   it("names each look as the Look grid does", () => {
     const label = (id: string) => getCommands(noopUi()).find((c) => c.id === id)?.label;
-    expect(label("gradient.lightWall")).toBe("Set gradient: Light Wall");
-    expect(label("gradient.iridescentFoil")).toBe("Set gradient: Iridescent Foil");
+    expect(label("gradient.lightWall")).toBe("Set gradient: Light wall");
+    expect(label("gradient.iridescentFoil")).toBe("Set gradient: Iridescent foil");
   });
 
   it("no gradient command for the image type", () => {
