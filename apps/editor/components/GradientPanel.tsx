@@ -11,6 +11,7 @@ import { MAX_STOPS, barPalette, insertStop, reverseStops, sameStops, stopPositio
 import Toggle from "@/components/ui/Toggle";
 import Section from "@/components/ui/Section";
 import Segmented from "@/components/ui/Segmented";
+import Disclosure from "@/components/ui/Disclosure";
 import LookPicker from "@/components/LookPicker";
 import type { MaskParams, TextMaskAlign } from "@wavr/core";
 import { GRADIENT_OPTIONS, curatedPalette } from "@/lib/gradient-types";
@@ -156,33 +157,35 @@ function ShapeMaskControls({
   return (
     <>
       <Select label="Shape" value={mask.shape} options={MASK_SHAPE_OPTIONS} onChange={(v) => onUpdate("shape", v)} />
-      <Slider label="Position X" value={mask.position[0]} min={-1} max={1} step={0.01}
-        onChange={(v) => onUpdate("position", [v, mask.position[1]])} onCommit={commit} />
-      <Slider label="Position Y" value={mask.position[1]} min={-1} max={1} step={0.01}
-        onChange={(v) => onUpdate("position", [mask.position[0], v])} onCommit={commit} />
-      <Slider label="Scale X" value={mask.scale[0]} min={0.1} max={4} step={0.01} format={times}
-        onChange={(v) => onUpdate("scale", [v, mask.scale[1]])} onCommit={commit} />
-      <Slider label="Scale Y" value={mask.scale[1]} min={0.1} max={4} step={0.01} format={times}
-        onChange={(v) => onUpdate("scale", [mask.scale[0], v])} onCommit={commit} />
-      <Slider label="Rotation" value={mask.rotation} min={0} max={6.28} step={0.01} format={radiansAsDegrees}
-        onChange={(v) => onUpdate("rotation", v)} onCommit={commit} />
-      <Slider label="Feather" value={mask.feather} min={0} max={0.5} step={0.001}
-        onChange={(v) => onUpdate("feather", v)} onCommit={commit} />
-      <Toggle label="Invert" checked={mask.invert} onChange={(v) => onUpdate("invert", v)} />
-      {mask.shape === "roundedRect" && (
-        <Slider label="Corner Radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
-          onChange={(v) => onUpdate("cornerRadius", v)} onCommit={commit} />
-      )}
-      {(mask.shape === "polygon" || mask.shape === "star") && (
-        <Slider label="Sides" value={mask.sides} min={3} max={12} step={1}
-          onChange={(v) => onUpdate("sides", v)} onCommit={commit} />
-      )}
-      {mask.shape === "star" && (
-        <Slider label="Inner Radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
-          onChange={(v) => onUpdate("starInnerRadius", v)} onCommit={commit} />
-      )}
-      <Slider label="Noise Edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
-        onChange={(v) => onUpdate("noiseDistortion", v)} onCommit={commit} />
+      <Disclosure label="More">
+        <Slider label="Position X" value={mask.position[0]} min={-1} max={1} step={0.01}
+          onChange={(v) => onUpdate("position", [v, mask.position[1]])} onCommit={commit} />
+        <Slider label="Position Y" value={mask.position[1]} min={-1} max={1} step={0.01}
+          onChange={(v) => onUpdate("position", [mask.position[0], v])} onCommit={commit} />
+        <Slider label="Scale X" value={mask.scale[0]} min={0.1} max={4} step={0.01} format={times}
+          onChange={(v) => onUpdate("scale", [v, mask.scale[1]])} onCommit={commit} />
+        <Slider label="Scale Y" value={mask.scale[1]} min={0.1} max={4} step={0.01} format={times}
+          onChange={(v) => onUpdate("scale", [mask.scale[0], v])} onCommit={commit} />
+        <Slider label="Rotation" value={mask.rotation} min={0} max={6.28} step={0.01} format={radiansAsDegrees}
+          onChange={(v) => onUpdate("rotation", v)} onCommit={commit} />
+        <Slider label="Feather" value={mask.feather} min={0} max={0.5} step={0.001}
+          onChange={(v) => onUpdate("feather", v)} onCommit={commit} />
+        <Toggle label="Invert" checked={mask.invert} onChange={(v) => onUpdate("invert", v)} />
+        {mask.shape === "roundedRect" && (
+          <Slider label="Corner Radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
+            onChange={(v) => onUpdate("cornerRadius", v)} onCommit={commit} />
+        )}
+        {(mask.shape === "polygon" || mask.shape === "star") && (
+          <Slider label="Sides" value={mask.sides} min={3} max={12} step={1}
+            onChange={(v) => onUpdate("sides", v)} onCommit={commit} />
+        )}
+        {mask.shape === "star" && (
+          <Slider label="Inner Radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
+            onChange={(v) => onUpdate("starInnerRadius", v)} onCommit={commit} />
+        )}
+        <Slider label="Noise Edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
+          onChange={(v) => onUpdate("noiseDistortion", v)} onCommit={commit} />
+      </Disclosure>
     </>
   );
 }
@@ -347,21 +350,23 @@ export default function GradientPanel() {
                   focus:border-accent transition-colors"
               />
             </label>
-            <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1} format={px}
-              onChange={(v) => updateLayerField("textMaskFontSize", v)}
-              onCommit={() => store.commitSet()} />
-            <Slider label="Weight" value={activeLayer.textMaskFontWeight} min={400} max={900} step={100}
-              onChange={(v) => updateLayerField("textMaskFontWeight", v)}
-              onCommit={() => store.commitSet()} />
-            <Slider label="Spacing" value={activeLayer.textMaskLetterSpacing} min={-0.05} max={0.2} step={0.005} format={em}
-              onChange={(v) => updateLayerField("textMaskLetterSpacing", v)}
-              onCommit={() => store.commitSet()} />
-            <Select
-              label="Align"
-              value={activeLayer.textMaskAlign}
-              options={TEXT_ALIGN_OPTIONS}
-              onChange={(v) => store.setLayerParam({ textMaskAlign: v as TextMaskAlign })}
-            />
+            <Disclosure label="More">
+              <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1} format={px}
+                onChange={(v) => updateLayerField("textMaskFontSize", v)}
+                onCommit={() => store.commitSet()} />
+              <Slider label="Weight" value={activeLayer.textMaskFontWeight} min={400} max={900} step={100}
+                onChange={(v) => updateLayerField("textMaskFontWeight", v)}
+                onCommit={() => store.commitSet()} />
+              <Slider label="Spacing" value={activeLayer.textMaskLetterSpacing} min={-0.05} max={0.2} step={0.005} format={em}
+                onChange={(v) => updateLayerField("textMaskLetterSpacing", v)}
+                onCommit={() => store.commitSet()} />
+              <Select
+                label="Align"
+                value={activeLayer.textMaskAlign}
+                options={TEXT_ALIGN_OPTIONS}
+                onChange={(v) => store.setLayerParam({ textMaskAlign: v as TextMaskAlign })}
+              />
+            </Disclosure>
           </>
         )}
       </Section>
