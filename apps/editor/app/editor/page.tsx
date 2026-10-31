@@ -173,7 +173,7 @@ export default function EditorPage() {
   return (
     // Edge to edge: the canvas is the product, so it gets the whole window.
     // dvh, so a phone's browser bars don't push the timeline off screen.
-    <div className="h-dvh w-screen flex flex-col overflow-hidden bg-litt-canvas">
+    <div className="h-dvh w-full flex flex-col overflow-hidden bg-litt-canvas">
       <TopBar
         onExport={() => setExportOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
