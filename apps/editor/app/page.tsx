@@ -5,7 +5,7 @@ import { useId } from "react";
 import { buttonClassName } from "@/lib/litt-button-classes";
 import { Media } from "@/components/litt/media";
 import { LandingHero } from "@/components/LandingHero";
-import type { PresetId } from "@/lib/preset-entry";
+import { LANDING_LOOKS } from "@/lib/landing-looks";
 import { presetThumbnail } from "@/lib/preset-thumbnail";
 import { useTheme } from "@/lib/useTheme";
 
@@ -16,14 +16,6 @@ import { useTheme } from "@/lib/useTheme";
 // accent fill.
 
 const REPO = "https://github.com/litterthanlit/wavr";
-
-/** Four looks, strongest first. Names in sentence case; each opens /editor?preset=<id>. */
-const LOOKS: { id: PresetId; name: string }[] = [
-  { id: "aperture", name: "Aperture" },
-  { id: "lightLeak", name: "Light leak" },
-  { id: "plasmaOrb", name: "Orb" },
-  { id: "lightWall", name: "Light wall" },
-];
 
 const linkText =
   "rounded-litt-control text-litt-fg-muted transition-colors duration-(--litt-dur-instant) ease-litt hover:text-litt-fg " +
@@ -91,7 +83,7 @@ export default function LandingPage() {
               <p className="text-litt-small text-litt-fg-muted">Each one opens in the editor, ready to change.</p>
             </div>
             <ul className="grid grid-cols-2 gap-x-(--litt-grid-gap) gap-y-6 sm:grid-cols-4 lg:col-span-9">
-              {LOOKS.map((look) => (
+              {LANDING_LOOKS.map((look) => (
                 <li key={look.id}>
                   <Link
                     href={`/editor?preset=${look.id}`}
@@ -111,7 +103,7 @@ export default function LandingPage() {
 
       <footer className="border-t border-litt-line">
         <div className="mx-auto flex max-w-litt-wide flex-wrap items-center justify-between gap-x-6 gap-y-2 px-litt-gutter py-8 text-litt-small">
-          <p className="text-litt-fg-subtle">Wavr runs in your browser. Nothing you make leaves it.</p>
+          <p className="text-litt-fg-subtle">Wavr runs in your browser. Nothing is uploaded.</p>
           <a href={REPO} className={linkText}>
             Source on GitHub
           </a>
