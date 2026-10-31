@@ -2,7 +2,7 @@
 
 import { useId, useState, type ReactNode } from "react";
 
-export default function Disclosure({ label, children }: { label: string; children: ReactNode }) {
+export default function Disclosure({ label, ariaLabel, children }: { label: string; ariaLabel?: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   return (
@@ -12,7 +12,8 @@ export default function Disclosure({ label, children }: { label: string; childre
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex items-center gap-1.5 self-start py-1 text-xs text-text-secondary hover:text-accent transition-colors"
+        aria-label={ariaLabel}
+        className="flex items-center gap-1.5 self-start py-1 text-xs text-text-secondary hover:text-text-primary transition-colors"
       >
         <svg
           className={`w-3 h-3 text-text-tertiary transition-transform duration-150 ${open ? "rotate-90" : ""}`}

@@ -157,7 +157,7 @@ function ShapeMaskControls({
   return (
     <>
       <Select label="Shape" value={mask.shape} options={MASK_SHAPE_OPTIONS} onChange={(v) => onUpdate("shape", v)} />
-      <Disclosure label="More">
+      <Disclosure label="More" ariaLabel="More mask controls">
         <Slider label="Position X" value={mask.position[0]} min={-1} max={1} step={0.01}
           onChange={(v) => onUpdate("position", [v, mask.position[1]])} onCommit={commit} />
         <Slider label="Position Y" value={mask.position[1]} min={-1} max={1} step={0.01}
@@ -350,7 +350,7 @@ export default function GradientPanel() {
                   focus:border-accent transition-colors"
               />
             </label>
-            <Disclosure label="More">
+            <Disclosure label="More" ariaLabel="More text mask controls">
               <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1} format={px}
                 onChange={(v) => updateLayerField("textMaskFontSize", v)}
                 onCommit={() => store.commitSet()} />
