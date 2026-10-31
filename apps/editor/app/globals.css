@@ -1,146 +1,62 @@
 @import "tailwindcss";
+/* litt's tokens, theme blocks and material classes (the registry's "litt" item). */
+@import "./litt.css";
 
 /* Pin the rem base (previously set by the removed LiftKit stylesheet). */
 :root {
   font-size: 16px;
+  /* Geist comes from next/font (layout.tsx), so litt's font stacks lead with its family. */
+  --litt-font-sans: var(--font-geist-sans), "Geist", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --litt-font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-@theme {
-  --color-root: var(--color-root-val);
-  --color-base: var(--color-base-val);
-  --color-surface: var(--color-surface-val);
-  --color-elevated: var(--color-elevated-val);
-  --color-border: var(--color-border-val);
-  --color-border-active: var(--color-border-active-val);
-  --color-text-primary: var(--color-text-primary-val);
-  --color-text-secondary: var(--color-text-secondary-val);
-  --color-text-tertiary: var(--color-text-tertiary-val);
-  --color-accent: var(--color-accent-val);
-  --color-slider-track: var(--color-slider-track-val);
-  --font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "Geist Mono", "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
+@theme inline {
+  --font-sans: var(--litt-font-sans);
+  --font-mono: var(--litt-font-mono);
+
+  /* aliases: removed in Task 5 */
+  --color-root: var(--litt-canvas);
+  --color-base: var(--litt-surface-1);
+  --color-surface: var(--litt-surface-2);
+  --color-elevated: var(--litt-surface-3);
+  --color-border: var(--litt-line);
+  --color-border-active: var(--litt-line-strong);
+  --color-text-primary: var(--litt-fg);
+  --color-text-secondary: var(--litt-fg-muted);
+  --color-text-tertiary: var(--litt-fg-subtle);
+  --color-accent: var(--litt-accent);
+  --color-slider-track: var(--litt-slot);
 }
 
-/* ============================================================
-   Dark theme (default)
-   ============================================================ */
+/* Native controls and scrollbars follow the theme litt's tokens are in. */
+:root { color-scheme: light dark; }
+[data-theme="light"] { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+
+/* aliases: removed in Task 5 */
 :root {
-  --color-root-val: #0c0c0e;
-  --color-base-val: #111113;
-  --color-surface-val: #1a1a1e;
-  --color-elevated-val: #232327;
-  --color-border-val: rgba(255, 255, 255, 0.06);
-  --color-border-active-val: rgba(255, 255, 255, 0.12);
-  --color-text-primary-val: #e8e8ec;
-  --color-text-secondary-val: #a0a4ac;
-  --color-text-tertiary-val: #80858e;
-  --color-accent-val: #635bff;
-  --color-slider-track-val: rgba(255, 255, 255, 0.08);
-
-  /* Tick-mark slider spectrum: green → teal → blue → purple → orange → red */
-  --color-tick-inactive: rgba(255, 255, 255, 0.08);
-  --color-tick-inactive: #ffffff14;
-  --color-tick-base: #B41E14;
-
-  /* Surface glow for pill controls */
-  --color-pill-bg: #1a1a1e;
-  --color-pill-border: rgba(255, 255, 255, 0.04);
-  --color-pill-shadow: rgba(0, 0, 0, 0.5);
-
-  color-scheme: dark;
-}
-
-/* ============================================================
-   Light theme via system preference
-   ============================================================ */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --color-root-val: #f2f2f5;
-    --color-base-val: #fafafe;
-    --color-surface-val: #f0f0f4;
-    --color-elevated-val: #e6e6ec;
-    --color-border-val: rgba(0, 0, 0, 0.07);
-    --color-border-active-val: rgba(0, 0, 0, 0.14);
-    --color-text-primary-val: #18181b;
-    --color-text-secondary-val: #52525b;
-    --color-text-tertiary-val: #6b6b74;
-    --color-accent-val: #4f46e5;
-    --color-slider-track-val: rgba(0, 0, 0, 0.06);
-
-    --color-tick-inactive: rgba(0, 0, 0, 0.07);
-    --color-tick-inactive: #00000012;
-    --color-tick-base: #A0190F;
-
-    --color-pill-bg: #eeeef2;
-    --color-pill-border: rgba(0, 0, 0, 0.06);
-    --color-pill-shadow: rgba(0, 0, 0, 0.08);
-
-    color-scheme: light;
-  }
-}
-
-/* Manual light override */
-[data-theme="light"] {
-  --color-root-val: #f2f2f5;
-  --color-base-val: #fafafe;
-  --color-surface-val: #f0f0f4;
-  --color-elevated-val: #e6e6ec;
-  --color-border-val: rgba(0, 0, 0, 0.07);
-  --color-border-active-val: rgba(0, 0, 0, 0.14);
-  --color-text-primary-val: #18181b;
-  --color-text-secondary-val: #52525b;
-  --color-text-tertiary-val: #6b6b74;
-  --color-accent-val: #4f46e5;
-  --color-slider-track-val: rgba(0, 0, 0, 0.06);
-
-  --color-tick-inactive: rgba(0, 0, 0, 0.07);
-  --color-tick-green: #16a34a;
-  --color-tick-teal: #0d9488;
-  --color-tick-blue: #2563eb;
-  --color-tick-purple: #7c3aed;
-  --color-tick-orange: #d97706;
-  --color-tick-red: #dc2626;
-
-  --color-pill-bg: #eeeef2;
-  --color-pill-border: rgba(0, 0, 0, 0.06);
-  --color-pill-shadow: rgba(0, 0, 0, 0.08);
-
-  color-scheme: light;
-}
-
-/* Manual dark override */
-[data-theme="dark"] {
-  --color-root-val: #0c0c0e;
-  --color-base-val: #111113;
-  --color-surface-val: #1a1a1e;
-  --color-elevated-val: #232327;
-  --color-border-val: rgba(255, 255, 255, 0.06);
-  --color-border-active-val: rgba(255, 255, 255, 0.12);
-  --color-text-primary-val: #e8e8ec;
-  --color-text-secondary-val: #a0a4ac;
-  --color-text-tertiary-val: #80858e;
-  --color-accent-val: #635bff;
-  --color-slider-track-val: rgba(255, 255, 255, 0.08);
-
-  --color-tick-inactive: rgba(255, 255, 255, 0.08);
-  --color-tick-inactive: #ffffff14;
-  --color-tick-base: #B41E14;
-
-  --color-pill-bg: #1a1a1e;
-  --color-pill-border: rgba(255, 255, 255, 0.04);
-  --color-pill-shadow: rgba(0, 0, 0, 0.5);
-
-  color-scheme: dark;
+  --color-tick-inactive: var(--litt-line);
+  --color-tick-base: var(--litt-data-rose);
+  --color-tick-green: var(--litt-data-teal);
+  --color-tick-teal: var(--litt-data-teal);
+  --color-tick-blue: var(--litt-data-blue);
+  --color-tick-purple: var(--litt-data-violet);
+  --color-tick-orange: var(--litt-data-amber);
+  --color-tick-red: var(--litt-data-rose);
+  --color-pill-bg: var(--litt-block);
+  --color-pill-border: var(--litt-line);
+  --color-pill-shadow: transparent;
 }
 
 /* ============================================================
    Base
    ============================================================ */
 body {
-  background: var(--color-root);
-  color: var(--color-text-primary);
-  font-family: var(--font-sans);
-  transition: background-color 0.2s, color 0.2s;
+  background: var(--litt-canvas);
+  color: var(--litt-fg);
+  font-family: var(--litt-font-sans);
+  transition: background-color var(--litt-dur-instant) var(--litt-ease-out),
+              color var(--litt-dur-instant) var(--litt-ease-out);
 }
 
 /* ============================================================
@@ -155,7 +71,7 @@ body {
    Focus
    ============================================================ */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--litt-focus);
   outline-offset: 1px;
   border-radius: 4px;
 }
@@ -254,7 +170,7 @@ body {
 }
 
 .slider-track:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--litt-focus);
   outline-offset: 2px;
 }
 
@@ -659,7 +575,7 @@ body {
 }
 
 .topbar-btn:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--litt-focus);
   outline-offset: 2px;
 }
 
