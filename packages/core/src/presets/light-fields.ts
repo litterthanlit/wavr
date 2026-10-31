@@ -120,6 +120,45 @@ export const iceHalo: GradientConfig = {
   realBloomEnabled: true,
 };
 
+// Blue light pouring out in fine streamers round a dark eye, like a long
+// exposure through ribbed glass.
+export const corona: GradientConfig = {
+  layers: [{
+    type: "corona",
+    colors: LIGHT_GRADIENT_PALETTES.corona,
+    speed: 0.4,
+    complexity: 6,
+    scale: 1,
+    distortion: 0.3,
+    softness: 0.3,
+  }],
+  grain: 0.08,
+  toneMapMode: 0,
+  colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
+  realBloomEnabled: true,
+};
+
+// Pale streamers hanging as curtains either side of the dark.
+export const iceVeil: GradientConfig = {
+  layers: [{
+    type: "corona",
+    colors: [[0.006, 0.008, 0.016], [0.035, 0.07, 0.16], [0.18, 0.34, 0.62], [0.5, 0.68, 0.9], [0.82, 0.9, 0.98], [0.98, 0.99, 1]],
+    speed: 0.4,
+    complexity: 6,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.55,
+    fill: 0.65,
+    focus: 0.83,
+  }],
+  grain: 0.08,
+  toneMapMode: 0,
+  colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
+  realBloomEnabled: true,
+};
+
 // Magenta, coral and lavender light drifting behind frosted glass.
 export const lightWall: GradientConfig = {
   layers: [{

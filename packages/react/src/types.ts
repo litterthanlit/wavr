@@ -15,7 +15,7 @@ export type TextMaskAlign = "left" | "center" | "right";
 export type GradientType =
   | "image" | "liquidChrome" | "iridescentFoil"
   | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb"
-  | "aperture" | "halo" | "lightWall";
+  | "aperture" | "halo" | "corona" | "lightWall";
 
 /** The RGB space colour values are read in and the canvas presents in. */
 export type ColorProfile = "srgb" | "display-p3";
@@ -41,6 +41,10 @@ export interface LayerConfig {
   scale?: number;
   distortion?: number;
   softness?: number;
+  /** How much of the frame the light fills, from a few streamers (0) to a bright wash (1). Read by corona. Default 0.5. */
+  fill?: number;
+  /** Where the light converges, from a burst round a dark eye (0) to hanging curtains (1). Read by corona. Default 0.5. */
+  focus?: number;
   opacity?: number;
   blendMode?: BlendMode;
   depth?: number;

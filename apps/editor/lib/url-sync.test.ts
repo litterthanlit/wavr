@@ -17,12 +17,14 @@ import { DEFAULT_SCENE_3D_STATE, cloneScene3D } from "./scene3d";
 function buildRealisticState(): GradientState {
   const base = useGradientStore.getState();
   const layerA = createLayer({
-    gradientType: "inkSmoke",
+    gradientType: "corona",
     speed: 0.8,
     complexity: 5,
     scale: 1.4,
     distortion: 0.6,
     softness: 0.72,
+    fill: 0.8,
+    focus: 0.15,
     opacity: 0.9,
     blendMode: "screen",
     depth: 0.25,
@@ -138,16 +140,18 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(patch.debandEnabled).toBe(false);
     expect(patch.debandStrength).toBeCloseTo(1.5);
 
-    // Layers: both layers' 9 schema-owned fields round-trip.
+    // Layers: both layers' 11 schema-owned fields round-trip.
     expect(patch.layers).toBeDefined();
     const outLayers = patch.layers!;
     expect(outLayers.length).toBe(2);
-    expect(outLayers[0].gradientType).toBe("inkSmoke");
+    expect(outLayers[0].gradientType).toBe("corona");
     expect(outLayers[0].speed).toBeCloseTo(0.8);
     expect(outLayers[0].complexity).toBe(5);
     expect(outLayers[0].scale).toBeCloseTo(1.4);
     expect(outLayers[0].distortion).toBeCloseTo(0.6);
     expect(outLayers[0].softness).toBeCloseTo(0.72);
+    expect(outLayers[0].fill).toBeCloseTo(0.8);
+    expect(outLayers[0].focus).toBeCloseTo(0.15);
     expect(outLayers[0].opacity).toBeCloseTo(0.9);
     expect(outLayers[0].blendMode).toBe("screen");
     expect(outLayers[0].depth).toBeCloseTo(0.25);

@@ -135,6 +135,7 @@ export const GRADIENT_TYPE_IDS: Readonly<Record<LayerParams["gradientType"], num
   aperture: 23,
   halo: 24,
   lightWall: 25,
+  corona: 26,
 };
 
 const IMAGE_BLEND_MODE_MAP: Record<ImageBlendMode, number> = {
@@ -169,7 +170,7 @@ const MASK_BLEND_MODE_MAP: Record<MaskBlendMode, number> = {
  */
 export const PROGRAM_UNIFORM_NAMES: readonly string[] = [
   "u_time", "u_resolution", "u_mouse", "u_mouseSmooth", "u_mouseVelocity",
-  "u_speed", "u_complexity", "u_scale", "u_distortion", "u_softness",
+  "u_speed", "u_complexity", "u_scale", "u_distortion", "u_softness", "u_fill", "u_focus",
   "u_brightness", "u_saturation", "u_colorCount",
   "u_noiseEnabled", "u_noiseIntensity", "u_noiseScale", "u_grain",
   "u_mouseReact", "u_mousePresence",
@@ -1816,6 +1817,8 @@ export class GradientEngine {
     this.setf("u_complexity", layer.complexity);
     this.setf("u_scale", layer.scale);
     this.setf("u_distortion", layer.distortion);
+    this.setf("u_fill", layer.fill);
+    this.setf("u_focus", layer.focus);
     this.setPalette(layer);
     this.setf("u_layerOpacity", layer.opacity);
     // Parallax depth (per-layer)

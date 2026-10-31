@@ -743,6 +743,105 @@ vec3 haloGradient(vec2 uv, float time) {
 }
 #endif
 
+// Corona: light pouring out in fine streamers, as in a long exposure of light
+// through ribbed glass. The streamers run along hyperbolas,
+// x = tan(u) sqrt(y^2 + k^2): rays from the middle far out, vertical where
+// they pass the waist, so the frame reads as an hourglass of light round a
+// dark eye. Focus sets the waist k: a burst of rays round a small eye at 0,
+// streamers hanging as curtains either side of a wide dark at 1. The light is
+// mirror-symmetric across the vertical axis. Broad lobes of light drift up
+// the streamers over a haze they scatter; fine filaments run along them,
+// flowing outward, faded out before they alias and dispersed (red sits a
+// little outside blue). Fill opens the lobes from a few streamers to a bright
+// wash. The palette is a light ramp: the dark (first stop), then the light
+// from its faintest to its hottest (last). Scale sizes the lobes and
+// filaments, complexity adds finer filaments, softness blurs them, distortion
+// lets the streamers waver.
+#if WAVR_GRADIENT == 26
+// Noise mirrored across u = 0 without a crease: the sum of the two sides.
+float coronaSym(vec2 q) {
+  return 0.5 * (snoise(q) + snoise(vec2(-q.x, q.y)));
+}
+
+// Filaments along the streamers, f of them per radian of u, flowing outward;
+// 0..1, faded to their mean where they would come closer than a few
+// pixels.
+float coronaFilaments(float u, float s, float f, float time, float fw) {
+  float n = snoise(vec2(abs(u) * f, s * 0.6 - time * 0.12));
+  float sharp = 0.5 + 0.5 * n;
+  return mix(sharp * sharp * 1.6, 0.53, smoothstep(0.25, 0.6, fw * f));
+}
+#endif
+
+#if WAVR_GRADIENT == 26
+vec3 coronaGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv);
+  float soft = clamp(u_softness, 0.0, 1.0);
+  float warp = clamp(u_distortion, 0.0, 1.0);
+  float fill = clamp(u_fill, 0.0, 1.0);
+  float z = 1.0 / u_scale;
+  float t = time * 0.8;
+
+  // Streamer coordinates: u across (constant along each streamer), s along,
+  // signed (the lobes) and folded smoothly at the waist (the filaments flow
+  // outward both ways without a crease there). u is the angle of the
+  // streamer's far-out ray from the vertical, so it stays bounded: beside
+  // the waist, where the streamers lie flat, it barely changes and the light
+  // there is smooth. The waist runs from 0.03 to 0.48 canvas heights, 0.12 at
+  // the default focus.
+  float k = 0.03 * exp2(4.0 * clamp(u_focus, 0.0, 1.0));
+  float sy = asinh(p.y / k);
+  float s = sqrt(sy * sy + 0.3);
+  float u = atan(p.x, sqrt(p.y * p.y + k * k));
+  u += warp * 0.3 * coronaSym(vec2(u * 0.5 * z, sy * 0.3 * z - t * 0.05)) * min(s, 1.5);
+  float fw = fwidth(u);
+
+  // Broad lobes of light along the streamers, drifting upward; fill lowers
+  // the threshold they show above, so more of them join up.
+  float lobe = coronaSym(vec2(u * 0.8 * z, sy * 0.35 * z - t * 0.07))
+             + 0.35 * coronaSym(vec2(u * 2.1 * z + 3.1, sy * 0.8 * z - t * 0.1));
+  lobe = smoothstep(-0.15 - 0.4 * fill, 0.95 - 0.2 * fill, lobe);
+  // The eye, sized with the waist: dark round it, the light gathering just
+  // outside. The light falls off across the frame; more fill carries it
+  // further and lets it a little way into the eye.
+  float r = length(p * vec2(0.8, 1.0));
+  float re = r * 0.12 / k * (0.7 + 0.6 * fill);
+  float eye = smoothstep(0.03, 0.17, re) * (1.0 + 0.8 * exp(-re * re / 0.05));
+  float fall = exp(-r * (1.8 - fill));
+
+  // Filaments: one to three octaves by complexity, blurred by softness.
+  float fBase = mix(16.0, 7.0, soft) * z;
+  int octaves = 1 + int(u_complexity >= 3.0) + int(u_complexity >= 6.0);
+  float disp = 0.004 + 0.003 * soft;
+  vec3 fil = vec3(0.0);
+  float amp = 1.0;
+  float norm = 0.0;
+  for (int i = 0; i < 3; i++) {
+    if (i >= octaves) break;
+    float f = fBase * pow(2.3, float(i));
+    float ti = t * (1.0 + 0.4 * float(i)) + float(i) * 11.0;
+    fil += amp * vec3(coronaFilaments(u - disp, s, f, ti, fw),
+                      coronaFilaments(u, s, f, ti, fw),
+                      coronaFilaments(u + disp, s, f, ti, fw));
+    norm += amp;
+    amp *= 0.7;
+  }
+  fil /= norm;
+
+  // The streamers, and a haze they scatter: the lobes without filaments,
+  // reaching a little into the eye. Fill brightens both, the haze most, so a
+  // full frame washes toward the hottest stops.
+  float glow = lobe * eye * fall;
+  vec3 light = glow * (0.15 + 0.85 * fil) * 1.25 * exp2(fill - 0.5);
+  float haze = lobe * fall * smoothstep(0.0, 0.3, re) * 0.8 * fill * fill;
+  float level = dot(light, vec3(0.333));
+  vec3 col = lightRamp(0.0)
+           + (lightRamp(clamp(0.35 + 0.65 * level, 0.0, 1.0)) * light
+           + lightRamp(0.55) * haze) * framePeak();
+  return lightToDisplay(col);
+}
+#endif
+
 // Light wall: coloured light seen through a wall of frosted glass panels. The
 // first stop is the glass's own glow; each other stop lights soft, wide clouds
 // behind the glass that drift sideways past each other and breathe. They add
@@ -845,6 +944,8 @@ vec3 computeGradient(vec2 uv, float time) {
   return haloGradient(uv, time);
 #elif WAVR_GRADIENT == 25
   return lightWallGradient(uv, time);
+#elif WAVR_GRADIENT == 26
+  return coronaGradient(uv, time);
 #else
 #error Unknown WAVR_GRADIENT
 #endif

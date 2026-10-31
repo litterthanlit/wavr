@@ -7,6 +7,7 @@ export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "aperture", label: "Aperture" },
   { id: "ganzfeld", label: "Ganzfeld" },
   { id: "halo", label: "Halo" },
+  { id: "corona", label: "Corona" },
   { id: "lightWall", label: "Light wall" },
   { id: "liquidChrome", label: "Liquid chrome" },
   { id: "horizonGlow", label: "Horizon glow" },

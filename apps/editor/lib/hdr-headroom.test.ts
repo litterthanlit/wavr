@@ -17,7 +17,7 @@ describe("HDR headroom in the editor", () => {
     expect(headroom).toEqual({
       aperture: 1.5, cobaltAperture: 1.5, duskAperture: 1.5,
       ganzfeld: 1, lightWall: 1, lagoonWall: 1,
-      halo: 2, iceHalo: 2,
+      halo: 2, iceHalo: 2, corona: 1.5, iceVeil: 1.5,
     });
     // Nothing else asks for HDR.
     expect(PRESET_CATALOG.filter((preset) => preset.category !== "lightFields" && preset.config.hdrHeadroom)).toEqual([]);

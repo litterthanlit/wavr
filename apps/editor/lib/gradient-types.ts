@@ -28,6 +28,11 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
     description: "A ring of light in a dark room. Colours run from the room to the hottest light.",
   },
   {
+    value: "corona",
+    label: "Corona",
+    description: "Streamers of light pouring out round a dark eye; scale up and they hang as curtains. Colours run from the dark to the hottest light.",
+  },
+  {
     value: "lightWall",
     label: "Light wall",
     description: `Coloured light behind a wall of frosted glass. ${LIGHT_FIELD_PALETTE_ROLES.lightWall}`,

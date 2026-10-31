@@ -11,6 +11,8 @@ export interface LayerConfig {
   scale?: number;
   distortion?: number;
   softness?: number;
+  fill?: number;
+  focus?: number;
   opacity?: number;
   blendMode?: BlendMode;
   depth?: number;

@@ -26,6 +26,8 @@ export const PRESET_CATALOG: PresetEntry[] = [
   { id: "ganzfeld", name: "Ganzfeld", category: "lightFields", config: lightFields.ganzfeld },
   { id: "halo", name: "Halo", category: "lightFields", config: lightFields.halo },
   { id: "iceHalo", name: "Ice halo", category: "lightFields", config: lightFields.iceHalo },
+  { id: "corona", name: "Corona", category: "lightFields", config: lightFields.corona },
+  { id: "iceVeil", name: "Ice veil", category: "lightFields", config: lightFields.iceVeil },
   { id: "lightWall", name: "Light wall", category: "lightFields", config: lightFields.lightWall },
   { id: "lagoonWall", name: "Lagoon wall", category: "lightFields", config: lightFields.lagoonWall },
   { id: "liquidChrome", name: "Liquid chrome", category: "light", config: light.liquidChrome },
