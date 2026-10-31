@@ -41,3 +41,26 @@ export function createCommitGate(commit: (v: number) => void): CommitGate {
     },
   };
 }
+
+/**
+ * The slider's side of the gate: the latest value and onCommit, which key and
+ * focus events read after the render that set them. A key's commit can come
+ * before its change (Radix's arrows, Home and End) or after it (litt's Page
+ * Up/Down); either way release() commits the value the key left.
+ */
+export function createSliderCommits() {
+  const latest: { value: number; onCommit?: (value: number) => void } = { value: 0 };
+  const gate = createCommitGate((v) => latest.onCommit?.(v));
+  return {
+    sync(value: number, onCommit?: (value: number) => void) {
+      latest.value = value;
+      latest.onCommit = onCommit;
+    },
+    moved(value: number) {
+      latest.value = value;
+    },
+    keyDown: gate.keyDown,
+    release: () => gate.keyUp(latest.value),
+    valueCommit: gate.valueCommit,
+  };
+}
