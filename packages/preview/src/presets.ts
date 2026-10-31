@@ -11,7 +11,7 @@ export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "liquidChrome", label: "Liquid Chrome" },
   { id: "horizonGlow", label: "Horizon Glow" },
   { id: "inkSmoke", label: "Ink Smoke" },
-  { id: "plasmaOrb", label: "Plasma Orb" },
+  { id: "plasmaOrb", label: "Orb" },
   { id: "iridescentFoil", label: "Iridescent Foil" },
   { id: "lightLeak", label: "Light Leak" },
 ];

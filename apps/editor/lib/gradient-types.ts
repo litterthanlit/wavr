@@ -59,8 +59,8 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
   },
   {
     value: "plasmaOrb",
-    label: "Plasma Orb",
-    description: "A glass orb of swirling light on a dark field. Colours run from the dark to the brightest light.",
+    label: "Orb",
+    description: "A soft round glow whose colours drift and melt into the dark. Colours run from the dark to the brightest light.",
   },
   {
     value: "image",

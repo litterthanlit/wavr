@@ -34,7 +34,7 @@ export const PRESET_CATALOG: PresetEntry[] = [
   { id: "iceHorizon", name: "Ice Horizon", category: "light", config: light.iceHorizon },
   { id: "inkSmoke", name: "Ink Smoke", category: "light", config: light.inkSmoke },
   { id: "roseSmoke", name: "Rose Smoke", category: "light", config: light.roseSmoke },
-  { id: "plasmaOrb", name: "Plasma Orb", category: "light", config: light.plasmaOrb },
+  { id: "plasmaOrb", name: "Orb", category: "light", config: light.plasmaOrb },
   { id: "limeOrb", name: "Lime Orb", category: "light", config: light.limeOrb },
   { id: "iridescentFoil", name: "Iridescent Foil", category: "light", config: light.iridescentFoil },
   { id: "midnightFoil", name: "Midnight Foil", category: "light", config: light.midnightFoil },
