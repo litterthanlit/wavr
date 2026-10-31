@@ -8,7 +8,7 @@ import {
   type GradientType,
   type LayerParams,
 } from "@wavr/core";
-import thumbnailHashes from "../public/presets/thumbnails.json";
+import { presetThumbnail } from "./preset-thumbnail";
 
 export type GradientOption = {
   value: GradientType;
@@ -89,11 +89,9 @@ export function lookPatch(type: GradientType): Pick<LayerParams, "gradientType" 
   };
 }
 
-const THUMBNAIL_HASHES: Record<string, string | undefined> = thumbnailHashes;
-
+/** The thumbnail of the type's flagship preset, the one whose id is the type's. */
 export function lookThumbnail(type: GradientType): string | null {
-  const hash = THUMBNAIL_HASHES[type];
-  return hash ? `/presets/${type}.webp?v=${hash}` : null;
+  return presetThumbnail(type);
 }
 
 export const RANDOM_GRADIENT_TYPES = Object.keys(CURATED_PALETTES) as (keyof typeof CURATED_PALETTES)[];

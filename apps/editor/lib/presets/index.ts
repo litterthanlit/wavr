@@ -1,11 +1,10 @@
 import { PRESET_CATALOG, PRESET_CATEGORIES, type PresetCategory } from "@wavr/core/presets";
 import { presetToStorePatch, type PresetData } from "../preset-patch";
-import thumbnailHashes from "../../public/presets/thumbnails.json";
+import { presetThumbnail } from "../preset-thumbnail";
 
 // Presets are defined once, in @wavr/core/presets (catalog.ts). The editor
 // loads them as flat patches; see presetToStorePatch. Each has a pre-rendered
-// thumbnail in public/presets (`pnpm thumbnails`), whose URL carries a hash of
-// the preset's config so a remade preset never shows a cached old picture.
+// thumbnail (presetThumbnail).
 
 export type { PresetCategory };
 
@@ -24,12 +23,10 @@ export const CATEGORY_LABELS = Object.fromEntries(
 
 export const CATEGORY_ORDER: PresetCategory[] = PRESET_CATEGORIES.map((category) => category.id);
 
-const THUMBNAIL_HASHES: Record<string, string | undefined> = thumbnailHashes;
-
 export const PRESETS: Preset[] = PRESET_CATALOG.map((entry) => ({
   id: entry.id,
   name: entry.name,
   category: entry.category,
   data: presetToStorePatch(entry.config),
-  thumbnail: THUMBNAIL_HASHES[entry.id] ? `/presets/${entry.id}.webp?v=${THUMBNAIL_HASHES[entry.id]}` : null,
+  thumbnail: presetThumbnail(entry.id),
 }));
