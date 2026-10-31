@@ -6,6 +6,7 @@ import {
   type UiActions,
 } from "./commands";
 import { PRESETS } from "./presets";
+import { useGradientStore } from "./store";
 
 function noopUi(): UiActions {
   return {
@@ -70,6 +71,15 @@ describe("command registry", () => {
       "effect.debandEnabled",
       "effect.scene3DEnabled",
     ]);
+  });
+
+  it("offers the three performance modes and sets the one chosen", () => {
+    const ids = getCommands(noopUi()).map((c) => c.id);
+    expect(ids).toEqual(expect.arrayContaining(["view.performance.auto", "view.performance.quality", "view.performance.battery"]));
+    getCommands(noopUi()).find((c) => c.id === "view.performance.battery")?.run();
+    expect(useGradientStore.getState().performanceMode).toBe("battery");
+    const battery = getCommands(noopUi()).find((c) => c.id === "view.performance.battery");
+    expect(battery?.disabled?.()).toBe(true);
   });
 
   it("names each look as the Look grid does", () => {

@@ -14,7 +14,7 @@ const STEPS = [
   },
   {
     title: "Effects",
-    desc: "The Effects tab finishes the scene: bloom, grain, colour grading, lens blur, how the pointer plays with the light, and the colour profile and HDR it is shown in.",
+    desc: "Effects: bloom, grain and the pointer.",
   },
   {
     title: "Layers",

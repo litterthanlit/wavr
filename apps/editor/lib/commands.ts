@@ -8,7 +8,7 @@
  * editor page.
  */
 
-import { useGradientStore, canUndo, canRedo, GradientState } from "./store";
+import { useGradientStore, canUndo, canRedo, GradientState, type PerformanceMode } from "./store";
 import { copyShareUrl } from "./url";
 import { PRESETS } from "./presets";
 import { MAX_LAYERS } from "@wavr/core";
@@ -59,6 +59,12 @@ const EFFECT_TOGGLES = {
   debandEnabled: "anti-banding",
   scene3DEnabled: "3D objects",
 } as const satisfies Partial<Record<keyof GradientState, string>>;
+
+const PERFORMANCE_COMMANDS: { mode: PerformanceMode; label: string }[] = [
+  { mode: "auto", label: "Performance: Auto" },
+  { mode: "quality", label: "Performance: Quality" },
+  { mode: "battery", label: "Performance: Battery" },
+];
 
 // camelCase → [lower tokens]: "sunsetBloom" → ["sunset", "bloom"].
 function tokenize(camel: string): string[] {
@@ -137,6 +143,17 @@ export function getCommands(ui: UiActions): Command[] {
     shortcut: "S",
     run: toggleRenderStats,
   });
+
+  for (const { mode, label } of PERFORMANCE_COMMANDS) {
+    commands.push({
+      id: `view.performance.${mode}`,
+      label,
+      group: "View",
+      keywords: ["performance", "quality", "battery", "speed", mode],
+      run: () => useGradientStore.getState().setDiscrete({ performanceMode: mode }),
+      disabled: () => useGradientStore.getState().performanceMode === mode,
+    });
+  }
 
   // ── Layers ──────────────────────────────────────────────────────────────
   commands.push({
