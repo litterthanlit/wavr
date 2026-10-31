@@ -40,7 +40,7 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
     <div
       role="listbox"
       aria-label="Look"
-      className="grid grid-cols-5 gap-1.5"
+      className="grid grid-cols-5 gap-2"
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setFocused(null);
       }}

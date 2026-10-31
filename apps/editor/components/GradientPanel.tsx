@@ -14,7 +14,7 @@ import Segmented from "@/components/ui/Segmented";
 import Disclosure from "@/components/ui/Disclosure";
 import { Button } from "@/components/litt/button";
 import { TextField } from "@/components/litt/input";
-import { PlusIcon, XIcon } from "@/components/litt/icons";
+import { ImageIcon, PlusIcon, XIcon } from "@/components/litt/icons";
 import LookPicker from "@/components/LookPicker";
 import type { MaskParams, TextMaskAlign } from "@wavr/core";
 import { GRADIENT_OPTIONS, curatedPalette } from "@/lib/gradient-types";
@@ -87,6 +87,7 @@ function ImageUpload({
   onRemove: () => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -118,31 +119,40 @@ function ImageUpload({
     );
   }
 
+  // A 1px hairline drop area holding litt's Button: the button is the keyboard's way in, the area the pointer's.
   return (
-    <>
-      <div
-        onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
-        onClick={() => inputRef.current?.click()}
-        className="border-2 border-dashed border-litt-line rounded-litt-control p-4 text-center cursor-pointer
-          hover:border-litt-line-strong hover:bg-[color-mix(in_oklab,var(--litt-fg)_6%,transparent)] transition-colors duration-(--litt-dur-instant) ease-litt"
-      >
-        <p className="text-litt-small text-litt-fg-subtle">
-          Drop image or click to upload
-        </p>
-        <p className="text-litt-caption font-normal text-litt-fg-subtle mt-1">PNG, JPG, WebP</p>
-      </div>
+    <div
+      onDrop={(e) => {
+        setDragging(false);
+        handleDrop(e);
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      className={`flex flex-col items-center gap-2 rounded-litt-control border p-4 text-center transition-colors duration-(--litt-dur-instant) ease-litt ${
+        dragging ? "border-litt-line-strong bg-[color-mix(in_oklab,var(--litt-fg)_6%,transparent)]" : "border-litt-line"
+      }`}
+    >
+      <Button size="sm" icon={<ImageIcon />} onClick={() => inputRef.current?.click()}>
+        Upload image
+      </Button>
+      <p className="text-litt-caption font-normal text-litt-fg-subtle">Or drop one here. PNG, JPG or WebP.</p>
       <input
         ref={inputRef}
         type="file"
         accept="image/png,image/jpeg,image/webp"
         className="hidden"
+        tabIndex={-1}
+        aria-hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleFile(file);
+          e.target.value = "";
         }}
       />
-    </>
+    </div>
   );
 }
 
@@ -243,7 +253,7 @@ export default function GradientPanel() {
       </Section>
 
       {isImageType && (
-        <Section title="Image Source">
+        <Section title="Image source">
           <ImageUpload
             label="Color image"
             imageData={activeLayer.imageData}

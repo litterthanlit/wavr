@@ -82,65 +82,56 @@ export default function LayerPanel() {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        {(store.layers as LayerParams[]).map((layer, i) => (
-          <div
-            key={i}
-            onClick={() => store.selectLayer(i)}
-            className={`flex items-center gap-2 p-1 rounded-litt-control cursor-pointer transition-colors duration-(--litt-dur-instant) ease-litt ${
-              // Selected is raised (litt R3): the press block, never the accent.
-              i === store.activeLayerIndex
-                ? "bg-litt-block shadow-(--litt-block-lift)"
-                : "bg-transparent hover:bg-[color-mix(in_oklab,var(--litt-fg)_6%,transparent)]"
-            }`}
-          >
-            {/* Visibility toggle */}
-            <Button
-              iconOnly
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                store.toggleLayerVisibility(i);
-              }}
-              aria-label={layer.visible ? "Hide layer" : "Show layer"}
+      <div className="flex flex-col gap-2">
+        {(store.layers as LayerParams[]).map((layer, i) => {
+          const selected = i === store.activeLayerIndex;
+          const name = gradientTypeLabel(layer.gradientType);
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-2 p-1 rounded-litt-control transition-colors duration-(--litt-dur-instant) ease-litt ${
+                // Selected is raised (litt R3): the press block, never the accent.
+                selected ? "bg-litt-block shadow-(--litt-block-lift)" : "bg-transparent hover:bg-[color-mix(in_oklab,var(--litt-fg)_6%,transparent)]"
+              }`}
             >
-              {layer.visible ? <EyeIcon /> : <EyeOffIcon />}
-            </Button>
-
-            {/* Color preview dots */}
-            <div className="flex gap-0.5">
-              {layer.colors.slice(0, 4).map((c, ci) => (
-                <div
-                  key={ci}
-                  className="w-2.5 h-2.5 rounded-litt-pill"
-                  style={{ backgroundColor: cssColor(c, store.colorProfile) }}
-                />
-              ))}
-            </div>
-
-            {/* Layer type label */}
-            <span className="text-litt-caption font-normal text-litt-fg-subtle flex-1">
-              {gradientTypeLabel(layer.gradientType)}
-            </span>
-
-            {/* Remove button */}
-            {store.layers.length > 1 && (
               <Button
                 iconOnly
                 size="sm"
                 variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  store.removeLayer(i);
-                }}
-                aria-label="Remove layer"
+                onClick={() => store.toggleLayerVisibility(i)}
+                aria-label={layer.visible ? `Hide layer ${i + 1}` : `Show layer ${i + 1}`}
               >
-                <XIcon />
+                {layer.visible ? <EyeIcon /> : <EyeOffIcon />}
               </Button>
-            )}
-          </div>
-        ))}
+
+              {/* The row's own control: selects the layer, as the 3D panel's object rows do. */}
+              <button
+                type="button"
+                aria-pressed={selected}
+                aria-label={`Layer ${i + 1}: ${name}`}
+                onClick={() => store.selectLayer(i)}
+                className="flex h-litt-control-sm min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-litt-control text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-litt-focus"
+              >
+                <span aria-hidden className="flex gap-1">
+                  {layer.colors.slice(0, 4).map((c, ci) => (
+                    <span
+                      key={ci}
+                      className="size-2 rounded-litt-pill"
+                      style={{ backgroundColor: cssColor(c, store.colorProfile) }}
+                    />
+                  ))}
+                </span>
+                <span className="truncate text-litt-small text-litt-fg">{name}</span>
+              </button>
+
+              {store.layers.length > 1 && (
+                <Button iconOnly size="sm" variant="ghost" onClick={() => store.removeLayer(i)} aria-label={`Remove layer ${i + 1}`}>
+                  <XIcon />
+                </Button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Active layer controls */}

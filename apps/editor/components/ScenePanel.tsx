@@ -6,6 +6,7 @@ import Slider from "@/components/ui/Slider";
 import { degrees, fixed, fps, times } from "@/lib/units";
 import Select from "@/components/ui/Select";
 import Toggle from "@/components/ui/Toggle";
+import ColorInput from "@/components/ui/ColorInput";
 import { useGradientStore } from "@/lib/store";
 import type { ParticleField, SceneObject3D, SceneObjectKind, Vec3 } from "@/lib/scene3d";
 
@@ -28,6 +29,16 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** Scene colours are hex strings; ColorInput edits [r, g, b] in 0–1. */
+function hexToRgb(hex: string): [number, number, number] {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m ? [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255] : [0, 0, 0];
+}
+
+function rgbToHex(color: [number, number, number]): string {
+  return "#" + color.map((c) => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, "0")).join("");
+}
+
 function ColorField({ label, value, onChange, onCommit }: {
   label: string;
   value: string;
@@ -35,16 +46,10 @@ function ColorField({ label, value, onChange, onCommit }: {
   onCommit: () => void;
 }) {
   return (
-    <label className="flex h-litt-control-sm items-center justify-between gap-3">
+    <div role="group" aria-label={label} className="flex items-center justify-between gap-3">
       <span className="text-litt-small text-litt-fg">{label}</span>
-      <input
-        type="color"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onCommit}
-        className="h-6 w-8 rounded-litt-control border border-litt-line bg-transparent"
-      />
-    </label>
+      <ColorInput color={hexToRgb(value)} onChange={(color) => onChange(rgbToHex(color))} onCommit={onCommit} />
+    </div>
   );
 }
 
@@ -148,7 +153,7 @@ export default function ScenePanel() {
             {scene.objects.length === 0 ? (
               <p className="text-litt-caption font-normal text-litt-fg-subtle">Add a primitive to start shaping the scene.</p>
             ) : (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 {scene.objects.map((object) => (
                   <button
                     key={object.id}

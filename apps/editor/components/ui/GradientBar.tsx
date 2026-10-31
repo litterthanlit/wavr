@@ -145,7 +145,7 @@ export default function GradientBar({
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       <div className="relative px-2 pt-1 pb-3">
         <div
           ref={trackRef}

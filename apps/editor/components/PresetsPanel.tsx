@@ -66,7 +66,7 @@ export default function PresetsPanel() {
               onClick={() => toggleCategory(cat)}
               aria-expanded={!isCollapsed}
               aria-controls={listId}
-              className="flex items-center gap-1.5 w-full py-2 text-left"
+              className="flex items-center gap-2 w-full py-2 text-left"
             >
               <svg
                 className={`w-3 h-3 text-litt-fg-subtle transition-transform duration-(--litt-dur-responsive) ease-litt-responsive ${

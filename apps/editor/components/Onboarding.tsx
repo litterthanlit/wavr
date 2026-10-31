@@ -65,7 +65,7 @@ export default function Onboarding() {
     <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center p-litt-gutter">
       <section
         aria-label="Welcome tour"
-        className="litt-glass pointer-events-auto grid w-[340px] max-w-full gap-4 rounded-litt-surface p-6"
+        className="litt-glass pointer-events-auto grid w-84 max-w-full gap-4 rounded-litt-surface p-6"
       >
         <div className="grid gap-1">
           <h3 className="text-litt-h4 text-litt-fg">{current.title}</h3>

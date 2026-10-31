@@ -399,13 +399,13 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
         </div>
       )}
       {showStats && (
-        <div className="absolute bottom-3 left-3 font-mono text-litt-caption font-normal text-litt-fg-subtle bg-litt-surface-1/70 px-2 py-0.5 rounded-litt-control">
+        <div className="absolute bottom-4 left-4 text-litt-caption font-normal tabular-nums text-litt-fg-subtle bg-litt-surface-1/70 px-2 py-1 rounded-litt-control">
           {fps} FPS
           {metrics && (
             <> · {metrics.lastCpuFrameMs.toFixed(1)}ms CPU · {metrics.framebufferCount} FBO · {formatBytes(metrics.estimatedBytes)}</>
-        )}
-        {metrics && metrics.renderScale < 1 && <> · {Math.round(metrics.renderScale * 100)}% res</>}
-      </div>
+          )}
+          {metrics && metrics.renderScale < 1 && <> · {Math.round(metrics.renderScale * 100)}% res</>}
+        </div>
       )}
       <Toast
         message={toastMsg ?? ""}

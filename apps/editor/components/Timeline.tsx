@@ -86,7 +86,7 @@ export default function Timeline() {
             return (
               <div
                 key={i}
-                className="absolute top-1/2 z-20 -ml-[5px] h-2.5 w-2.5 -translate-y-1/2 cursor-pointer rounded-litt-control bg-litt-fg"
+                className="absolute top-1/2 z-20 size-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-litt-control bg-litt-fg"
                 style={{ left: `${kfPos}%` }}
                 onClick={(e) => {
                   e.stopPropagation();
