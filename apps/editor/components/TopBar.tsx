@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Check,
+  Command,
   Download,
   FolderOpen,
   Keyboard,
@@ -21,6 +22,7 @@ import { useTheme } from "@/lib/useTheme";
 import { copyShareUrl } from "@/lib/url";
 import { preloadUrlCodec } from "@/lib/url-sync";
 import {
+  preloadCommandPalette,
   preloadExportModal,
   preloadProjectsModal,
   preloadShortcutsModal,
@@ -30,9 +32,10 @@ interface TopBarProps {
   onExport: () => void;
   onShowShortcuts: () => void;
   onProjects: () => void;
+  onOpenPalette: () => void;
 }
 
-export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBarProps) {
+export default function TopBar({ onExport, onShowShortcuts, onProjects, onOpenPalette }: TopBarProps) {
   const store = useGradientStore();
   const { playing, randomize, set, undo, redo } = store;
   const { theme, cycleTheme } = useTheme();
@@ -76,6 +79,17 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects }: TopBar
 
       {/* Right: Preferences, then the scene's actions */}
       <div className="topbar-group">
+        {/* Always shown: on a phone it is the only way to the palette's tools (3D, Shader, Performance). */}
+        <button
+          onClick={onOpenPalette}
+          onPointerEnter={preloadCommandPalette}
+          onFocus={preloadCommandPalette}
+          aria-label="Open command palette"
+          title="Command palette (⌘K)"
+          className="topbar-btn topbar-btn-icon"
+        >
+          <Command size={14} aria-hidden="true" />
+        </button>
         <button
           onClick={onShowShortcuts}
           onPointerEnter={preloadShortcutsModal}

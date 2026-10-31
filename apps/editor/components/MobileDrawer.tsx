@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { LazyMobileDrawerBody, preloadMobileDrawerBody } from "@/components/lazy";
 import { useEverOpened } from "@/lib/useEverOpened";
-import type { SidebarTab } from "@/lib/types";
+import { isToolTab, type SidebarTab } from "@/lib/types";
+import type { GradientEngine } from "@wavr/core";
 
 interface MobileDrawerProps {
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
+  engineRef: RefObject<GradientEngine | null>;
 }
 
-export default function MobileDrawer({ activeTab, onTabChange }: MobileDrawerProps) {
+export default function MobileDrawer({ activeTab, onTabChange, engineRef }: MobileDrawerProps) {
   const [open, setOpen] = useState(false);
+  // A tool tab opens from the command palette; on a phone the drawer is the only
+  // place it shows, so opening one opens the drawer (hidden on desktop anyway).
+  const [shownTab, setShownTab] = useState(activeTab);
+  if (shownTab !== activeTab) {
+    setShownTab(activeTab);
+    if (isToolTab(activeTab)) setOpen(true);
+  }
   // The drawer is hidden on desktop and closed on mobile until tapped, so its
   // tabs and panels (a second copy of the sidebar) load on first open and stay
   // mounted after that.
@@ -41,7 +50,7 @@ export default function MobileDrawer({ activeTab, onTabChange }: MobileDrawerPro
             <div className="w-10 h-1 rounded-full bg-border-active" />
           </div>
 
-          {bodyMounted && <LazyMobileDrawerBody activeTab={activeTab} onTabChange={onTabChange} />}
+          {bodyMounted && <LazyMobileDrawerBody activeTab={activeTab} onTabChange={onTabChange} engineRef={engineRef} />}
         </div>
       </div>
     </>

@@ -170,6 +170,7 @@ export default function EditorPage() {
         onExport={() => setExportOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
         onProjects={() => setProjectsOpen(true)}
+        onOpenPalette={() => setPaletteOpen(true)}
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
@@ -220,7 +221,7 @@ export default function EditorPage() {
           }}
         />
       )}
-      <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
+      <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
       {onboardingNeeded && <LazyOnboarding />}
     </div>
   );
