@@ -15,7 +15,7 @@ const SHORTCUTS = [
   { key: "E", action: "Export" },
   { key: "P", action: "Projects" },
   { key: "Esc", action: "Close modal" },
-  { key: "1 – 5", action: `Tabs: ${SIDEBAR_TABS.map((tab) => tab.label).join(", ")}` },
+  { key: `1 – ${SIDEBAR_TABS.length}`, action: `Tabs: ${SIDEBAR_TABS.map((tab) => tab.label).join(", ")}` },
   { key: "S", action: "Show or hide render stats" },
   { key: "\u2318/Ctrl + Z", action: "Undo" },
   { key: "\u2318/Ctrl + Shift + Z", action: "Redo" },

@@ -1,10 +1,8 @@
 "use client";
 
 import GradientPanel from "@/components/GradientPanel";
-import { LazyScenePanel, LazyEffectsPanel, LazyPresetsPanel } from "@/components/lazy";
+import { LazyEffectsPanel, LazyPresetsPanel } from "@/components/lazy";
 import { SIDEBAR_TABS, type SidebarTab } from "@/lib/types";
-
-const TABS = SIDEBAR_TABS.filter((tab) => tab.id !== "code");
 
 interface MobileDrawerBodyProps {
   activeTab: SidebarTab;
@@ -16,7 +14,7 @@ export default function MobileDrawerBody({ activeTab, onTabChange }: MobileDrawe
   return (
     <>
       <div className="sidebar-tabs">
-        {TABS.map((tab) => (
+        {SIDEBAR_TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
@@ -31,7 +29,6 @@ export default function MobileDrawerBody({ activeTab, onTabChange }: MobileDrawe
         {activeTab === "gradient" && <GradientPanel />}
         {activeTab === "effects" && <LazyEffectsPanel />}
         {activeTab === "presets" && <LazyPresetsPanel />}
-        {activeTab === "scene" && <LazyScenePanel />}
       </div>
     </>
   );

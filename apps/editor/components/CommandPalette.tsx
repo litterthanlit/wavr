@@ -9,8 +9,9 @@
  * "(on)/(off)" suffixes always reflect the live store.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Command as CmdkCommand } from "cmdk";
+import { preloadCustomGLSLPanel, preloadScenePanel } from "@/components/lazy";
 import {
   getCommands,
   COMMAND_GROUP_ORDER,
@@ -33,6 +34,13 @@ export default function CommandPalette({ open, onOpenChange, ui }: CommandPalett
     () => (open ? getCommands(ui) : []),
     [open, ui],
   );
+
+  // 3D and Shader open only from here, so their panels load while it is open.
+  useEffect(() => {
+    if (!open) return;
+    preloadScenePanel();
+    preloadCustomGLSLPanel();
+  }, [open]);
 
   const grouped = useMemo(() => {
     const byGroup = new Map<CommandGroup, Command[]>();

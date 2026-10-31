@@ -13,7 +13,7 @@ import { copyShareUrl } from "./url";
 import { PRESETS } from "./presets";
 import { MAX_LAYERS } from "@wavr/core";
 import type { LayerParams } from "@wavr/core";
-import { SIDEBAR_TABS, type SidebarTab } from "./types";
+import { SIDEBAR_TABS, TOOL_TABS, type SidebarTab } from "./types";
 import { COMMAND_GRADIENT_TYPES, gradientTypeLabel } from "./gradient-types";
 import { renderStatsShown, toggleRenderStats } from "./useRenderStats";
 
@@ -131,6 +131,15 @@ export function getCommands(ui: UiActions): Command[] {
       group: "View",
       keywords: ["tab", "panel", "switch", tab.id],
       shortcut: String(i + 1),
+      run: () => ui.setTab(tab.id),
+    });
+  }
+  for (const tab of TOOL_TABS) {
+    commands.push({
+      id: `view.open.${tab.id}`,
+      label: `Open ${tab.label}`,
+      group: "View",
+      keywords: ["tab", "panel", "tool", tab.id],
       run: () => ui.setTab(tab.id),
     });
   }

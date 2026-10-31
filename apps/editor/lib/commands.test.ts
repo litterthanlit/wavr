@@ -50,15 +50,25 @@ describe("command registry", () => {
     expect(presetCommands.length).toBe(PRESETS.length);
   });
 
-  it("opens the tabs with keys 1 to 5: Gradient, Effects, Presets, 3D, Shader", () => {
+  it("switches the three sidebar tabs with keys 1 to 3: Gradient, Effects, Presets", () => {
     const tabs = getCommands(noopUi()).filter((c) => c.id.startsWith("view.tab."));
     expect(tabs.map((c) => [c.shortcut, c.label])).toEqual([
       ["1", "Switch to Gradient tab"],
       ["2", "Switch to Effects tab"],
       ["3", "Switch to Presets tab"],
-      ["4", "Switch to 3D tab"],
-      ["5", "Switch to Shader tab"],
     ]);
+  });
+
+  it("opens 3D and Shader as tool tabs, with no shortcut", () => {
+    const opened: string[] = [];
+    const commands = getCommands({ ...noopUi(), setTab: (tab) => opened.push(tab) });
+    const tools = commands.filter((c) => c.id.startsWith("view.open."));
+    expect(tools.map((c) => [c.id, c.label, c.shortcut])).toEqual([
+      ["view.open.scene", "Open 3D", undefined],
+      ["view.open.code", "Open Shader", undefined],
+    ]);
+    for (const tool of tools) tool.run();
+    expect(opened).toEqual(["scene", "code"]);
   });
 
   it("switches only the effects the panels offer", () => {

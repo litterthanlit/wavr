@@ -8,21 +8,18 @@ import {
   LazyEffectsPanel,
   LazyPresetsPanel,
   LazyCustomGLSLPanel,
-  preloadScenePanel,
   preloadEffectsPanel,
   preloadPresetsPanel,
-  preloadCustomGLSLPanel,
 } from "@/components/lazy";
 import { GradientEngine } from "@wavr/core";
-import { SIDEBAR_TABS, type SidebarTab } from "@/lib/types";
+import { SIDEBAR_TABS, TOOL_TABS, type SidebarTab } from "@/lib/types";
 
 // The Gradient tab is the default, so it ships eagerly; the rest load on demand
-// (and are prefetched on idle, see prefetchEditorChunks).
+// (and are prefetched on idle, see prefetchEditorChunks). The tool tabs' panels
+// preload when the command palette, which opens them, opens.
 const PRELOAD: Partial<Record<SidebarTab, () => void>> = {
   effects: preloadEffectsPanel,
   presets: preloadPresetsPanel,
-  scene: preloadScenePanel,
-  code: preloadCustomGLSLPanel,
 };
 
 interface SidebarProps {
@@ -32,6 +29,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarProps) {
+  const toolTab = TOOL_TABS.find((tab) => tab.id === activeTab);
   return (
     <div className="sidebar">
       {/* Layer panel (always visible) */}
@@ -52,6 +50,18 @@ export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarPr
             {tab.label}
           </button>
         ))}
+        {toolTab && (
+          <div className="sidebar-tab sidebar-tab-active flex items-center justify-center gap-1">
+            {toolTab.label}
+            <button
+              onClick={() => onTabChange("gradient")}
+              aria-label={`Close ${toolTab.label}`}
+              className="text-text-tertiary hover:text-text-primary transition-colors leading-none"
+            >
+              {"\u00D7"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tab content */}
