@@ -126,10 +126,16 @@ describe("presetToStorePatch", () => {
       complexity: 3,
       scale: 1,
       distortion: 0.3,
+      fill: 0.5,
+      focus: 0.5,
       colors: [[0.1, 0.2, 0.3]],
       brightness: 1,
       saturation: 1,
     });
+  });
+
+  it("brings a preset's fill and focus to the layer", () => {
+    expect(presetToStorePatch(corePresets.iceVeil)).toMatchObject({ gradientType: "corona", fill: 0.65, focus: 0.83 });
   });
 
   it("adds only the effects a preset states", () => {

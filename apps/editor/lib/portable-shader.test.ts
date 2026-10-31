@@ -112,7 +112,7 @@ describe("portable fragment shader", () => {
         const body = engine.slice(start, engine.indexOf("\n}\n", start) + 2);
         expect(start).toBeGreaterThan(0);
         const renamed = body.replace(
-          /\bu_(speed|scale|complexity|distortion|softness|colorCount)\b/g,
+          /\bu_(speed|scale|complexity|distortion|softness|fill|focus|colorCount)\b/g,
           (_, name: string) => name.replace(/([A-Z])/g, "_$1").toUpperCase(),
         );
         expect(shaderFor(type)).toContain(renamed);

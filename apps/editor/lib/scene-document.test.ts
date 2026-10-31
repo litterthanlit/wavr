@@ -98,6 +98,8 @@ function minimalState(overrides: Partial<GradientState> = {}): GradientState {
     scale: layer.scale,
     distortion: layer.distortion,
     softness: layer.softness,
+    fill: layer.fill,
+    focus: layer.focus,
     colors: layer.colors,
     set: () => {},
     setDiscrete: () => {},

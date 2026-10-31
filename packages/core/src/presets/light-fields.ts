@@ -139,17 +139,18 @@ export const corona: GradientConfig = {
   realBloomEnabled: true,
 };
 
-// The corona close up: pale streamers hanging as curtains either side of the
-// dark.
+// Pale streamers hanging as curtains either side of the dark.
 export const iceVeil: GradientConfig = {
   layers: [{
     type: "corona",
     colors: [[0.006, 0.008, 0.016], [0.035, 0.07, 0.16], [0.18, 0.34, 0.62], [0.5, 0.68, 0.9], [0.82, 0.9, 0.98], [0.98, 0.99, 1]],
     speed: 0.4,
     complexity: 6,
-    scale: 2.5,
+    scale: 1,
     distortion: 0.5,
     softness: 0.55,
+    fill: 0.65,
+    focus: 0.83,
   }],
   grain: 0.08,
   toneMapMode: 0,

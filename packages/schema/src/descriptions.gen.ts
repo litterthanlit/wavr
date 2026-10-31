@@ -22,6 +22,8 @@ export const DESCRIPTIONS = {
   "LayerConfig.scale": "Pattern zoom. <1 = larger features.",
   "LayerConfig.distortion": "Noise displacement of UVs.",
   "LayerConfig.softness": "Per-layer color-field melting for naturally blurred, blended premium gradients.",
+  "LayerConfig.fill": "How much of the frame the light fills, from a few streamers (0) to a bright wash (1). Read by corona.",
+  "LayerConfig.focus": "Where the light converges, from a burst of rays round a dark eye (0) to hanging curtains (1). Read by corona.",
   "LayerConfig.opacity": "Layer opacity when composited.",
   "LayerConfig.blendMode": "How this layer composites onto the layer beneath.",
   "LayerConfig.depth": "Parallax depth. Negative = behind.",

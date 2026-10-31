@@ -119,6 +119,10 @@ export interface LayerParams {
   scale: number;
   distortion: number;
   softness: number;
+  /** How much of the frame the light fills, 0..1 (corona). */
+  fill: number;
+  /** Where the light converges, burst (0) to curtains (1) (corona). */
+  focus: number;
   colors: [number, number, number][];
   opacity: number;
   blendMode: BlendMode;
@@ -156,6 +160,8 @@ export const DEFAULT_LAYER: LayerParams = {
   scale: 1.0,
   distortion: 0.3,
   softness: 0,
+  fill: 0.5,
+  focus: 0.5,
   colors: [
     [0.388, 0.357, 1.0],
     [1.0, 0.42, 0.42],
