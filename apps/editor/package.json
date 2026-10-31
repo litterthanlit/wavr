@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint && tsc --noEmit",
+    "lint": "node scripts/litt-classes.mjs --check && eslint && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
