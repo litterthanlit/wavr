@@ -29,7 +29,7 @@ describe("openPresetFromSearch", () => {
     const replaceState = vi.fn();
     vi.stubGlobal("window", {
       location: { pathname: "/editor", search, hash },
-      history: { state: null, replaceState },
+      history: { state: { __NA: true }, replaceState },
     });
     return replaceState;
   }

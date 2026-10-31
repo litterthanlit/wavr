@@ -29,7 +29,10 @@ export function openPresetFromSearch(): void {
   const { pathname, search, hash } = window.location;
   if (!new URLSearchParams(search).has("preset")) return;
   const id = presetFromSearch(search, hash);
-  window.history.replaceState(window.history.state, "", pathname + hash);
+  // State null, as url-sync writes it: Next.js leaves a replaceState that
+  // carries its own state (`__NA`) out of its router, which would then put the
+  // query back on its next history update.
+  window.history.replaceState(null, "", pathname + hash);
   const entry = PRESET_CATALOG.find((preset) => preset.id === id);
   if (!entry) return;
   useGradientStore.getState().loadPreset(presetToStorePatch(entry.config));
