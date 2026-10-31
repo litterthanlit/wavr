@@ -7,6 +7,7 @@ import {
 } from "./commands";
 import { PRESETS } from "./presets";
 import { useGradientStore } from "./store";
+import { EFFECT_SWITCHES } from "./effect-switches";
 
 function noopUi(): UiActions {
   return {
@@ -75,21 +76,38 @@ describe("command registry", () => {
     const effects = getCommands(noopUi()).filter((c) => c.group === "Effects").map((c) => c.id);
     expect(effects).toEqual([
       "effect.realBloomEnabled",
-      "effect.blurEnabled",
-      "effect.rippleEnabled",
-      "effect.trailEnabled",
-      "effect.debandEnabled",
       "effect.scene3DEnabled",
+      "effect.grain",
+      "effect.mouseReact",
     ]);
   });
 
+  it("switches grain and pointer between off and their starting amounts", () => {
+    const run = (id: string) => getCommands(noopUi()).find((c) => c.id === id)?.run();
+    const before = useGradientStore.getState();
+    useGradientStore.setState({ grain: 0.4, mouseReact: 0 });
+    try {
+      run("effect.grain");
+      expect(useGradientStore.getState().grain).toBe(0);
+      run("effect.grain");
+      expect(useGradientStore.getState().grain).toBe(EFFECT_SWITCHES.grain.onValue);
+      run("effect.mouseReact");
+      expect(useGradientStore.getState().mouseReact).toBe(EFFECT_SWITCHES.mouseReact.onValue);
+      expect(getCommands(noopUi()).find((c) => c.id === "effect.mouseReact")?.label).toBe("Toggle pointer (on)");
+    } finally {
+      useGradientStore.setState({ grain: before.grain, mouseReact: before.mouseReact });
+    }
+  });
+
   it("offers the three performance modes and sets the one chosen", () => {
+    const before = useGradientStore.getState().performanceMode;
     const ids = getCommands(noopUi()).map((c) => c.id);
     expect(ids).toEqual(expect.arrayContaining(["view.performance.auto", "view.performance.quality", "view.performance.battery"]));
     getCommands(noopUi()).find((c) => c.id === "view.performance.battery")?.run();
     expect(useGradientStore.getState().performanceMode).toBe("battery");
     const battery = getCommands(noopUi()).find((c) => c.id === "view.performance.battery");
     expect(battery?.disabled?.()).toBe(true);
+    useGradientStore.setState({ performanceMode: before });
   });
 
   it("names each look as the Look grid does", () => {

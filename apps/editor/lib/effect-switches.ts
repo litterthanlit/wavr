@@ -1,10 +1,11 @@
 import type { GradientState } from "./store";
+import { INITIAL_EFFECTS } from "./initial-scene";
 
 export type EffectSwitchKey = "grain" | "mouseReact";
 
 // Grain and Pointer are amounts; their switch writes the amount a fresh scene starts with.
 export const EFFECT_SWITCHES: Record<EffectSwitchKey, { label: string; onValue: number }> = {
-  grain: { label: "Grain", onValue: 0.03 },
+  grain: { label: "Grain", onValue: INITIAL_EFFECTS.grain },
   mouseReact: { label: "Pointer", onValue: 0.5 },
 };
 
