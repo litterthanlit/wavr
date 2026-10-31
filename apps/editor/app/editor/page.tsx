@@ -144,6 +144,10 @@ export default function EditorPage() {
   useEffect(() => {
     void applyHashToStore();
     const dispose = initializeUrlSync();
+    // `?preset=<id>` (the landing's looks) opens on that preset once its module loads.
+    if (window.location.search) {
+      void import("@/lib/preset-entry").then((entry) => entry.openPresetFromSearch());
+    }
     return dispose;
   }, []);
 
