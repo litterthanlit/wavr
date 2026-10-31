@@ -255,7 +255,7 @@ export function storeToConfig(state: GradientState): GradientConfig {
 
 function layerParamsToConfig(l: LayerParams): GradientConfig["layers"][number] {
   // Schema LayerConfig has exactly: type, colors, speed, complexity, scale,
-  // distortion, softness, opacity, blendMode, depth. Skip: visible, imageData,
+  // distortion, softness, fill, focus, opacity, blendMode, depth. Skip: visible, imageData,
   // imageScale, imageOffset, distortionMap*, imageBlendMode, imageBlendOpacity,
   // mask*, textMask* — all layer-extension fields (editor-only).
   return {
@@ -266,6 +266,8 @@ function layerParamsToConfig(l: LayerParams): GradientConfig["layers"][number] {
     scale: l.scale,
     distortion: l.distortion,
     softness: l.softness,
+    fill: l.fill,
+    focus: l.focus,
     opacity: l.opacity,
     blendMode: l.blendMode as SchemaBlendMode,
     depth: l.depth,
@@ -407,6 +409,8 @@ function layerConfigToParams(l: GradientConfig["layers"][number]): LayerParams {
     scale: l.scale,
     distortion: l.distortion,
     softness: l.softness,
+    fill: l.fill,
+    focus: l.focus,
     colors: l.colors.map((c) => [...c] as [number, number, number]),
     opacity: l.opacity,
     blendMode: l.blendMode as CoreBlendMode,

@@ -8,6 +8,8 @@ export const PRESETS = [
   "ganzfeld",
   "halo",
   "iceHalo",
+  "corona",
+  "iceVeil",
   "lightWall",
   "lagoonWall",
   "liquidChrome",

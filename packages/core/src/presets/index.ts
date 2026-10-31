@@ -1,5 +1,5 @@
 export {
-  aperture, cobaltAperture, duskAperture, ganzfeld, halo, iceHalo, lightWall, lagoonWall,
+  aperture, cobaltAperture, duskAperture, ganzfeld, halo, iceHalo, corona, iceVeil, lightWall, lagoonWall,
 } from "./light-fields";
 export {
   liquidChrome, goldChrome, horizonGlow, iceHorizon, inkSmoke, roseSmoke,

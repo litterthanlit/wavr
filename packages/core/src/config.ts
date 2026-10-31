@@ -5,13 +5,15 @@ import { currentGradientType } from "@wavr/schema/enums";
 
 const LAYER_DEFAULTS: Required<Pick<
   LayerConfig,
-  "speed" | "complexity" | "scale" | "distortion" | "softness" | "opacity" | "blendMode" | "depth"
+  "speed" | "complexity" | "scale" | "distortion" | "softness" | "fill" | "focus" | "opacity" | "blendMode" | "depth"
 >> = {
   speed: 0.4,
   complexity: 3,
   scale: 1.0,
   distortion: 0.3,
   softness: 0,
+  fill: 0.5,
+  focus: 0.5,
   opacity: 1.0,
   blendMode: "normal",
   depth: 0,
@@ -26,6 +28,8 @@ function resolveLayer(layer: LayerConfig): LayerParams {
     scale: layer.scale ?? LAYER_DEFAULTS.scale,
     distortion: layer.distortion ?? LAYER_DEFAULTS.distortion,
     softness: layer.softness ?? undefined,
+    fill: layer.fill ?? LAYER_DEFAULTS.fill,
+    focus: layer.focus ?? LAYER_DEFAULTS.focus,
     opacity: layer.opacity ?? LAYER_DEFAULTS.opacity,
     blendMode: layer.blendMode ?? LAYER_DEFAULTS.blendMode,
     depth: layer.depth ?? LAYER_DEFAULTS.depth,
@@ -182,6 +186,8 @@ export function stateToConfig(state: EngineState): GradientConfig {
       scale: l.scale,
       distortion: l.distortion,
       softness: l.softness,
+      fill: l.fill,
+      focus: l.focus,
       opacity: l.opacity,
       blendMode: l.blendMode,
       depth: l.depth,

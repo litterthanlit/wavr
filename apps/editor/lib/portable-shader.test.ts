@@ -46,7 +46,7 @@ const KEYWORDS = new Set([
   "uvec2", "mat2", "mat3", "mat4", "sampler2D", "true", "false", "version", "es",
 ]);
 const BUILTINS = new Set([
-  "abs", "acos", "asin", "atan", "ceil", "clamp", "cos", "cross", "dFdx", "dFdy", "distance", "dot", "exp", "exp2", "floor", "fwidth",
+  "abs", "acos", "asin", "asinh", "atan", "ceil", "clamp", "cos", "cross", "dFdx", "dFdy", "distance", "dot", "exp", "exp2", "floor", "fwidth",
   "fract", "gl_FragCoord", "length", "log", "max", "min", "mix", "mod", "normalize", "pow", "reflect", "round", "sign",
   "sin", "smoothstep", "sqrt", "step", "tan", "tanh", "texture", "textureLod",
 ]);
@@ -112,7 +112,7 @@ describe("portable fragment shader", () => {
         const body = engine.slice(start, engine.indexOf("\n}\n", start) + 2);
         expect(start).toBeGreaterThan(0);
         const renamed = body.replace(
-          /\bu_(speed|scale|complexity|distortion|softness|colorCount)\b/g,
+          /\bu_(speed|scale|complexity|distortion|softness|fill|focus|colorCount)\b/g,
           (_, name: string) => name.replace(/([A-Z])/g, "_$1").toUpperCase(),
         );
         expect(shaderFor(type)).toContain(renamed);

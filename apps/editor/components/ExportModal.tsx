@@ -198,6 +198,8 @@ export default function ExportModal({
     scale: store.scale as number,
     distortion: store.distortion as number,
     softness: store.softness as number,
+    fill: store.fill,
+    focus: store.focus,
     brightness: store.brightness,
     saturation: store.saturation,
     hueShift: store.hueShift,

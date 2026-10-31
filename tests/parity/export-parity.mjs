@@ -214,6 +214,8 @@ async function main() {
       scale: layer.scale,
       distortion: layer.distortion,
       softness: layer.softness,
+      fill: layer.fill,
+      focus: layer.focus,
       brightness: engine.brightness,
       saturation: engine.saturation,
       hueShift: engine.hueShift,
