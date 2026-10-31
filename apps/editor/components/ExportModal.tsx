@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, type RefObject } from "react";
+import { useState, type ReactNode, type RefObject } from "react";
+import { Dialog, DialogContent } from "@/components/litt/dialog";
+import { useReturnFocus } from "@/lib/useReturnFocus";
+import { Button } from "@/components/litt/button";
+import { Callout } from "@/components/litt/callout";
+import { Segmented } from "@/components/litt/segmented";
+import { Tag } from "@/components/litt/tag";
+import { Tabs, TabsList, TabsTrigger, TabsPanels, TabsPanel } from "@/components/litt/tabs";
 import { useGradientStore } from "@/lib/store";
 import {
   exportPNG, exportCSS, exportTailwindCSS, exportReactComponent,
@@ -29,6 +36,19 @@ interface ExportModalProps {
 
 const PNG_SCALES = [1, 2, 4] as const;
 
+/** One export: what it is, one line on what it gives, and its action at the end. Rows sit in a hairline list. */
+function ExportRow({ title, desc, children }: { title: string; desc: ReactNode; children: ReactNode }) {
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="text-litt-small text-litt-fg">{title}</div>
+        <div className="text-litt-small text-litt-fg-subtle">{desc}</div>
+      </div>
+      {children}
+    </li>
+  );
+}
+
 function ExportButton({
   title, desc, action, actionLabel = "Copy",
 }: {
@@ -36,26 +56,26 @@ function ExportButton({
 }) {
   const [done, setDone] = useState(false);
   return (
-    <button
-      onClick={() => {
-        action();
-        if (actionLabel === "Copy") {
-          setDone(true);
-          setTimeout(() => setDone(false), 2000);
-        }
-      }}
-      className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg
-        hover:border-border-active transition-all duration-150 group"
-    >
-      <div className="text-left">
-        <div className="text-xs font-medium text-text-primary">{title}</div>
-        <div className="text-xs text-text-tertiary mt-0.5">{desc}</div>
-      </div>
-      <span className="text-xs text-text-tertiary group-hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt">
-        {done ? "Copied!" : actionLabel}
-      </span>
-    </button>
+    <ExportRow title={title} desc={desc}>
+      <Button
+        size="sm"
+        aria-label={`${actionLabel} ${title}`}
+        onClick={() => {
+          action();
+          if (actionLabel === "Copy") {
+            setDone(true);
+            setTimeout(() => setDone(false), 2000);
+          }
+        }}
+      >
+        {done ? "Copied" : actionLabel}
+      </Button>
+    </ExportRow>
   );
+}
+
+function ExportList({ children }: { children: ReactNode }) {
+  return <ul className="divide-y divide-litt-line">{children}</ul>;
 }
 
 function plural(count: number, singular: string): string {
@@ -68,62 +88,54 @@ function RuntimeFidelityReport({ report }: { report: RuntimeEmbedFidelityReport 
   const activeEffects = report.activeEffects.length > 0
     ? report.activeEffects.map((effect) => effect.label).join(", ")
     : "None";
+  const stats = [
+    { label: "Passes", value: report.passCount },
+    { label: "Resources", value: report.resourceCount },
+    { label: "Full-res", value: report.estimatedCost.fullResolutionPasses },
+  ];
 
   return (
-    <div className={`rounded-lg border px-3 py-3 text-[11px] leading-4 ${
-      hasWarnings
-        ? "border-amber-500/40 bg-amber-500/10"
-        : "border-border bg-surface"
-    }`}>
+    <section aria-label="Runtime embed fidelity" className="litt-raised grid gap-3 p-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs font-medium text-text-primary">Runtime Embed Fidelity Report</div>
-          <div className="text-text-tertiary mt-0.5">
+        <div className="min-w-0">
+          <div className="text-litt-small font-litt-title text-litt-fg">Runtime embed fidelity</div>
+          <div className="text-litt-small text-litt-fg-subtle">
             {hasWarnings ? "Compatibility warnings need review." : "Ready for supported runtime embed."}
           </div>
         </div>
-        <div className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-medium ${
-          hasWarnings ? "bg-amber-500/20 text-amber-200" : "bg-elevated text-text-secondary"
-        }`}>
+        <Tag status={hasWarnings ? "warning" : "neutral"}>
           {hasWarnings ? `${warningCount} ${plural(warningCount, "warning")}` : "Ready"}
-        </div>
+        </Tag>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <div>
-          <div className="text-text-tertiary">Passes</div>
-          <div className="text-text-primary">{report.passCount}</div>
-        </div>
-        <div>
-          <div className="text-text-tertiary">Resources</div>
-          <div className="text-text-primary">{report.resourceCount}</div>
-        </div>
-        <div>
-          <div className="text-text-tertiary">Full-res</div>
-          <div className="text-text-primary">{report.estimatedCost.fullResolutionPasses}</div>
-        </div>
-      </div>
+      <dl className="grid grid-cols-3 gap-2">
+        {stats.map((stat) => (
+          <div key={stat.label}>
+            <dt className="text-litt-caption font-normal text-litt-fg-subtle">{stat.label}</dt>
+            <dd className="text-litt-small text-litt-fg tabular-nums">{stat.value}</dd>
+          </div>
+        ))}
+      </dl>
 
-      <div className="mt-2 text-text-tertiary break-words">
-        Active effects: <span className="text-text-secondary">{activeEffects}</span>
+      <div className="text-litt-small text-litt-fg-subtle break-words">
+        Active effects: <span className="text-litt-fg">{activeEffects}</span>
       </div>
 
       {hasWarnings && (
-        <div className="mt-2 space-y-1">
+        <ul className="grid gap-1 text-litt-small text-litt-fg">
           {report.compatibilityWarnings.map((warning) => (
-            <div key={warning.code} className="text-amber-100">
-              {warning.message}
-            </div>
+            <li key={warning.code}>{warning.message}</li>
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </section>
   );
 }
 
 export default function ExportModal({
   open, onClose, canvasRef, sceneCanvasRef, sceneCaptureRef, engineRef,
 }: ExportModalProps) {
+  useReturnFocus(open);
   const [recording, setRecording] = useState(false);
   const [gifRecording, setGifRecording] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -131,21 +143,7 @@ export default function ExportModal({
   const [pngScale, setPngScale] = useState<(typeof PNG_SCALES)[number]>(1);
   const [pngExporting, setPngExporting] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"image" | "code" | "embed" | "ship">("image");
-  const store = useGradientStore();
-  const colors = store.colors as [number, number, number][];
-
-  if (!open) return null;
-
-  const pngSizeLabel = (scale: number) => {
-    const canvas = canvasRef.current;
-    const engine = engineRef?.current;
-    if (!canvas) return `${scale}× current view`;
-    const size = engine
-      ? pngExportSize(canvas, scale, engine.getMaxCaptureSize())
-      : { width: canvas.width, height: canvas.height };
-    return `${size.width} × ${size.height} px`;
-  };
+  const [tab, setTab] = useState("image");
 
   const exportPng = async () => {
     const canvas = canvasRef.current;
@@ -189,6 +187,76 @@ export default function ExportModal({
       setGifRecording(false);
     }
   };
+
+  const pngSizeLabel = (scale: number) => {
+    const canvas = canvasRef.current;
+    const engine = engineRef?.current;
+    if (!canvas) return `${scale}× current view`;
+    const size = engine
+      ? pngExportSize(canvas, scale, engine.getMaxCaptureSize())
+      : { width: canvas.width, height: canvas.height };
+    return `${size.width} × ${size.height} px`;
+  };
+
+  const recordWebm = async () => {
+    if (!canvasRef.current || recording) return;
+    setRecording(true); setProgress(0);
+    await exportWebM(canvasRef.current, 5000, "wavr-gradient.webm", setProgress, sceneCanvasRef?.current);
+    setRecording(false);
+  };
+
+  // The media state lives here, so a recording keeps its progress while the dialog is closed; the tabs (and the
+  // store subscription behind them) mount only while it is open.
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent title="Export" description="Ship the current scene as media, code or an embed." className="sm:max-w-140">
+        <ExportTabs
+          tab={tab}
+          onTabChange={setTab}
+          canvasRef={canvasRef}
+          media={{
+            pngScale, setPngScale, pngSizeLabel, pngExporting, exportPng,
+            recording, progress, recordWebm,
+            gifRecording, gifProgress, exportGif,
+            mediaError,
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface MediaControls {
+  pngScale: (typeof PNG_SCALES)[number];
+  setPngScale: (scale: (typeof PNG_SCALES)[number]) => void;
+  /** The PNG's size at a scale, read from the canvas when the tab renders. */
+  pngSizeLabel: (scale: number) => string;
+  pngExporting: boolean;
+  exportPng: () => void;
+  recording: boolean;
+  progress: number;
+  recordWebm: () => void;
+  gifRecording: boolean;
+  gifProgress: number;
+  exportGif: () => void;
+  mediaError: string | null;
+}
+
+function ExportTabs({
+  tab, onTabChange, canvasRef, media,
+}: {
+  tab: string;
+  onTabChange: (tab: string) => void;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  media: MediaControls;
+}) {
+  const {
+    pngScale, setPngScale, pngSizeLabel, pngExporting, exportPng,
+    recording, progress, recordWebm,
+    gifRecording, gifProgress, exportGif, mediaError,
+  } = media;
+  const store = useGradientStore();
+  const colors = store.colors as [number, number, number][];
 
   const stateForExport = {
     colors,
@@ -270,267 +338,202 @@ export default function ExportModal({
   };
 
   const tabs = [
-    { key: "image" as const, label: "Image / Video" },
-    { key: "code" as const, label: "Code" },
-    { key: "embed" as const, label: "Embed" },
-    { key: "ship" as const, label: "Ship" },
+    { key: "image", label: "Image and video" },
+    { key: "code", label: "Code" },
+    { key: "embed", label: "Embed" },
+    { key: "ship", label: "Ship" },
   ];
 
+  const sceneNote = store.scene3DEnabled && (
+    <Callout title="The 3D scene is in image and video exports only" description="Code and embeds carry the gradient." />
+  );
+  const simplifiedNote = portableWarnings.length > 0 && (
+    <Callout
+      title="Simplified export"
+      description={
+        portableWarnings.length > 1
+          ? `${portableWarnings[0]} ${portableWarnings.length - 1} more scene feature${portableWarnings.length === 2 ? "" : "s"} omitted.`
+          : portableWarnings[0]
+      }
+    />
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label="Export options" className="relative bg-base border border-border rounded-xl p-6 w-[calc(100vw-32px)] max-w-[520px] max-h-[calc(100vh-32px)] overflow-y-auto shadow-2xl">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-sm font-medium text-text-primary">Export</h2>
-            <p className="text-[11px] text-text-tertiary mt-1">Ship the current scene as media, code, or an embed.</p>
-          </div>
-          <button onClick={onClose} aria-label="Close" className="text-text-tertiary hover:text-text-primary transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+    <Tabs value={tab} onValueChange={onTabChange} size="sm">
+      <TabsList aria-label="Export formats">
+        {tabs.map((t) => (
+          <TabsTrigger key={t.key} value={t.key} className="flex-1">
+            {t.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
 
-        {/* Tab bar */}
-        <div className="flex gap-1 mb-4 bg-surface rounded-lg p-1">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all duration-150 ${
-                tab === t.key
-                  ? "bg-elevated text-text-primary"
-                  : "text-text-tertiary hover:text-text-secondary"
-              }`}
+      <TabsPanels className="pt-4">
+        <TabsPanel value="image" tabIndex={-1} className="grid gap-4">
+          {sceneNote}
+          <ExportList>
+            <ExportRow title="PNG image" desc={<span className="tabular-nums">{pngSizeLabel(pngScale)}</span>}>
+              <Segmented
+                legend="PNG resolution"
+                size="sm"
+                value={String(pngScale)}
+                options={PNG_SCALES.map((scale) => ({ value: String(scale), label: `${scale}×` }))}
+                onValueChange={(v) => {
+                  const scale = PNG_SCALES.find((s) => String(s) === v);
+                  if (scale) setPngScale(scale);
+                }}
+              />
+              <Button size="sm" variant="primary" onClick={exportPng} loading={pngExporting}>
+                Download
+              </Button>
+            </ExportRow>
+            <ExportRow
+              title="WebM video"
+              desc={recording ? `Recording, ${Math.round(progress * 100)}%` : "5 second recording"}
             >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-3">
-          {store.scene3DEnabled && (
-            <div className="rounded-lg border border-border bg-surface px-3 py-2 text-[11px] leading-4 text-text-tertiary">
-              3D scene is included in image/video exports; code embeds are gradient-only in this version.
-            </div>
-          )}
-
-          {(tab === "code" || tab === "embed") && portableWarnings.length > 0 && (
-            <div className="rounded-lg border border-border bg-surface px-3 py-2 text-[11px] leading-4 text-text-tertiary">
-              <div className="font-medium text-text-secondary">Simplified export</div>
-              <div>{portableWarnings[0]}</div>
-              {portableWarnings.length > 1 && (
-                <div>{portableWarnings.length - 1} more scene feature{portableWarnings.length === 2 ? "" : "s"} omitted.</div>
-              )}
-            </div>
-          )}
-
-          {(tab === "ship" || tab === "embed") && (
-            <RuntimeFidelityReport report={runtimeReport} />
-          )}
-
-          {tab === "ship" && (
-            <>
-              <div className="grid grid-cols-2 gap-2 mb-1">
-                <div className="bg-surface border border-border rounded-lg p-3">
-                  <div className="text-[10px] uppercase tracking-wider text-text-tertiary">Target</div>
-                  <div className="text-xs text-text-primary mt-1">Hero / embed</div>
-                </div>
-                <div className="bg-surface border border-border rounded-lg p-3">
-                  <div className="text-[10px] uppercase tracking-wider text-text-tertiary">Fallback</div>
-                  <div className="text-xs text-text-primary mt-1">PNG / WebM</div>
-                </div>
-              </div>
-              <ExportButton
-                title="Share Remix Link"
-                desc="Copy an editable URL for review, remixing, or handoff"
-                action={async () => { await copyToClipboard(shareUrl); }}
-              />
-              <ExportButton
-                title="Scene Document JSON"
-                desc="Canonical scene, effects, and timeline data"
-                actionLabel="Download"
-                action={exportSceneDocument}
-              />
-              <ExportButton
-                title="Framer Embed"
-                desc="Paste into an Embed component or custom code block"
-                action={async () => { await copyToClipboard(framerSnippet); }}
-              />
-              <ExportButton
-                title="Webflow Embed"
-                desc="Drop into an Embed element with responsive hero sizing"
-                action={async () => { await copyToClipboard(webflowSnippet); }}
-              />
-              <ExportButton
-                title="Next.js Starter"
-                desc="Copy an iframe wrapper for this exact scene hash"
-                action={async () => { await copyToClipboard(nextSnippet); }}
-              />
-            </>
-          )}
-
-          {tab === "image" && (
-            <>
-              <div className="flex items-center justify-between gap-3 p-3 bg-surface border border-border rounded-lg">
-                <div className="text-left min-w-0">
-                  <div className="text-xs font-medium text-text-primary">PNG Image</div>
-                  <div className="text-xs text-text-tertiary mt-0.5 tabular-nums">
-                    {pngSizeLabel(pngScale)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div role="radiogroup" aria-label="PNG resolution" className="flex gap-0.5 bg-elevated rounded-md p-0.5">
-                    {PNG_SCALES.map((scale) => (
-                      <button
-                        key={scale}
-                        type="button"
-                        role="radio"
-                        aria-checked={pngScale === scale}
-                        aria-label={`${scale}× resolution`}
-                        onClick={() => setPngScale(scale)}
-                        className={`px-2 py-1 text-[11px] font-medium rounded transition-colors duration-150 tabular-nums ${
-                          pngScale === scale
-                            ? "bg-surface text-text-primary"
-                            : "text-text-tertiary hover:text-text-secondary"
-                        }`}
-                      >
-                        {scale}×
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={exportPng}
-                    disabled={pngExporting}
-                    className="text-xs text-text-tertiary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt disabled:opacity-50"
-                  >
-                    {pngExporting ? "..." : "Download"}
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={async () => {
-                  if (!canvasRef.current || recording) return;
-                  setRecording(true); setProgress(0);
-                  await exportWebM(canvasRef.current, 5000, "wavr-gradient.webm", setProgress, sceneCanvasRef?.current);
-                  setRecording(false);
-                }}
-                disabled={recording}
-                className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg
-                  hover:border-border-active transition-all duration-150 group disabled:opacity-50"
+              <Button
+                size="sm"
+                loading={recording}
+                onClick={recordWebm}
               >
-                <div className="text-left">
-                  <div className="text-xs font-medium text-text-primary">WebM Video</div>
-                  <div className="text-xs text-text-tertiary mt-0.5">
-                    {recording ? `Recording... ${Math.round(progress * 100)}%` : "5 second recording"}
-                  </div>
-                </div>
-                <span className="text-xs text-text-tertiary group-hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt">
-                  {recording ? "..." : "Record"}
-                </span>
-              </button>
-              <button
-                onClick={exportGif}
-                disabled={gifRecording}
-                className="flex items-center justify-between p-3 bg-surface border border-border rounded-lg
-                  hover:border-border-active transition-all duration-150 group disabled:opacity-50"
-              >
-                <div className="text-left">
-                  <div className="text-xs font-medium text-text-primary">GIF Animation</div>
-                  <div className="text-xs text-text-tertiary mt-0.5">
-                    {gifRecording
-                      ? `${gifProgress < 0.5 ? "Rendering" : "Encoding"}... ${Math.round(gifProgress * 100)}%`
-                      : "3 second loop, 640px wide"}
-                  </div>
-                </div>
-                <span className="text-xs text-text-tertiary group-hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt">
-                  {gifRecording ? "..." : "Record"}
-                </span>
-              </button>
-              {mediaError && (
-                <p role="alert" className="text-[11px] leading-4 text-red-400">
-                  {mediaError}
-                </p>
-              )}
-            </>
-          )}
+                Record
+              </Button>
+            </ExportRow>
+            <ExportRow
+              title="GIF animation"
+              desc={gifRecording
+                ? `${gifProgress < 0.5 ? "Rendering" : "Encoding"}, ${Math.round(gifProgress * 100)}%`
+                : "3 second loop, 640px wide"}
+            >
+              <Button size="sm" loading={gifRecording} onClick={exportGif}>
+                Record
+              </Button>
+            </ExportRow>
+          </ExportList>
+          {mediaError && <Callout live tone="danger" title={mediaError} />}
+        </TabsPanel>
 
-          {tab === "code" && (
-            <>
-              <ExportButton
-                title="CSS"
-                desc="Animated gradient with keyframes"
-                action={async () => {
-                  const layer = store.layers[store.activeLayerIndex];
-                  const textMask = layer?.textMaskEnabled ? {
-                    enabled: true,
-                    content: layer.textMaskContent,
-                    fontSize: layer.textMaskFontSize,
-                    fontWeight: layer.textMaskFontWeight,
-                    letterSpacing: layer.textMaskLetterSpacing,
-                    align: layer.textMaskAlign,
-                  } : undefined;
-                  await copyToClipboard(exportCSS(colors, textMask, store.colorProfile));
-                }}
-              />
-              <ExportButton
-                title="Tailwind CSS"
-                desc="Utility classes + config snippet"
-                action={async () => { await copyToClipboard(exportTailwindCSS(store.colorProfile === "display-p3" ? colors.map(displayP3ToSrgb) : colors, store.speed as number)); }}
-              />
-              <ExportButton
-                title="React Component"
-                desc="Simplified portable shader component"
-                action={async () => { await copyToClipboard(exportReactComponent(stateForExport)); }}
-              />
-              <ExportButton
-                title="Web Component"
-                desc="Simplified framework-agnostic <wavr-gradient> element"
-                action={async () => { await copyToClipboard(exportWebComponent(stateForExport)); }}
-              />
-            </>
-          )}
+        <TabsPanel value="code" tabIndex={-1} className="grid gap-4">
+          {sceneNote}
+          {simplifiedNote}
+          <ExportList>
+            <ExportButton
+              title="CSS"
+              desc="Animated gradient with keyframes"
+              action={async () => {
+                const layer = store.layers[store.activeLayerIndex];
+                const textMask = layer?.textMaskEnabled ? {
+                  enabled: true,
+                  content: layer.textMaskContent,
+                  fontSize: layer.textMaskFontSize,
+                  fontWeight: layer.textMaskFontWeight,
+                  letterSpacing: layer.textMaskLetterSpacing,
+                  align: layer.textMaskAlign,
+                } : undefined;
+                await copyToClipboard(exportCSS(colors, textMask, store.colorProfile));
+              }}
+            />
+            <ExportButton
+              title="Tailwind CSS"
+              desc="Utility classes and a config snippet"
+              action={async () => { await copyToClipboard(exportTailwindCSS(store.colorProfile === "display-p3" ? colors.map(displayP3ToSrgb) : colors, store.speed as number)); }}
+            />
+            <ExportButton
+              title="React component"
+              desc="Simplified portable shader component"
+              action={async () => { await copyToClipboard(exportReactComponent(stateForExport)); }}
+            />
+            <ExportButton
+              title="Web component"
+              desc="Simplified framework-agnostic <wavr-gradient> element"
+              action={async () => { await copyToClipboard(exportWebComponent(stateForExport)); }}
+            />
+          </ExportList>
+        </TabsPanel>
 
-          {tab === "embed" && (
-            <>
-              <ExportButton
-                title="Embed Code"
-                desc="Shareable iframe for landing pages and docs"
-                action={async () => {
-                  await copyToClipboard(embedCode);
-                }}
-              />
-              <ExportButton
-                title="Standalone Player"
-                desc="Single simplified script tag, scroll-linkable"
-                action={async () => { await copyToClipboard(exportStandalonePlayer(stateForExport)); }}
-              />
-              <ExportButton
-                title="Config Widget"
-                desc="Portable widget for supported gradient settings"
-                action={async () => {
-                  const embedState = {
-                    ...stateForExport,
-                    noiseEnabled: store.noiseEnabled,
-                    noiseIntensity: store.noiseIntensity,
-                    noiseScale: store.noiseScale,
-                    grain: store.grain,
-                    bloomEnabled: store.bloomEnabled,
-                    bloomIntensity: store.bloomIntensity,
-                    vignette: store.vignette,
-                    chromaticAberration: store.chromaticAberration,
-                    hueShift: store.hueShift,
-                  };
-                  const config = generateEmbedConfig(embedState);
-                  await copyToClipboard(generateEmbedSnippet(config));
-                }}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+        <TabsPanel value="embed" tabIndex={-1} className="grid gap-4">
+          {sceneNote}
+          {simplifiedNote}
+          <RuntimeFidelityReport report={runtimeReport} />
+          <ExportList>
+            <ExportButton
+              title="Embed code"
+              desc="Shareable iframe for landing pages and docs"
+              action={async () => {
+                await copyToClipboard(embedCode);
+              }}
+            />
+            <ExportButton
+              title="Standalone player"
+              desc="Single simplified script tag, scroll-linkable"
+              action={async () => { await copyToClipboard(exportStandalonePlayer(stateForExport)); }}
+            />
+            <ExportButton
+              title="Config widget"
+              desc="Portable widget for supported gradient settings"
+              action={async () => {
+                const embedState = {
+                  ...stateForExport,
+                  noiseEnabled: store.noiseEnabled,
+                  noiseIntensity: store.noiseIntensity,
+                  noiseScale: store.noiseScale,
+                  grain: store.grain,
+                  bloomEnabled: store.bloomEnabled,
+                  bloomIntensity: store.bloomIntensity,
+                  vignette: store.vignette,
+                  chromaticAberration: store.chromaticAberration,
+                  hueShift: store.hueShift,
+                };
+                const config = generateEmbedConfig(embedState);
+                await copyToClipboard(generateEmbedSnippet(config));
+              }}
+            />
+          </ExportList>
+        </TabsPanel>
+
+        <TabsPanel value="ship" tabIndex={-1} className="grid gap-4">
+          {sceneNote}
+          <RuntimeFidelityReport report={runtimeReport} />
+          <dl className="grid grid-cols-2 gap-2">
+            <div>
+              <dt className="text-litt-caption font-normal text-litt-fg-subtle">Target</dt>
+              <dd className="text-litt-small text-litt-fg">Hero or embed</dd>
+            </div>
+            <div>
+              <dt className="text-litt-caption font-normal text-litt-fg-subtle">Fallback</dt>
+              <dd className="text-litt-small text-litt-fg">PNG or WebM</dd>
+            </div>
+          </dl>
+          <ExportList>
+            <ExportButton
+              title="Remix link"
+              desc="An editable URL for review, remixing or handoff"
+              action={async () => { await copyToClipboard(shareUrl); }}
+            />
+            <ExportButton
+              title="Scene document JSON"
+              desc="Canonical scene, effects and timeline data"
+              actionLabel="Download"
+              action={exportSceneDocument}
+            />
+            <ExportButton
+              title="Framer embed"
+              desc="Paste into an Embed component or custom code block"
+              action={async () => { await copyToClipboard(framerSnippet); }}
+            />
+            <ExportButton
+              title="Webflow embed"
+              desc="Drop into an Embed element with responsive hero sizing"
+              action={async () => { await copyToClipboard(webflowSnippet); }}
+            />
+            <ExportButton
+              title="Next.js starter"
+              desc="An iframe wrapper for this exact scene hash"
+              action={async () => { await copyToClipboard(nextSnippet); }}
+            />
+          </ExportList>
+        </TabsPanel>
+      </TabsPanels>
+    </Tabs>
   );
 }

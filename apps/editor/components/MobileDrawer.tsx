@@ -3,6 +3,8 @@
 import { useState, type RefObject } from "react";
 import { LazyMobileDrawerBody, preloadMobileDrawerBody } from "@/components/lazy";
 import { useEverOpened } from "@/lib/useEverOpened";
+import { Button } from "@/components/litt/button";
+import { SlidersIcon, XIcon } from "@/components/litt/icons";
 import { isToolTab, type SidebarTab } from "@/lib/types";
 import type { GradientEngine } from "@wavr/core";
 
@@ -28,26 +30,27 @@ export default function MobileDrawer({ activeTab, onTabChange, engineRef }: Mobi
 
   return (
     <>
-      <button
-        onClick={() => setOpen(!open)}
-        onPointerDown={preloadMobileDrawerBody}
-        onFocus={preloadMobileDrawerBody}
-        aria-label={open ? "Close controls" : "Open controls"}
-        className="mobile-controls-button fixed bottom-4 right-4 z-40 w-10 h-10 rounded-full bg-litt-block text-litt-fg shadow-(--litt-block-lift)
-          items-center justify-center transition-transform duration-150
-          hover:scale-105 active:scale-95"
-      >
-        {open ? "✕" : "⚙"}
-      </button>
+      <span className="mobile-controls-button fixed right-4 bottom-4 z-40">
+        <Button
+          iconOnly
+          size="md"
+          onClick={() => setOpen(!open)}
+          onPointerDown={preloadMobileDrawerBody}
+          onFocus={preloadMobileDrawerBody}
+          aria-label={open ? "Close controls" : "Open controls"}
+        >
+          {open ? <XIcon /> : <SlidersIcon />}
+        </Button>
+      </span>
 
       <div
-        className={`mobile-controls-drawer fixed inset-x-0 bottom-0 z-30 transition-transform duration-300 ease-out ${
+        className={`mobile-controls-drawer fixed inset-x-0 bottom-0 z-30 transition-transform duration-(--litt-dur-responsive) ease-litt-responsive ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
       >
-        <div className="bg-base border-t border-border rounded-t-xl h-[60vh] flex flex-col">
-          <div className="flex justify-center py-2 shrink-0">
-            <div className="w-10 h-1 rounded-full bg-border-active" />
+        <div className="flex h-[60vh] flex-col rounded-t-litt-surface border-t border-litt-line bg-litt-surface-1">
+          <div className="flex shrink-0 justify-center py-2">
+            <div className="h-1 w-8 rounded-litt-pill bg-litt-line-strong" />
           </div>
 
           {bodyMounted && <LazyMobileDrawerBody activeTab={activeTab} onTabChange={onTabChange} engineRef={engineRef} />}

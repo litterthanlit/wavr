@@ -104,38 +104,6 @@ body {
   overflow: hidden;
 }
 
-.sidebar-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-  padding: 0 8px;
-}
-
-.sidebar-tab {
-  flex: 1;
-  padding: 12px 0 10px;
-  font-size: 11px;
-  font-weight: 500;
-  text-align: center;
-  color: var(--color-text-tertiary);
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
-  cursor: pointer;
-  background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
-}
-
-.sidebar-tab:hover {
-  color: var(--color-text-secondary);
-}
-
-.sidebar-tab-active {
-  color: var(--color-text-primary);
-  border-bottom-color: var(--color-accent);
-}
-
 /* The picker's hue bar: the hue wheel unrolled (data, not a theme colour). */
 .picker-hue {
   background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
@@ -149,7 +117,6 @@ body {
   flex-shrink: 0;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-base);
-  backdrop-filter: blur(20px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -163,57 +130,10 @@ body {
   gap: 8px;
 }
 
-.topbar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  background: var(--color-pill-bg);
-  border: 1px solid var(--color-pill-border);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-
-.topbar-btn:hover {
-  background: var(--color-elevated);
-  color: var(--color-text-primary);
-}
-
-.topbar-btn:disabled {
-  opacity: 0.3;
-  pointer-events: none;
-}
-
-.topbar-btn-accent {
-  color: white;
-  background: var(--color-accent);
-  border-color: transparent;
-}
-
-.topbar-btn-accent:hover {
-  opacity: 0.85;
-  background: var(--color-accent);
-}
-
-.topbar-btn-icon {
-  padding: 6px 8px;
-}
-
-.topbar-btn:focus-visible {
-  outline: 2px solid var(--litt-focus);
-  outline-offset: 2px;
-}
-
 /* Play and Pause swap in place without the bar shifting. */
 .topbar-label-fixed {
   min-width: 30px;
 }
-
 
 .topbar-divider {
   width: 1px;
@@ -256,8 +176,15 @@ body {
     display: none;
   }
 
-  .topbar-btn {
-    padding: 6px 8px;
+  /* A labelled button shows its icon only: square and round, as litt's icon-only buttons are. */
+  .topbar-collapse {
+    width: var(--litt-control-sm);
+    padding-inline: 0;
+    border-radius: var(--litt-radius-pill);
+  }
+
+  .topbar-collapse > span {
+    gap: 0;
   }
 }
 
@@ -272,8 +199,14 @@ body {
     display: none;
   }
 
-  .topbar-btn {
-    padding: 6px;
+  .topbar-collapse-primary {
+    width: var(--litt-control-sm);
+    padding-inline: 0;
+    border-radius: var(--litt-radius-pill);
+  }
+
+  .topbar-collapse-primary > span {
+    gap: 0;
   }
 }
 
@@ -285,10 +218,6 @@ body {
 
   .topbar-group {
     gap: 2px;
-  }
-
-  .topbar-btn {
-    padding: 5px;
   }
 
   .topbar-logo {

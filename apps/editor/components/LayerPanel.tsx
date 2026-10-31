@@ -3,49 +3,50 @@
 import { useGradientStore } from "@/lib/store";
 import { MAX_LAYERS, BlendMode, LayerParams } from "@wavr/core";
 import Slider from "@/components/ui/Slider";
+import { LazyCombobox } from "@/components/lazy";
 import { gradientTypeLabel } from "@/lib/gradient-types";
 import { cssColor } from "@/lib/css-color";
 
-const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[] }[] = [
+const BLEND_GROUPS: { label: string; options: { value: BlendMode; label: string }[] }[] = [
   {
-    group: "Normal",
-    modes: [{ value: "normal", label: "Normal" }],
+    label: "Normal",
+    options: [{ value: "normal", label: "Normal" }],
   },
   {
-    group: "Darken",
-    modes: [
+    label: "Darken",
+    options: [
       { value: "darken", label: "Darken" },
       { value: "multiply", label: "Multiply" },
-      { value: "colorBurn", label: "Color Burn" },
-      { value: "linearBurn", label: "Linear Burn" },
-      { value: "darkerColor", label: "Darker Color" },
+      { value: "colorBurn", label: "Color burn" },
+      { value: "linearBurn", label: "Linear burn" },
+      { value: "darkerColor", label: "Darker color" },
     ],
   },
   {
-    group: "Lighten",
-    modes: [
+    label: "Lighten",
+    options: [
       { value: "lighten", label: "Lighten" },
       { value: "screen", label: "Screen" },
-      { value: "colorDodge", label: "Color Dodge" },
-      { value: "add", label: "Linear Dodge (Add)" },
-      { value: "lighterColor", label: "Lighter Color" },
+      { value: "colorDodge", label: "Color dodge" },
+      { value: "add", label: "Linear dodge (add)" },
+      { value: "lighterColor", label: "Lighter color" },
     ],
   },
   {
-    group: "Contrast",
-    modes: [
+    label: "Contrast",
+    options: [
       { value: "overlay", label: "Overlay" },
-      { value: "softLight", label: "Soft Light" },
-      { value: "hardLight", label: "Hard Light" },
-      { value: "vividLight", label: "Vivid Light" },
-      { value: "linearLight", label: "Linear Light" },
-      { value: "pinLight", label: "Pin Light" },
-      { value: "hardMix", label: "Hard Mix" },
+      { value: "softLight", label: "Soft light" },
+      { value: "hardLight", label: "Hard light" },
+      { value: "vividLight", label: "Vivid light" },
+      { value: "linearLight", label: "Linear light" },
+      { value: "pinLight", label: "Pin light" },
+      { value: "hardMix", label: "Hard mix" },
     ],
   },
   {
-    group: "Inversion",
-    modes: [
+    label: "Inversion",
+    options: [
       { value: "difference", label: "Difference" },
       { value: "exclusion", label: "Exclusion" },
       { value: "subtract", label: "Subtract" },
@@ -53,8 +54,8 @@ const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[
     ],
   },
   {
-    group: "Component",
-    modes: [
+    label: "Component",
+    options: [
       { value: "hue", label: "Hue" },
       { value: "saturation", label: "Saturation" },
       { value: "color", label: "Color" },
@@ -62,6 +63,8 @@ const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[
     ],
   },
 ];
+
+const BLEND_MODES = BLEND_GROUPS.flatMap((group) => group.options);
 
 export default function LayerPanel() {
   const store = useGradientStore();
@@ -167,27 +170,17 @@ export default function LayerPanel() {
               onChange={(v) => store.setLayerOpacity(store.activeLayerIndex, v)}
               onCommit={() => store.commitSet()}
             />
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-text-secondary">Blend Mode</span>
-              <select
-                value={store.layers[store.activeLayerIndex]?.blendMode ?? "normal"}
-                onChange={(e) =>
-                  store.setLayerBlendMode(store.activeLayerIndex, e.target.value as BlendMode)
-                }
-                className="bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs text-text-primary
-                  appearance-none cursor-pointer focus:outline-none focus:border-border-active transition-colors duration-150"
-              >
-                {BLEND_GROUPS.map((group) => (
-                  <optgroup key={group.group} label={group.group}>
-                    {group.modes.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
+            {/* litt's Combobox: a long list in groups (litt's Select is for a short one). A field left empty keeps the mode. */}
+            <LazyCombobox
+              label="Blend mode"
+              size="sm"
+              options={BLEND_GROUPS}
+              value={store.layers[store.activeLayerIndex]?.blendMode ?? "normal"}
+              onValueChange={(value: string | string[]) => {
+                const mode = BLEND_MODES.find((m) => m.value === value);
+                if (mode) store.setLayerBlendMode(store.activeLayerIndex, mode.value);
+              }}
+            />
             {store.parallaxEnabled && (
               <Slider
                 label="Depth"

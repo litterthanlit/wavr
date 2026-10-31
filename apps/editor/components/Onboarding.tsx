@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ONBOARDING_STORAGE_KEY } from "@/lib/onboarding";
+import { Button } from "@/components/litt/button";
 
 const STEPS = [
   {
@@ -9,7 +10,7 @@ const STEPS = [
     desc: "Create animated gradients with real-time controls. Move your mouse over the canvas to interact with the gradient.",
   },
   {
-    title: "Gradient Controls",
+    title: "Gradient controls",
     desc: "Pick a look in the Gradient tab, then shape its colours and motion. Each look brings its own palette, and Reset brings it back.",
   },
   {
@@ -21,11 +22,11 @@ const STEPS = [
     desc: "Add up to 4 layers at the top of the sidebar. Each layer has its own look, colours and blend mode.",
   },
   {
-    title: "Export & Share",
+    title: "Export and share",
     desc: "Click Export to download as PNG, CSS, video, or embed code. Click Share to copy a shareable link.",
   },
   {
-    title: "Keyboard Shortcuts",
+    title: "Keyboard shortcuts",
     desc: "Press ? to see all shortcuts. Space to play/pause, R to randomize, Cmd+Z to undo.",
   },
 ];
@@ -58,39 +59,30 @@ export default function Onboarding() {
 
   const current = STEPS[step];
 
+  // A floating glass card, not a dialog: the editor stays usable behind it. It sits over the page as its own
+  // view, so Next is its one primary action.
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
-      <div className="pointer-events-auto bg-base border border-border rounded-xl p-5 w-[340px] shadow-2xl">
-        <div className="flex justify-between items-start mb-3">
-          <h3 className="text-sm font-medium text-text-primary">{current.title}</h3>
-          <button
-            onClick={dismiss}
-            className="text-text-tertiary hover:text-text-primary text-xs transition-colors"
-          >
+    <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center p-litt-gutter">
+      <section
+        aria-label="Welcome tour"
+        className="litt-glass pointer-events-auto grid w-[340px] max-w-full gap-4 rounded-litt-surface p-6"
+      >
+        <div className="grid gap-1">
+          <h3 className="text-litt-h4 text-litt-fg">{current.title}</h3>
+          <p className="text-litt-small text-litt-fg-muted">{current.desc}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="mr-auto text-litt-caption font-normal text-litt-fg-subtle tabular-nums">
+            {step + 1} of {STEPS.length}
+          </span>
+          <Button size="sm" variant="ghost" onClick={dismiss}>
             Skip
-          </button>
+          </Button>
+          <Button size="sm" variant="primary" onClick={next}>
+            {step === STEPS.length - 1 ? "Get started" : "Next"}
+          </Button>
         </div>
-        <p className="text-xs text-text-secondary leading-relaxed mb-4">{current.desc}</p>
-        <div className="flex justify-between items-center">
-          <div className="flex gap-1">
-            {STEPS.map((_, i) => (
-              <div
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                  i === step ? "bg-litt-fg" : "bg-elevated"
-                }`}
-              />
-            ))}
-          </div>
-          <button
-            onClick={next}
-            className="px-4 py-1.5 text-xs text-white bg-accent hover:bg-accent/80
-              rounded-md transition-all duration-150"
-          >
-            {step === STEPS.length - 1 ? "Get Started" : "Next"}
-          </button>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -3,24 +3,9 @@
 import React from "react";
 import GradientPanel from "@/components/GradientPanel";
 import LayerPanel from "@/components/LayerPanel";
-import {
-  LazyScenePanel,
-  LazyEffectsPanel,
-  LazyPresetsPanel,
-  LazyCustomGLSLPanel,
-  preloadEffectsPanel,
-  preloadPresetsPanel,
-} from "@/components/lazy";
+import { useSidebarTabs } from "@/components/lazy";
 import { GradientEngine } from "@wavr/core";
 import { SIDEBAR_TABS, TOOL_TABS, type SidebarTab } from "@/lib/types";
-
-// The Gradient tab is the default, so it ships eagerly; the rest load on demand
-// (and are prefetched on idle, see prefetchEditorChunks). The tool tabs' panels
-// preload when the command palette, which opens them, opens.
-const PRELOAD: Partial<Record<SidebarTab, () => void>> = {
-  effects: preloadEffectsPanel,
-  presets: preloadPresetsPanel,
-};
 
 interface SidebarProps {
   activeTab: SidebarTab;
@@ -28,50 +13,52 @@ interface SidebarProps {
   engineRef: React.RefObject<GradientEngine | null>;
 }
 
-export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarProps) {
+/**
+ * Until litt's Tabs have loaded (just after startup, see useLoaded): the same row drawn still, with the Gradient
+ * panel under it, so the sidebar doesn't jump when they arrive. Nothing in the row is a control yet.
+ */
+function TabsPlaceholder({ activeTab }: { activeTab: SidebarTab }) {
   const toolTab = TOOL_TABS.find((tab) => tab.id === activeTab);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div aria-hidden="true" className="shrink-0 px-2">
+        <div className="border-b border-litt-line">
+          <div className="-mb-px flex pb-px">
+            {[...SIDEBAR_TABS, ...(toolTab ? [toolTab] : [])].map((tab) => (
+              <span
+                key={tab.id}
+                className={
+                  "relative flex h-litt-control-sm flex-1 items-center justify-center px-litt-control-pad-sm text-litt-small font-litt-title " +
+                  (tab.id === activeTab ? "text-litt-fg" : "text-litt-fg-subtle")
+                }
+              >
+                <span className="litt-trim">{tab.label}</span>
+                {tab.id === activeTab && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-litt-fg" />}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        {activeTab === "gradient" && <GradientPanel />}
+      </div>
+    </div>
+  );
+}
+
+export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarProps) {
+  const SidebarTabs = useSidebarTabs()?.default;
   return (
     <div className="sidebar">
       {/* Layer panel (always visible) */}
-      <div className="border-b border-border shrink-0">
+      <div className="shrink-0 border-b border-litt-line">
         <LayerPanel />
       </div>
-
-      {/* Tab bar */}
-      <div className="sidebar-tabs">
-        {SIDEBAR_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            onPointerEnter={PRELOAD[tab.id]}
-            onFocus={PRELOAD[tab.id]}
-            className={`sidebar-tab ${activeTab === tab.id ? "sidebar-tab-active" : ""}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-        {toolTab && (
-          <div className="sidebar-tab sidebar-tab-active flex items-center justify-center gap-1">
-            {toolTab.label}
-            <button
-              onClick={() => onTabChange("gradient")}
-              aria-label={`Close ${toolTab.label}`}
-              className="text-text-tertiary hover:text-text-primary transition-colors leading-none"
-            >
-              {"\u00D7"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-        {activeTab === "gradient" && <GradientPanel />}
-        {activeTab === "effects" && <LazyEffectsPanel />}
-        {activeTab === "presets" && <LazyPresetsPanel />}
-        {activeTab === "scene" && <LazyScenePanel />}
-        {activeTab === "code" && <LazyCustomGLSLPanel engineRef={engineRef} />}
-      </div>
+      {SidebarTabs ? (
+        <SidebarTabs activeTab={activeTab} onTabChange={onTabChange} engineRef={engineRef} />
+      ) : (
+        <TabsPlaceholder activeTab={activeTab} />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type KeyboardEvent } from "react";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon } from "@/components/litt/icons";
 import type { GradientType } from "@wavr/core";
 import { GRADIENT_OPTIONS, lookThumbnail } from "@/lib/gradient-types";
 
@@ -83,7 +83,7 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
                   motion-safe:group-hover:scale-[1.04]"
               />
             ) : (
-              <ImageIcon aria-hidden="true" className="absolute inset-0 m-auto h-4 w-4 text-text-tertiary" />
+              <ImageIcon className="absolute inset-0 m-auto text-text-tertiary" />
             )}
           </button>
         );
