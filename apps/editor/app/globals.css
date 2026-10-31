@@ -14,39 +14,14 @@
   --font-sans: var(--litt-font-sans);
   --font-mono: var(--litt-font-mono);
 
-  /* aliases: removed in Task 5 */
-  --color-root: var(--litt-canvas);
-  --color-base: var(--litt-surface-1);
-  --color-surface: var(--litt-surface-2);
-  --color-elevated: var(--litt-surface-3);
-  --color-border: var(--litt-line);
-  --color-border-active: var(--litt-line-strong);
-  --color-text-primary: var(--litt-fg);
-  --color-text-secondary: var(--litt-fg-muted);
-  --color-text-tertiary: var(--litt-fg-subtle);
+  /* The editor's one accent, under the name CLAUDE.md gives it: litt's cobalt. */
   --color-accent: var(--litt-accent);
-  --color-slider-track: var(--litt-slot);
 }
 
 /* Native controls and scrollbars follow the theme litt's tokens are in. */
 :root { color-scheme: light dark; }
 [data-theme="light"] { color-scheme: light; }
 [data-theme="dark"] { color-scheme: dark; }
-
-/* aliases: removed in Task 5 */
-:root {
-  --color-tick-inactive: var(--litt-line);
-  --color-tick-base: var(--litt-data-rose);
-  --color-tick-green: var(--litt-data-teal);
-  --color-tick-teal: var(--litt-data-teal);
-  --color-tick-blue: var(--litt-data-blue);
-  --color-tick-purple: var(--litt-data-violet);
-  --color-tick-orange: var(--litt-data-amber);
-  --color-tick-red: var(--litt-data-rose);
-  --color-pill-bg: var(--litt-block);
-  --color-pill-border: var(--litt-line);
-  --color-pill-shadow: transparent;
-}
 
 /* ============================================================
    Base
@@ -64,8 +39,8 @@ body {
    ============================================================ */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border-active); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+::-webkit-scrollbar-thumb { background: var(--litt-line-strong); border-radius: var(--litt-radius-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--litt-fg-subtle); }
 
 /* ============================================================
    Focus
@@ -96,8 +71,8 @@ body {
   width: clamp(320px, 32vw, 420px);
   min-width: 0;
   flex-shrink: 0;
-  background: var(--color-base);
-  border-left: 1px solid var(--color-border);
+  background: var(--litt-surface-1);
+  border-left: 1px solid var(--litt-line);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -115,8 +90,8 @@ body {
 .topbar {
   height: 48px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-base);
+  border-bottom: 1px solid var(--litt-line);
+  background: var(--litt-surface-1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -138,7 +113,7 @@ body {
 .topbar-divider {
   width: 1px;
   height: 20px;
-  background: var(--color-border);
+  background: var(--litt-line);
   margin: 0 4px;
 }
 

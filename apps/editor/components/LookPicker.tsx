@@ -63,11 +63,11 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
             onFocus={() => setFocused(i)}
             onKeyDown={(e) => moveFocus(e, i)}
             onClick={() => onPick(option.value)}
-            className={`group relative block aspect-[4/3] overflow-hidden rounded-md border bg-surface
+            className={`group relative block aspect-[4/3] overflow-hidden rounded-litt-control border bg-litt-surface-2
               transition-colors duration-(--litt-dur-instant) ease-litt focus-visible:outline-offset-[3px] ${
                 checked
                   ? "border-transparent ring-2 ring-litt-fg ring-offset-2 ring-offset-litt-surface-1"
-                  : "border-border hover:border-border-active"
+                  : "border-litt-line hover:border-litt-line-strong"
               }`}
           >
             {thumbnail ? (
@@ -83,7 +83,7 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
                   motion-safe:group-hover:scale-[1.04]"
               />
             ) : (
-              <ImageIcon className="absolute inset-0 m-auto text-text-tertiary" />
+              <ImageIcon className="absolute inset-0 m-auto text-litt-fg-subtle" />
             )}
           </button>
         );

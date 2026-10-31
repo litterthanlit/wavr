@@ -2,25 +2,28 @@
 
 import { useGradientStore } from "@/lib/store";
 import { PlaybackMode } from "@/lib/timeline";
+import { Button } from "@/components/litt/button";
+import { PlusIcon, XIcon } from "@/components/litt/icons";
+import Segmented from "@/components/ui/Segmented";
+import { LazySelect } from "@/components/lazy";
 
-const MODE_LABELS: Record<PlaybackMode, string> = {
-  loop: "Loop",
-  bounce: "Bounce",
-  once: "Once",
-};
+const MODE_OPTIONS: { value: PlaybackMode; label: string }[] = [
+  { value: "loop", label: "Loop" },
+  { value: "bounce", label: "Bounce" },
+  { value: "once", label: "Once" },
+];
+
+const DURATION_OPTIONS = [5, 10, 20, 30].map((s) => ({ value: String(s), label: `${s}s` }));
 
 export default function Timeline() {
   const store = useGradientStore();
 
   if (!store.timelineEnabled) {
     return (
-      <div className="h-9 border-t border-border bg-base flex items-center justify-center">
-        <button
-          onClick={store.toggleTimeline}
-          className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
-        >
+      <div className="flex h-10 items-center justify-center border-t border-litt-line bg-litt-surface-1">
+        <Button size="sm" variant="ghost" icon={<PlusIcon />} onClick={store.toggleTimeline}>
           Add motion timeline
-        </button>
+        </Button>
       </div>
     );
   }
@@ -32,55 +35,39 @@ export default function Timeline() {
   const progress = (timelinePosition / timelineDuration) * 100;
 
   return (
-    <div className="border-t border-border bg-base shrink-0">
+    <div className="border-t border-litt-line bg-litt-surface-1 shrink-0">
       {/* Controls row */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
-        <span className="text-[10px] font-medium text-text-secondary mr-1">Timeline</span>
-        <button
-          onClick={store.toggleTimeline}
-          className="text-[10px] text-text-tertiary hover:text-text-primary transition-colors"
-          aria-label="Disable timeline"
-        >
-          x
-        </button>
-        <button
-          onClick={store.addKeyframe}
-          className="text-[10px] text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt"
-        >
-          + Keyframe
-        </button>
-        <span className="font-mono text-[10px] text-text-tertiary tabular-nums">
+      <div className="flex items-center gap-2 border-b border-litt-line px-3 py-1">
+        <span className="mr-1 text-litt-caption font-litt-label text-litt-fg-muted">Timeline</span>
+        <Button iconOnly size="sm" variant="ghost" onClick={store.toggleTimeline} aria-label="Remove timeline">
+          <XIcon />
+        </Button>
+        <Button size="sm" variant="ghost" icon={<PlusIcon />} onClick={store.addKeyframe}>
+          Keyframe
+        </Button>
+        <span className="text-litt-caption font-normal text-litt-fg-subtle tabular-nums">
           {timelinePosition.toFixed(1)}s / {timelineDuration}s
         </span>
         <div className="flex-1" />
-        <button
-          onClick={() => {
-            const modes: PlaybackMode[] = ["loop", "bounce", "once"];
-            const idx = modes.indexOf(timelinePlaybackMode);
-            store.setTimelinePlaybackMode(modes[(idx + 1) % modes.length]);
-          }}
-          className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
-        >
-          {MODE_LABELS[timelinePlaybackMode]}
-        </button>
-        <select
-          value={timelineDuration}
-          onChange={(e) => store.setTimelineDuration(Number(e.target.value))}
-          className="bg-surface border border-border rounded px-1 py-0.5 text-[10px] text-text-secondary
-            appearance-none cursor-pointer focus:outline-none"
-        >
-          <option value={5}>5s</option>
-          <option value={10}>10s</option>
-          <option value={20}>20s</option>
-          <option value={30}>30s</option>
-        </select>
+        <div className="w-56">
+          <Segmented label="Playback" value={timelinePlaybackMode} options={MODE_OPTIONS} onChange={store.setTimelinePlaybackMode} />
+        </div>
+        <div className="w-20">
+          <LazySelect
+            aria-label="Duration"
+            size="sm"
+            value={String(timelineDuration)}
+            options={DURATION_OPTIONS}
+            onValueChange={(v: string) => store.setTimelineDuration(Number(v))}
+          />
+        </div>
       </div>
 
       {/* Timeline track */}
       <div className="relative h-8 px-3 py-1">
         {/* Track background */}
         <div
-          className="relative h-full bg-surface rounded cursor-pointer"
+          className="relative h-full bg-litt-surface-2 rounded-litt-control cursor-pointer"
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const x = (e.clientX - rect.left) / rect.width;
@@ -99,8 +86,7 @@ export default function Timeline() {
             return (
               <div
                 key={i}
-                className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-litt-fg rounded-sm -ml-[5px] cursor-pointer
-                  hover:scale-125 transition-transform z-20"
+                className="absolute top-1/2 z-20 -ml-[5px] h-2.5 w-2.5 -translate-y-1/2 cursor-pointer rounded-litt-control bg-litt-fg"
                 style={{ left: `${kfPos}%` }}
                 onClick={(e) => {
                   e.stopPropagation();

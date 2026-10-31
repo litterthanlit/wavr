@@ -58,6 +58,11 @@ export const LazyCombobox = dynamic(() => loadCombobox().then((m) => m.Combobox)
   ssr: false,
   loading: () => <div className="h-[calc(var(--litt-control-sm)+28px)]" />,
 });
+// The bare litt Select (no label row), for a toolbar; named by its aria-label. Holds its height while it loads.
+export const LazySelect = dynamic(() => loadSelect().then((m) => m.Select), {
+  ssr: false,
+  loading: () => <div className="h-litt-control-sm" />,
+});
 export const LazySelectField = dynamic(() => loadSelect().then((m) => m.SelectField), { ssr: false, loading: () => null });
 // Holds the track's height (sm, 32px) while it loads, so the mask controls don't jump.
 export const LazySegmented = dynamic(() => loadSegmented().then((m) => m.Segmented), {

@@ -365,11 +365,11 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
 
   if (error) {
     return (
-      <div className="relative flex-1 h-full overflow-hidden flex items-center justify-center bg-root">
+      <div className="relative flex-1 h-full overflow-hidden flex items-center justify-center bg-litt-canvas">
         <div className="text-center max-w-sm px-4">
-          <p className="text-text-primary text-sm font-medium mb-2">Unable to render</p>
-          <p className="text-text-tertiary text-xs">{error}</p>
-          <p className="text-text-tertiary text-xs mt-1">
+          <p className="text-litt-fg text-litt-body font-litt-title mb-2">Unable to render</p>
+          <p className="text-litt-fg-subtle text-litt-small">{error}</p>
+          <p className="text-litt-fg-subtle text-litt-small mt-1">
             Please use a modern browser (Chrome, Firefox, Edge, Safari 15+).
           </p>
         </div>
@@ -389,17 +389,17 @@ export default function Canvas({ onCanvasReady, onEngineReady }: CanvasProps) {
         className="pointer-events-none absolute inset-0 hidden h-full w-full"
       />
       {contextLost && (
-        <div className="absolute inset-0 flex items-center justify-center bg-root/80">
-          <p className="text-text-secondary text-sm">Recovering WebGL context...</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-litt-canvas/80">
+          <p className="text-litt-fg-muted text-litt-body">Recovering WebGL context...</p>
         </div>
       )}
       {compiling && !contextLost && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p className="rounded bg-base/70 px-2 py-1 text-xs text-text-secondary">Compiling shader...</p>
+          <p className="rounded-litt-control bg-litt-surface-1/70 px-2 py-1 text-litt-small text-litt-fg-muted">Compiling shader...</p>
         </div>
       )}
       {showStats && (
-        <div className="absolute bottom-3 left-3 font-mono text-[11px] text-text-tertiary bg-base/70 px-2 py-0.5 rounded">
+        <div className="absolute bottom-3 left-3 font-mono text-litt-caption font-normal text-litt-fg-subtle bg-litt-surface-1/70 px-2 py-0.5 rounded-litt-control">
           {fps} FPS
           {metrics && (
             <> · {metrics.lastCpuFrameMs.toFixed(1)}ms CPU · {metrics.framebufferCount} FBO · {formatBytes(metrics.estimatedBytes)}</>

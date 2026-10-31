@@ -14,10 +14,10 @@ function PresetCard({ preset, onLoad }: { preset: Preset; onLoad: (preset: Prese
     <button
       type="button"
       onClick={() => onLoad(preset)}
-      className="group flex flex-col rounded-lg border border-border hover:border-border-active overflow-hidden
-        bg-surface text-left transition-colors duration-150"
+      // A litt card (raised, no outer shadow): hover moves its fill one step and nothing moves.
+      className="litt-raised group flex flex-col gap-1 p-1 text-left transition-colors duration-(--litt-dur-instant) ease-litt hover:bg-litt-surface-2"
     >
-      <span className="block relative w-full aspect-[4/3] overflow-hidden" style={{ background: placeholder }}>
+      <span className="relative block aspect-[4/3] w-full overflow-hidden rounded-litt-control" style={{ background: placeholder }}>
         {preset.thumbnail && (
           // eslint-disable-next-line @next/next/no-img-element -- pre-rendered, already-sized WebPs (`pnpm thumbnails`); the optimizer would only re-encode them
           <img
@@ -27,12 +27,11 @@ function PresetCard({ preset, onLoad }: { preset: Preset; onLoad: (preset: Prese
             height={288}
             loading="lazy"
             decoding="async"
-            className="absolute inset-0 w-full h-full object-cover motion-safe:transition-transform motion-safe:duration-300
-              motion-safe:group-hover:scale-[1.04]"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         )}
       </span>
-      <span className="py-1.5 px-2 text-[11px] text-text-secondary group-hover:text-text-primary transition-colors truncate">
+      <span className="truncate px-1 pb-1 text-litt-small text-litt-fg-muted transition-colors duration-(--litt-dur-instant) ease-litt group-hover:text-litt-fg">
         {preset.name}
       </span>
     </button>
@@ -70,7 +69,7 @@ export default function PresetsPanel() {
               className="flex items-center gap-1.5 w-full py-2 text-left"
             >
               <svg
-                className={`w-3 h-3 text-text-tertiary transition-transform duration-150 ${
+                className={`w-3 h-3 text-litt-fg-subtle transition-transform duration-(--litt-dur-responsive) ease-litt-responsive ${
                   isCollapsed ? "" : "rotate-90"
                 }`}
                 viewBox="0 0 12 12"
@@ -79,10 +78,10 @@ export default function PresetsPanel() {
               >
                 <path d="M4 2l4 4-4 4z" />
               </svg>
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
+              <span className="text-litt-caption font-litt-label text-litt-fg-subtle">
                 {CATEGORY_LABELS[cat]}
               </span>
-              <span className="text-[10px] text-text-tertiary ml-auto">
+              <span className="text-litt-caption font-normal text-litt-fg-subtle ml-auto">
                 {catPresets.length}
               </span>
             </button>

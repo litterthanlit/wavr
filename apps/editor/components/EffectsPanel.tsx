@@ -22,7 +22,7 @@ function hdrCaption(headroom: number, display: boolean | null, status: HdrStatus
 }
 
 function Caption({ children, live }: { children: ReactNode; live?: boolean }) {
-  return <p className="text-[11px] leading-snug text-text-tertiary" aria-live={live ? "polite" : undefined}>{children}</p>;
+  return <p className="text-litt-caption font-normal leading-snug text-litt-fg-subtle" aria-live={live ? "polite" : undefined}>{children}</p>;
 }
 
 export default function EffectsPanel() {
@@ -35,7 +35,7 @@ export default function EffectsPanel() {
   // reached zero would unmount mid-drag.
 
   return (
-    <div className="flex flex-col divide-y divide-border p-4">
+    <div className="flex flex-col divide-y divide-litt-line p-4">
       <Section title="Effects">
         <Toggle label="Bloom" checked={store.realBloomEnabled} onChange={(v) => store.setDiscrete({ realBloomEnabled: v })} />
         {store.hdrHeadroom > 0 && <Caption live>{hdrCaption(store.hdrHeadroom, hdrDisplay, hdrStatus)}</Caption>}

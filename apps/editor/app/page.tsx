@@ -173,28 +173,28 @@ const STATS = [
 export default function LandingPage() {
   const router = useRouter();
   return (
-    <div className="min-h-screen bg-root text-text-primary overflow-x-hidden">
+    <div className="min-h-screen bg-litt-canvas text-litt-fg overflow-x-hidden">
       {/* ── Nav ─────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border backdrop-blur-xl bg-root/80">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-litt-line backdrop-blur-xl bg-litt-canvas/80">
         <div className="max-w-[1200px] mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-semibold tracking-[0.2em]">
               WAVR
             </span>
-            <span className="text-[10px] font-mono text-text-tertiary border border-border rounded px-1.5 py-0.5 ml-1">
+            <span className="text-[10px] font-mono text-litt-fg-subtle border border-litt-line rounded px-1.5 py-0.5 ml-1">
               beta
             </span>
           </div>
           <div className="flex items-center gap-6">
             <a
               href="https://github.com"
-              className="text-xs text-text-secondary hover:text-text-primary transition-colors"
+              className="text-xs text-litt-fg-muted hover:text-litt-fg transition-colors"
             >
               GitHub
             </a>
             <button
               onClick={() => router.push("/editor")}
-              className="text-xs font-medium text-root bg-text-primary hover:bg-text-secondary
+              className="text-xs font-medium text-litt-canvas bg-litt-fg hover:bg-litt-fg-muted
                 px-4 py-1.5 rounded-md transition-colors"
             >
               Open Editor
@@ -208,22 +208,22 @@ export default function LandingPage() {
         {/* Subtle animated background */}
         <div className="absolute inset-0 overflow-hidden">
           <DitherCanvas />
-          <div className="absolute inset-0 bg-gradient-to-b from-root via-root/90 to-root" />
+          <div className="absolute inset-0 bg-gradient-to-b from-litt-canvas via-litt-canvas/90 to-litt-canvas" />
         </div>
 
         <div className="relative max-w-[1200px] mx-auto">
           {/* ASCII decorative line */}
-          <div className="font-mono text-[10px] text-text-tertiary/40 mb-8 tracking-[0.5em] select-none overflow-hidden whitespace-nowrap">
+          <div className="font-mono text-[10px] text-litt-fg-subtle/40 mb-8 tracking-[0.5em] select-none overflow-hidden whitespace-nowrap">
             {GRID_CHARS}
           </div>
 
           <h1 className="text-5xl md:text-7xl lg:text-[88px] font-medium tracking-[-0.04em] leading-[0.95] mb-6">
             Animated gradients,
             <br />
-            <span className="text-text-secondary">crafted visually.</span>
+            <span className="text-litt-fg-muted">crafted visually.</span>
           </h1>
 
-          <p className="text-base md:text-lg text-text-secondary max-w-[520px] leading-relaxed mb-10">
+          <p className="text-base md:text-lg text-litt-fg-muted max-w-[520px] leading-relaxed mb-10">
             A WebGL-powered editor for creating gradients of light, layered effects,
             and exportable motion — all in the browser.
           </p>
@@ -231,25 +231,25 @@ export default function LandingPage() {
           <div className="flex items-center gap-4 mb-16">
             <button
               onClick={() => router.push("/editor")}
-              className="px-6 py-2.5 text-sm font-medium text-root bg-text-primary hover:bg-text-secondary
+              className="px-6 py-2.5 text-sm font-medium text-litt-canvas bg-litt-fg hover:bg-litt-fg-muted
                 rounded-md transition-all duration-150"
             >
               Open Editor
             </button>
-            <span className="text-xs text-text-tertiary font-mono">
+            <span className="text-xs text-litt-fg-subtle font-mono">
               No account · Free · Open source
             </span>
           </div>
 
           {/* ASCII art hero accent */}
-          <pre className="font-mono text-[9px] leading-[1.4] text-accent/20 select-none whitespace-pre max-w-max">
+          <pre className="font-mono text-[9px] leading-[1.4] text-litt-accent/20 select-none whitespace-pre max-w-max">
             {DITHER_BLOCK}
           </pre>
         </div>
       </section>
 
       {/* ── Stats bar ───────────────────────────────────────── */}
-      <section className="border-y border-border bg-base/50">
+      <section className="border-y border-litt-line bg-litt-surface-1/50">
         <div className="max-w-[1200px] mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-8">
           {STATS.map((s) => (
             <div key={s.label}>
@@ -258,12 +258,12 @@ export default function LandingPage() {
                   {s.value}
                 </span>
                 {s.unit && (
-                  <span className="text-sm text-text-secondary font-mono">
+                  <span className="text-sm text-litt-fg-muted font-mono">
                     {s.unit}
                   </span>
                 )}
               </div>
-              <span className="text-xs text-text-tertiary">{s.label}</span>
+              <span className="text-xs text-litt-fg-subtle">{s.label}</span>
             </div>
           ))}
         </div>
@@ -272,30 +272,30 @@ export default function LandingPage() {
       {/* ── Features ────────────────────────────────────────── */}
       <section className="max-w-[1200px] mx-auto px-6 py-24">
         <div className="flex items-center gap-4 mb-4">
-          <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
+          <span className="font-mono text-[10px] text-litt-fg-subtle tracking-widest uppercase">
             Capabilities
           </span>
-          <div className="flex-1 h-px bg-border" />
+          <div className="flex-1 h-px bg-litt-line" />
         </div>
 
         <h2 className="text-3xl md:text-4xl font-medium tracking-[-0.03em] mb-16">
           Everything you need to create
           <br />
-          <span className="text-text-secondary">and ship visual effects.</span>
+          <span className="text-litt-fg-muted">and ship visual effects.</span>
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-litt-line rounded-xl overflow-hidden">
           {FEATURES.map((f) => (
             <div
               key={f.label}
-              className="bg-root p-8 group cursor-default transition-colors hover:bg-surface/50"
+              className="bg-litt-canvas p-8 group cursor-default transition-colors hover:bg-litt-surface-2/50"
             >
               <div className="flex items-center justify-between mb-6">
-                <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
+                <span className="font-mono text-[10px] text-litt-fg-subtle tracking-widest uppercase">
                   {f.label}
                 </span>
                 <span
-                  className="font-mono text-sm text-accent/30 group-hover:text-accent/60 transition-colors select-none"
+                  className="font-mono text-sm text-litt-accent/30 group-hover:text-litt-accent/60 transition-colors select-none"
                 >
                   {f.ascii}
                 </span>
@@ -303,7 +303,7 @@ export default function LandingPage() {
               <h3 className="text-lg font-medium mb-2 tracking-[-0.01em]">
                 {f.title}
               </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
+              <p className="text-sm text-litt-fg-muted leading-relaxed">
                 {f.desc}
               </p>
             </div>
@@ -313,7 +313,7 @@ export default function LandingPage() {
 
       {/* ── ASCII texture divider ───────────────────────────── */}
       <div className="max-w-[1200px] mx-auto px-6 select-none">
-        <pre className="font-mono text-[8px] leading-[1.6] text-text-tertiary/15 overflow-hidden whitespace-pre">
+        <pre className="font-mono text-[8px] leading-[1.6] text-litt-fg-subtle/15 overflow-hidden whitespace-pre">
           {ASCII_WAVE}
         </pre>
       </div>
@@ -321,10 +321,10 @@ export default function LandingPage() {
       {/* ── How it works ────────────────────────────────────── */}
       <section className="max-w-[1200px] mx-auto px-6 py-24">
         <div className="flex items-center gap-4 mb-4">
-          <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
+          <span className="font-mono text-[10px] text-litt-fg-subtle tracking-widest uppercase">
             Workflow
           </span>
-          <div className="flex-1 h-px bg-border" />
+          <div className="flex-1 h-px bg-litt-line" />
         </div>
 
         <h2 className="text-3xl md:text-4xl font-medium tracking-[-0.03em] mb-16">
@@ -354,13 +354,13 @@ export default function LandingPage() {
           ].map((s) => (
             <div key={s.step} className="group">
               <div className="flex items-center gap-3 mb-4">
-                <span className="font-mono text-xs text-accent">{s.step}</span>
-                <span className="font-mono text-[10px] text-text-tertiary/30 tracking-[0.3em] select-none">
+                <span className="font-mono text-xs text-litt-accent">{s.step}</span>
+                <span className="font-mono text-[10px] text-litt-fg-subtle/30 tracking-[0.3em] select-none">
                   {s.glyph}
                 </span>
               </div>
               <h3 className="text-base font-medium mb-2">{s.title}</h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
+              <p className="text-sm text-litt-fg-muted leading-relaxed">
                 {s.desc}
               </p>
             </div>
@@ -369,23 +369,23 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA ─────────────────────────────────────────────── */}
-      <section className="border-t border-border">
+      <section className="border-t border-litt-line">
         <div className="max-w-[1200px] mx-auto px-6 py-24 flex flex-col items-center text-center">
           {/* Dither accent */}
-          <pre className="font-mono text-[10px] leading-[1.2] text-accent/15 mb-8 select-none">
+          <pre className="font-mono text-[10px] leading-[1.2] text-litt-accent/15 mb-8 select-none">
             {"▓▒░  ░▒▓█▓▒░  ░▒▓"}
           </pre>
 
           <h2 className="text-3xl md:text-5xl font-medium tracking-[-0.03em] mb-4">
             Start creating.
           </h2>
-          <p className="text-base text-text-secondary max-w-md mb-8">
+          <p className="text-base text-litt-fg-muted max-w-md mb-8">
             No signup, no install, no paywall. Open the editor and start
             building animated gradients in seconds.
           </p>
           <button
             onClick={() => router.push("/editor")}
-            className="px-8 py-3 text-sm font-medium text-root bg-text-primary hover:bg-text-secondary
+            className="px-8 py-3 text-sm font-medium text-litt-canvas bg-litt-fg hover:bg-litt-fg-muted
               rounded-md transition-all duration-150"
           >
             Open Editor
@@ -394,17 +394,17 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ──────────────────────────────────────────── */}
-      <footer className="border-t border-border">
+      <footer className="border-t border-litt-line">
         <div className="max-w-[1200px] mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-4">
-            <span className="font-mono text-xs text-text-tertiary tracking-[0.15em]">
+            <span className="font-mono text-xs text-litt-fg-subtle tracking-[0.15em]">
               WAVR
             </span>
-            <span className="text-[10px] text-text-tertiary/40">
+            <span className="text-[10px] text-litt-fg-subtle/40">
               Built with WebGL 2 + Next.js
             </span>
           </div>
-          <div className="font-mono text-[9px] text-text-tertiary/25 tracking-wider select-none">
+          <div className="font-mono text-[9px] text-litt-fg-subtle/25 tracking-wider select-none">
             ░▒▓█▓▒░
           </div>
         </div>

@@ -12,6 +12,9 @@ import Toggle from "@/components/ui/Toggle";
 import Section from "@/components/ui/Section";
 import Segmented from "@/components/ui/Segmented";
 import Disclosure from "@/components/ui/Disclosure";
+import { Button } from "@/components/litt/button";
+import { TextField } from "@/components/litt/input";
+import { PlusIcon, XIcon } from "@/components/litt/icons";
 import LookPicker from "@/components/LookPicker";
 import type { MaskParams, TextMaskAlign } from "@wavr/core";
 import { GRADIENT_OPTIONS, curatedPalette } from "@/lib/gradient-types";
@@ -26,7 +29,7 @@ const MASK_MODE_OPTIONS: { value: MaskMode; label: string }[] = [
 
 const MASK_SHAPE_OPTIONS = [
   { value: "circle", label: "Circle" },
-  { value: "roundedRect", label: "Rounded Rect" },
+  { value: "roundedRect", label: "Rounded rect" },
   { value: "ellipse", label: "Ellipse" },
   { value: "polygon", label: "Polygon" },
   { value: "star", label: "Star" },
@@ -99,21 +102,18 @@ function ImageUpload({
 
   if (imageData) {
     return (
-      <div className="relative group">
+      <div className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element -- previews are local data URLs from user uploads */}
         <img
           src={imageData}
           alt={label}
-          className="w-full h-24 object-cover rounded-md border border-border"
+          className="w-full h-24 object-cover rounded-litt-control border border-litt-line"
         />
-        <button
-          onClick={onRemove}
-          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-surface/80 text-text-secondary
-            hover:bg-error hover:text-white text-xs flex items-center justify-center
-            opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          ×
-        </button>
+        <span className="absolute top-1 right-1">
+          <Button iconOnly size="sm" onClick={onRemove} aria-label={`Remove ${label}`}>
+            <XIcon />
+          </Button>
+        </span>
       </div>
     );
   }
@@ -124,13 +124,13 @@ function ImageUpload({
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
         onClick={() => inputRef.current?.click()}
-        className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer
+        className="border-2 border-dashed border-litt-line rounded-litt-control p-4 text-center cursor-pointer
           hover:border-litt-line-strong hover:bg-[color-mix(in_oklab,var(--litt-fg)_6%,transparent)] transition-colors duration-(--litt-dur-instant) ease-litt"
       >
-        <p className="text-xs text-text-tertiary">
+        <p className="text-litt-small text-litt-fg-subtle">
           Drop image or click to upload
         </p>
-        <p className="text-[10px] text-text-tertiary mt-1">PNG, JPG, WebP</p>
+        <p className="text-litt-caption font-normal text-litt-fg-subtle mt-1">PNG, JPG, WebP</p>
       </div>
       <input
         ref={inputRef}
@@ -172,7 +172,7 @@ function ShapeMaskControls({
           onChange={(v) => onUpdate("feather", v)} onCommit={commit} />
         <Toggle label="Invert" checked={mask.invert} onChange={(v) => onUpdate("invert", v)} />
         {mask.shape === "roundedRect" && (
-          <Slider label="Corner Radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
+          <Slider label="Corner radius" value={mask.cornerRadius} min={0} max={0.5} step={0.01}
             onChange={(v) => onUpdate("cornerRadius", v)} onCommit={commit} />
         )}
         {(mask.shape === "polygon" || mask.shape === "star") && (
@@ -180,10 +180,10 @@ function ShapeMaskControls({
             onChange={(v) => onUpdate("sides", v)} onCommit={commit} />
         )}
         {mask.shape === "star" && (
-          <Slider label="Inner Radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
+          <Slider label="Inner radius" value={mask.starInnerRadius} min={0.1} max={0.9} step={0.01}
             onChange={(v) => onUpdate("starInnerRadius", v)} onCommit={commit} />
         )}
-        <Slider label="Noise Edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
+        <Slider label="Noise edge" value={mask.noiseDistortion} min={0} max={1} step={0.01}
           onChange={(v) => onUpdate("noiseDistortion", v)} onCommit={commit} />
       </Disclosure>
     </>
@@ -236,10 +236,10 @@ export default function GradientPanel() {
   const canReset = curated !== null && !sameStops(colors, curated);
 
   return (
-    <div className="flex flex-col divide-y divide-border p-4">
-      <Section title="Look" aside={<span className="text-xs font-medium text-text-primary">{look?.label}</span>}>
+    <div className="flex flex-col divide-y divide-litt-line p-4">
+      <Section title="Look" aside={<span className="text-litt-small font-litt-title text-litt-fg">{look?.label}</span>}>
         <LookPicker value={store.gradientType} onPick={store.setLook} />
-        <p className="text-[11px] leading-snug text-text-tertiary">{look?.description}</p>
+        <p className="text-litt-caption font-normal leading-snug text-litt-fg-subtle">{look?.description}</p>
       </Section>
 
       {isImageType && (
@@ -289,38 +289,30 @@ export default function GradientPanel() {
             }}
             canRemove={colors.length > 2}
           />
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-text-tertiary">
+          <div className="flex items-center justify-between text-litt-small">
+            <span className="text-litt-fg-subtle">
               Color {stop + 1} of {colors.length}
             </span>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
                 onClick={() => {
                   store.setDiscrete({ colors: reverseStops(colors) });
                   setSelectedStop(colors.length - 1 - stop);
                 }}
-                className="text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt py-1"
               >
                 Reverse
-              </button>
+              </Button>
               {canReset && (
-                <button
-                  type="button"
-                  onClick={() => store.setDiscrete({ colors: curated })}
-                  className="text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt py-1"
-                >
+                <Button size="sm" variant="ghost" onClick={() => store.setDiscrete({ colors: curated })}>
                   Reset
-                </button>
+                </Button>
               )}
               {colors.length < MAX_STOPS && (
-                <button
-                  type="button"
-                  onClick={addStop}
-                  className="text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt py-1"
-                >
-                  + Add color
-                </button>
+                <Button size="sm" variant="ghost" icon={<PlusIcon />} onClick={addStop}>
+                  Add color
+                </Button>
               )}
             </div>
           </div>
@@ -337,19 +329,14 @@ export default function GradientPanel() {
         {mask === "shape" && <ShapeMaskControls mask={activeLayer.mask1} onUpdate={updateMask} />}
         {mask === "text" && (
           <>
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-medium text-text-tertiary">Text</span>
-              <input
-                type="text"
-                value={activeLayer.textMaskContent}
-                onChange={(e) => updateLayerField("textMaskContent", e.target.value)}
-                onBlur={() => store.commitSet()}
-                placeholder="Enter text..."
-                className="w-full px-2 py-1.5 text-xs bg-surface border border-border rounded-md
-                  text-text-primary placeholder:text-text-tertiary focus:outline-none
-                  focus:border-litt-focus transition-colors duration-(--litt-dur-instant) ease-litt"
-              />
-            </label>
+            <TextField
+              label="Text"
+              size="sm"
+              value={activeLayer.textMaskContent}
+              onChange={(e) => updateLayerField("textMaskContent", e.target.value)}
+              onBlur={() => store.commitSet()}
+              placeholder="Type the text the layer shows through"
+            />
             <Disclosure label="More" ariaLabel="More text mask controls">
               <Slider label="Size" value={activeLayer.textMaskFontSize} min={32} max={200} step={1} format={px}
                 onChange={(v) => updateLayerField("textMaskFontSize", v)}
@@ -381,20 +368,20 @@ export default function GradientPanel() {
 
       {extras.length > 0 && (
         <Section title="Also on this layer">
-          <p className="text-[11px] leading-snug text-text-tertiary">
+          <p className="text-litt-caption font-normal leading-snug text-litt-fg-subtle">
             Parts of this layer the editor no longer offers. Remove one to drop it.
           </p>
           {extras.map((extra) => (
-            <div key={extra.label} className="flex items-center justify-between text-xs">
-              <span className="text-text-secondary">{extra.label}</span>
-              <button
-                type="button"
+            <div key={extra.label} className="flex items-center justify-between text-litt-small">
+              <span className="text-litt-fg-muted">{extra.label}</span>
+              <Button
+                size="sm"
+                variant="ghost"
                 aria-label={`Remove ${extra.label}`}
                 onClick={() => store.setLayerParam(extra.clear(activeLayer))}
-                className="text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt py-1"
               >
                 Remove
-              </button>
+              </Button>
             </div>
           ))}
         </Section>
