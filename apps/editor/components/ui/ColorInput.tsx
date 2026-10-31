@@ -5,6 +5,7 @@ import type { ColorProfile } from "@wavr/core";
 import { cssColor } from "@/lib/css-color";
 import { Button } from "@/components/litt/button";
 import { XIcon } from "@/components/litt/icons";
+import { Input } from "@/components/litt/input";
 
 interface ColorInputProps {
   color: [number, number, number];
@@ -60,6 +61,14 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 }
 
 
+/** Three or six hex digits, with or without the hash. */
+function parseHex(text: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text.trim());
+  if (!m) return null;
+  const digits = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  return hexToRgb(digits);
+}
+
 // --- Drag helper ---
 
 function useDrag(onDrag: (x: number, y: number) => void) {
@@ -90,11 +99,51 @@ function useDrag(onDrag: (x: number, y: number) => void) {
   return { ref, onPointerDown, onPointerMove, onPointerUp };
 }
 
-// --- Picker popup ---
+// --- Pieces (litt's Color picker spec, components.md) ---
 
-// A ring that reads on any colour under it: white with a dark hairline.
-const PICKER_CURSOR =
-  "pointer-events-none absolute -mt-1.5 -ml-1.5 size-3 rounded-litt-pill border-2 border-white shadow-[0_0_0_1px_rgb(0_0_0/0.3)]";
+// The cut: an fg-14% hairline, so white still has an edge, and the cut's top wall shade.
+const CUT =
+  "pointer-events-none absolute inset-0 rounded-litt-control shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--litt-fg)_14%,transparent),var(--litt-cut-shade)]";
+// A cap seen from above: a 20px disc of the colour in a 3px --cap ring, with the cap's lift.
+const THUMB =
+  "pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-litt-pill border-[3px] border-litt-cap shadow-(--litt-cap-lift)";
+// A chip of the colour with an fg-12% hairline.
+const CHIP = "size-8 shrink-0 rounded-litt-control shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--litt-fg)_12%,transparent)]";
+
+/**
+ * litt's Input at sm for the hex. A colour applies as soon as it is one; Enter or blur closes the
+ * edit, and what was typed reads aria-invalid until it is a colour, then the last good one comes back.
+ */
+function HexField({ color, onChange, onCommit }: {
+  color: [number, number, number];
+  onChange: (c: [number, number, number]) => void;
+  onCommit?: () => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <Input
+      size="sm"
+      mono
+      aria-label="Hex"
+      spellCheck={false}
+      className="flex-1"
+      value={draft ?? rgbToHex(...color)}
+      invalid={draft !== null && parseHex(draft) === null}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const rgb = parseHex(e.target.value);
+        if (rgb) onChange(rgb);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      onBlur={() => {
+        setDraft(null);
+        onCommit?.();
+      }}
+    />
+  );
+}
 
 function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
   color: [number, number, number];
@@ -103,20 +152,15 @@ function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
   onCommit?: () => void;
   onClose: () => void;
 }) {
+  // The picker keeps hue, saturation and brightness of its own, so dragging to black or grey never loses the hue.
   const [hsv, setHsv] = useState(() => rgbToHsv(...color));
-  const [hexInput, setHexInput] = useState(() => rgbToHex(...color).slice(1).toUpperCase());
   const popupRef = useRef<HTMLDivElement>(null);
-
-  // Sync hex input when hsv changes (but not during typing)
-  const hexFromHsv = rgbToHex(...hsvToRgb(hsv[0], hsv[1], hsv[2])).slice(1).toUpperCase();
 
   const updateFromHsv = useCallback((h: number, s: number, v: number) => {
     setHsv([h, s, v]);
-    setHexInput(rgbToHex(...hsvToRgb(h, s, v)).slice(1).toUpperCase());
     onChange(hsvToRgb(h, s, v));
   }, [onChange]);
 
-  // SV area drag
   const {
     ref: svRef,
     onPointerDown: onSvPointerDown,
@@ -126,7 +170,6 @@ function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
     updateFromHsv(hsv[0], x, 1 - y);
   }, [hsv, updateFromHsv]));
 
-  // Hue bar drag
   const {
     ref: hueRef,
     onPointerDown: onHuePointerDown,
@@ -149,62 +192,50 @@ function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
   }, [onClose, onCommit]);
 
   return (
-    <div ref={popupRef} className="litt-glass absolute top-full left-0 z-50 mt-2 flex w-60 flex-col gap-3 p-3">
-      {/* SV area */}
+    <div ref={popupRef} className="litt-glass absolute top-full left-0 z-50 mt-2 flex w-72 flex-col gap-4 p-4">
+      {/* Saturation left to right, brightness bottom to top. */}
       <div
         ref={svRef}
-        className="relative h-36 w-full cursor-crosshair touch-none overflow-hidden rounded-litt-control"
+        className="relative h-40 w-full cursor-crosshair touch-none rounded-litt-control"
         style={{ backgroundColor: cssColor(hsvToRgb(hsv[0], 1, 1), colorProfile) }}
         onPointerDown={onSvPointerDown}
         onPointerMove={onSvPointerMove}
         onPointerUp={onSvPointerUp}
       >
-        <div className="absolute inset-0 bg-linear-to-r from-white to-transparent" />
-        <div className="absolute inset-0 bg-linear-to-b from-transparent to-black" />
+        <div className="absolute inset-0 rounded-litt-control bg-linear-to-r from-white to-transparent" />
+        <div className="absolute inset-0 rounded-litt-control bg-linear-to-b from-transparent to-black" />
+        <div className={CUT} />
         <div
-          className={PICKER_CURSOR}
-          style={{ left: `${hsv[1] * 100}%`, top: `${(1 - hsv[2]) * 100}%` }}
+          className={THUMB}
+          style={{ left: `${hsv[1] * 100}%`, top: `${(1 - hsv[2]) * 100}%`, backgroundColor: cssColor(hsvToRgb(...hsv), colorProfile) }}
         />
       </div>
 
-      {/* Hue bar */}
+      {/* Hue: a 12px rail with the six hue stops, cut in as the area is. */}
       <div
         ref={hueRef}
-        className="picker-hue relative h-3 w-full cursor-pointer touch-none rounded-litt-pill"
+        className="picker-hue relative h-3 w-full cursor-pointer touch-none rounded-litt-control"
         onPointerDown={onHuePointerDown}
         onPointerMove={onHuePointerMove}
         onPointerUp={onHuePointerUp}
       >
+        <div className={CUT} />
         <div
-          className={`${PICKER_CURSOR} top-1/2`}
-          style={{ left: `${hsv[0] * 100}%` }}
+          className={`${THUMB} top-1/2`}
+          style={{ left: `${hsv[0] * 100}%`, backgroundColor: cssColor(hsvToRgb(hsv[0], 1, 1), colorProfile) }}
         />
       </div>
 
-      {/* Hex input */}
       <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={hexInput}
-          onChange={(e) => {
-            const val = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
-            setHexInput(val);
-            if (val.length === 6) {
-              const rgb = hexToRgb(val);
-              const newHsv = rgbToHsv(...rgb);
-              setHsv(newHsv);
-              onChange(rgb);
-            }
+        <div aria-hidden="true" className={CHIP} style={{ backgroundColor: cssColor(color, colorProfile) }} />
+        <HexField
+          color={color}
+          onChange={(rgb) => {
+            setHsv(rgbToHsv(...rgb));
+            onChange(rgb);
           }}
-          onBlur={() => {
-            setHexInput(hexFromHsv);
-            onCommit?.();
-          }}
-          aria-label="Hex"
-          className="h-litt-control-sm min-w-0 flex-1 rounded-litt-control bg-litt-block px-litt-control-pad-sm font-litt-mono text-litt-caption text-litt-fg shadow-(--litt-block-lift) outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-litt-focus"
-          spellCheck={false}
+          onCommit={onCommit}
         />
-        <span aria-hidden="true" className="text-litt-caption font-litt-label text-litt-fg-subtle">Hex</span>
       </div>
     </div>
   );
@@ -214,32 +245,18 @@ function ColorPicker({ color, colorProfile, onChange, onCommit, onClose }: {
 
 export default function ColorInput({ color, colorProfile = "srgb", onChange, onCommit, onRemove, canRemove }: ColorInputProps) {
   const [open, setOpen] = useState(false);
-  const hex = rgbToHex(...color);
 
   return (
-    <div className="relative flex h-litt-control-sm items-center gap-2 rounded-litt-control bg-litt-block pr-1 pl-1 shadow-(--litt-block-lift)">
+    <div className="relative flex items-center gap-2">
       <button
         type="button"
         aria-label="Pick a colour"
         aria-expanded={open}
-        className="size-6 shrink-0 cursor-pointer rounded-litt-control shadow-[inset_0_0_0_1px_var(--litt-line-strong)]"
+        className={`${CHIP} cursor-pointer`}
         style={{ backgroundColor: cssColor(color, colorProfile) }}
         onClick={() => setOpen(!open)}
       />
-      <input
-        type="text"
-        value={hex.toUpperCase()}
-        onChange={(e) => {
-          const val = e.target.value;
-          if (/^#[0-9a-fA-F]{6}$/.test(val)) {
-            onChange(hexToRgb(val));
-          }
-        }}
-        onBlur={() => onCommit?.()}
-        aria-label="Hex"
-        spellCheck={false}
-        className="min-w-0 flex-1 bg-transparent font-litt-mono text-litt-caption text-litt-fg outline-none"
-      />
+      <HexField color={color} onChange={onChange} onCommit={onCommit} />
       {canRemove && (
         <Button variant="ghost" size="sm" iconOnly aria-label="Remove colour" icon={<XIcon />} onClick={onRemove} />
       )}

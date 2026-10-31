@@ -125,7 +125,7 @@ function ImageUpload({
         onDragOver={(e) => e.preventDefault()}
         onClick={() => inputRef.current?.click()}
         className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer
-          hover:border-accent hover:bg-accent/5 transition-colors"
+          hover:border-litt-line-strong hover:bg-[color-mix(in_oklab,var(--litt-fg)_6%,transparent)] transition-colors duration-(--litt-dur-instant) ease-litt"
       >
         <p className="text-xs text-text-tertiary">
           Drop image or click to upload
@@ -300,7 +300,7 @@ export default function GradientPanel() {
                   store.setDiscrete({ colors: reverseStops(colors) });
                   setSelectedStop(colors.length - 1 - stop);
                 }}
-                className="text-text-secondary hover:text-accent transition-colors py-1"
+                className="text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt py-1"
               >
                 Reverse
               </button>
@@ -308,7 +308,7 @@ export default function GradientPanel() {
                 <button
                   type="button"
                   onClick={() => store.setDiscrete({ colors: curated })}
-                  className="text-text-secondary hover:text-accent transition-colors py-1"
+                  className="text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt py-1"
                 >
                   Reset
                 </button>
@@ -317,7 +317,7 @@ export default function GradientPanel() {
                 <button
                   type="button"
                   onClick={addStop}
-                  className="text-text-secondary hover:text-accent transition-colors py-1"
+                  className="text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt py-1"
                 >
                   + Add color
                 </button>
@@ -347,7 +347,7 @@ export default function GradientPanel() {
                 placeholder="Enter text..."
                 className="w-full px-2 py-1.5 text-xs bg-surface border border-border rounded-md
                   text-text-primary placeholder:text-text-tertiary focus:outline-none
-                  focus:border-accent transition-colors"
+                  focus:border-litt-focus transition-colors duration-(--litt-dur-instant) ease-litt"
               />
             </label>
             <Disclosure label="More" ariaLabel="More text mask controls">
@@ -391,7 +391,7 @@ export default function GradientPanel() {
                 type="button"
                 aria-label={`Remove ${extra.label}`}
                 onClick={() => store.setLayerParam(extra.clear(activeLayer))}
-                className="text-text-secondary hover:text-accent transition-colors py-1"
+                className="text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt py-1"
               >
                 Remove
               </button>

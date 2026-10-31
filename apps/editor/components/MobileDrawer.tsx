@@ -33,8 +33,8 @@ export default function MobileDrawer({ activeTab, onTabChange, engineRef }: Mobi
         onPointerDown={preloadMobileDrawerBody}
         onFocus={preloadMobileDrawerBody}
         aria-label={open ? "Close controls" : "Open controls"}
-        className="mobile-controls-button fixed bottom-4 right-4 z-40 w-10 h-10 rounded-full bg-accent text-white
-          items-center justify-center shadow-lg transition-transform duration-150
+        className="mobile-controls-button fixed bottom-4 right-4 z-40 w-10 h-10 rounded-full bg-litt-block text-litt-fg shadow-(--litt-block-lift)
+          items-center justify-center transition-transform duration-150
           hover:scale-105 active:scale-95"
       >
         {open ? "✕" : "⚙"}

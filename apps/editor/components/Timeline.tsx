@@ -45,7 +45,7 @@ export default function Timeline() {
         </button>
         <button
           onClick={store.addKeyframe}
-          className="text-[10px] text-accent hover:text-accent/80 transition-colors"
+          className="text-[10px] text-text-secondary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt"
         >
           + Keyframe
         </button>
@@ -89,7 +89,7 @@ export default function Timeline() {
         >
           {/* Playhead */}
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-accent z-10"
+            className="absolute top-0 bottom-0 w-0.5 bg-litt-fg z-10"
             style={{ left: `${progress}%` }}
           />
 
@@ -99,7 +99,7 @@ export default function Timeline() {
             return (
               <div
                 key={i}
-                className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-accent rounded-sm -ml-[5px] cursor-pointer
+                className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-litt-fg rounded-sm -ml-[5px] cursor-pointer
                   hover:scale-125 transition-transform z-20"
                 style={{ left: `${kfPos}%` }}
                 onClick={(e) => {

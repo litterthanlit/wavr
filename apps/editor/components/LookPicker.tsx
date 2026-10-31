@@ -64,8 +64,10 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
             onKeyDown={(e) => moveFocus(e, i)}
             onClick={() => onPick(option.value)}
             className={`group relative block aspect-[4/3] overflow-hidden rounded-md border bg-surface
-              transition-colors duration-150 focus-visible:outline-offset-[3px] ${
-                checked ? "border-transparent ring-2 ring-accent" : "border-border hover:border-border-active"
+              transition-colors duration-(--litt-dur-instant) ease-litt focus-visible:outline-offset-[3px] ${
+                checked
+                  ? "border-transparent ring-2 ring-litt-fg ring-offset-2 ring-offset-litt-surface-1"
+                  : "border-border hover:border-border-active"
               }`}
           >
             {thumbnail ? (

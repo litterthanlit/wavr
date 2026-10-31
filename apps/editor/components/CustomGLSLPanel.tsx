@@ -75,7 +75,7 @@ export default function CustomGLSLPanel({ engineRef }: CustomGLSLPanelProps) {
         </span>
         <button
           onClick={handleReset}
-          className="text-[10px] text-text-tertiary hover:text-accent transition-colors"
+          className="text-[10px] text-text-tertiary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt"
         >
           Reset
         </button>
@@ -91,7 +91,7 @@ export default function CustomGLSLPanel({ engineRef }: CustomGLSLPanelProps) {
           spellCheck={false}
           className="w-full h-48 px-3 py-2 text-[11px] font-mono leading-relaxed
             bg-surface border border-border rounded-md text-text-primary
-            focus:outline-none focus:border-accent transition-colors resize-y"
+            focus:outline-none focus:border-litt-focus transition-colors duration-(--litt-dur-instant) ease-litt resize-y"
         />
         <span className="text-[10px] text-text-tertiary font-mono">&#125;</span>
       </div>

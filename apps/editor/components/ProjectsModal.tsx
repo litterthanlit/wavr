@@ -210,7 +210,7 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
                     <button
                       onClick={() => handleLoad(project)}
                       disabled={busy}
-                      className="px-2 py-1 text-[10px] text-text-secondary hover:text-accent
+                      className="px-2 py-1 text-[10px] text-text-secondary hover:text-litt-fg
                         bg-elevated rounded transition-colors disabled:opacity-40"
                     >
                       Load

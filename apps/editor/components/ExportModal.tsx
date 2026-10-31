@@ -51,7 +51,7 @@ function ExportButton({
         <div className="text-xs font-medium text-text-primary">{title}</div>
         <div className="text-xs text-text-tertiary mt-0.5">{desc}</div>
       </div>
-      <span className="text-xs text-text-tertiary group-hover:text-accent transition-colors">
+      <span className="text-xs text-text-tertiary group-hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt">
         {done ? "Copied!" : actionLabel}
       </span>
     </button>
@@ -404,7 +404,7 @@ export default function ExportModal({
                     type="button"
                     onClick={exportPng}
                     disabled={pngExporting}
-                    className="text-xs text-text-tertiary hover:text-accent transition-colors disabled:opacity-50"
+                    className="text-xs text-text-tertiary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt disabled:opacity-50"
                   >
                     {pngExporting ? "..." : "Download"}
                   </button>
@@ -427,7 +427,7 @@ export default function ExportModal({
                     {recording ? `Recording... ${Math.round(progress * 100)}%` : "5 second recording"}
                   </div>
                 </div>
-                <span className="text-xs text-text-tertiary group-hover:text-accent transition-colors">
+                <span className="text-xs text-text-tertiary group-hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt">
                   {recording ? "..." : "Record"}
                 </span>
               </button>
@@ -445,7 +445,7 @@ export default function ExportModal({
                       : "3 second loop, 640px wide"}
                   </div>
                 </div>
-                <span className="text-xs text-text-tertiary group-hover:text-accent transition-colors">
+                <span className="text-xs text-text-tertiary group-hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt">
                   {gifRecording ? "..." : "Record"}
                 </span>
               </button>

@@ -70,10 +70,12 @@ body {
 /* ============================================================
    Focus
    ============================================================ */
-:focus-visible {
-  outline: 2px solid var(--litt-focus);
-  outline-offset: 1px;
-  border-radius: 4px;
+/* In the base layer, so litt's own focus rings (utilities) win where a component draws one. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--litt-focus);
+    outline-offset: 2px;
+  }
 }
 
 /* ============================================================

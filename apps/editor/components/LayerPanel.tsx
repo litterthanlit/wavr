@@ -73,7 +73,7 @@ export default function LayerPanel() {
         {store.layers.length < MAX_LAYERS && (
           <button
             onClick={() => store.addLayer()}
-            className="text-xs text-text-tertiary hover:text-accent transition-colors"
+            className="text-xs text-text-tertiary hover:text-litt-fg transition-colors duration-(--litt-dur-instant) ease-litt"
           >
             + Add
           </button>
@@ -85,10 +85,11 @@ export default function LayerPanel() {
           <div
             key={i}
             onClick={() => store.selectLayer(i)}
-            className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all duration-150 group ${
+            className={`flex items-center gap-2 p-2 rounded-litt-control cursor-pointer transition-colors duration-(--litt-dur-instant) ease-litt group ${
+              // Selected is raised (litt R3): the press block, never the accent.
               i === store.activeLayerIndex
-                ? "bg-surface border border-accent/40"
-                : "bg-transparent border border-transparent hover:bg-surface/50"
+                ? "bg-litt-block shadow-(--litt-block-lift)"
+                : "bg-transparent hover:bg-[color-mix(in_oklab,var(--litt-fg)_6%,transparent)]"
             }`}
           >
             {/* Visibility toggle */}
