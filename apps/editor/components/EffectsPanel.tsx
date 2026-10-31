@@ -17,7 +17,7 @@ function hdrCaption(headroom: number, display: boolean | null, status: HdrStatus
   const exports = "Exports stay standard range.";
   if (display === false) return `${what}. This screen shows standard range, so you see the scene without it. ${exports}`;
   if (status === "unsupported") return `${what}, but this browser can't show it from WebGPU yet (Chrome and Edge can). ${exports}`;
-  if (status === "lost") return `HDR stopped when the GPU reset; showing standard range. Set the headroom to 0 and back to try again. ${exports}`;
+  if (status === "lost") return `HDR stopped when the GPU reset; showing standard range. Reload the page to try again. ${exports}`;
   return `${what}. ${exports}`;
 }
 
@@ -31,6 +31,8 @@ export default function EffectsPanel() {
   const hdrStatus = useHdrStatus();
   const extras = sceneExtrasOn(store);
   const commit = () => store.commitSet();
+  // The sliders stop above zero: off belongs to the switch, and a slider that
+  // reached zero would unmount mid-drag.
 
   return (
     <div className="flex flex-col divide-y divide-border p-4">
@@ -38,9 +40,9 @@ export default function EffectsPanel() {
         <Toggle label="Bloom" checked={store.realBloomEnabled} onChange={(v) => store.setDiscrete({ realBloomEnabled: v })} />
         {store.hdrHeadroom > 0 && <Caption live>{hdrCaption(store.hdrHeadroom, hdrDisplay, hdrStatus)}</Caption>}
         <Toggle label={EFFECT_SWITCHES.grain.label} checked={isSwitchOn(store.grain)} onChange={(on) => store.setDiscrete(switchPatch("grain", on))} />
-        {isSwitchOn(store.grain) && <Slider label="Amount" value={store.grain} min={0} max={1} step={0.01} onChange={(v) => store.set({ grain: v })} onCommit={commit} />}
+        {isSwitchOn(store.grain) && <Slider label="Amount" value={store.grain} min={0.01} max={1} step={0.01} onChange={(v) => store.set({ grain: v })} onCommit={commit} />}
         <Toggle label={EFFECT_SWITCHES.mouseReact.label} checked={isSwitchOn(store.mouseReact)} onChange={(on) => store.setDiscrete(switchPatch("mouseReact", on))} />
-        {isSwitchOn(store.mouseReact) && <Slider label="Strength" value={store.mouseReact} min={0} max={1} step={0.01} onChange={(v) => store.set({ mouseReact: v })} onCommit={commit} />}
+        {isSwitchOn(store.mouseReact) && <Slider label="Strength" value={store.mouseReact} min={0.01} max={1} step={0.01} onChange={(v) => store.set({ mouseReact: v })} onCommit={commit} />}
       </Section>
 
       {extras.length > 0 && (
