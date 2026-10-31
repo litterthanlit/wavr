@@ -3,49 +3,52 @@
 import { useGradientStore } from "@/lib/store";
 import { MAX_LAYERS, BlendMode, LayerParams } from "@wavr/core";
 import Slider from "@/components/ui/Slider";
+import { LazyCombobox } from "@/components/lazy";
+import { Button } from "@/components/litt/button";
+import { EyeIcon, EyeOffIcon, PlusIcon, XIcon } from "@/components/litt/icons";
 import { gradientTypeLabel } from "@/lib/gradient-types";
 import { cssColor } from "@/lib/css-color";
 
-const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[] }[] = [
+const BLEND_GROUPS: { label: string; options: { value: BlendMode; label: string }[] }[] = [
   {
-    group: "Normal",
-    modes: [{ value: "normal", label: "Normal" }],
+    label: "Normal",
+    options: [{ value: "normal", label: "Normal" }],
   },
   {
-    group: "Darken",
-    modes: [
+    label: "Darken",
+    options: [
       { value: "darken", label: "Darken" },
       { value: "multiply", label: "Multiply" },
-      { value: "colorBurn", label: "Color Burn" },
-      { value: "linearBurn", label: "Linear Burn" },
-      { value: "darkerColor", label: "Darker Color" },
+      { value: "colorBurn", label: "Color burn" },
+      { value: "linearBurn", label: "Linear burn" },
+      { value: "darkerColor", label: "Darker color" },
     ],
   },
   {
-    group: "Lighten",
-    modes: [
+    label: "Lighten",
+    options: [
       { value: "lighten", label: "Lighten" },
       { value: "screen", label: "Screen" },
-      { value: "colorDodge", label: "Color Dodge" },
-      { value: "add", label: "Linear Dodge (Add)" },
-      { value: "lighterColor", label: "Lighter Color" },
+      { value: "colorDodge", label: "Color dodge" },
+      { value: "add", label: "Linear dodge (add)" },
+      { value: "lighterColor", label: "Lighter color" },
     ],
   },
   {
-    group: "Contrast",
-    modes: [
+    label: "Contrast",
+    options: [
       { value: "overlay", label: "Overlay" },
-      { value: "softLight", label: "Soft Light" },
-      { value: "hardLight", label: "Hard Light" },
-      { value: "vividLight", label: "Vivid Light" },
-      { value: "linearLight", label: "Linear Light" },
-      { value: "pinLight", label: "Pin Light" },
-      { value: "hardMix", label: "Hard Mix" },
+      { value: "softLight", label: "Soft light" },
+      { value: "hardLight", label: "Hard light" },
+      { value: "vividLight", label: "Vivid light" },
+      { value: "linearLight", label: "Linear light" },
+      { value: "pinLight", label: "Pin light" },
+      { value: "hardMix", label: "Hard mix" },
     ],
   },
   {
-    group: "Inversion",
-    modes: [
+    label: "Inversion",
+    options: [
       { value: "difference", label: "Difference" },
       { value: "exclusion", label: "Exclusion" },
       { value: "subtract", label: "Subtract" },
@@ -53,8 +56,8 @@ const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[
     ],
   },
   {
-    group: "Component",
-    modes: [
+    label: "Component",
+    options: [
       { value: "hue", label: "Hue" },
       { value: "saturation", label: "Saturation" },
       { value: "color", label: "Color" },
@@ -63,99 +66,78 @@ const BLEND_GROUPS: { group: string; modes: { value: BlendMode; label: string }[
   },
 ];
 
+const BLEND_MODES = BLEND_GROUPS.flatMap((group) => group.options);
+
 export default function LayerPanel() {
   const store = useGradientStore();
 
   return (
     <div className="flex flex-col gap-3 p-4">
       <div className="flex justify-between items-center">
-        <span className="text-xs text-text-secondary">Layers</span>
+        <span className="text-litt-small text-litt-fg-muted">Layers</span>
         {store.layers.length < MAX_LAYERS && (
-          <button
-            onClick={() => store.addLayer()}
-            className="text-xs text-text-tertiary hover:text-accent transition-colors"
-          >
-            + Add
-          </button>
+          <Button size="sm" variant="ghost" icon={<PlusIcon />} onClick={() => store.addLayer()}>
+            Add
+          </Button>
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        {(store.layers as LayerParams[]).map((layer, i) => (
-          <div
-            key={i}
-            onClick={() => store.selectLayer(i)}
-            className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all duration-150 group ${
-              i === store.activeLayerIndex
-                ? "bg-surface border border-accent/40"
-                : "bg-transparent border border-transparent hover:bg-surface/50"
-            }`}
-          >
-            {/* Visibility toggle */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                store.toggleLayerVisibility(i);
-              }}
-              className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${
-                layer.visible ? "text-text-secondary hover:text-text-primary" : "text-text-tertiary opacity-40"
+      <div className="flex flex-col gap-2">
+        {(store.layers as LayerParams[]).map((layer, i) => {
+          const selected = i === store.activeLayerIndex;
+          const name = gradientTypeLabel(layer.gradientType);
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-2 p-1 rounded-litt-control transition-colors duration-(--litt-dur-instant) ease-litt ${
+                // Selected is raised (litt R3): the press block, never the accent.
+                selected ? "bg-litt-block shadow-(--litt-block-lift)" : "bg-transparent hover:bg-[color-mix(in_oklab,var(--litt-fg)_6%,transparent)]"
               }`}
-              aria-label={layer.visible ? "Hide layer" : "Show layer"}
             >
-              {layer.visible ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              )}
-            </button>
-
-            {/* Color preview dots */}
-            <div className="flex gap-0.5">
-              {layer.colors.slice(0, 4).map((c, ci) => (
-                <div
-                  key={ci}
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: cssColor(c, store.colorProfile) }}
-                />
-              ))}
-            </div>
-
-            {/* Layer type label */}
-            <span className="text-[10px] text-text-tertiary flex-1">
-              {gradientTypeLabel(layer.gradientType)}
-            </span>
-
-            {/* Remove button */}
-            {store.layers.length > 1 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  store.removeLayer(i);
-                }}
-                className="text-text-tertiary hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label="Remove layer"
+              <Button
+                iconOnly
+                size="sm"
+                variant="ghost"
+                onClick={() => store.toggleLayerVisibility(i)}
+                aria-label={layer.visible ? `Hide layer ${i + 1}` : `Show layer ${i + 1}`}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                {layer.visible ? <EyeIcon /> : <EyeOffIcon />}
+              </Button>
+
+              {/* The row's own control: selects the layer, as the 3D panel's object rows do. */}
+              <button
+                type="button"
+                aria-pressed={selected}
+                aria-label={`Layer ${i + 1}: ${name}`}
+                onClick={() => store.selectLayer(i)}
+                className="flex h-litt-control-sm min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-litt-control text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-litt-focus"
+              >
+                <span aria-hidden className="flex gap-1">
+                  {layer.colors.slice(0, 4).map((c, ci) => (
+                    <span
+                      key={ci}
+                      className="size-2 rounded-litt-pill"
+                      style={{ backgroundColor: cssColor(c, store.colorProfile) }}
+                    />
+                  ))}
+                </span>
+                <span className="truncate text-litt-small text-litt-fg">{name}</span>
               </button>
-            )}
-          </div>
-        ))}
+
+              {store.layers.length > 1 && (
+                <Button iconOnly size="sm" variant="ghost" onClick={() => store.removeLayer(i)} aria-label={`Remove layer ${i + 1}`}>
+                  <XIcon />
+                </Button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Active layer controls */}
       {store.layers.length > 1 && (
         <>
-          <div className="border-t border-border" />
+          <div className="border-t border-litt-line" />
           <div className="flex flex-col gap-3">
             <Slider
               label="Opacity"
@@ -166,27 +148,17 @@ export default function LayerPanel() {
               onChange={(v) => store.setLayerOpacity(store.activeLayerIndex, v)}
               onCommit={() => store.commitSet()}
             />
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-text-secondary">Blend Mode</span>
-              <select
-                value={store.layers[store.activeLayerIndex]?.blendMode ?? "normal"}
-                onChange={(e) =>
-                  store.setLayerBlendMode(store.activeLayerIndex, e.target.value as BlendMode)
-                }
-                className="bg-surface border border-border rounded-md px-2.5 py-1.5 text-xs text-text-primary
-                  appearance-none cursor-pointer focus:outline-none focus:border-border-active transition-colors duration-150"
-              >
-                {BLEND_GROUPS.map((group) => (
-                  <optgroup key={group.group} label={group.group}>
-                    {group.modes.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
+            {/* litt's Combobox: a long list in groups (litt's Select is for a short one). A field left empty keeps the mode. */}
+            <LazyCombobox
+              label="Blend mode"
+              size="sm"
+              options={BLEND_GROUPS}
+              value={store.layers[store.activeLayerIndex]?.blendMode ?? "normal"}
+              onValueChange={(value: string | string[]) => {
+                const mode = BLEND_MODES.find((m) => m.value === value);
+                if (mode) store.setLayerBlendMode(store.activeLayerIndex, mode.value);
+              }}
+            />
             {store.parallaxEnabled && (
               <Slider
                 label="Depth"

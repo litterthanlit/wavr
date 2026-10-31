@@ -21,7 +21,7 @@
 // Light gradients
 // ============================================================
 // Light on a surface or in the dark: a mirror, a film, a planet's limb, a leak,
-// smoke, a glass orb. Their palette is a light ramp, from the deepest shadow (the
+// smoke, a soft orb. Their palette is a light ramp, from the deepest shadow (the
 // first stop) to the brightest light (the last), so they need a palette that
 // starts dark and ends light (their presets have one).
 
@@ -478,100 +478,65 @@ vec3 inkSmokeGradient(vec2 uv, float time) {
 }
 #endif
 
-// plasmaOrb: a glass-like sphere on a dark field. The sphere normal comes from
-// the disc (z = sqrt(1 - r^2)); inside, a swirling palette gradient is evaluated
-// on the 3D sphere point, so it rotates around the orb like a planet instead of
-// sliding on a plane. Over it: a Fresnel rim, a soft specular and a bounce of
-// light in the lower right; outside it a halo that carries the colour of the
-// limb into the dark. The edge is a pixel-exact antialiased disc.
+// plasmaOrb: a soft round glow in a dark room, like light through a diffuser.
+// Inside a gaussian body seven broad gaussian blobs drift on slow sines, each
+// carrying its own colour from the palette; their colours are averaged in linear
+// light, weighted by the blobs, so neighbouring lobes melt into each other as
+// light does instead of stacking. The body's tail and a faint wide glow fade into
+// a room lit by the first stop. There is no rim and no highlight: the edge is a
+// falloff.
 #if WAVR_GRADIENT == 22
-mat2 plasmaOrbRot(float a) {
-  float c = cos(a);
-  float s = sin(a);
-  return mat2(c, -s, s, c);
-}
-
-// The swirl: x = position on the palette ramp, y = how much light there is.
-vec2 plasmaOrbField(vec3 P, float time) {
-  // Differential rotation: each latitude turns at its own pace, so the
-  // swirl winds into a helix as it goes round.
-  P.xz = plasmaOrbRot(time * 0.25 + 1.1 * P.y) * P.xz;
-  P.yz = plasmaOrbRot(0.5) * P.yz;
-  float sc = 0.45 + 0.2 * u_complexity;
-  // A flow field bends the sample point (low frequency, so the bend is broad).
-  vec3 w = vec3(
-    snoise(P.xy * 0.9 + vec2(P.z * 1.3, time * 0.06)),
-    snoise(P.yz * 0.9 + vec2(P.x * 1.3, 5.2 - time * 0.05)),
-    snoise(P.zx * 0.9 + vec2(P.y * 1.3, 9.1 + time * 0.04))
-  );
-  P += (0.3 + 1.0 * u_distortion) * 0.55 * w;
-  float f = snoise(P.xy * sc + P.z * vec2(1.7, 2.3))
-          + 0.3 * snoise(P.yz * sc * 2.1 + P.x * vec2(3.1, 1.3) + 4.0);
-  // Light gathers in broad lobes, with thin filaments through them.
-  float lobes = 0.5 + 0.5 * snoise(P.zx * sc * 0.9 + P.y * vec2(1.1, 1.9) + 7.0);
-  float fil = 1.0 - abs(snoise(P.xy * sc * 1.5 + P.z * vec2(2.3, 0.7) + 11.0));
-  float density = lobes * (0.6 + 0.4 * mix(pow(fil, 2.0), 1.0, u_softness * 0.6));
-  return vec2(0.5 + 0.5 * f, density);
+// The melted blob colour at q (in orb radii) in linear light, and how much of
+// the blobs is there (0..1).
+vec4 plasmaOrbField(vec2 q, float time) {
+  q += u_distortion * 0.35 * vec2(snoise(q * 0.6 + vec2(0.0, time * 0.02)),
+                                  snoise(q * 0.6 + vec2(5.2, 1.3 - time * 0.02)));
+  float width = mix(0.8, 0.48, (u_complexity - 1.0) / 9.0);
+  // A faint weight on the middle stop, so far out, where the blobs' weights
+  // underflow, the colour settles on it instead of jumping.
+  float sum = 1e-4;
+  vec3 acc = sum * srgbToLinear(getGradientColor(0.5));
+  const float places[7] = float[7](0.3, 0.601, 0.902, 0.503, 0.804, 0.405, 0.706);
+  for (int i = 0; i < 7; i++) {
+    float fi = float(i);
+    vec2 ha = hash22(vec2(fi, 1.7));
+    vec2 hb = hash22(vec2(fi, 4.3));
+    vec2 hc = hash22(vec2(fi, 8.9));
+    // Angular rates under 0.15: every period is over 40 s at speed 1.
+    vec2 c = 0.7 * vec2(sin(time * (0.06 + 0.08 * ha.x) + 6.283 * ha.y),
+                        cos(time * (0.05 + 0.08 * hb.x) + 6.283 * hb.y));
+    float s = width * (0.85 + 0.3 * hc.x);
+    vec2 d = q - c;
+    float w = exp(-dot(d, d) / (s * s));
+    // Palette places spread over the upper stops, in no order, so lobes of
+    // different colours sit side by side.
+    acc += w * srgbToLinear(getGradientColor(places[i]));
+    sum += w;
+  }
+  // Coverage falls smoothly where the blobs thin out, so the body's outline
+  // stays soft and drifts with them.
+  return vec4(acc / sum, 1.0 - exp(-2.0 * sum));
 }
 #endif
 
 #if WAVR_GRADIENT == 22
 vec3 plasmaOrbGradient(vec2 uv, float time) {
   vec2 p = centeredUV(uv);
-  float breathe = 1.0 + 0.012 * sin(time * 0.9);
-  float R = 0.33 * u_scale * breathe;
-  p -= 0.012 * vec2(sin(time * 0.31), cos(time * 0.27));
+  float R = 0.33 * u_scale * (1.0 + 0.015 * sin(time * 0.5));
   vec2 q = p / R;
-  float r = length(q);
-  float px = 1.0 / (R * u_resolution.y);       // one pixel in disc units
-  float inside = 1.0 - smoothstep(1.0 - 1.2 * px, 1.0 + 1.2 * px, r);
-
-  // The sphere point (clamped to the limb outside).
-  vec2 qc = r > 1.0 ? q / r : q;
-  float z = sqrt(max(1.0 - dot(qc, qc), 0.0));
-  vec3 n = vec3(qc, z);
-
-  vec2 fd = plasmaOrbField(n, time);
-  vec3 swirl = getGradientColor(pingPong(fd.x));
-
-  // Outside the orb, the halo takes a slow, smooth colour round the limb
-  // (the swirl itself would smear into spokes).
-  vec2 limb = normalize(qc + 1e-5);
-  float hl = 0.5 + 0.5 * snoise(limb * 0.9 + vec2(time * 0.05, 3.0));
-  vec3 haloCol = getGradientColor(pingPong(0.2 + 0.6 * hl));
-
-  // Interior: light carried by the swirl, brightest through the middle.
-  float depth = pow(z, 0.7);
-  // Where there is little light the colour sinks toward the palette's deep
-  // first stop rather than to black, so the shadows stay blue, not brown.
-  vec3 shadow0 = getGradientColor(0.0);
-  vec3 shadow = shadow0 * mix(0.55, 0.12, smoothstep(0.1, 0.6, dot(shadow0, vec3(0.2126, 0.7152, 0.0722))));
-  vec3 body = mix(shadow, swirl * 1.2, smoothstep(0.05, 0.75, fd.y)) * (0.55 + 0.6 * depth);
-  vec3 lightTint = mix(vec3(1.0), haloCol, 0.45);
-
-  vec3 L = normalize(vec3(-0.45, 0.62, 0.64));
-  vec3 Hh = normalize(L + vec3(0.0, 0.0, 1.0));
-  float nh = max(dot(n, Hh), 0.0);
-  float spec = pow(nh, 220.0) * 1.3 + pow(nh, 30.0) * 0.16;
-  float fres = pow(1.0 - z, 3.0);
-  // Environment glint hugging the rim on the lit side, a crisp thin line at the edge.
-  float lit = smoothstep(-0.1, 0.85, dot(normalize(qc + 1e-5), L.xy / length(L.xy)));
-  float glint = pow(1.0 - z, 5.0) * lit;
-  // Light that crosses the sphere and leaves low on the far side.
-  float bounce = pow(max(dot(n, normalize(vec3(0.5, -0.55, 0.25))), 0.0), 3.0) * smoothstep(0.2, 0.9, 1.0 - z) * 0.5;
-
-  // A glow from inside, strongest at the centre, and a thin bright line right at the edge.
-  float coreGlow = pow(z, 4.0);
-  float edge = pow(1.0 - z, 10.0);
-  vec3 orb = body + swirl * coreGlow * 0.35 + lightTint * (spec + 0.7 * fres + 0.9 * glint + 0.8 * edge * (0.4 + 0.6 * lit)) + swirl * bounce;
-  orb = orb / (1.0 + 0.35 * orb);
-
-  // Outside: a tight glow at the limb and a wide, faint one.
-  float d = max(r - 1.0, 0.0);
-  float halo = 0.5 * exp(-d * 7.0) + 0.14 * exp(-d * 2.2);
-  vec3 outside = shadow * 0.07 + haloCol * halo * 0.8;
-
-  return mix(outside, orb, inside);
+  float r2 = dot(q, q);
+  float body = exp(-mix(2.0, 0.8, u_softness) * r2);
+  vec4 field = plasmaOrbField(q, time);
+  // The wide glow takes the lobes' colour near the body, so the edge varies
+  // with them, and settles on the middle stop further out.
+  vec3 glow = mix(srgbToLinear(getGradientColor(0.5)), field.rgb, exp(-0.25 * r2));
+  vec3 light = field.rgb * field.a * body * 2.2
+             + glow * 0.25 * exp(-sqrt(r2 + 0.05))
+             + srgbToLinear(getGradientColor(0.0)) * 0.06;
+  // A shoulder on the brightest channel that only approaches 1, so bright
+  // lobes keep their hue and nothing clips flat.
+  float m = max(max(light.r, light.g), max(light.b, 1e-5));
+  return linearToSrgb(light * (1.0 - exp(-1.2 * m)) / m);
 }
 #endif
 

@@ -8,7 +8,7 @@ import {
   type GradientType,
   type LayerParams,
 } from "@wavr/core";
-import thumbnailHashes from "../public/presets/thumbnails.json";
+import { presetThumbnail } from "./preset-thumbnail";
 
 export type GradientOption = {
   value: GradientType;
@@ -34,38 +34,38 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
   },
   {
     value: "lightWall",
-    label: "Light Wall",
+    label: "Light wall",
     description: `Coloured light behind a wall of frosted glass. ${LIGHT_FIELD_PALETTE_ROLES.lightWall}`,
   },
   {
     value: "horizonGlow",
-    label: "Horizon Glow",
+    label: "Horizon glow",
     description: "A planet's rim lit against a dark sky. Colours run from the night to the brightest light.",
   },
   {
     value: "lightLeak",
-    label: "Light Leak",
+    label: "Light leak",
     description: "Warm light bleeding in over the edge of the film. Colours run from the dark frame to the hottest light.",
   },
   {
     value: "liquidChrome",
-    label: "Liquid Chrome",
+    label: "Liquid chrome",
     description: "Flowing mirror metal. Colours run from its deepest shadow to its brightest highlight.",
   },
   {
     value: "iridescentFoil",
-    label: "Iridescent Foil",
+    label: "Iridescent foil",
     description: "Holographic foil whose colour shifts across its folds. Colours run from the shadow to the brightest sheen.",
   },
   {
     value: "inkSmoke",
-    label: "Ink Smoke",
+    label: "Ink smoke",
     description: "A plume of smoke curling through dark water. Colours run from the water to the brightest strand.",
   },
   {
     value: "plasmaOrb",
-    label: "Plasma Orb",
-    description: "A glass orb of swirling light on a dark field. Colours run from the dark to the brightest light.",
+    label: "Orb",
+    description: "A soft round glow whose colours drift and melt into the dark. Colours run from the dark to the brightest light.",
   },
   {
     value: "image",
@@ -94,11 +94,9 @@ export function lookPatch(type: GradientType): Pick<LayerParams, "gradientType" 
   };
 }
 
-const THUMBNAIL_HASHES: Record<string, string | undefined> = thumbnailHashes;
-
+/** The thumbnail of the type's flagship preset, the one whose id is the type's. */
 export function lookThumbnail(type: GradientType): string | null {
-  const hash = THUMBNAIL_HASHES[type];
-  return hash ? `/presets/${type}.webp?v=${hash}` : null;
+  return presetThumbnail(type);
 }
 
 export const RANDOM_GRADIENT_TYPES = Object.keys(CURATED_PALETTES) as (keyof typeof CURATED_PALETTES)[];
@@ -116,7 +114,7 @@ export function randomLook(
   };
 }
 
-/** The picker's name for a type ("Liquid Chrome"), for anywhere a type is shown. */
+/** The picker's name for a type ("Liquid chrome"), for anywhere a type is shown. */
 export function gradientTypeLabel(type: LayerParams["gradientType"]): string {
   return GRADIENT_OPTIONS.find((option) => option.value === type)?.label ?? type;
 }

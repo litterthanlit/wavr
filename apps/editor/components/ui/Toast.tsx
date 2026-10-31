@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useEffectEvent } from "react";
+import { showToast } from "@/components/lazy";
 
 interface ToastProps {
   message: string;
@@ -9,34 +10,16 @@ interface ToastProps {
   duration?: number;
 }
 
+/**
+ * Hands a message to litt's Toaster (LazyToaster, mounted once in app/editor/page.tsx), which shows, times and
+ * dismisses it. The caller's flag is released at once, so the same message can be shown again.
+ */
 export default function Toast({ message, visible, onDismiss, duration = 5000 }: ToastProps) {
-  const dismiss = useCallback(() => {
-    onDismiss();
-  }, [onDismiss]);
-
+  const release = useEffectEvent(onDismiss);
   useEffect(() => {
     if (!visible) return;
-    const timer = setTimeout(dismiss, duration);
-    return () => clearTimeout(timer);
-  }, [visible, duration, dismiss]);
-
-  if (!visible) return null;
-
-  return (
-    <div
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg
-        bg-elevated border border-border shadow-lg text-xs text-text-secondary animate-[fadeIn_0.2s_ease-out]"
-    >
-      <div className="flex items-center gap-3">
-        <span>{message}</span>
-        <button
-          onClick={dismiss}
-          className="text-text-tertiary hover:text-text-primary transition-colors"
-          aria-label="Dismiss"
-        >
-          x
-        </button>
-      </div>
-    </div>
-  );
+    showToast({ title: message, duration });
+    release();
+  }, [visible, message, duration]);
+  return null;
 }

@@ -97,6 +97,10 @@ let pushNextWrite = false;
 export function markPushPoint(): void {
   pushNextWrite = true;
 }
+/** Cancels a pending `markPushPoint()`: the next write replaces the entry. */
+export function replaceNextWrite(): void {
+  pushNextWrite = false;
+}
 
 /** Pending debounced-write timer. */
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;

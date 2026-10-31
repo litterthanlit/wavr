@@ -50,8 +50,8 @@ describe("gradient types", () => {
   });
 
   it("types are shown by their picker name", () => {
-    expect(gradientTypeLabel("liquidChrome")).toBe("Liquid Chrome");
-    expect(gradientTypeLabel("lightWall")).toBe("Light Wall");
+    expect(gradientTypeLabel("liquidChrome")).toBe("Liquid chrome");
+    expect(gradientTypeLabel("lightWall")).toBe("Light wall");
   });
 
   it("the Look grid shows the light fields, then the light modes, then the uploaded picture", () => {

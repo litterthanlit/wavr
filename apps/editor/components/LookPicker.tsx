@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type KeyboardEvent } from "react";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon } from "@/components/litt/icons";
 import type { GradientType } from "@wavr/core";
 import { GRADIENT_OPTIONS, lookThumbnail } from "@/lib/gradient-types";
 
@@ -40,7 +40,7 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
     <div
       role="listbox"
       aria-label="Look"
-      className="grid grid-cols-5 gap-1.5"
+      className="grid grid-cols-5 gap-2"
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setFocused(null);
       }}
@@ -63,9 +63,11 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
             onFocus={() => setFocused(i)}
             onKeyDown={(e) => moveFocus(e, i)}
             onClick={() => onPick(option.value)}
-            className={`group relative block aspect-[4/3] overflow-hidden rounded-md border bg-surface
-              transition-colors duration-150 focus-visible:outline-offset-[3px] ${
-                checked ? "border-transparent ring-2 ring-accent" : "border-border hover:border-border-active"
+            className={`group relative block aspect-[4/3] overflow-hidden rounded-litt-control border bg-litt-surface-2
+              transition-colors duration-(--litt-dur-instant) ease-litt focus-visible:outline-offset-[3px] ${
+                checked
+                  ? "border-transparent ring-2 ring-litt-fg ring-offset-2 ring-offset-litt-surface-1"
+                  : "border-litt-line hover:border-litt-line-strong"
               }`}
           >
             {thumbnail ? (
@@ -81,7 +83,7 @@ export default function LookPicker({ value, onPick }: { value: GradientType; onP
                   motion-safe:group-hover:scale-[1.04]"
               />
             ) : (
-              <ImageIcon aria-hidden="true" className="absolute inset-0 m-auto h-4 w-4 text-text-tertiary" />
+              <ImageIcon className="absolute inset-0 m-auto text-litt-fg-subtle" />
             )}
           </button>
         );

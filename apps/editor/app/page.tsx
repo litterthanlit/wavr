@@ -1,412 +1,112 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import Link from "next/link";
+import { useId } from "react";
+import { buttonClassName } from "@/lib/litt-button-classes";
+import { Media } from "@/components/litt/media";
+import { LandingHero } from "@/components/LandingHero";
+import { LANDING_LOOKS } from "@/lib/landing-looks";
+import { presetThumbnail } from "@/lib/preset-thumbnail";
+import { useTheme } from "@/lib/useTheme";
 
-/* ── ASCII / Dither decorative patterns ─────────────────────────── */
+// The landing, in litt's terms: a glass header, a hero with the copy in
+// columns 1–5 and the product running live in 7–12, one row of looks that
+// open in the editor, and a footer under a hairline. One idea per section,
+// left-aligned, nothing above 18px. The hero's Open editor is the view's one
+// accent fill.
 
-const DITHER_BLOCK = `░▒▓█▓▒░░▒▓█▓▒░
-▒▓█▓▒░░▒▓█▓▒░░
-▓█▓▒░░▒▓█▓▒░░▒
-█▓▒░░▒▓█▓▒░░▒▓
-▓▒░░▒▓█▓▒░░▒▓█
-▒░░▒▓█▓▒░░▒▓█▓
-░░▒▓█▓▒░░▒▓█▓▒
-░▒▓█▓▒░░▒▓█▓▒░`;
+const REPO = "https://github.com/litterthanlit/wavr";
 
-const ASCII_WAVE = `
-    .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .
- ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .     .
-˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙
- ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·
-.     .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .
-   .  ·  ˙  ·  .     .  ·  ˙  ·  .     .  ·  ˙  ·  .   `;
-
-const GRID_CHARS = "·+·+·+·+·+·+·+·+·+·+·+·+·+·+·+·+";
-
-/* ── Animated dither noise canvas ───────────────────────────────── */
-
-function DitherCanvas() {
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const W = 160;
-    const H = 90;
-    canvas.width = W;
-    canvas.height = H;
-
-    // Resizing reset the context state, so set the font once here.
-    ctx.font = "3px Geist Mono, monospace";
-
-    const chars = " .:-=+*#%@";
-    // Glyph alpha runs 0.08-0.20. 64 steps are indistinguishable from a
-    // continuous ramp and let us reuse the style strings instead of building
-    // (and re-parsing) one per glyph.
-    const ALPHA_STEPS = 64;
-    const styles = Array.from(
-      { length: ALPHA_STEPS },
-      (_, i) => `rgba(99, 91, 255, ${0.08 + (i / (ALPHA_STEPS - 1)) * 0.12})`,
-    );
-    // This is decoration behind the hero text: 30fps looks the same and costs
-    // half. `frame` advances by two per drawn frame, so the motion keeps the
-    // speed it had at 60fps.
-    const FRAME_INTERVAL_MS = 1000 / 30;
-    let frame = 0;
-    let raf = 0;
-    let lastDraw = -Infinity;
-
-    const draw = (now: number) => {
-      raf = requestAnimationFrame(draw);
-      // 1ms of slack so vsync jitter doesn't skip a frame we could have drawn.
-      if (now - lastDraw < FRAME_INTERVAL_MS - 1) return;
-      lastDraw = now;
-
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, W, H);
-
-      for (let y = 0; y < H; y += 4) {
-        for (let x = 0; x < W; x += 3) {
-          const noise =
-            Math.sin(x * 0.08 + frame * 0.02) *
-              Math.cos(y * 0.06 + frame * 0.015) *
-              0.5 +
-            0.5;
-          const idx = Math.floor(noise * (chars.length - 1));
-          // chars[0] is a space: nothing to draw.
-          if (idx === 0) continue;
-          ctx.fillStyle = styles[Math.round(noise * (ALPHA_STEPS - 1))];
-          ctx.fillText(chars[idx], x, y);
-        }
-      }
-      frame += 2;
-    };
-
-    const stop = () => {
-      cancelAnimationFrame(raf);
-      raf = 0;
-    };
-
-    // Only animate while the hero is on screen. Cancelling the *latest* frame
-    // matters on unmount: the loop used to keep running after navigating to the
-    // editor, redrawing ~2k glyphs per frame on a detached canvas.
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        if (!raf) raf = requestAnimationFrame(draw);
-      } else {
-        stop();
-      }
-    });
-    observer.observe(canvas);
-
-    return () => {
-      observer.disconnect();
-      stop();
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={ref}
-      className="absolute inset-0 w-full h-full opacity-40 pointer-events-none"
-      style={{ imageRendering: "pixelated" }}
-    />
-  );
-}
-
-/* ── Feature data ───────────────────────────────────────────────── */
-
-const FEATURES = [
-  {
-    label: "Gradient Engine",
-    title: "Light, on the GPU",
-    desc: "Aperture, halo, corona, light wall, liquid chrome, horizon glow, ink smoke and plasma orb, all rendered in WebGL 2.",
-    ascii: "█▓▒░",
-  },
-  {
-    label: "Layer System",
-    title: "Stack and blend",
-    desc: "Up to 4 layers with blend modes — normal, multiply, screen, overlay, add. Each layer has independent parameters.",
-    ascii: "╔═══╗",
-  },
-  {
-    label: "Effects Pipeline",
-    title: "Dither. ASCII. Bloom.",
-    desc: "Film grain, noise overlay, chromatic aberration, particles, pixel sorting, reaction-diffusion — all in the shader.",
-    ascii: ".:*#@",
-  },
-  {
-    label: "Mouse Physics",
-    title: "Reactive to touch",
-    desc: "Fluid displacement, ripple waves, vortex swirl. Three physics modes that respond to cursor position and velocity.",
-    ascii: "~≈≋~",
-  },
-  {
-    label: "Timeline",
-    title: "Keyframe anything",
-    desc: "Animate any parameter over time. Loop, bounce, or one-shot playback with precise keyframe control.",
-    ascii: "▸▸▸▸",
-  },
-  {
-    label: "Export",
-    title: "Ship it anywhere",
-    desc: "PNG, CSS, Tailwind config, WebM video, React component, Web Component, iframe embed, or shareable URL.",
-    ascii: "→⤓↗",
-  },
-];
-
-/* ── Stat counters ──────────────────────────────────────────────── */
-
-const STATS = [
-  { value: "60", unit: "fps", label: "GPU-rendered" },
-  { value: "20+", unit: "", label: "Effects" },
-  { value: "8", unit: "", label: "Export formats" },
-  { value: "0", unit: "", label: "Signups needed" },
-];
-
-/* ── Main page ──────────────────────────────────────────────────── */
+const linkText =
+  "rounded-litt-control text-litt-fg-muted transition-colors duration-(--litt-dur-instant) ease-litt hover:text-litt-fg " +
+  "pointer-coarse:inline-flex pointer-coarse:h-litt-control-md pointer-coarse:items-center";
 
 export default function LandingPage() {
-  const router = useRouter();
+  // Applies a theme chosen in the editor; without one the page follows the system.
+  useTheme();
+  const looksId = useId();
+
   return (
-    <div className="min-h-screen bg-root text-text-primary overflow-x-hidden">
-      {/* ── Nav ─────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border backdrop-blur-xl bg-root/80">
-        <div className="max-w-[1200px] mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-semibold tracking-[0.2em]">
-              WAVR
-            </span>
-            <span className="text-[10px] font-mono text-text-tertiary border border-border rounded px-1.5 py-0.5 ml-1">
-              beta
-            </span>
-          </div>
-          <div className="flex items-center gap-6">
-            <a
-              href="https://github.com"
-              className="text-xs text-text-secondary hover:text-text-primary transition-colors"
-            >
-              GitHub
-            </a>
-            <button
-              onClick={() => router.push("/editor")}
-              className="text-xs font-medium text-root bg-text-primary hover:bg-text-secondary
-                px-4 py-1.5 rounded-md transition-colors"
-            >
-              Open Editor
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* ── Hero ────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-24 px-6">
-        {/* Subtle animated background */}
-        <div className="absolute inset-0 overflow-hidden">
-          <DitherCanvas />
-          <div className="absolute inset-0 bg-gradient-to-b from-root via-root/90 to-root" />
-        </div>
-
-        <div className="relative max-w-[1200px] mx-auto">
-          {/* ASCII decorative line */}
-          <div className="font-mono text-[10px] text-text-tertiary/40 mb-8 tracking-[0.5em] select-none overflow-hidden whitespace-nowrap">
-            {GRID_CHARS}
-          </div>
-
-          <h1 className="text-5xl md:text-7xl lg:text-[88px] font-medium tracking-[-0.04em] leading-[0.95] mb-6">
-            Animated gradients,
-            <br />
-            <span className="text-text-secondary">crafted visually.</span>
-          </h1>
-
-          <p className="text-base md:text-lg text-text-secondary max-w-[520px] leading-relaxed mb-10">
-            A WebGL-powered editor for creating gradients of light, layered effects,
-            and exportable motion — all in the browser.
-          </p>
-
-          <div className="flex items-center gap-4 mb-16">
-            <button
-              onClick={() => router.push("/editor")}
-              className="px-6 py-2.5 text-sm font-medium text-root bg-text-primary hover:bg-text-secondary
-                rounded-md transition-all duration-150"
-            >
-              Open Editor
-            </button>
-            <span className="text-xs text-text-tertiary font-mono">
-              No account · Free · Open source
-            </span>
-          </div>
-
-          {/* ASCII art hero accent */}
-          <pre className="font-mono text-[9px] leading-[1.4] text-accent/20 select-none whitespace-pre max-w-max">
-            {DITHER_BLOCK}
-          </pre>
-        </div>
-      </section>
-
-      {/* ── Stats bar ───────────────────────────────────────── */}
-      <section className="border-y border-border bg-base/50">
-        <div className="max-w-[1200px] mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-8">
-          {STATS.map((s) => (
-            <div key={s.label}>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-medium tracking-tight">
-                  {s.value}
-                </span>
-                {s.unit && (
-                  <span className="text-sm text-text-secondary font-mono">
-                    {s.unit}
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-text-tertiary">{s.label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Features ────────────────────────────────────────── */}
-      <section className="max-w-[1200px] mx-auto px-6 py-24">
-        <div className="flex items-center gap-4 mb-4">
-          <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
-            Capabilities
-          </span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <h2 className="text-3xl md:text-4xl font-medium tracking-[-0.03em] mb-16">
-          Everything you need to create
-          <br />
-          <span className="text-text-secondary">and ship visual effects.</span>
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
-          {FEATURES.map((f) => (
-            <div
-              key={f.label}
-              className="bg-root p-8 group cursor-default transition-colors hover:bg-surface/50"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
-                  {f.label}
-                </span>
-                <span
-                  className="font-mono text-sm text-accent/30 group-hover:text-accent/60 transition-colors select-none"
-                >
-                  {f.ascii}
-                </span>
-              </div>
-              <h3 className="text-lg font-medium mb-2 tracking-[-0.01em]">
-                {f.title}
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                {f.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── ASCII texture divider ───────────────────────────── */}
-      <div className="max-w-[1200px] mx-auto px-6 select-none">
-        <pre className="font-mono text-[8px] leading-[1.6] text-text-tertiary/15 overflow-hidden whitespace-pre">
-          {ASCII_WAVE}
-        </pre>
-      </div>
-
-      {/* ── How it works ────────────────────────────────────── */}
-      <section className="max-w-[1200px] mx-auto px-6 py-24">
-        <div className="flex items-center gap-4 mb-4">
-          <span className="font-mono text-[10px] text-text-tertiary tracking-widest uppercase">
-            Workflow
-          </span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <h2 className="text-3xl md:text-4xl font-medium tracking-[-0.03em] mb-16">
-          Create → Effect → Export
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          {[
-            {
-              step: "01",
-              title: "Pick a gradient mode",
-              desc: "Start from a light field or a light mode, like aperture, halo, liquid chrome or ink smoke. Tune colors, motion, scale, and softness live.",
-              glyph: "░░▒▒▓▓██",
-            },
-            {
-              step: "02",
-              title: "Layer effects",
-              desc: "Stack noise, bloom, dither, ASCII, chromatic aberration, particles, and more. Each effect has fine-grained controls.",
-              glyph: ".:=+*#%@",
-            },
-            {
-              step: "03",
-              title: "Export anywhere",
-              desc: "Grab a PNG, copy CSS, download WebM video, generate a React component, or share a URL. One click.",
-              glyph: "→ → → →",
-            },
-          ].map((s) => (
-            <div key={s.step} className="group">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="font-mono text-xs text-accent">{s.step}</span>
-                <span className="font-mono text-[10px] text-text-tertiary/30 tracking-[0.3em] select-none">
-                  {s.glyph}
-                </span>
-              </div>
-              <h3 className="text-base font-medium mb-2">{s.title}</h3>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                {s.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── CTA ─────────────────────────────────────────────── */}
-      <section className="border-t border-border">
-        <div className="max-w-[1200px] mx-auto px-6 py-24 flex flex-col items-center text-center">
-          {/* Dither accent */}
-          <pre className="font-mono text-[10px] leading-[1.2] text-accent/15 mb-8 select-none">
-            {"▓▒░  ░▒▓█▓▒░  ░▒▓"}
-          </pre>
-
-          <h2 className="text-3xl md:text-5xl font-medium tracking-[-0.03em] mb-4">
-            Start creating.
-          </h2>
-          <p className="text-base text-text-secondary max-w-md mb-8">
-            No signup, no install, no paywall. Open the editor and start
-            building animated gradients in seconds.
-          </p>
-          <button
-            onClick={() => router.push("/editor")}
-            className="px-8 py-3 text-sm font-medium text-root bg-text-primary hover:bg-text-secondary
-              rounded-md transition-all duration-150"
+    <div className="flex min-h-dvh flex-col bg-litt-canvas text-litt-fg">
+      {/* litt's Glass header (components.md) without a nav: the registry's Header brings its Menu, and with it Radix
+          and motion, for a nav this page doesn't have. The same classes, wordmark at left and actions at right. */}
+      <header className="litt-glass sticky top-[env(safe-area-inset-top,0px)] z-30 rounded-none">
+        <div className="mx-auto flex h-(--litt-header-h) max-w-litt-wide items-center gap-4 px-litt-gutter sm:gap-6">
+          <Link
+            href="/"
+            className="rounded-litt-control text-litt-body font-litt-title text-litt-fg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-litt-focus pointer-coarse:inline-flex pointer-coarse:h-litt-control-md pointer-coarse:items-center"
           >
-            Open Editor
-          </button>
+            Wavr
+          </Link>
+          <div className="ml-auto flex items-center gap-3">
+            <a href={REPO} className={buttonClassName({ variant: "ghost", size: "sm" }) + " pointer-coarse:h-litt-control-md"}>
+              <span className="litt-trim">GitHub</span>
+            </a>
+            <Link href="/editor" className={buttonClassName({ variant: "secondary", size: "sm" }) + " pointer-coarse:h-litt-control-md"}>
+              <span className="litt-trim">Open editor</span>
+            </Link>
+          </div>
         </div>
-      </section>
+      </header>
 
-      {/* ── Footer ──────────────────────────────────────────── */}
-      <footer className="border-t border-border">
-        <div className="max-w-[1200px] mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-4">
-            <span className="font-mono text-xs text-text-tertiary tracking-[0.15em]">
-              WAVR
-            </span>
-            <span className="text-[10px] text-text-tertiary/40">
-              Built with WebGL 2 + Next.js
-            </span>
+      <main className="flex-1">
+        <section className="pt-litt-section">
+          <div className="mx-auto grid max-w-litt-wide grid-cols-1 gap-x-(--litt-grid-gap) gap-y-12 px-litt-gutter lg:grid-cols-12">
+            <div className="grid content-center justify-items-start gap-8 lg:col-span-5">
+              <div className="grid gap-1">
+                <h1 className="text-litt-display text-balance">Light that moves, made in your browser.</h1>
+                <p className="max-w-[65ch] text-litt-reading text-litt-fg-muted">
+                  Shape a gradient of light, set how it moves and how it answers the pointer, then take it with you as
+                  a video, an image or code.
+                </p>
+              </div>
+              <Link href="/editor" className={buttonClassName({ variant: "primary", size: "lg" })}>
+                <span className="litt-trim">Open editor</span>
+              </Link>
+            </div>
+            <div className="min-w-0 lg:col-span-6 lg:col-start-7">
+              <LandingHero
+                preset="aperture"
+                alt="Aperture: a tall opening of light in a dark wall, pale at its edges and cornflower blue at its core"
+                caption="Aperture, the look the editor opens on."
+              />
+            </div>
           </div>
-          <div className="font-mono text-[9px] text-text-tertiary/25 tracking-wider select-none">
-            ░▒▓█▓▒░
+        </section>
+
+        <section aria-labelledby={looksId} className="pt-litt-section pb-litt-section">
+          <div className="mx-auto grid max-w-litt-wide grid-cols-1 gap-x-(--litt-grid-gap) gap-y-6 px-litt-gutter lg:grid-cols-12">
+            <div className="grid content-start gap-1 lg:col-span-3">
+              <h2 id={looksId} className="text-litt-h2">
+                Looks
+              </h2>
+              <p className="text-litt-small text-litt-fg-muted">Each one opens in the editor, ready to change.</p>
+            </div>
+            <ul className="grid grid-cols-2 gap-x-(--litt-grid-gap) gap-y-6 sm:grid-cols-4 lg:col-span-9">
+              {LANDING_LOOKS.map((look) => (
+                <li key={look.id}>
+                  <Link
+                    href={`/editor?preset=${look.id}`}
+                    className="group grid gap-2 rounded-litt-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-litt-focus"
+                  >
+                    <Media src={presetThumbnail(look.id) ?? undefined} alt="" ratio="4/3" />
+                    <span className="text-litt-small font-litt-title text-litt-fg-muted transition-colors duration-(--litt-dur-instant) ease-litt group-hover:text-litt-fg">
+                      {look.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-litt-line">
+        <div className="mx-auto flex max-w-litt-wide flex-wrap items-center justify-between gap-x-6 gap-y-2 px-litt-gutter py-8 text-litt-small">
+          <p className="text-litt-fg-subtle">Wavr runs in your browser. Nothing is uploaded.</p>
+          <a href={REPO} className={linkText}>
+            Source on GitHub
+          </a>
         </div>
       </footer>
     </div>

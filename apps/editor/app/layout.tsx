@@ -1,4 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,9 +16,14 @@ export const metadata: Metadata = {
     title: "Wavr — Animated Gradient Editor",
     description: "Create and export animated gradient backgrounds with WebGL",
   },
-  other: {
-    "theme-color": "#000000",
-  },
+};
+
+// litt's --litt-canvas in each theme (lib/litt/tokens.css).
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fcfbfa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0908" },
+  ],
 };
 
 export default function RootLayout({
@@ -25,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="antialiased">{children}</body>
     </html>
   );

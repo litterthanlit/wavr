@@ -13,6 +13,7 @@ import {
   LazyProjectsModal,
   LazyCommandPalette,
   LazyOnboarding,
+  LazyToaster,
   prefetchEditorChunks,
 } from "@/components/lazy";
 import { useGradientStore } from "@/lib/store";
@@ -143,6 +144,13 @@ export default function EditorPage() {
   useEffect(() => {
     void applyHashToStore();
     const dispose = initializeUrlSync();
+    // `?preset=<id>` (the landing's looks) opens on that preset once its module loads.
+    const { search, hash } = window.location;
+    if (search) {
+      import("@/lib/preset-entry")
+        .then((entry) => entry.openPresetFromSearch(search, hash))
+        .catch((e) => console.info("[wavr] ?preset=: the preset module failed to load", e));
+    }
     return dispose;
   }, []);
 
@@ -165,11 +173,12 @@ export default function EditorPage() {
   return (
     // Edge to edge: the canvas is the product, so it gets the whole window.
     // dvh, so a phone's browser bars don't push the timeline off screen.
-    <div className="h-dvh w-screen flex flex-col overflow-hidden bg-root">
+    <div className="h-dvh w-full flex flex-col overflow-hidden bg-litt-canvas">
       <TopBar
         onExport={() => setExportOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
         onProjects={() => setProjectsOpen(true)}
+        onOpenPalette={() => setPaletteOpen(true)}
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
@@ -220,8 +229,9 @@ export default function EditorPage() {
           }}
         />
       )}
-      <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} />
+      <MobileDrawer activeTab={activeTab} onTabChange={setActiveTab} engineRef={engineRef} />
       {onboardingNeeded && <LazyOnboarding />}
+      <LazyToaster />
     </div>
   );
 }

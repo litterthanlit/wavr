@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, type ChangeEvent } from "react";
+import { Dialog, DialogContent } from "@/components/litt/dialog";
+import { useReturnFocus } from "@/lib/useReturnFocus";
+import { Button } from "@/components/litt/button";
+import { Input } from "@/components/litt/input";
+import { Callout } from "@/components/litt/callout";
 import { useGradientStore } from "@/lib/store";
 import { loadProjects, saveProject, deleteProject, projectStateForLoad, SavedProject } from "@/lib/projects";
 import { importSceneDocumentJson, SceneDocumentImportError } from "@/lib/scene-document";
@@ -21,6 +26,7 @@ function importErrorMessage(error: unknown): string {
 }
 
 export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
+  useReturnFocus(open);
   const [projects, setProjects] = useState<SavedProject[]>([]);
   const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
@@ -36,8 +42,6 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
     const frame = requestAnimationFrame(() => setProjects(loadProjects()));
     return () => cancelAnimationFrame(frame);
   }, [open]);
-
-  if (!open) return null;
 
   const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -114,124 +118,82 @@ export default function ProjectsModal({ open, onClose }: ProjectsModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label="Projects" className="relative bg-base border border-border rounded-xl p-6 w-[calc(100vw-32px)] max-w-[520px] max-h-[80vh] flex flex-col shadow-2xl">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-sm font-medium text-text-primary">Projects</h2>
-            <p className="text-[11px] text-text-tertiary mt-1">Save named versions locally, then load or remix them later.</p>
-          </div>
-          <button onClick={onClose} aria-label="Close" className="text-text-tertiary hover:text-text-primary text-lg transition-colors">
-            x
-          </button>
-        </div>
-
-        {/* Import section */}
-        <div className="mb-4 rounded-lg border border-border bg-surface/50 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-medium text-text-primary">Scene document</div>
-              <div className="text-[11px] text-text-tertiary mt-0.5">Load a WavrSceneDocument JSON file.</div>
-            </div>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing}
-              className="shrink-0 px-3 py-1.5 text-xs text-text-primary bg-elevated hover:bg-border
-                rounded-md transition-all duration-150 disabled:opacity-40"
-            >
-              {importing ? "Loading..." : "Import JSON"}
-            </button>
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            onChange={handleImport}
-            className="hidden"
-          />
-          {importError && (
-            <div className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-4 text-amber-100">
-              {importError}
-            </div>
-          )}
-        </div>
-
-        {/* Save section */}
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            placeholder="Project name..."
-            className="flex-1 bg-surface border border-border rounded-md px-3 py-1.5 text-xs text-text-primary
-              focus:outline-none focus:border-border-active transition-colors"
-          />
-          <button
-            onClick={handleSave}
-            disabled={!name.trim() || busy}
-            className="px-3 py-1.5 text-xs text-white bg-accent hover:bg-accent/80
-              rounded-md transition-all duration-150 disabled:opacity-40"
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent title="Projects" description="Save named versions in this browser, then load or remix them later.">
+        <div className="grid gap-6">
+          {/* Save: the inline form, the dialog's one primary action. */}
+          <form
+            className="grid grid-cols-[minmax(0,1fr)_auto] gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSave();
+            }}
           >
-            {saved ? "Saved!" : busy ? "Saving..." : "Save"}
-          </button>
-        </div>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Name this scene"
+              aria-label="Project name"
+              data-autofocus
+            />
+            <Button type="submit" variant="primary" disabled={!name.trim()} loading={busy}>
+              {saved ? "Saved" : "Save"}
+            </Button>
+          </form>
 
-        {storageMessage && (
-          <div role="alert" className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-4 text-amber-100">
-            {storageMessage}
-          </div>
-        )}
+          {storageMessage && <Callout live tone="warning" title={storageMessage} />}
 
-        {/* Projects list */}
-        <div className="flex-1 overflow-y-auto">
           {projects.length === 0 ? (
-            <div className="text-center py-8 px-6 border border-dashed border-border rounded-lg bg-surface/40">
-              <p className="text-xs text-text-secondary">No saved projects yet</p>
-              <p className="text-[11px] text-text-tertiary mt-1">
-                Name this scene to keep a thumbnail-free version checkpoint in this browser.
-              </p>
-            </div>
+            <p className="text-litt-small text-litt-fg-subtle">
+              Saved projects appear here. Name this scene and save it to keep a version in this browser.
+            </p>
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <ul aria-label="Saved projects" className="divide-y divide-litt-line border-y border-litt-line">
               {projects.map((project) => (
-                <div
-                  key={project.name}
-                  className="flex items-center justify-between p-2.5 bg-surface border border-border rounded-lg group"
-                >
-                  <div>
-                    <div className="text-xs font-medium text-text-primary">{project.name}</div>
-                    <div className="text-[10px] text-text-tertiary mt-0.5">
+                <li key={project.name} className="flex items-center gap-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-litt-small text-litt-fg">{project.name}</div>
+                    <div className="text-litt-caption font-normal text-litt-fg-subtle tabular-nums">
                       {new Date(project.timestamp).toLocaleDateString()}
                     </div>
                   </div>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => handleLoad(project)}
-                      disabled={busy}
-                      className="px-2 py-1 text-[10px] text-text-secondary hover:text-accent
-                        bg-elevated rounded transition-colors disabled:opacity-40"
-                    >
-                      Load
-                    </button>
-                    <button
-                      onClick={() => handleDelete(project.name)}
-                      disabled={busy}
-                      aria-label={`Delete ${project.name}`}
-                      className="px-2 py-1 text-[10px] text-text-tertiary hover:text-text-primary
-                        bg-elevated rounded transition-colors opacity-0 group-hover:opacity-100
-                        focus-visible:opacity-100 disabled:opacity-40"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
+                  <Button size="sm" onClick={() => handleLoad(project)} disabled={busy}>
+                    Load
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => handleDelete(project.name)}
+                    disabled={busy}
+                    aria-label={`Delete ${project.name}`}
+                  >
+                    Delete
+                  </Button>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-litt-small text-litt-fg">Scene document</div>
+              <div className="text-litt-small text-litt-fg-subtle">Load a WavrSceneDocument JSON file.</div>
+            </div>
+            <Button size="sm" onClick={() => fileInputRef.current?.click()} loading={importing}>
+              Import JSON
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              onChange={handleImport}
+              className="hidden"
+            />
+          </div>
+
+          {importError && <Callout live tone="danger" title={importError} />}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

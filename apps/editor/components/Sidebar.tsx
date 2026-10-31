@@ -4,26 +4,14 @@ import React from "react";
 import GradientPanel from "@/components/GradientPanel";
 import LayerPanel from "@/components/LayerPanel";
 import {
-  LazyScenePanel,
+  useSidebarTabs,
+  LazyCustomGLSLPanel,
   LazyEffectsPanel,
   LazyPresetsPanel,
-  LazyCustomGLSLPanel,
-  preloadScenePanel,
-  preloadEffectsPanel,
-  preloadPresetsPanel,
-  preloadCustomGLSLPanel,
+  LazyScenePanel,
 } from "@/components/lazy";
 import { GradientEngine } from "@wavr/core";
-import { SIDEBAR_TABS, type SidebarTab } from "@/lib/types";
-
-// The Gradient tab is the default, so it ships eagerly; the rest load on demand
-// (and are prefetched on idle, see prefetchEditorChunks).
-const PRELOAD: Partial<Record<SidebarTab, () => void>> = {
-  effects: preloadEffectsPanel,
-  presets: preloadPresetsPanel,
-  scene: preloadScenePanel,
-  code: preloadCustomGLSLPanel,
-};
+import { SIDEBAR_TABS, TOOL_TABS, type SidebarTab } from "@/lib/types";
 
 interface SidebarProps {
   activeTab: SidebarTab;
@@ -31,37 +19,57 @@ interface SidebarProps {
   engineRef: React.RefObject<GradientEngine | null>;
 }
 
-export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarProps) {
+/**
+ * Until litt's Tabs have loaded (just after startup, or after a retry, see useLoaded): the same row drawn still,
+ * with the active tab's panel under it, so the sidebar doesn't jump when they arrive and keys 1–3 still switch
+ * panels. Nothing in the row is a control yet.
+ */
+function TabsPlaceholder({ activeTab, engineRef }: Pick<SidebarProps, "activeTab" | "engineRef">) {
+  const toolTab = TOOL_TABS.find((tab) => tab.id === activeTab);
   return (
-    <div className="sidebar">
-      {/* Layer panel (always visible) */}
-      <div className="border-b border-border shrink-0">
-        <LayerPanel />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div aria-hidden="true" className="shrink-0 px-2">
+        <div className="border-b border-litt-line">
+          <div className="-mb-px flex pb-px">
+            {[...SIDEBAR_TABS, ...(toolTab ? [toolTab] : [])].map((tab) => (
+              <span
+                key={tab.id}
+                className={
+                  "relative flex h-litt-control-sm pointer-coarse:h-litt-control-md flex-1 items-center justify-center px-litt-control-pad-sm text-litt-small font-litt-title " +
+                  (tab.id === activeTab ? "text-litt-fg" : "text-litt-fg-subtle")
+                }
+              >
+                <span className="litt-trim">{tab.label}</span>
+                {tab.id === activeTab && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-litt-fg" />}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
-
-      {/* Tab bar */}
-      <div className="sidebar-tabs">
-        {SIDEBAR_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            onPointerEnter={PRELOAD[tab.id]}
-            onFocus={PRELOAD[tab.id]}
-            className={`sidebar-tab ${activeTab === tab.id ? "sidebar-tab-active" : ""}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         {activeTab === "gradient" && <GradientPanel />}
         {activeTab === "effects" && <LazyEffectsPanel />}
         {activeTab === "presets" && <LazyPresetsPanel />}
         {activeTab === "scene" && <LazyScenePanel />}
         {activeTab === "code" && <LazyCustomGLSLPanel engineRef={engineRef} />}
       </div>
+    </div>
+  );
+}
+
+export default function Sidebar({ activeTab, onTabChange, engineRef }: SidebarProps) {
+  const SidebarTabs = useSidebarTabs()?.default;
+  return (
+    <div className="sidebar">
+      {/* Layer panel (always visible) */}
+      <div className="shrink-0 border-b border-litt-line">
+        <LayerPanel />
+      </div>
+      {SidebarTabs ? (
+        <SidebarTabs activeTab={activeTab} onTabChange={onTabChange} engineRef={engineRef} />
+      ) : (
+        <TabsPlaceholder activeTab={activeTab} engineRef={engineRef} />
+      )}
     </div>
   );
 }

@@ -8,14 +8,15 @@
  * editor page.
  */
 
-import { useGradientStore, canUndo, canRedo, GradientState } from "./store";
+import { useGradientStore, canUndo, canRedo, GradientState, type PerformanceMode } from "./store";
 import { copyShareUrl } from "./url";
 import { PRESETS } from "./presets";
 import { MAX_LAYERS } from "@wavr/core";
 import type { LayerParams } from "@wavr/core";
-import { SIDEBAR_TABS, type SidebarTab } from "./types";
+import { SIDEBAR_TABS, TOOL_TABS, type SidebarTab } from "./types";
 import { COMMAND_GRADIENT_TYPES, gradientTypeLabel } from "./gradient-types";
 import { renderStatsShown, toggleRenderStats } from "./useRenderStats";
+import { EFFECT_SWITCHES, isSwitchOn, switchPatch, type EffectSwitchKey } from "./effect-switches";
 
 export type CommandGroup =
   | "Playback"
@@ -51,14 +52,18 @@ export interface UiActions {
 // reachable via the Gradient panel.
 const GRADIENT_TYPES: Exclude<LayerParams["gradientType"], "image">[] = COMMAND_GRADIENT_TYPES;
 
+// The switches the panels offer: Bloom in Effects, 3D objects in 3D, and the
+// amount switches (Grain, Pointer) from effect-switches.ts.
 const EFFECT_TOGGLES = {
   realBloomEnabled: "bloom",
-  blurEnabled: "blur",
-  rippleEnabled: "click ripple",
-  trailEnabled: "mouse trail",
-  debandEnabled: "anti-banding",
   scene3DEnabled: "3D objects",
 } as const satisfies Partial<Record<keyof GradientState, string>>;
+
+const PERFORMANCE_COMMANDS: { mode: PerformanceMode; label: string }[] = [
+  { mode: "auto", label: "Performance: auto" },
+  { mode: "quality", label: "Performance: quality" },
+  { mode: "battery", label: "Performance: battery" },
+];
 
 // camelCase → [lower tokens]: "sunsetBloom" → ["sunset", "bloom"].
 function tokenize(camel: string): string[] {
@@ -128,6 +133,15 @@ export function getCommands(ui: UiActions): Command[] {
       run: () => ui.setTab(tab.id),
     });
   }
+  for (const tab of TOOL_TABS) {
+    commands.push({
+      id: `view.open.${tab.id}`,
+      label: `${tab.label} tab`,
+      group: "View",
+      keywords: [`open ${tab.label.toLowerCase()}`, "tab", "panel", "tool", tab.id],
+      run: () => ui.setTab(tab.id),
+    });
+  }
 
   commands.push({
     id: "view.renderStats",
@@ -137,6 +151,17 @@ export function getCommands(ui: UiActions): Command[] {
     shortcut: "S",
     run: toggleRenderStats,
   });
+
+  for (const { mode, label } of PERFORMANCE_COMMANDS) {
+    commands.push({
+      id: `view.performance.${mode}`,
+      label,
+      group: "View",
+      keywords: ["performance", "quality", "battery", "speed", mode],
+      run: () => useGradientStore.getState().setDiscrete({ performanceMode: mode }),
+      disabled: () => useGradientStore.getState().performanceMode === mode,
+    });
+  }
 
   // ── Layers ──────────────────────────────────────────────────────────────
   commands.push({
@@ -193,6 +218,20 @@ export function getCommands(ui: UiActions): Command[] {
     });
   }
 
+  for (const [key, { label }] of Object.entries(EFFECT_SWITCHES) as [EffectSwitchKey, { label: string }][]) {
+    const name = label.toLowerCase();
+    commands.push({
+      id: `effect.${key}`,
+      label: `Toggle ${name} (${isSwitchOn(state[key]) ? "on" : "off"})`,
+      group: "Effects",
+      keywords: ["toggle", "effect", ...tokenize(name)],
+      run: () => {
+        const s = useGradientStore.getState();
+        s.setDiscrete(switchPatch(key, !isSwitchOn(s[key])));
+      },
+    });
+  }
+
   // ── Presets ─────────────────────────────────────────────────────────────
   for (const preset of PRESETS) {
     commands.push({
@@ -210,9 +249,9 @@ export function getCommands(ui: UiActions): Command[] {
   // ── Export ──────────────────────────────────────────────────────────────
   commands.push({
     id: "export.open",
-    label: "Open Export\u2026",
+    label: "Export\u2026",
     group: "Export",
-    keywords: ["export", "download", "png", "css", "video", "webm", "gif"],
+    keywords: ["open export", "download", "png", "css", "video", "webm", "gif"],
     shortcut: "E",
     run: () => ui.openExport(),
   });
@@ -229,9 +268,9 @@ export function getCommands(ui: UiActions): Command[] {
   // ── Projects ────────────────────────────────────────────────────────────
   commands.push({
     id: "projects.open",
-    label: "Open Projects\u2026",
+    label: "Projects\u2026",
     group: "Projects",
-    keywords: ["projects", "save", "load"],
+    keywords: ["open projects", "save", "load"],
     shortcut: "P",
     run: () => ui.openProjects(),
   });

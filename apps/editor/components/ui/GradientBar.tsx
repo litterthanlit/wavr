@@ -145,11 +145,11 @@ export default function GradientBar({
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       <div className="relative px-2 pt-1 pb-3">
         <div
           ref={trackRef}
-          className={`relative h-8 rounded-lg border border-border shadow-inner ${
+          className={`relative h-litt-control-sm rounded-litt-control shadow-[inset_0_0_0_1px_var(--litt-line)] ${
             colors.length < MAX_STOPS ? "cursor-copy" : ""
           }`}
           style={{ background }}
@@ -177,10 +177,10 @@ export default function GradientBar({
                 onFocus={() => {
                   if (!drag && i !== selected) onSelect(i);
                 }}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 touch-none
-                  shadow-[0_1px_4px_rgba(0,0,0,0.35)] cursor-grab active:cursor-grabbing
-                  motion-safe:transition-[left,width,height] motion-safe:duration-150
-                  ${isSelected ? "w-5 h-5 border-white ring-2 ring-accent z-10" : "w-4 h-4 border-white/90"}`}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-litt-pill border-2 border-white touch-none
+                  shadow-(--litt-cap-lift) cursor-grab active:cursor-grabbing
+                  transition-[left,width,height] duration-(--litt-dur-responsive) ease-litt-responsive
+                  ${isSelected ? "size-5 ring-2 ring-litt-fg z-10" : "size-4"}`}
                 style={{ left: `${stopPosition(i, count) * 100}%`, backgroundColor: cssColor(color, colorProfile) }}
               />
             );
