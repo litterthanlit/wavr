@@ -132,7 +132,7 @@ body {
   }
 
   .mobile-controls-drawer {
-    display: block;
+    display: flex;
   }
 
   .topbar {
