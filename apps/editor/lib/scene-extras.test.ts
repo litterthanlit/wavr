@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLayer } from "@wavr/core";
+import { PRESET_CATALOG } from "@wavr/core/presets";
+import { presetToStorePatch } from "./preset-patch";
 import { useGradientStore } from "./store";
 import { LAYER_EXTRAS, SCENE_EXTRAS, layerExtrasOn, sceneExtrasOn } from "./scene-extras";
 
@@ -17,6 +19,17 @@ describe("scene extras", () => {
       "Radial Blur",
       "Shader Shape Projection",
     ]);
+  });
+
+  it("lists the colour, lens and pointer effects in table order", () => {
+    expect(labels({ ...initial(), trailEnabled: true, brightness: 1.3 })).toEqual(["Brightness", "Mouse Trail"]);
+  });
+
+  it("lists nothing after loading any preset", () => {
+    for (const entry of PRESET_CATALOG) {
+      useGradientStore.getState().loadPreset(presetToStorePatch(entry.config));
+      expect(labels(initial()), entry.id).toEqual([]);
+    }
   });
 
   it("turns each one off with its patch", () => {

@@ -16,6 +16,14 @@ const flag = (label: string, key: Flag): SceneExtra => ({
   off: { [key]: false },
 });
 
+type Amount = { [K in keyof GradientState]: GradientState[K] extends number ? K : never }[keyof GradientState];
+
+const value = (label: string, key: Amount, rest: number): SceneExtra => ({
+  label,
+  isOn: (state) => state[key] !== rest,
+  off: { [key]: rest },
+});
+
 export const SCENE_EXTRAS: readonly SceneExtra[] = [
   flag("Noise Overlay", "noiseEnabled"),
   flag("Reaction-Diffusion", "reactionDiffEnabled"),
@@ -33,6 +41,13 @@ export const SCENE_EXTRAS: readonly SceneExtra[] = [
   flag("Mesh Distortion", "meshDistortionEnabled"),
   flag("Shader Shape Projection", "threeDEnabled"),
   flag("Feedback Loop", "feedbackEnabled"),
+  value("Brightness", "brightness", 1),
+  value("Saturation", "saturation", 1),
+  value("Hue Shift", "hueShift", 0),
+  value("Chromatic Aberration", "chromaticAberration", 0),
+  flag("Blur", "blurEnabled"),
+  flag("Click Ripple", "rippleEnabled"),
+  flag("Mouse Trail", "trailEnabled"),
 ];
 
 export function sceneExtrasOn(state: GradientState): SceneExtra[] {
