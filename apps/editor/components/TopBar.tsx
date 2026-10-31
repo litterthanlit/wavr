@@ -75,7 +75,7 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects, onOpenPa
       <header className="topbar">
         {/* Left: Logo + History */}
         <div className="topbar-group">
-          <span className="topbar-logo mr-1 font-litt-mono text-litt-small font-litt-title text-litt-fg">Wavr</span>
+          <span className="topbar-logo mr-1 text-litt-body font-litt-title text-litt-fg">Wavr</span>
           <div className="topbar-divider" />
           <Tip label="Undo" shortcut="⌘Z">
             <Button iconOnly size="sm" variant="ghost" onClick={undo} disabled={!canUndo()} aria-label="Undo">
@@ -152,22 +152,24 @@ export default function TopBar({ onExport, onShowShortcuts, onProjects, onOpenPa
             </Button>
           </Tip>
           <div className="topbar-divider" />
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={linkCopied ? <CheckIcon /> : <LinkIcon />}
-            onClick={async () => {
-              await copyShareUrl(store);
-              setLinkCopied(true);
-              setTimeout(() => setLinkCopied(false), 2000);
-            }}
-            onPointerEnter={preloadUrlCodec}
-            onFocus={preloadUrlCodec}
-            aria-label={linkCopied ? "Link copied" : "Share"}
-            className="topbar-collapse"
-          >
-            <span className="topbar-label">{linkCopied ? "Copied" : "Share"}</span>
-          </Button>
+          <Tip label={linkCopied ? "Link copied" : "Copy share link"}>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={linkCopied ? <CheckIcon /> : <LinkIcon />}
+              onClick={async () => {
+                await copyShareUrl(store);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2000);
+              }}
+              onPointerEnter={preloadUrlCodec}
+              onFocus={preloadUrlCodec}
+              aria-label={linkCopied ? "Link copied" : "Share"}
+              className="topbar-collapse"
+            >
+              <span className="topbar-label">{linkCopied ? "Copied" : "Share"}</span>
+            </Button>
+          </Tip>
           <Tip label="Projects" shortcut="P">
             <Button
               size="sm"

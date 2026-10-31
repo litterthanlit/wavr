@@ -85,7 +85,7 @@ body {
 }
 
 /* ============================================================
-   TOPBAR — frosted glass header
+   TOPBAR — the editor's bar: surface-1 over a hairline
    ============================================================ */
 .topbar {
   height: 48px;
@@ -107,7 +107,7 @@ body {
 
 /* Play and Pause swap in place without the bar shifting. */
 .topbar-label-fixed {
-  min-width: 30px;
+  min-width: 32px;
 }
 
 .topbar-divider {
@@ -136,7 +136,7 @@ body {
   }
 
   .topbar {
-    padding: 0 10px;
+    padding: 0 8px;
   }
 
   .topbar-divider {
@@ -188,11 +188,11 @@ body {
 /* The smallest phones: tighter spacing, and no room for the wordmark (the page title has it). */
 @media (max-width: 379px) {
   .topbar {
-    padding: 0 6px;
+    padding: 0 4px;
   }
 
   .topbar-group {
-    gap: 2px;
+    gap: 0;
   }
 
   .topbar-logo {

@@ -4,8 +4,9 @@
  * CommandPalette — ⌘K palette (spec 0005) on litt's Command menu.
  *
  * The registry is rebuilt on every open via `getCommands(ui)` so disabled
- * gates and "(on)/(off)" suffixes always reflect the live store. litt's menu
- * matches labels only, so a command's `keywords` don't take part in the search.
+ * gates and "(on)/(off)" suffixes always reflect the live store. The search
+ * matches a command's label and its `keywords` (a local extension to litt's
+ * command menu, see CLAUDE.md).
  */
 
 import { useEffect, useMemo } from "react";
