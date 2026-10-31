@@ -18,6 +18,8 @@ export function defaultSoftnessForGradientType(type: GradientType): number {
     case "plasmaOrb":
     case "halo":
       return 0.5;
+    case "corona":
+      return 0.3;
     case "aperture":
       return 0.8;
     case "lightWall":
@@ -40,6 +42,7 @@ export const LIGHT_GRADIENT_PALETTES = {
   inkSmoke: [[0.016, 0.02, 0.047], [0.055, 0.082, 0.212], [0.204, 0.275, 0.71], [0.608, 0.698, 1], [0.945, 0.957, 1]],
   plasmaOrb: [[0.047, 0.055, 0.267], [0.169, 0.275, 1], [0.545, 0.302, 1], [1, 0.31, 0.627], [1, 0.816, 0.761]],
   halo: [[0, 0, 0], [0.11, 0.04, 0.17], [0.36, 0.15, 0.4], [0.69, 0.29, 0.45], [0.94, 0.6, 0.58], [1, 0.93, 0.95]],
+  corona: [[0.008, 0.01, 0.024], [0.027, 0.063, 0.2], [0.1, 0.25, 0.66], [0.36, 0.6, 0.93], [0.76, 0.88, 1], [0.96, 0.98, 1]],
 } satisfies Partial<Record<GradientType, [number, number, number][]>>;
 
 export type LightGradientType = keyof typeof LIGHT_GRADIENT_PALETTES;

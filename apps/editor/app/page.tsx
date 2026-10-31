@@ -124,7 +124,7 @@ const FEATURES = [
   {
     label: "Gradient Engine",
     title: "Light, on the GPU",
-    desc: "Aperture, halo, light wall, liquid chrome, horizon glow, ink smoke and plasma orb, all rendered in WebGL 2.",
+    desc: "Aperture, halo, corona, light wall, liquid chrome, horizon glow, ink smoke and plasma orb, all rendered in WebGL 2.",
     ascii: "█▓▒░",
   },
   {

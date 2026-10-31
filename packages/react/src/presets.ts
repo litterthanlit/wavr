@@ -5,6 +5,8 @@ import {
   ganzfeld as coreGanzfeld,
   halo as coreHalo,
   iceHalo as coreIceHalo,
+  corona as coreCorona,
+  iceVeil as coreIceVeil,
   lightWall as coreLightWall,
   lagoonWall as coreLagoonWall,
   liquidChrome as coreLiquidChrome,
@@ -28,6 +30,8 @@ export const duskAperture = coreDuskAperture as GradientConfig;
 export const ganzfeld = coreGanzfeld as GradientConfig;
 export const halo = coreHalo as GradientConfig;
 export const iceHalo = coreIceHalo as GradientConfig;
+export const corona = coreCorona as GradientConfig;
+export const iceVeil = coreIceVeil as GradientConfig;
 export const lightWall = coreLightWall as GradientConfig;
 export const lagoonWall = coreLagoonWall as GradientConfig;
 export const liquidChrome = coreLiquidChrome as GradientConfig;

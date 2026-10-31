@@ -15,7 +15,7 @@ export type TextMaskAlign = "left" | "center" | "right";
 export type GradientType =
   | "image" | "liquidChrome" | "iridescentFoil"
   | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb"
-  | "aperture" | "halo" | "lightWall";
+  | "aperture" | "halo" | "corona" | "lightWall";
 
 /** The RGB space colour values are read in and the canvas presents in. */
 export type ColorProfile = "srgb" | "display-p3";

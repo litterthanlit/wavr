@@ -778,6 +778,93 @@ vec3 haloGradient(vec2 uv, float time) {
 }
 #endif
 
+// Corona: light pouring out in fine streamers, as in a long exposure of light
+// through ribbed glass. The streamers run along hyperbolas,
+// x = tan(u) sqrt(y^2 + k^2): rays from the middle far out, vertical where they pass the waist, so the
+// frame reads as an hourglass of light round a dark eye. Zooming in (scale)
+// moves the waist out until the streamers hang as curtains. The light is
+// mirror-symmetric across the vertical axis. Broad lobes of light drift up
+// the streamers over a haze they scatter; fine filaments run along them,
+// flowing outward, faded out before they alias and dispersed (red sits a
+// little outside blue). The palette is a light ramp: the dark (first stop),
+// then the light from its faintest to its hottest (last). Complexity adds
+// finer filaments, softness blurs them, distortion lets the streamers waver.
+#if WAVR_GRADIENT == 26
+// Noise mirrored across u = 0 without a crease: the sum of the two sides.
+float coronaSym(vec2 q) {
+  return 0.5 * (snoise(q) + snoise(vec2(-q.x, q.y)));
+}
+
+// Filaments along the streamers, f of them per radian of u, flowing outward;
+// 0..1, faded to their mean where they would come closer than a few
+// pixels.
+float coronaFilaments(float u, float s, float f, float time, float fw) {
+  float n = snoise(vec2(abs(u) * f, s * 0.6 - time * 0.12));
+  float sharp = 0.5 + 0.5 * n;
+  return mix(sharp * sharp * 1.6, 0.53, smoothstep(0.25, 0.6, fw * f));
+}
+#endif
+
+#if WAVR_GRADIENT == 26
+vec3 coronaGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv) / u_scale;
+  float soft = clamp(u_softness, 0.0, 1.0);
+  float warp = clamp(u_distortion, 0.0, 1.0);
+  float t = time * 0.8;
+
+  // Streamer coordinates: u across (constant along each streamer), s along,
+  // signed (the lobes) and folded smoothly at the waist (the filaments flow
+  // outward both ways without a crease there). u is the angle of the
+  // streamer's far-out ray from the vertical, so it stays bounded: beside the waist, where the streamers lie flat, it barely
+  // changes and the light there is smooth.
+  float k = 0.12;
+  float sy = asinh(p.y / k);
+  float s = sqrt(sy * sy + 0.3);
+  float u = atan(p.x, sqrt(p.y * p.y + k * k));
+  u += warp * 0.3 * coronaSym(vec2(u * 0.5, sy * 0.3 - t * 0.05)) * min(s, 1.5);
+  float fw = fwidth(u);
+
+  // Broad lobes of light along the streamers, drifting upward.
+  float lobe = coronaSym(vec2(u * 0.8, sy * 0.35 - t * 0.07))
+             + 0.35 * coronaSym(vec2(u * 2.1 + 3.1, sy * 0.8 - t * 0.1));
+  lobe = smoothstep(-0.35, 0.85, lobe);
+  // The eye: dark round the waist, the light gathering just outside it.
+  float r = length(p * vec2(0.8, 1.0));
+  float eye = smoothstep(0.03, 0.17, r) * (1.0 + 0.8 * exp(-r * r / 0.05));
+  float fall = exp(-r * 1.3);
+
+  // Filaments: one to three octaves by complexity, blurred by softness.
+  float fBase = mix(16.0, 7.0, soft);
+  int octaves = 1 + int(u_complexity >= 3.0) + int(u_complexity >= 6.0);
+  float disp = 0.004 + 0.003 * soft;
+  vec3 fil = vec3(0.0);
+  float amp = 1.0;
+  float norm = 0.0;
+  for (int i = 0; i < 3; i++) {
+    if (i >= octaves) break;
+    float f = fBase * pow(2.3, float(i));
+    float ti = t * (1.0 + 0.4 * float(i)) + float(i) * 11.0;
+    fil += amp * vec3(coronaFilaments(u - disp, s, f, ti, fw),
+                      coronaFilaments(u, s, f, ti, fw),
+                      coronaFilaments(u + disp, s, f, ti, fw));
+    norm += amp;
+    amp *= 0.7;
+  }
+  fil /= norm;
+
+  // The streamers, and a haze they scatter: the lobes without filaments,
+  // reaching a little into the eye.
+  float glow = lobe * eye * fall;
+  vec3 light = glow * (0.15 + 0.85 * fil) * 1.25;
+  float haze = lobe * fall * smoothstep(0.0, 0.3, r) * 0.2;
+  float level = dot(light, vec3(0.333));
+  vec3 col = lightRamp(0.0)
+           + (lightRamp(clamp(0.35 + 0.65 * level, 0.0, 1.0)) * light
+           + lightRamp(0.55) * haze) * framePeak();
+  return lightToDisplay(col);
+}
+#endif
+
 // Light wall: coloured light seen through a wall of frosted glass panels. The
 // first stop is the glass's own glow; each other stop lights soft, wide clouds
 // behind the glass that drift sideways past each other and breathe. They add
@@ -880,6 +967,8 @@ vec3 computeGradient(vec2 uv, float time) {
   return haloGradient(uv, time);
 #elif WAVR_GRADIENT == 25
   return lightWallGradient(uv, time);
+#elif WAVR_GRADIENT == 26
+  return coronaGradient(uv, time);
 #else
 #error Unknown WAVR_GRADIENT
 #endif
