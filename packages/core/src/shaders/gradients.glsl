@@ -798,13 +798,21 @@ float coronaSym(vec2 q) {
   return 0.5 * (snoise(q) + snoise(vec2(-q.x, q.y)));
 }
 
-// Filaments along the streamers, f of them per radian of u, flowing outward;
-// 0..1, faded to their mean where they would come closer than a few
-// pixels.
-float coronaFilaments(float u, float s, float f, float time, float fw) {
-  float n = snoise(vec2(abs(u) * f, s * 0.6 - time * 0.12));
-  float sharp = 0.5 + 0.5 * n;
-  return mix(sharp * sharp * 1.6, 0.53, smoothstep(0.25, 0.6, fw * f));
+// Filaments along the streamers, f of them per radian of u, flowing outward,
+// each channel shifted across by `disp` (dispersion); faded to their mean
+// where they would come closer than a few pixels. They are scattered rather
+// than combed: a slow stretch across bunches them up and spreads them apart,
+// each drifts a little sideways as it runs, and a slower noise along it gives
+// it its own length and strength, so some lines run long and bright, others
+// break off or never show.
+vec3 coronaFilaments(float u, float s, float f, float disp, float time, float fw) {
+  float x = u * f
+          + 2.0 * snoise(vec2(u * f * 0.1 + 17.0, s * 0.15 - time * 0.02))
+          + 0.6 * snoise(vec2(u * f * 0.3 + 5.0, s * 0.4 - time * 0.04));
+  float life = smoothstep(-0.35, 0.55, snoise(vec2(x * 0.5 + 41.0, s * 0.3 - time * 0.07)));
+  float y = s * 0.6 - time * 0.12;
+  vec3 sharp = 0.5 + 0.5 * vec3(snoise(vec2(x - disp * f, y)), snoise(vec2(x, y)), snoise(vec2(x + disp * f, y)));
+  return mix(sharp * sharp * sharp * life * 5.4, vec3(0.49), smoothstep(0.25, 0.6, fw * f));
 }
 #endif
 
@@ -847,7 +855,7 @@ vec3 coronaGradient(vec2 uv, float time) {
   // Filaments: one to three octaves by complexity, blurred by softness.
   float fBase = mix(16.0, 7.0, soft) * z;
   int octaves = 1 + int(u_complexity >= 3.0) + int(u_complexity >= 6.0);
-  float disp = 0.004 + 0.003 * soft;
+  float disp = 0.002 + 0.0015 * soft;
   vec3 fil = vec3(0.0);
   float amp = 1.0;
   float norm = 0.0;
@@ -855,9 +863,7 @@ vec3 coronaGradient(vec2 uv, float time) {
     if (i >= octaves) break;
     float f = fBase * pow(2.3, float(i));
     float ti = t * (1.0 + 0.4 * float(i)) + float(i) * 11.0;
-    fil += amp * vec3(coronaFilaments(u - disp, s, f, ti, fw),
-                      coronaFilaments(u, s, f, ti, fw),
-                      coronaFilaments(u + disp, s, f, ti, fw));
+    fil += amp * coronaFilaments(u, s, f, disp, ti, fw);
     norm += amp;
     amp *= 0.7;
   }
