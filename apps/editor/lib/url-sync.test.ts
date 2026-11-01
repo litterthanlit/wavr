@@ -25,6 +25,7 @@ function buildRealisticState(): GradientState {
     softness: 0.72,
     fill: 0.8,
     focus: 0.15,
+    scatter: 0.9,
     opacity: 0.9,
     blendMode: "screen",
     depth: 0.25,
@@ -140,7 +141,7 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(patch.debandEnabled).toBe(false);
     expect(patch.debandStrength).toBeCloseTo(1.5);
 
-    // Layers: both layers' 11 schema-owned fields round-trip.
+    // Layers: both layers' 12 schema-owned fields round-trip.
     expect(patch.layers).toBeDefined();
     const outLayers = patch.layers!;
     expect(outLayers.length).toBe(2);
@@ -152,6 +153,7 @@ describe("storeToConfig / configToStorePatch", () => {
     expect(outLayers[0].softness).toBeCloseTo(0.72);
     expect(outLayers[0].fill).toBeCloseTo(0.8);
     expect(outLayers[0].focus).toBeCloseTo(0.15);
+    expect(outLayers[0].scatter).toBeCloseTo(0.9);
     expect(outLayers[0].opacity).toBeCloseTo(0.9);
     expect(outLayers[0].blendMode).toBe("screen");
     expect(outLayers[0].depth).toBeCloseTo(0.25);

@@ -128,6 +128,7 @@ describe("presetToStorePatch", () => {
       distortion: 0.3,
       fill: 0.5,
       focus: 0.5,
+      scatter: 0.5,
       colors: [[0.1, 0.2, 0.3]],
       brightness: 1,
       saturation: 1,

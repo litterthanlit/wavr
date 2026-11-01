@@ -13,6 +13,7 @@ uniform float u_speed;          // post: the last visible layer's, like the pale
 uniform float u_softness;
 uniform float u_fill;           // corona: how much of the frame the light fills
 uniform float u_focus;          // corona: burst round a dark eye (0) to curtains (1)
+uniform float u_scatter;        // corona: combed lines (0) to scattered ones (1)
 uniform vec3 u_colors[8];       // the raw stops, for the light fields
 uniform int u_colorCount;
 uniform sampler2D u_paletteTexture; // baked getGradientColor, see "Palette" below

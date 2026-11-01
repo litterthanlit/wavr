@@ -123,6 +123,8 @@ export interface LayerParams {
   fill: number;
   /** Where the light converges, burst (0) to curtains (1) (corona). */
   focus: number;
+  /** How scattered the lines are, combed (0) to random (1) (corona). */
+  scatter: number;
   colors: [number, number, number][];
   opacity: number;
   blendMode: BlendMode;
@@ -162,6 +164,7 @@ export const DEFAULT_LAYER: LayerParams = {
   softness: 0,
   fill: 0.5,
   focus: 0.5,
+  scatter: 0.5,
   colors: [
     [0.388, 0.357, 1.0],
     [1.0, 0.42, 0.42],

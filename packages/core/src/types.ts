@@ -13,6 +13,7 @@ export interface LayerConfig {
   softness?: number;
   fill?: number;
   focus?: number;
+  scatter?: number;
   opacity?: number;
   blendMode?: BlendMode;
   depth?: number;

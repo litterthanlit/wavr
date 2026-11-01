@@ -14,6 +14,7 @@ export const LayerConfig = d(
     softness: d("LayerConfig.softness", z.number().min(0).max(1)).default(0),
     fill: d("LayerConfig.fill", z.number().min(0).max(1)).default(0.5),
     focus: d("LayerConfig.focus", z.number().min(0).max(1)).default(0.5),
+    scatter: d("LayerConfig.scatter", z.number().min(0).max(1)).default(0.5),
     opacity: d("LayerConfig.opacity", z.number().min(0).max(1)).default(1),
     blendMode: d("LayerConfig.blendMode", BlendMode).default("normal"),
     depth: d("LayerConfig.depth", z.number().min(-1).max(1)).default(0),

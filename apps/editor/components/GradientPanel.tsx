@@ -369,10 +369,11 @@ export default function GradientPanel() {
       {store.gradientType === "corona" && (
         <Section title="Corona">
           <p className="text-[11px] leading-snug text-text-tertiary">
-            Focus runs from a burst round a dark eye to hanging curtains. Fill runs from a few streamers to a bright wash.
+            Focus runs from a burst round a dark eye to hanging curtains. Fill runs from a few streamers to a bright wash. Scatter runs from evenly combed lines to bunched, drifting lines of every length.
           </p>
           <Slider label="Focus" value={store.focus} min={0} max={1} step={0.01} onChange={(v) => store.set({ focus: v })} onCommit={() => store.commitSet()} />
           <Slider label="Fill" value={store.fill} min={0} max={1} step={0.01} onChange={(v) => store.set({ fill: v })} onCommit={() => store.commitSet()} />
+          <Slider label="Scatter" value={store.scatter} min={0} max={1} step={0.01} onChange={(v) => store.set({ scatter: v })} onCommit={() => store.commitSet()} />
         </Section>
       )}
 

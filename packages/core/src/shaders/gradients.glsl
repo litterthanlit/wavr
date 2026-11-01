@@ -783,12 +783,13 @@ vec3 haloGradient(vec2 uv, float time) {
 // x = tan(u) sqrt(y^2 + k^2): rays from the middle far out, vertical where
 // they pass the waist, so the frame reads as an hourglass of light round a
 // dark eye. Focus sets the waist k: a burst of rays round a small eye at 0,
-// streamers hanging as curtains either side of a wide dark at 1. The light is
-// mirror-symmetric across the vertical axis. Broad lobes of light drift up
-// the streamers over a haze they scatter; fine filaments run along them,
-// flowing outward, faded out before they alias and dispersed (red sits a
-// little outside blue). Fill opens the lobes from a few streamers to a bright
-// wash. The palette is a light ramp: the dark (first stop), then the light
+// streamers hanging as curtains either side of a wide dark at 1. Broad lobes
+// of light, mirror-symmetric across the vertical axis, drift up the streamers
+// over a haze they scatter; fine filaments run along them, flowing outward,
+// faded out before they alias and dispersed (red sits a little outside
+// blue). Fill opens the lobes from a few streamers to a bright wash; scatter
+// takes the filaments from evenly combed to bunched, drifting lines of every
+// length. The palette is a light ramp: the dark (first stop), then the light
 // from its faintest to its hottest (last). Scale sizes the lobes and
 // filaments, complexity adds finer filaments, softness blurs them, distortion
 // lets the streamers waver.
@@ -800,19 +801,25 @@ float coronaSym(vec2 q) {
 
 // Filaments along the streamers, f of them per radian of u, flowing outward,
 // each channel shifted across by `disp` (dispersion); faded to their mean
-// where they would come closer than a few pixels. They are scattered rather
-// than combed: a slow stretch across bunches them up and spreads them apart,
-// each drifts a little sideways as it runs, and a slower noise along it gives
-// it its own length and strength, so some lines run long and bright, others
-// break off or never show.
-vec3 coronaFilaments(float u, float s, float f, float disp, float time, float fw) {
+// where they would come closer than a few pixels. Scatter takes them from
+// evenly combed (0) to random: a slow stretch across bunches them up and
+// spreads them apart, each drifts sideways as it runs, and from 0 to 0.5 a
+// slower noise along each comes in to give it its own length and strength,
+// so some lines run long and bright, others break off or never show. The
+// gain keeps their mean at the fade's (measured over the engine's noise:
+// 0.208 for the bare line, 0.090 with its length varied).
+vec3 coronaFilaments(float u, float s, float f, float disp, float scatter, float time, float fw) {
+  // The stretch grows more slowly past 0.5, so it never folds lines over
+  // each other (where they would pile up into blobs).
   float x = u * f
-          + 2.0 * snoise(vec2(u * f * 0.1 + 17.0, s * 0.15 - time * 0.02))
-          + 0.6 * snoise(vec2(u * f * 0.3 + 5.0, s * 0.4 - time * 0.04));
-  float life = smoothstep(-0.35, 0.55, snoise(vec2(x * 0.5 + 41.0, s * 0.3 - time * 0.07)));
+          + scatter * (5.0 - 2.0 * scatter) * snoise(vec2(u * f * 0.1 + 17.0, s * 0.15 - time * 0.02))
+          + 1.2 * scatter * snoise(vec2(u * f * 0.3 + 5.0, s * 0.4 - time * 0.04));
+  float varied = min(2.0 * scatter, 1.0);
+  float life = mix(1.0, smoothstep(-0.35, 0.55, snoise(vec2(x * 0.5 + 41.0, s * 0.3 - time * 0.07))), varied);
   float y = s * 0.6 - time * 0.12;
   vec3 sharp = 0.5 + 0.5 * vec3(snoise(vec2(x - disp * f, y)), snoise(vec2(x, y)), snoise(vec2(x + disp * f, y)));
-  return mix(sharp * sharp * sharp * life * 5.4, vec3(0.49), smoothstep(0.25, 0.6, fw * f));
+  vec3 line = sharp * sharp * sharp * life * (0.49 / mix(0.208, 0.090, varied));
+  return mix(line, vec3(0.49), smoothstep(0.25, 0.6, fw * f));
 }
 #endif
 
@@ -822,6 +829,7 @@ vec3 coronaGradient(vec2 uv, float time) {
   float soft = clamp(u_softness, 0.0, 1.0);
   float warp = clamp(u_distortion, 0.0, 1.0);
   float fill = clamp(u_fill, 0.0, 1.0);
+  float scatter = clamp(u_scatter, 0.0, 1.0);
   float z = 1.0 / u_scale;
   float t = time * 0.8;
 
@@ -863,7 +871,7 @@ vec3 coronaGradient(vec2 uv, float time) {
     if (i >= octaves) break;
     float f = fBase * pow(2.3, float(i));
     float ti = t * (1.0 + 0.4 * float(i)) + float(i) * 11.0;
-    fil += amp * coronaFilaments(u, s, f, disp, ti, fw);
+    fil += amp * coronaFilaments(u, s, f, disp, scatter, ti, fw);
     norm += amp;
     amp *= 0.7;
   }

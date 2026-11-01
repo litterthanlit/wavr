@@ -19,6 +19,7 @@ export const DEFAULT_CONFIG: GradientConfig = {
       softness: 0,
       fill: 0.5,
       focus: 0.5,
+      scatter: 0.5,
       opacity: 1,
       blendMode: "normal",
       depth: 0,

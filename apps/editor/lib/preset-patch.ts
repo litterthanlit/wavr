@@ -23,6 +23,7 @@ export function presetToStorePatch(config: GradientConfig): PresetData {
     distortion: layer.distortion,
     fill: layer.fill,
     focus: layer.focus,
+    scatter: layer.scatter,
     colors: layer.colors.map((c) => [...c]),
     brightness: resolved.brightness,
     saturation: resolved.saturation,

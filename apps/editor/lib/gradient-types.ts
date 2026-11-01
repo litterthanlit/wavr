@@ -30,7 +30,7 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
   {
     value: "corona",
     label: "Corona",
-    description: "Streamers of light pouring out round a dark eye; scale up and they hang as curtains. Colours run from the dark to the hottest light.",
+    description: "Streamers of light pouring out round a dark eye, or hanging as curtains. Colours run from the dark to the hottest light.",
   },
   {
     value: "lightWall",

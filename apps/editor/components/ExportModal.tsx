@@ -200,6 +200,7 @@ export default function ExportModal({
     softness: store.softness as number,
     fill: store.fill,
     focus: store.focus,
+    scatter: store.scatter,
     brightness: store.brightness,
     saturation: store.saturation,
     hueShift: store.hueShift,

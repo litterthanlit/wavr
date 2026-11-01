@@ -28,9 +28,10 @@ export interface PortableState {
   scale: number;
   distortion: number;
   softness?: number;
-  /** Corona's fill and focus, 0..1 (default 0.5). */
+  /** Corona's fill, focus and scatter, 0..1 (default 0.5). */
   fill?: number;
   focus?: number;
+  scatter?: number;
   brightness: number;
   saturation: number;
   /** Degrees. */
@@ -60,6 +61,7 @@ export interface PortableSettings {
   softness: number;
   fill: number;
   focus: number;
+  scatter: number;
   brightness: number;
   saturation: number;
   hueShift: number;
@@ -97,6 +99,7 @@ export function resolvePortableSettings(state: PortableState): PortableSettings 
     softness: finite(state.softness, 0),
     fill: clamp(finite(state.fill, 0.5), 0, 1),
     focus: clamp(finite(state.focus, 0.5), 0, 1),
+    scatter: clamp(finite(state.scatter, 0.5), 0, 1),
     brightness: finite(state.brightness, 1),
     saturation: finite(state.saturation, 1),
     hueShift: finite(state.hueShift, 0),
@@ -302,6 +305,7 @@ function constantDeclarations(s: PortableSettings): Record<string, { name: strin
     u_softness: float("SOFTNESS", s.softness),
     u_fill: float("FILL", s.fill),
     u_focus: float("FOCUS", s.focus),
+    u_scatter: float("SCATTER", s.scatter),
     u_colorCount: int("COLOR_COUNT", s.colors.length),
     u_mouseReact: float("MOUSE_REACT", s.mouseReact),
     u_toneMapMode: {
@@ -320,7 +324,7 @@ const STANDARD_RANGE: Record<string, string> = {
 
 /** Order the constants appear in, with a comment per group. */
 const CONSTANT_GROUPS: { comment: string; names: string[] }[] = [
-  { comment: "Look: edit and reload", names: ["SPEED", "SCALE", "COMPLEXITY", "DISTORTION", "SOFTNESS", "FILL", "FOCUS", "COLOR_COUNT"] },
+  { comment: "Look: edit and reload", names: ["SPEED", "SCALE", "COMPLEXITY", "DISTORTION", "SOFTNESS", "FILL", "FOCUS", "SCATTER", "COLOR_COUNT"] },
   { comment: "Pointer: 0 switches it off", names: ["MOUSE_REACT"] },
   { comment: "Colour grade", names: ["BRIGHTNESS", "SATURATION", "HUE_SHIFT", "TONE_MAP_MODE", "DEBAND"] },
 ];

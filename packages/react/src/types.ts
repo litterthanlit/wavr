@@ -45,6 +45,8 @@ export interface LayerConfig {
   fill?: number;
   /** Where the light converges, from a burst round a dark eye (0) to hanging curtains (1). Read by corona. Default 0.5. */
   focus?: number;
+  /** How scattered the lines are, from evenly combed (0) to bunched, drifting lines of every length (1). Read by corona. Default 0.5. */
+  scatter?: number;
   opacity?: number;
   blendMode?: BlendMode;
   depth?: number;

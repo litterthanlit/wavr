@@ -254,7 +254,7 @@ function migrateLayer(
   if (typeof type === "string") out.type = openedType(type, `${path}.type`, warnings, opts);
   if (Array.isArray(layer.colors)) out.colors = layer.colors;
 
-  const passthrough = ["speed", "complexity", "scale", "distortion", "softness", "fill", "focus", "opacity", "blendMode", "depth"];
+  const passthrough = ["speed", "complexity", "scale", "distortion", "softness", "fill", "focus", "scatter", "opacity", "blendMode", "depth"];
   for (const k of passthrough) {
     if (k in layer) out[k] = layer[k];
   }

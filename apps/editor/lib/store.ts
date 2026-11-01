@@ -191,6 +191,7 @@ export interface GradientState {
   softness: number;
   fill: number;
   focus: number;
+  scatter: number;
   colors: [number, number, number][];
 
   // Actions
@@ -250,7 +251,7 @@ const HISTORY_EXCLUDE_KEYS: (keyof GradientState)[] = [
   "toggleTimeline", "addKeyframe", "removeKeyframe", "setTimelinePosition",
   "setTimelineDuration", "setTimelinePlaybackMode",
   // Derived fields
-  "gradientType", "speed", "complexity", "scale", "distortion", "softness", "fill", "focus", "colors",
+  "gradientType", "speed", "complexity", "scale", "distortion", "softness", "fill", "focus", "scatter", "colors",
   "customGLSL",
 ];
 
@@ -322,6 +323,7 @@ function deriveActiveLayerFields(layers: LayerParams[], activeLayerIndex: number
     softness: layer.softness,
     fill: layer.fill,
     focus: layer.focus,
+    scatter: layer.scatter,
     colors: layer.colors,
   };
 }
@@ -427,7 +429,7 @@ function flushPending() {
 
 // Map layer param keys to top-level state keys for backward compatibility
 const LAYER_PARAM_KEYS: (keyof LayerParams)[] = [
-  "gradientType", "speed", "complexity", "scale", "distortion", "softness", "fill", "focus", "colors",
+  "gradientType", "speed", "complexity", "scale", "distortion", "softness", "fill", "focus", "scatter", "colors",
 ];
 
 function applyToActiveLayer(
