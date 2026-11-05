@@ -8,6 +8,8 @@ import {
   LIGHT_FIELD_PALETTES,
   LIGHT_FIELD_PALETTE_ROLES,
   LIGHT_GRADIENT_PALETTES,
+  PRINT_PALETTE_ROLES,
+  isPrintType,
   defaultSoftnessForGradientType,
   isLightFieldType,
   isLightGradientType,
@@ -54,10 +56,10 @@ describe("gradient types", () => {
     expect(gradientTypeLabel("lightWall")).toBe("Light wall");
   });
 
-  it("the Look grid shows the light fields, then the light modes, then the uploaded picture", () => {
+  it("the Look grid shows the light fields, then the light modes, then print, then the uploaded picture", () => {
     expect(GRADIENT_OPTIONS.map((option) => option.value)).toEqual([
       "aperture", "halo", "corona", "lightWall",
-      "horizonGlow", "lightLeak", "liquidChrome", "iridescentFoil", "inkSmoke", "plasmaOrb",
+      "horizonGlow", "lightLeak", "liquidChrome", "iridescentFoil", "inkSmoke", "plasmaOrb", "paper",
       "image",
     ]);
     for (const option of GRADIENT_OPTIONS.slice(4, 10)) expect(isLightGradientType(option.value), option.value).toBe(true);
@@ -68,6 +70,7 @@ describe("gradient types", () => {
     const description = (type: string) => GRADIENT_OPTIONS.find((option) => option.value === type)?.description;
     expect(description("aperture")).toContain(LIGHT_FIELD_PALETTE_ROLES.aperture);
     expect(description("lightWall")).toContain(LIGHT_FIELD_PALETTE_ROLES.lightWall);
+    expect(description("paper")).toContain(PRINT_PALETTE_ROLES.paper);
   });
 
   it("each look but image shows its flagship preset's thumbnail", () => {
@@ -92,6 +95,19 @@ describe("gradient types", () => {
       for (const layer of entry.config.layers) {
         expect(isLightGradientType(layer.type), `${entry.id} uses ${layer.type}`).toBe(true);
         expect(isLightRampPalette(layer.colors), `${entry.id}'s palette`).toBe(true);
+      }
+    }
+  });
+
+  it("each print preset is ink running out onto the paper, its last and lightest stop", () => {
+    const printPresets = PRESET_CATALOG.filter((entry) => entry.category === "print");
+    expect(printPresets.length).toBeGreaterThan(0);
+    const luma = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    for (const entry of printPresets) {
+      for (const layer of entry.config.layers) {
+        expect(isPrintType(layer.type), `${entry.id} uses ${layer.type}`).toBe(true);
+        const paper = luma(layer.colors[layer.colors.length - 1]);
+        for (const ink of layer.colors.slice(0, -1)) expect(luma(ink), entry.id).toBeLessThan(paper);
       }
     }
   });
@@ -138,6 +154,7 @@ describe("gradient types", () => {
       halo: 24,
       lightWall: 25,
       corona: 26,
+      paper: 27,
     });
   });
 

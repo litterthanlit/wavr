@@ -21,6 +21,9 @@ import {
   midnightFoil as coreMidnightFoil,
   lightLeak as coreLightLeak,
   violetLeak as coreVioletLeak,
+  paper as corePaper,
+  indigoPrint as coreIndigoPrint,
+  rosePrint as coreRosePrint,
 } from "@wavr/core/presets";
 import type { GradientConfig } from "./types";
 
@@ -46,3 +49,6 @@ export const iridescentFoil = coreIridescentFoil as GradientConfig;
 export const midnightFoil = coreMidnightFoil as GradientConfig;
 export const lightLeak = coreLightLeak as GradientConfig;
 export const violetLeak = coreVioletLeak as GradientConfig;
+export const paper = corePaper as GradientConfig;
+export const indigoPrint = coreIndigoPrint as GradientConfig;
+export const rosePrint = coreRosePrint as GradientConfig;

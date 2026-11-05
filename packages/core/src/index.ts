@@ -10,6 +10,7 @@ export {
   createLayer, defaultSoftnessForGradientType, DEFAULT_LAYER, DEFAULT_MASK, MAX_LAYERS,
   LIGHT_GRADIENT_PALETTES, isLightGradientType, isLightRampPalette,
   LIGHT_FIELD_PALETTES, LIGHT_FIELD_PALETTE_ROLES, isLightFieldType,
+  PRINT_PALETTES, PRINT_PALETTE_ROLES, isPrintType,
 } from "./layers";
 export type { LightGradientType, LightFieldType } from "./layers";
 export {

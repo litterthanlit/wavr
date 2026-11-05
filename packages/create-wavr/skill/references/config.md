@@ -25,9 +25,11 @@ export const wavrConfig: GradientConfig = {
 
 ## Layer types
 
-Every type but `image` is light. Earlier types (`mesh`, `aurora`, `silk` and the rest) were removed; a config that names one opens as `lightWall`, so don't write them.
+Every type but `paper` and `image` is light. Earlier types (`mesh`, `aurora`, `silk` and the rest) were removed; a config that names one opens as `lightWall`, so don't write them.
 
 Light modes: `liquidChrome` `horizonGlow` `inkSmoke` `plasmaOrb` `iridescentFoil` `lightLeak`. They read the palette as light, darkest stop first and brightest last, so give them a dark-to-light palette (or start from their presets).
+
+Print (ink on paper, not light): `paper`, ink airbrushed across a creased sheet from left to right, the last stop the paper itself (an off-white); complexity adds masking-tape edges (none at 1–2, then one more at 3, 5 and 7) past which the spray steps back down the palette, distortion is wear (crease, mottling), softness the overspray. Its palette is inks then the paper, not dark-to-light; its presets set `toneMapMode: 0`.
 
 Light fields (coloured light in a space, after light installations; mixed in linear light, so the most saturated, gallery-like looks): `aperture` (a knife-edged opening of light in a wall: first colour the wall, the rest the light from the opening's core to its rim; complexity sets the proportions, from a tall slit at 1 to a wide band at 8, distortion the haze that spills it into the room), `halo` (a loop of light in a dark room; a dark-to-light palette like the light modes), `corona` (fine streamers of light pouring out round a dark eye, as in a long exposure through ribbed glass; a dark-to-light palette; its layer reads `focus`, 0 a burst of rays round a small eye to 1 curtains hanging either side of the dark, and `fill`, 0 a few streamers to 1 a bright wash, both 0–1 and 0.5 by default; scale sizes the streamers), `lightWall` (lights drifting behind frosted glass panels: first colour the glass's glow, the rest the lights). Their presets set `toneMapMode: 0`, `colorProfile: "display-p3"` and an `hdrHeadroom` (1–2 stops), and most turn on `realBloomEnabled`; keep them when you adapt one.
 
@@ -44,6 +46,7 @@ Skip `image` unless the user supplies a texture.
 Light fields: `aperture` `cobaltAperture` `duskAperture` `ganzfeld` `halo` `iceHalo` `corona` `iceVeil` `lightWall` `lagoonWall`
 
 Light: `liquidChrome` `goldChrome` `horizonGlow` `iceHorizon` `inkSmoke` `roseSmoke` `plasmaOrb` `limeOrb` `iridescentFoil` `midnightFoil` `lightLeak` `violetLeak`
+Print: `paper` `indigoPrint` `rosePrint`
 
 ## Overlay-editable fields
 

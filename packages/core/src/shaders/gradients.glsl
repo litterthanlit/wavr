@@ -3,9 +3,9 @@
 // (ids: GRADIENT_TYPE_IDS in engine.ts). A new mode needs its own guard here and
 // a branch in computeGradient() at the bottom.
 //
-// Every mode but image (an uploaded picture) is light: the light gradients read
-// the palette as a ramp from shadow to light, the light fields read their stops
-// as lights in linear light. House rules:
+// Every mode but print (paper) and image (an uploaded picture) is light: the
+// light gradients read the palette as a ramp from shadow to light, the light
+// fields read their stops as lights in linear light. House rules:
 // - A few broad, slow forms. Fewer, wider features read as calm; many thin ones
 //   read as noise and alias at 4K. Coordinates are aspect-corrected
 //   (centeredUV) so forms stay round on any viewport.
@@ -904,6 +904,79 @@ vec3 lightWallGradient(vec2 uv, float time) {
 #endif
 
 // ============================================================
+// Print
+// ============================================================
+// Ink on paper rather than light: the one family that is not light. Its stops
+// are inks, the last one the paper, and nothing in it burns toward white or
+// reads the HDR peak, since paper reflects and never glows.
+// paper: an airbrushed print on a sheet of paper. The palette is sprayed across
+// the sheet from left to right and its last stop is the paper itself, so the
+// ink thins out into the bare sheet. Ink moves; the sheet doesn't: the spray
+// drifts and breathes slowly while the paper's tooth, its mottling and the fold
+// stay put. Masking-tape edges (none at complexity 1-2, then one more at 3, 5
+// and 7) cut the spray with a crisp line, past which a second pass steps back
+// down the palette and fades out again. Scale widens the bands, softness the
+// overspray past each tape edge, distortion is wear: how far the spray wavers,
+// how mottled the ink is and how deep the fold.
+#if WAVR_GRADIENT == 27
+// Where tape edge i sits across the sheet (0..1), drifting slowly.
+float paperEdge(float i, float time) {
+  return 0.47 + (i == 1.0 ? -0.24 : i == 2.0 ? 0.2 : 0.0) + 0.025 * sin(time * 0.09 + i * 2.1);
+}
+#endif
+
+#if WAVR_GRADIENT == 27
+vec3 paperGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv);
+  float aspect = u_resolution.x / u_resolution.y;
+  float px = 1.0 / u_resolution.y;
+  float soft = clamp(u_softness, 0.0, 1.0);
+  float wear = clamp(u_distortion, 0.0, 1.0);
+  float t = time * 0.5;
+
+  // The spray: one pass across the sheet, wavering a little down it and
+  // breathing in broad bands.
+  float x = uv.x + wear * 0.02 * snoise(vec2(uv.x * 1.5, p.y * 0.9 - t * 0.04));
+  float pos = (x - 0.5) / u_scale + 0.5;
+  pos += 0.035 * sin(x * 7.0 / u_scale + t * 0.23) + 0.02 * sin(t * 0.17);
+
+  // Tape edges: crisp on one side, a second pass stepping back down the palette
+  // on the other, fading out over the overspray width. Tape is straight, so
+  // the edges sit on the sheet, not on the wavering spray.
+  int edges = int(u_complexity >= 3.0) + int(u_complexity >= 5.0) + int(u_complexity >= 7.0);
+  float spread = mix(0.05, 0.22, soft) * u_scale;
+  for (int i = 0; i < 3; i++) {
+    if (i >= edges) break;
+    float e = paperEdge(float(i), t);
+    float d = (uv.x - e) * aspect;
+    float side = smoothstep(-0.8 * px, 0.8 * px, d);
+    pos -= side * 0.34 * exp(-max(d, 0.0) / spread);
+  }
+
+  // Ink density: streaks the spray left along its strokes (drawn down the
+  // sheet), and the spray's own stipple, sized from the canvas height (a few
+  // pixels a dot, the same dots in a 4x export).
+  float mottle = 0.6 * snoise(p * vec2(5.0, 0.8) + 7.1) + 0.4 * snoise(p * vec2(14.0, 2.5) - 2.3);
+  float dots = min(600.0, 0.6 * u_resolution.y);
+  float stipple = 0.65 * snoise(p * dots) + 0.35 * snoise(p * dots * 0.47 + 4.2);
+  vec3 sheet = getGradientColor(1.0);
+  vec3 ink = getGradientColor(pingPong(pos));
+  float density = 1.0 + (0.02 + 0.06 * wear) * mottle + 0.16 * stipple;
+  vec3 col = sheet + (ink - sheet) * density;
+
+  // The paper: a tooth of short fibres and a fold a little right of centre,
+  // its crease a broken hairline with the sheet tilted either side of it.
+  float tooth = snoise(vec2(p.x * dots * 0.35, p.y * dots * 0.12) + 1.7);
+  col *= 1.0 + 0.012 * tooth;
+  float fx = (uv.x - 0.505) * aspect;
+  float fold = wear * smoothstep(0.0, 0.25, wear);
+  float crease = exp(-abs(fx) / (0.9 * px)) * smoothstep(-0.3, 0.5, snoise(vec2(3.3, p.y * 2.2)));
+  col *= 1.0 + fold * (0.035 * sign(fx) * exp(-abs(fx) / 0.03) - 0.45 * crease);
+  return clamp(col, 0.0, 1.0);
+}
+#endif
+
+// ============================================================
 // Image Gradient (type 8) — samples uploaded texture
 // ============================================================
 
@@ -946,6 +1019,8 @@ vec3 computeGradient(vec2 uv, float time) {
   return lightWallGradient(uv, time);
 #elif WAVR_GRADIENT == 26
   return coronaGradient(uv, time);
+#elif WAVR_GRADIENT == 27
+  return paperGradient(uv, time);
 #else
 #error Unknown WAVR_GRADIENT
 #endif

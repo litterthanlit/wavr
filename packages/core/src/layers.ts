@@ -20,6 +20,8 @@ export function defaultSoftnessForGradientType(type: GradientType): number {
       return 0.5;
     case "corona":
       return 0.3;
+    case "paper":
+      return 0.4;
     case "aperture":
       return 0.8;
     case "lightWall":
@@ -65,6 +67,25 @@ export const LIGHT_FIELD_PALETTE_ROLES: Record<LightFieldType, string> = {
   aperture: "First colour is the wall; the rest are the light in the opening, from its core to its rim.",
   lightWall: "First colour is the glass's own glow; the rest are the lights behind it.",
 };
+
+/**
+ * The print modes ("Print" in gradients.glsl): ink on paper rather than light.
+ * Their stops are inks sprayed across the sheet, the last one the paper.
+ */
+export const PRINT_PALETTES = {
+  paper: [[0.9, 0.74, 0.1], [0.66, 0.74, 0.2], [0.36, 0.65, 0.16], [0.4, 0.67, 0.2], [0.78, 0.85, 0.7], [0.93, 0.93, 0.91]],
+} satisfies Partial<Record<GradientType, [number, number, number][]>>;
+
+export type PrintType = keyof typeof PRINT_PALETTES;
+
+/** How each print mode reads its stops, for the palette editor. */
+export const PRINT_PALETTE_ROLES: Record<PrintType, string> = {
+  paper: "Colours are inks sprayed across the sheet from left to right; the last one is the paper.",
+};
+
+export function isPrintType(type: GradientType): type is PrintType {
+  return Object.prototype.hasOwnProperty.call(PRINT_PALETTES, type);
+}
 
 export function isLightFieldType(type: GradientType): type is LightFieldType {
   return Object.prototype.hasOwnProperty.call(LIGHT_FIELD_PALETTES, type);

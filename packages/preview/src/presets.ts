@@ -15,6 +15,7 @@ export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "plasmaOrb", label: "Orb" },
   { id: "iridescentFoil", label: "Iridescent foil" },
   { id: "lightLeak", label: "Light leak" },
+  { id: "paper", label: "Paper" },
 ];
 
 export function getPreset(id: string): GradientConfig | undefined {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GRADIENT_TYPES,
   LIGHT_FIELD_PALETTES,
+  PRINT_PALETTES,
   LIGHT_GRADIENT_PALETTES,
   defaultSoftnessForGradientType,
   isLightRampPalette,
@@ -82,7 +83,7 @@ describe("rotateHue", () => {
 describe("randomLook", () => {
   it("picks from every type but image", () => {
     expect([...RANDOM_GRADIENT_TYPES].sort()).toEqual(
-      ["aperture", "corona", "halo", "horizonGlow", "inkSmoke", "iridescentFoil", "lightLeak", "lightWall", "liquidChrome", "plasmaOrb"],
+      ["aperture", "corona", "halo", "horizonGlow", "inkSmoke", "iridescentFoil", "lightLeak", "lightWall", "liquidChrome", "paper", "plasmaOrb"],
     );
     const picked = new Set(RANDOM_GRADIENT_TYPES.map((_, i) => randomLook(sequence((i + 0.5) / RANDOM_GRADIENT_TYPES.length, 0.3), "srgb").gradientType));
     expect([...picked].sort()).toEqual([...RANDOM_GRADIENT_TYPES].sort());
@@ -93,7 +94,7 @@ describe("randomLook", () => {
   it("gives the type its own palette turned to one hue, and its softness", () => {
     const look = randomLook(sequence(0, 0.25), "srgb");
     const type = RANDOM_GRADIENT_TYPES[0];
-    const palette = { ...LIGHT_GRADIENT_PALETTES, ...LIGHT_FIELD_PALETTES }[type];
+    const palette = { ...LIGHT_GRADIENT_PALETTES, ...LIGHT_FIELD_PALETTES, ...PRINT_PALETTES }[type];
     expect(look.gradientType).toBe(type);
     expect(look.softness).toBe(defaultSoftnessForGradientType(type));
     expect(look.colors).toEqual(palette.map((c) => rotateHue(c, 90)));

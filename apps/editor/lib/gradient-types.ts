@@ -2,6 +2,8 @@ import {
   LIGHT_FIELD_PALETTES,
   LIGHT_FIELD_PALETTE_ROLES,
   LIGHT_GRADIENT_PALETTES,
+  PRINT_PALETTES,
+  PRINT_PALETTE_ROLES,
   defaultSoftnessForGradientType,
   rotateHue,
   type ColorProfile,
@@ -68,6 +70,11 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
     description: "A soft round glow whose colours drift and melt into the dark. Colours run from the dark to the brightest light.",
   },
   {
+    value: "paper",
+    label: "Paper",
+    description: `Ink airbrushed across a creased sheet of paper; complexity adds tape edges. ${PRINT_PALETTE_ROLES.paper}`,
+  },
+  {
     value: "image",
     label: "Image",
     description: "A picture you upload. The pointer warps it and the effects finish it.",
@@ -79,6 +86,7 @@ export const COMMAND_GRADIENT_TYPES = GRADIENT_OPTIONS.flatMap(({ value }) => (v
 const CURATED_PALETTES = {
   ...LIGHT_GRADIENT_PALETTES,
   ...LIGHT_FIELD_PALETTES,
+  ...PRINT_PALETTES,
 } satisfies Record<Exclude<GradientType, "image">, [number, number, number][]>;
 
 export function curatedPalette(type: GradientType): [number, number, number][] | null {

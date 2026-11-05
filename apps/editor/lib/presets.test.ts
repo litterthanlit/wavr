@@ -85,7 +85,7 @@ describe("preset catalog", () => {
   });
 
   it("lists its categories in display order", () => {
-    expect(PRESET_CATEGORIES.map((category) => category.id)).toEqual(["lightFields", "light"]);
+    expect(PRESET_CATEGORIES.map((category) => category.id)).toEqual(["lightFields", "light", "print"]);
     // The catalogue is grouped: each category's presets sit together, in category order.
     const order = PRESET_CATEGORIES.map((category) => category.id);
     const indexes = PRESET_CATALOG.map((entry) => order.indexOf(entry.category));

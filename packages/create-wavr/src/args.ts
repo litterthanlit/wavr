@@ -24,6 +24,9 @@ export const PRESETS = [
   "midnightFoil",
   "lightLeak",
   "violetLeak",
+  "paper",
+  "indigoPrint",
+  "rosePrint",
 ] as const;
 export type PresetId = (typeof PRESETS)[number];
 

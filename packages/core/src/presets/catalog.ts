@@ -1,8 +1,9 @@
 import { GradientConfig } from "../types";
 import * as lightFields from "./light-fields";
 import * as light from "./light";
+import * as print from "./print";
 
-export type PresetCategory = "lightFields" | "light";
+export type PresetCategory = "lightFields" | "light" | "print";
 
 export interface PresetEntry {
   /** Export name in @wavr/core/presets. */
@@ -16,6 +17,7 @@ export interface PresetEntry {
 export const PRESET_CATEGORIES: { id: PresetCategory; label: string }[] = [
   { id: "lightFields", label: "Light fields" },
   { id: "light", label: "Light" },
+  { id: "print", label: "Print" },
 ];
 
 /** Every preset with its display name, in display order. */
@@ -42,4 +44,7 @@ export const PRESET_CATALOG: PresetEntry[] = [
   { id: "midnightFoil", name: "Midnight foil", category: "light", config: light.midnightFoil },
   { id: "lightLeak", name: "Light leak", category: "light", config: light.lightLeak },
   { id: "violetLeak", name: "Violet leak", category: "light", config: light.violetLeak },
+  { id: "paper", name: "Paper", category: "print", config: print.paper },
+  { id: "indigoPrint", name: "Indigo print", category: "print", config: print.indigoPrint },
+  { id: "rosePrint", name: "Rose print", category: "print", config: print.rosePrint },
 ];
