@@ -38,6 +38,8 @@ export const PRESET_CATALOG: PresetEntry[] = [
   { id: "roseSmoke", name: "Rose smoke", category: "light", config: light.roseSmoke },
   { id: "plasmaOrb", name: "Orb", category: "light", config: light.plasmaOrb },
   { id: "limeOrb", name: "Lime orb", category: "light", config: light.limeOrb },
+  { id: "flow", name: "Flow", category: "light", config: light.flow },
+  { id: "pulse", name: "Pulse", category: "light", config: light.pulse },
   { id: "iridescentFoil", name: "Iridescent foil", category: "light", config: light.iridescentFoil },
   { id: "midnightFoil", name: "Midnight foil", category: "light", config: light.midnightFoil },
   { id: "lightLeak", name: "Light leak", category: "light", config: light.lightLeak },

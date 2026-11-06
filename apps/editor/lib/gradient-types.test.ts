@@ -57,10 +57,10 @@ describe("gradient types", () => {
   it("the Look grid shows the light fields, then the light modes, then the uploaded picture", () => {
     expect(GRADIENT_OPTIONS.map((option) => option.value)).toEqual([
       "aperture", "halo", "corona", "lightWall",
-      "horizonGlow", "lightLeak", "liquidChrome", "iridescentFoil", "inkSmoke", "plasmaOrb",
+      "horizonGlow", "lightLeak", "liquidChrome", "iridescentFoil", "inkSmoke", "plasmaOrb", "flow", "pulse",
       "image",
     ]);
-    for (const option of GRADIENT_OPTIONS.slice(4, 10)) expect(isLightGradientType(option.value), option.value).toBe(true);
+    for (const option of GRADIENT_OPTIONS.slice(4, 12)) expect(isLightGradientType(option.value), option.value).toBe(true);
   });
 
   it("each look says what it is, and the light fields how they read their stops", () => {
@@ -138,6 +138,8 @@ describe("gradient types", () => {
       halo: 24,
       lightWall: 25,
       corona: 26,
+      flow: 27,
+      pulse: 28,
     });
   });
 

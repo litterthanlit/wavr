@@ -112,6 +112,34 @@ export const limeOrb: GradientConfig = {
   }],
 };
 
+export const flow: GradientConfig = {
+  layers: [{
+    type: "flow",
+    colors: LIGHT_GRADIENT_PALETTES.flow,
+    speed: 0.6,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.4,
+    softness: 0.5,
+  }],
+  grain: 0.04,
+  vignette: 0.2,
+};
+
+// At speed 1 it breathes about every 4.5 s.
+export const pulse: GradientConfig = {
+  layers: [{
+    type: "pulse",
+    colors: LIGHT_GRADIENT_PALETTES.pulse,
+    speed: 1,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.4,
+    softness: 0.5,
+  }],
+  grain: 0.04,
+};
+
 // Its stops are shadow, then the film colours, then the pearl highlight.
 export const iridescentFoil: GradientConfig = {
   layers: [{

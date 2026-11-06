@@ -68,6 +68,16 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
     description: "A soft round glow whose colours drift and melt into the dark. Colours run from the dark to the brightest light.",
   },
   {
+    value: "flow",
+    label: "Flow",
+    description: "Ribbons of coloured light streaming across the frame like silk in a slow current. Colours run from the deepest fold to the brightest crest.",
+  },
+  {
+    value: "pulse",
+    label: "Pulse",
+    description: "A breathing light whose swells of colour roll out from the centre and fade. Colours run from the dark room to the brightest beat.",
+  },
+  {
     value: "image",
     label: "Image",
     description: "A picture you upload. The pointer warps it and the effects finish it.",

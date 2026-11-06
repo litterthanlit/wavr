@@ -14,7 +14,7 @@ export type MaskBlendMode = "union" | "subtract" | "intersect" | "smoothUnion";
 export type TextMaskAlign = "left" | "center" | "right";
 export type GradientType =
   | "image" | "liquidChrome" | "iridescentFoil"
-  | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb"
+  | "horizonGlow" | "lightLeak" | "inkSmoke" | "plasmaOrb" | "flow" | "pulse"
   | "aperture" | "halo" | "corona" | "lightWall";
 
 /** The RGB space colour values are read in and the canvas presents in. */

@@ -136,6 +136,8 @@ export const GRADIENT_TYPE_IDS: Readonly<Record<LayerParams["gradientType"], num
   halo: 24,
   lightWall: 25,
   corona: 26,
+  flow: 27,
+  pulse: 28,
 };
 
 const IMAGE_BLEND_MODE_MAP: Record<ImageBlendMode, number> = {

@@ -13,6 +13,8 @@ export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "horizonGlow", label: "Horizon glow" },
   { id: "inkSmoke", label: "Ink smoke" },
   { id: "plasmaOrb", label: "Orb" },
+  { id: "flow", label: "Flow" },
+  { id: "pulse", label: "Pulse" },
   { id: "iridescentFoil", label: "Iridescent foil" },
   { id: "lightLeak", label: "Light leak" },
 ];
