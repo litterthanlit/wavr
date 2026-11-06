@@ -27,7 +27,7 @@ export const wavrConfig: GradientConfig = {
 
 Every type but `image` is light. Earlier types (`mesh`, `aurora`, `silk` and the rest) were removed; a config that names one opens as `lightWall`, so don't write them.
 
-Light modes: `liquidChrome` `horizonGlow` `inkSmoke` `plasmaOrb` `iridescentFoil` `lightLeak`. They read the palette as light, darkest stop first and brightest last, so give them a dark-to-light palette (or start from their presets).
+Light modes: `liquidChrome` `horizonGlow` `inkSmoke` `plasmaOrb` `flow` `pulse` `iridescentFoil` `lightLeak`. `flow` is ribbons of light streaming across the frame like silk in a slow current (complexity the folds, distortion the turbulence, scale the ribbon width); `pulse` is a breathing light whose swells roll out from the centre on a beat of about 4.5 s at speed 1 (complexity how many swells show at once, scale their reach). They read the palette as light, darkest stop first and brightest last, so give them a dark-to-light palette (or start from their presets).
 
 Light fields (coloured light in a space, after light installations; mixed in linear light, so the most saturated, gallery-like looks): `aperture` (a knife-edged opening of light in a wall: first colour the wall, the rest the light from the opening's core to its rim; complexity sets the proportions, from a tall slit at 1 to a wide band at 8, distortion the haze that spills it into the room), `halo` (a loop of light in a dark room; a dark-to-light palette like the light modes), `corona` (fine streamers of light pouring out round a dark eye, as in a long exposure through ribbed glass; a dark-to-light palette; its layer reads `focus`, 0 a burst of rays round a small eye to 1 curtains hanging either side of the dark, and `fill`, 0 a few streamers to 1 a bright wash, both 0–1 and 0.5 by default; scale sizes the streamers), `lightWall` (lights drifting behind frosted glass panels: first colour the glass's glow, the rest the lights). Their presets set `toneMapMode: 0`, `colorProfile: "display-p3"` and an `hdrHeadroom` (1–2 stops), and most turn on `realBloomEnabled`; keep them when you adapt one.
 
@@ -43,7 +43,7 @@ Skip `image` unless the user supplies a texture.
 
 Light fields: `aperture` `cobaltAperture` `duskAperture` `ganzfeld` `halo` `iceHalo` `corona` `iceVeil` `lightWall` `lagoonWall`
 
-Light: `liquidChrome` `goldChrome` `horizonGlow` `iceHorizon` `inkSmoke` `roseSmoke` `plasmaOrb` `limeOrb` `iridescentFoil` `midnightFoil` `lightLeak` `violetLeak`
+Light: `liquidChrome` `goldChrome` `horizonGlow` `iceHorizon` `inkSmoke` `roseSmoke` `plasmaOrb` `limeOrb` `flow` `pulse` `iridescentFoil` `midnightFoil` `lightLeak` `violetLeak`
 
 ## Overlay-editable fields
 
