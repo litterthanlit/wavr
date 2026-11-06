@@ -20,6 +20,8 @@ export const PRESETS = [
   "roseSmoke",
   "plasmaOrb",
   "limeOrb",
+  "flow",
+  "pulse",
   "iridescentFoil",
   "midnightFoil",
   "lightLeak",

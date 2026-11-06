@@ -17,6 +17,8 @@ import {
   roseSmoke as coreRoseSmoke,
   plasmaOrb as corePlasmaOrb,
   limeOrb as coreLimeOrb,
+  flow as coreFlow,
+  pulse as corePulse,
   iridescentFoil as coreIridescentFoil,
   midnightFoil as coreMidnightFoil,
   lightLeak as coreLightLeak,
@@ -42,6 +44,8 @@ export const inkSmoke = coreInkSmoke as GradientConfig;
 export const roseSmoke = coreRoseSmoke as GradientConfig;
 export const plasmaOrb = corePlasmaOrb as GradientConfig;
 export const limeOrb = coreLimeOrb as GradientConfig;
+export const flow = coreFlow as GradientConfig;
+export const pulse = corePulse as GradientConfig;
 export const iridescentFoil = coreIridescentFoil as GradientConfig;
 export const midnightFoil = coreMidnightFoil as GradientConfig;
 export const lightLeak = coreLightLeak as GradientConfig;

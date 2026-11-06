@@ -21,9 +21,10 @@
 // Light gradients
 // ============================================================
 // Light on a surface or in the dark: a mirror, a film, a planet's limb, a leak,
-// smoke, a soft orb. Their palette is a light ramp, from the deepest shadow (the
-// first stop) to the brightest light (the last), so they need a palette that
-// starts dark and ends light (their presets have one).
+// smoke, a soft orb, silk in a current, a breathing light. Their palette is a
+// light ramp, from the deepest shadow (the first stop) to the brightest light
+// (the last), so they need a palette that starts dark and ends light (their
+// presets have one).
 
 // liquidChrome: flowing mirror metal. A smooth, slow height field (domain-warped
 // simplex, a few broad folds) lit as a perfect mirror: the surface normal reflects
@@ -540,6 +541,90 @@ vec3 plasmaOrbGradient(vec2 uv, float time) {
 }
 #endif
 
+// flow: broad ribbons of coloured light streaming across the frame like silk in
+// a slow current. The ribbons are the level lines of the height across a
+// current that runs mostly left to right and bends gently, offset by a simplex
+// field domain-warped twice (the second warp reads the first); the field is
+// stretched along the current and carried along it, so the ribbons ripple and
+// fold as they stream through the frame. The level goes to the palette through
+// pingPong, the deep stops in the troughs; a slower field picks which ribbons
+// burn brightest, and their crests get a soft lift of light toward white.
+// Scale is the ribbon width, complexity the number of folds, distortion the
+// turbulence of the warp, softness the softness of the ribbons' edges.
+#if WAVR_GRADIENT == 27
+vec3 flowGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv) / u_scale;
+  // The current's heading bends across the frame, and the bends drift.
+  float bend = 0.18 * sin(p.x * 1.4 - time * 0.13) + 0.1 * sin(p.x * 0.6 + time * 0.08 + 2.0);
+  vec2 q = vec2((p.x - time * 0.1) * 0.55, p.y + bend);
+  float amt = 0.2 + 0.55 * u_distortion;
+  vec2 w1 = vec2(snoise(q * 1.1 + vec2(0.0, time * 0.04)),
+                 snoise(q * 1.1 + vec2(5.2, 1.3 - time * 0.035)));
+  vec2 w2 = vec2(snoise(q * 1.1 + amt * w1 + vec2(1.7, 9.2 + time * 0.03)),
+                 snoise(q * 1.1 + amt * w1 + vec2(8.3, 2.8 - time * 0.025)));
+  float h = q.y + (0.12 + 0.12 * u_distortion) * snoise(q * 0.9 + amt * w2);
+  float folds = 1.5 + 0.7 * u_complexity;
+  // The smoothstep rounds pingPong's fold, which the curve below would sharpen
+  // into a hairline along every crest.
+  float t = smoothstep(0.0, 1.0, pingPong(h * folds + 0.3));
+  // Low softness gathers each ribbon toward its crest, so its edges fall off faster.
+  t = pow(t, mix(2.2, 1.3, u_softness));
+  float glow = smoothstep(-0.6, 0.6, snoise(vec2(q.x * 0.6 + 3.0, h * 0.7 - time * 0.03)));
+  t *= 0.62 + 0.38 * glow;
+  vec3 col = getGradientColor(t);
+  float crest = smoothstep(0.85, 1.0, t);
+  col += crest * crest * 0.3 * mix(getGradientColor(1.0), vec3(1.0), 0.5);
+  return col;
+}
+#endif
+
+// pulse: a breathing light in a dark room. Swells of colour roll out from a
+// slowly drifting centre on a slow beat (about 4.5 s at speed 1) and fade as
+// they travel. The beat is a smoothed sawtooth, a soft attack and a long
+// release with no corner in value or slope, and each swell carries it outward:
+// at radius r the light is the beat as it was r / (swell speed) ago, so a
+// swell's outer edge is its attack and its inner tail the release. The light
+// goes to the palette like a heat ramp, the first stop where there is none.
+// The radial field is warped by slow noise so the swells are organic, not
+// circles. Scale is the reach, complexity how many swells are visible at once,
+// distortion how organic the rings are, softness how soft they are.
+#if WAVR_GRADIENT == 28
+// A smoothed falling sawtooth in 0..1 (period 1): sum of a^n sin(2 pi n x) / n.
+// a < 1 rounds its jump into a fast, smooth rise.
+float pulseBeat(float x, float a) {
+  float th = 6.2831853 * x;
+  return 0.5 + 0.5 * atan(a * sin(th), 1.0 - a * cos(th)) / asin(a);
+}
+#endif
+
+#if WAVR_GRADIENT == 28
+vec3 pulseGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv);
+  vec2 c = vec2(0.07 * sin(time * 0.13), 0.05 * cos(time * 0.11 + 1.0));
+  // In reaches: the light has faded to 1/e one reach out.
+  vec2 d = (p - c) / (0.42 * u_scale);
+  float wob = 0.1 + 0.4 * u_distortion;
+  d += wob * vec2(snoise(d * 0.6 + vec2(0.0, time * 0.04)),
+                  snoise(d * 0.6 + vec2(5.2, 1.3 - time * 0.04)));
+  float r = length(d);
+  float lambda = 1.0 / (0.4 + 0.4 * u_complexity);
+  float a = mix(0.9, 0.4, u_softness);
+  // Rounded at the centre, so a new swell is born as a broad bloom, not a point.
+  float rs = sqrt(r * r + 0.09) - 0.3;
+  float swell = pow(pulseBeat(time / 4.5 - rs / lambda, a), mix(2.6, 1.3, u_softness));
+  float centreBeat = pulseBeat(time / 4.5, a);
+  float fade = exp(-r);
+  float core = exp(-r * r / 0.08) * (0.3 + 0.6 * centreBeat);
+  // The swells only carry light outward; the breath lifts the whole room on the beat.
+  float breath = 0.7 + 0.45 * centreBeat;
+  float I = (2.0 * fade * swell + 0.12 * fade + core) * breath;
+  float t = 1.0 - exp(-1.1 * I);
+  vec3 col = getGradientColor(t);
+  vec3 hot = mix(getGradientColor(1.0), vec3(1.0), 0.6);
+  return mix(col, hot, smoothstep(2.0, 3.4, I));
+}
+#endif
+
 // ============================================================
 // Light fields
 // ============================================================
@@ -946,6 +1031,10 @@ vec3 computeGradient(vec2 uv, float time) {
   return lightWallGradient(uv, time);
 #elif WAVR_GRADIENT == 26
   return coronaGradient(uv, time);
+#elif WAVR_GRADIENT == 27
+  return flowGradient(uv, time);
+#elif WAVR_GRADIENT == 28
+  return pulseGradient(uv, time);
 #else
 #error Unknown WAVR_GRADIENT
 #endif
