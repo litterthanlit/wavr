@@ -8,11 +8,11 @@
 > maintain the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat e7b88af..HEAD -- packages/core/src/engine.ts apps/editor/lib/portable-runtime.ts apps/editor/lib/portable-runtime.test.ts CLAUDE.md`
+> `git diff --stat 8409970..HEAD -- packages/core/src/engine.ts apps/editor/lib/portable-runtime.ts apps/editor/lib/portable-runtime.test.ts CLAUDE.md`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition. (Plan 001 edits `CLAUDE.md` in a
-> different section; that is not a mismatch.)
+> mismatch, treat it as a STOP condition. (Plan 001 has landed; this plan was
+> refreshed against it.)
 
 ## Status
 
@@ -21,7 +21,7 @@
 - **Risk**: LOW
 - **Depends on**: none (independent of plan 001; either order)
 - **Category**: bug
-- **Planned at**: commit `e7b88af`, 2026-11-10
+- **Planned at**: commit `8409970`, 2026-11-10 (written against `e7b88af`; line numbers refreshed after plan 001 landed, nothing else changed)
 
 ## Why this matters
 
@@ -51,9 +51,9 @@ counting script are `plans/assets/002-resize-repro.html` and
 
 ## Current state
 
-Excerpts are from commit `e7b88af`.
+Excerpts are from commit `8409970`.
 
-- `packages/core/src/engine.ts:1023-1034` — `resize()` sets the size and does
+- `packages/core/src/engine.ts:1024-1035` — `resize()` sets the size and does
   not draw:
 
   ```ts
@@ -77,7 +77,7 @@ Excerpts are from commit `e7b88af`.
   `apps/editor/app/embed/page.tsx:46-68`,
   `packages/preview/src/preview.ts:43-54`. Fixing `resize()` fixes all four.
 
-- The render loop (`engine.ts:2297-2326`) redraws a paused scene only for a
+- The render loop (`engine.ts:2298-2327`) redraws a paused scene only for a
   new state or a moving pointer, so nothing repaints a paused canvas after a
   resize:
 
@@ -88,7 +88,7 @@ Excerpts are from commit `e7b88af`.
         if (state !== lastPausedState || this.isPointerAnimating(state)) {
   ```
 
-- **The precedent to copy**, `engine.ts:2190-2201`. `setHdrOutput()` draws the
+- **The precedent to copy**, `engine.ts:2191-2202`. `setHdrOutput()` draws the
   last state again at once, and swallows a draw error because the render loop
   reports it:
 
@@ -107,12 +107,12 @@ Excerpts are from commit `e7b88af`.
   }
   ```
 
-  `captureImageData()` (`engine.ts:2545-2550`) knows the same fact:
+  `captureImageData()` (`engine.ts:2546-2551`) knows the same fact:
   "Resizing cleared the visible canvas; redraw it so a paused editor isn't
   left blank until the next state change."
 
-- `this.lastState` (`engine.ts:2399`) is the state of the most recent
-  `render()` call; `render()` sets it on entry (`engine.ts:2036`). It is
+- `this.lastState` (`engine.ts:2400`) is the state of the most recent
+  `render()` call; `render()` sets it on entry (`engine.ts:2037`). It is
   `null` until the first frame.
 
 - `apps/editor/lib/portable-runtime.ts:272-303` — the runtime that code

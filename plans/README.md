@@ -13,10 +13,37 @@ and update your row when done.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| [001](001-cove-light-field.md) | Wavr has a Cove look: a frame lit from its edges round a dark core | P1 | M | — | TODO |
+| [001](001-cove-light-field.md) | Wavr has a Cove look: a frame lit from its edges round a dark core | P1 | M | — | DONE (commits `535fe3f`, `3fdc3cc`, `8409970`; reviewed) |
 | [002](002-redraw-on-resize.md) | A Wavr canvas never shows a blank frame while it is resized | P1 | S | — | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned)
+
+## Execution log
+
+- **001, 2026-11-10: DONE.** Executed in an isolated worktree and reviewed:
+  all 25 changed files are in scope; the shader in `gradients.glsl` is
+  byte-identical to the plan's and the GLSL change is purely additive; lint,
+  tests and build pass; every existing type and fixture renders 0/255
+  different (20 images); both presets pass the luminance check (`cove`
+  0.641 0.486 0.301 0.167 0.093 0.038, the prototype's numbers to three
+  decimals); the code export matches the engine to 0.02/255; the parity
+  harness passes (23 tests). Not yet seen on a real GPU, with bloom, or on an
+  HDR display: see the plan's maintenance notes.
+- What the run taught, for later plans:
+  - `pnpm test:parity` does not find `/opt/pw-browsers/chromium` by itself
+    (its Playwright config reads only `CHROMIUM_PATH`). Run it as
+    `CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm test:parity` where
+    Playwright's own browser is not installed. Plan 001's command table was
+    wrong about this.
+  - `pnpm test:parity` empties `test-results/` (it is Playwright's output
+    directory). Run it last, or keep snapshot output elsewhere.
+  - Plan 001's check `grep -c "cove" CLAUDE.md` expects 3 but counts lines;
+    the three edits sit on one line, so it prints 1. The edits are right.
+  - `pnpm lint`, `pnpm test` and `pnpm build` go through Turborepo, which
+    replays a cached result when nothing a task reads has changed (`cache
+    hit` in the output).
+- Plan 002 was refreshed after 001 landed: one line added to `engine.ts`
+  moved its line references down by one. Its excerpts still match the code.
 
 ## Dependency notes
 
