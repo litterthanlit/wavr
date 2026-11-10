@@ -6,6 +6,8 @@ export const PRESETS = [
   "cobaltAperture",
   "duskAperture",
   "ganzfeld",
+  "cove",
+  "emberCove",
   "halo",
   "iceHalo",
   "corona",

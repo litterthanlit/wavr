@@ -9,8 +9,9 @@ import { GradientConfig } from "../types";
 // elsewhere they show as the nearest sRGB colours. On an HDR screen their
 // light shines brighter than white (hdrHeadroom), by as much as the frame
 // carries: a screen holds a small bright area far brighter than a full one, so
-// a loop of light in a dark room gets two stops, an opening in a wall one and
-// a half, and a room or wall of light, the whole frame, one.
+// a loop of light in a dark room gets two stops, an opening in a wall or a
+// frame lit from its edges one and a half, and a room or wall of light, the
+// whole frame, one.
 
 // A tall opening in a slate wall: pale at its edges, through magenta and
 // violet to a cornflower core.
@@ -83,6 +84,44 @@ export const ganzfeld: GradientConfig = {
   toneMapMode: 0,
   colorProfile: "display-p3",
   hdrHeadroom: 1,
+};
+
+// Light pouring in from every edge of the frame round a navy core: pools of
+// cobalt, violet and periwinkle drifting under a pale rose rim. No grain and
+// no bloom: the smoothness is the look.
+export const cove: GradientConfig = {
+  layers: [{
+    type: "cove",
+    colors: LIGHT_FIELD_PALETTES.cove,
+    speed: 0.5,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.5,
+  }],
+  grain: 0,
+  toneMapMode: 0,
+  colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
+  realBloomEnabled: false,
+};
+
+// The cove at dusk: ember, amber and rose light round a dark core.
+export const emberCove: GradientConfig = {
+  layers: [{
+    type: "cove",
+    colors: [[0.06, 0.02, 0.03], [0.95, 0.25, 0.12], [1, 0.5, 0.15], [0.85, 0.15, 0.35], [1, 0.92, 0.8]],
+    speed: 0.4,
+    complexity: 4,
+    scale: 1,
+    distortion: 0.6,
+    softness: 0.6,
+  }],
+  grain: 0,
+  toneMapMode: 0,
+  colorProfile: "display-p3",
+  hdrHeadroom: 1.5,
+  realBloomEnabled: false,
 };
 
 // A loop of rose light in a dark, hazy room; its ends burn white.

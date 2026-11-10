@@ -24,6 +24,8 @@ export const PRESET_CATALOG: PresetEntry[] = [
   { id: "cobaltAperture", name: "Cobalt aperture", category: "lightFields", config: lightFields.cobaltAperture },
   { id: "duskAperture", name: "Dusk aperture", category: "lightFields", config: lightFields.duskAperture },
   { id: "ganzfeld", name: "Ganzfeld", category: "lightFields", config: lightFields.ganzfeld },
+  { id: "cove", name: "Cove", category: "lightFields", config: lightFields.cove },
+  { id: "emberCove", name: "Ember cove", category: "lightFields", config: lightFields.emberCove },
   { id: "halo", name: "Halo", category: "lightFields", config: lightFields.halo },
   { id: "iceHalo", name: "Ice halo", category: "lightFields", config: lightFields.iceHalo },
   { id: "corona", name: "Corona", category: "lightFields", config: lightFields.corona },
