@@ -629,7 +629,8 @@ vec3 pulseGradient(vec2 uv, float time) {
 // Light fields
 // ============================================================
 // Coloured light in a space, after light installations: an opening of light in
-// a wall, a luminous ring in the dark, a backlit wall. These add light rather
+// a wall, a frame lit from its edges, a luminous ring in the dark, a backlit
+// wall. These add light rather
 // than walk a palette: they work in linear light, where light sums, blurs and
 // spills as it does in a room (common.glsl, "Light"), and every glow is in
 // closed form (blurredBox(), exponentials) rather than a blur pass, so it is
@@ -988,6 +989,98 @@ vec3 lightWallGradient(vec2 uv, float time) {
 }
 #endif
 
+// Cove: light pouring into the frame from behind its edges, as cove lighting
+// washes a room, round a dark core. The first stop is the dark the light falls
+// into and the last the rim, the pale light right at the edge; the stops
+// between are the coloured lights: soft pools that drift round the frame just
+// inside its edges, passing each other, and tint the edge light where they
+// are. Light comes in from all four edges and falls off exponentially, with no
+// crease along the diagonals, and it exposes the frame as light does film, so
+// it pales toward the rim instead of clipping. The frame is the canvas itself,
+// whatever its shape: every length is a share of its shorter side, so a wide
+// banner, a square and a tall card are the same room. Softness is the reach
+// of the edge light, from a thin rim to light that fills the frame, and the
+// size of the pools. Distortion lets the light wander: the pools shine into
+// the frame, the edge light reaches further in some places than others and
+// the rim is paler along some stretches, so the core drifts and changes
+// shape; at 0 the frame is evenly lit. Complexity adds pools. Scale sizes the
+// frame of light against the canvas: above 1 its edges lie outside and only
+// their glow reaches in; below 1 it sits inside a margin of the rim's light.
+#if WAVR_GRADIENT == 29
+// The light an edge sends to a point `inset` inside it (negative outside),
+// falling to 1/e every `reach`. Outside the frame it levels off at 1 without a
+// corner (a softplus of the inset), so nothing shows where the frame ends.
+float coveEdge(float inset, float reach) {
+  float k = 0.25 * reach;
+  float depth = max(inset, 0.0) + k * log(1.0 + exp(-abs(inset) / k));
+  return exp(-depth / reach);
+}
+
+// The light of all four edges at `p`: their root sum of squares, which is the
+// one edge's light beside an edge, 1.4 of it in a corner (two edges light it,
+// but each from the side), and smooth everywhere between.
+float coveLight(vec2 p, vec2 halfSize, float reach) {
+  vec4 e = vec4(coveEdge(halfSize.x + p.x, reach), coveEdge(halfSize.x - p.x, reach),
+                coveEdge(halfSize.y + p.y, reach), coveEdge(halfSize.y - p.y, reach));
+  return sqrt(dot(e, e));
+}
+#endif
+
+#if WAVR_GRADIENT == 29
+vec3 coveGradient(vec2 uv, float time) {
+  vec2 p = centeredUV(uv);
+  vec2 halfSize = vec2(0.5 * u_resolution.x / u_resolution.y, 0.5) * u_scale;
+  // One unit is the frame's shorter half side.
+  float unit = max(min(halfSize.x, halfSize.y), 1e-3);
+  float soft = clamp(u_softness, 0.0, 1.0);
+  float wander = clamp(u_distortion, 0.0, 1.0);
+  int last = max(u_colorCount - 1, 0);
+  int first = min(1, last);
+  int lights = max(last - first, 1);
+
+  // The pools: each circles the frame at its own pace, alternate ones the
+  // other way, on an ellipse along the edges.
+  int n = clamp(int(u_complexity) + 2, 3, 10);
+  vec3 pools = vec3(0.0);
+  vec3 tint = vec3(0.0);
+  float total = 0.0;
+  for (int i = 0; i < 10; i++) {
+    if (i >= n) break;
+    float fi = float(i);
+    vec2 h = hash22(vec2(fi, 4.3));
+    float dir = mod(fi, 2.0) < 1.0 ? 1.0 : -0.8;
+    float a = 6.28318 * (fi + 0.5 * h.x) / float(n)
+            + dir * time * (0.05 + 0.04 * h.y) + 0.4 * sin(time * 0.07 + fi * 1.9);
+    vec2 c = halfSize * (0.86 + 0.2 * h.y) * vec2(cos(a), sin(a));
+    vec2 d = (p - c) / (unit * mix(0.36, 0.66, soft) * (0.8 + 0.4 * h.x));
+    float g = exp(-dot(d, d));
+    vec3 col = srgbToLinear(u_colors[min(first + i % lights, last)]);
+    pools += col * g;
+    // The edge light takes the colour of the pools near it (and of all of
+    // them, a little, so it never runs out of colour between two).
+    tint += col * (g + 0.05);
+    total += g + 0.05;
+  }
+  tint /= total;
+
+  // The edge light. Its reach breathes, and wanders with a slow, broad field;
+  // a second field makes it brighter along some stretches of the frame than
+  // others, the pale light at the rim most of all.
+  vec2 q = p / unit;
+  float n1 = snoise(q * 0.3 + vec2(time * 0.06, -time * 0.05));
+  float n2 = snoise(q * 0.3 + vec2(5.2 - time * 0.055, 1.3 + time * 0.06));
+  float reach = unit * mix(0.08, 0.42, soft)
+              * (1.0 + 0.06 * sin(time * 0.21))
+              * (1.0 + 0.45 * wander * n1);
+  float body = coveLight(p, halfSize, reach) * exp(0.35 * wander * n2);
+  float lip = coveLight(p, halfSize, 0.38 * reach) * exp(0.9 * wander * n2);
+
+  // Exposure: light adds without limit and the frame takes it up as film does.
+  vec3 light = tint * 2.9 * body + pools * 0.8 * wander + srgbToLinear(u_colors[last]) * 1.4 * lip;
+  return lightToDisplay(srgbToLinear(u_colors[0]) + (1.0 - exp(-light)) * framePeak());
+}
+#endif
+
 // ============================================================
 // Image Gradient (type 8) — samples uploaded texture
 // ============================================================
@@ -1035,6 +1128,8 @@ vec3 computeGradient(vec2 uv, float time) {
   return flowGradient(uv, time);
 #elif WAVR_GRADIENT == 28
   return pulseGradient(uv, time);
+#elif WAVR_GRADIENT == 29
+  return coveGradient(uv, time);
 #else
 #error Unknown WAVR_GRADIENT
 #endif
