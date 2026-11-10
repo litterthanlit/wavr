@@ -1,0 +1,52 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: #ffffff; }
+  #box { position: absolute; left: 20px; top: 20px; width: 200px; height: 120px; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+<div id="box"><canvas id="c"></canvas></div>
+<script>
+// The pattern of GradientEngine.resize() + startLoop() and of the surfaces that
+// call them (WavrGradient.tsx, Canvas.tsx, /embed, @wavr/preview): the render
+// loop draws on requestAnimationFrame, and a ResizeObserver sets the canvas's
+// width and height. ?mode=redraw draws again right after resizing.
+const mode = new URLSearchParams(location.search).get("mode") || "engine";
+const box = document.getElementById("box");
+const canvas = document.getElementById("c");
+const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: false });
+const render = () => {
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.clearColor(0.1, 0.2, 0.9, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+};
+const resize = (width, height) => {
+  const w = Math.max(1, Math.floor(width)), h = Math.max(1, Math.floor(height));
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  gl.viewport(0, 0, canvas.width, canvas.height);
+};
+new ResizeObserver(([entry]) => {
+  resize(entry.contentRect.width, entry.contentRect.height);
+  if (mode === "redraw") render();
+}).observe(box);
+const loop = () => { requestAnimationFrame(loop); render(); };
+loop();
+
+// The host page morphs the container every frame, as the reference card does.
+window.morphing = false;
+let start = 0;
+const morph = (now) => {
+  if (!window.morphing) return;
+  const t = (now - start) / 1000;
+  box.style.width = 200 + 150 * (0.5 - 0.5 * Math.cos(t * 3)) + "px";
+  box.style.height = 120 + 100 * (0.5 - 0.5 * Math.cos(t * 2.3)) + "px";
+  requestAnimationFrame(morph);
+};
+window.startMorph = () => { window.morphing = true; start = performance.now(); requestAnimationFrame(morph); };
+window.stopMorph = () => { window.morphing = false; };
+// Open with ?morph=1 to watch it: ?mode=engine&morph=1 flickers, ?mode=redraw&morph=1 is steady.
+if (new URLSearchParams(location.search).get("morph") === "1") window.startMorph();
+</script>

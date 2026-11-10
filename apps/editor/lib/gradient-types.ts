@@ -23,6 +23,11 @@ export const GRADIENT_OPTIONS: GradientOption[] = [
     description: `An opening of light in a wall. ${LIGHT_FIELD_PALETTE_ROLES.aperture}`,
   },
   {
+    value: "cove",
+    label: "Cove",
+    description: `Light pouring in from every edge of the frame round a dark core. ${LIGHT_FIELD_PALETTE_ROLES.cove}`,
+  },
+  {
     value: "halo",
     label: "Halo",
     description: "A ring of light in a dark room. Colours run from the room to the hottest light.",

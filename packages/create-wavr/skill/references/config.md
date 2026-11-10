@@ -29,7 +29,7 @@ Every type but `image` is light. Earlier types (`mesh`, `aurora`, `silk` and the
 
 Light modes: `liquidChrome` `horizonGlow` `inkSmoke` `plasmaOrb` `flow` `pulse` `iridescentFoil` `lightLeak`. `flow` is ribbons of light streaming across the frame like silk in a slow current (complexity the folds, distortion the turbulence, scale the ribbon width); `pulse` is a breathing light whose swells roll out from the centre on a beat of about 4.5 s at speed 1 (complexity how many swells show at once, scale their reach). They read the palette as light, darkest stop first and brightest last, so give them a dark-to-light palette (or start from their presets).
 
-Light fields (coloured light in a space, after light installations; mixed in linear light, so the most saturated, gallery-like looks): `aperture` (a knife-edged opening of light in a wall: first colour the wall, the rest the light from the opening's core to its rim; complexity sets the proportions, from a tall slit at 1 to a wide band at 8, distortion the haze that spills it into the room), `halo` (a loop of light in a dark room; a dark-to-light palette like the light modes), `corona` (fine streamers of light pouring out round a dark eye, as in a long exposure through ribbed glass; a dark-to-light palette; its layer reads `focus`, 0 a burst of rays round a small eye to 1 curtains hanging either side of the dark, and `fill`, 0 a few streamers to 1 a bright wash, both 0–1 and 0.5 by default; scale sizes the streamers), `lightWall` (lights drifting behind frosted glass panels: first colour the glass's glow, the rest the lights). Their presets set `toneMapMode: 0`, `colorProfile: "display-p3"` and an `hdrHeadroom` (1–2 stops), and most turn on `realBloomEnabled`; keep them when you adapt one.
+Light fields (coloured light in a space, after light installations; mixed in linear light, so the most saturated, gallery-like looks): `aperture` (a knife-edged opening of light in a wall: first colour the wall, the rest the light from the opening's core to its rim; complexity sets the proportions, from a tall slit at 1 to a wide band at 8, distortion the haze that spills it into the room), `cove` (light pouring in from every edge of the frame round a dark core, the look of a softly glowing card or button: first colour the dark core, the last the pale rim, the ones between the coloured lights that drift round the frame; its frame is the canvas, so it fits a banner, a square or a tall card alike; softness is how far the light reaches in, distortion how much it wanders, complexity the number of pools of colour, scale the size of the frame of light against the canvas), `halo` (a loop of light in a dark room; a dark-to-light palette like the light modes), `corona` (fine streamers of light pouring out round a dark eye, as in a long exposure through ribbed glass; a dark-to-light palette; its layer reads `focus`, 0 a burst of rays round a small eye to 1 curtains hanging either side of the dark, and `fill`, 0 a few streamers to 1 a bright wash, both 0–1 and 0.5 by default; scale sizes the streamers), `lightWall` (lights drifting behind frosted glass panels: first colour the glass's glow, the rest the lights). Their presets set `toneMapMode: 0`, `colorProfile: "display-p3"` and an `hdrHeadroom` (1–2 stops), and most turn on `realBloomEnabled`; keep them when you adapt one.
 
 Skip `image` unless the user supplies a texture.
 
@@ -41,9 +41,22 @@ Skip `image` unless the user supplies a texture.
 
 ## Presets (`@wavr/gradient/presets`)
 
-Light fields: `aperture` `cobaltAperture` `duskAperture` `ganzfeld` `halo` `iceHalo` `corona` `iceVeil` `lightWall` `lagoonWall`
+Light fields: `aperture` `cobaltAperture` `duskAperture` `ganzfeld` `cove` `emberCove` `halo` `iceHalo` `corona` `iceVeil` `lightWall` `lagoonWall`
 
 Light: `liquidChrome` `goldChrome` `horizonGlow` `iceHorizon` `inkSmoke` `roseSmoke` `plasmaOrb` `limeOrb` `flow` `pulse` `iridescentFoil` `midnightFoil` `lightLeak` `violetLeak`
+
+## A card or button of light
+
+`cove` is made for a container, not only a full-bleed hero. Give the container `position: relative`, `overflow: hidden` and its border radius, render the gradient first and the content over it:
+
+```tsx
+<div className="relative overflow-hidden rounded-3xl">
+  <WavrGradient config={cove} className="absolute inset-0" />
+  <div className="relative p-8 text-white">Autonomous demos</div>
+</div>
+```
+
+On a light page, make the palette's last colour (the rim) close to the page colour and the card melts into it. Radii up to about a quarter of the shorter side need nothing more; for a pill, raise `softness` so the rim stays even round the ends.
 
 ## Overlay-editable fields
 

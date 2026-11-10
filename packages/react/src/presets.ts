@@ -3,6 +3,8 @@ import {
   cobaltAperture as coreCobaltAperture,
   duskAperture as coreDuskAperture,
   ganzfeld as coreGanzfeld,
+  cove as coreCove,
+  emberCove as coreEmberCove,
   halo as coreHalo,
   iceHalo as coreIceHalo,
   corona as coreCorona,
@@ -30,6 +32,8 @@ export const aperture = coreAperture as GradientConfig;
 export const cobaltAperture = coreCobaltAperture as GradientConfig;
 export const duskAperture = coreDuskAperture as GradientConfig;
 export const ganzfeld = coreGanzfeld as GradientConfig;
+export const cove = coreCove as GradientConfig;
+export const emberCove = coreEmberCove as GradientConfig;
 export const halo = coreHalo as GradientConfig;
 export const iceHalo = coreIceHalo as GradientConfig;
 export const corona = coreCorona as GradientConfig;

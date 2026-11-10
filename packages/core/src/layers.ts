@@ -19,6 +19,7 @@ export function defaultSoftnessForGradientType(type: GradientType): number {
     case "halo":
     case "flow":
     case "pulse":
+    case "cove":
       return 0.5;
     case "corona":
       return 0.3;
@@ -59,6 +60,7 @@ export type LightGradientType = keyof typeof LIGHT_GRADIENT_PALETTES;
  */
 export const LIGHT_FIELD_PALETTES = {
   aperture: [[0.253, 0.261, 0.41], [0.392, 0.506, 1], [0.625, 0.509, 0.998], [0.827, 0.568, 0.998], [0.864, 0.732, 1]],
+  cove: [[0.08, 0.1, 0.32], [0.24, 0.3, 1], [0.5, 0.3, 1], [0.4, 0.42, 1], [1, 0.86, 0.95]],
   lightWall: [[0.55, 0.36, 0.85], [0.86, 0.24, 0.58], [0.82, 0.72, 1], [0.96, 0.34, 0.44], [0.93, 0.48, 0.86]],
 } satisfies Partial<Record<GradientType, [number, number, number][]>>;
 
@@ -67,6 +69,7 @@ export type LightFieldType = keyof typeof LIGHT_FIELD_PALETTES;
 /** How each light field reads its stops, for the palette editor. */
 export const LIGHT_FIELD_PALETTE_ROLES: Record<LightFieldType, string> = {
   aperture: "First colour is the wall; the rest are the light in the opening, from its core to its rim.",
+  cove: "First colour is the dark core and the last the pale rim; the ones between are the lights round the frame.",
   lightWall: "First colour is the glass's own glow; the rest are the lights behind it.",
 };
 

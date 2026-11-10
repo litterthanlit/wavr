@@ -6,6 +6,7 @@ export const presets: Record<string, GradientConfig> = allPresets;
 export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "aperture", label: "Aperture" },
   { id: "ganzfeld", label: "Ganzfeld" },
+  { id: "cove", label: "Cove" },
   { id: "halo", label: "Halo" },
   { id: "corona", label: "Corona" },
   { id: "lightWall", label: "Light wall" },

@@ -82,7 +82,7 @@ describe("rotateHue", () => {
 describe("randomLook", () => {
   it("picks from every type but image", () => {
     expect([...RANDOM_GRADIENT_TYPES].sort()).toEqual(
-      ["aperture", "corona", "flow", "halo", "horizonGlow", "inkSmoke", "iridescentFoil", "lightLeak", "lightWall", "liquidChrome", "plasmaOrb", "pulse"],
+      ["aperture", "corona", "cove", "flow", "halo", "horizonGlow", "inkSmoke", "iridescentFoil", "lightLeak", "lightWall", "liquidChrome", "plasmaOrb", "pulse"],
     );
     const picked = new Set(RANDOM_GRADIENT_TYPES.map((_, i) => randomLook(sequence((i + 0.5) / RANDOM_GRADIENT_TYPES.length, 0.3), "srgb").gradientType));
     expect([...picked].sort()).toEqual([...RANDOM_GRADIENT_TYPES].sort());
