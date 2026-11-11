@@ -5,7 +5,10 @@ on:
 
 jobs:
   parity:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which the Playwright this repo
+    # locks (1.59) can't install Chromium's system dependencies on. Unpin when
+    # Playwright is upgraded to a release that supports it.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
