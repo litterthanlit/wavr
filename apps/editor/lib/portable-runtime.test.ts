@@ -55,6 +55,7 @@ function launch(overrides: Partial<PortableState> = {}, language: PortableLangua
   const windowListeners: Record<string, Listener> = {};
   let now = 0;
   let queue: (() => void)[] = [];
+  const resizeCallbacks: (() => void)[] = [];
   const canvas = Object.assign(fake.canvas, {
     clientWidth: 640,
     clientHeight: 360,
@@ -89,6 +90,9 @@ function launch(overrides: Partial<PortableState> = {}, language: PortableLangua
     },
     devicePixelRatio: 2,
     ResizeObserver: class {
+      constructor(callback: () => void) {
+        resizeCallbacks.push(callback);
+      }
       observe() {}
       disconnect() {}
     },
@@ -114,6 +118,10 @@ function launch(overrides: Partial<PortableState> = {}, language: PortableLangua
       const due = queue;
       queue = [];
       for (const callback of due) callback();
+    },
+    /** Runs the resize observer's callback, as the browser does when the canvas's box changes. */
+    resized() {
+      for (const callback of resizeCallbacks) callback();
     },
     /** The uniforms of the latest draw. */
     last: () => fake.draws[fake.draws.length - 1]?.uniforms ?? {},
@@ -209,6 +217,18 @@ describe.each<PortableLanguage>(["js", "ts"])("generated runtime (%s)", (languag
       run.env.document.hidden = true;
       run.step(300);
       expect(run.fake.draws).toHaveLength(2);
+    });
+
+    it("draws again at once when the canvas is resized, at the size it now has", () => {
+      const run = launch({}, language);
+      run.step(100);
+      expect(run.fake.draws).toHaveLength(1);
+      // Setting a canvas's size clears it; the frame is drawn again before the browser paints.
+      Object.assign(run.canvas, { clientWidth: 320, clientHeight: 200 });
+      run.resized();
+      expect(run.fake.draws).toHaveLength(2);
+      expect(run.last()).toMatchObject({ u_resolution: [480, 300] });
+      expect(run.last().u_time).toBeCloseTo(0.1, 9);
     });
 
     it("follows the page's scroll in scroll-linked mode", () => {

@@ -275,7 +275,13 @@ ${paletteUniforms}
     canvas.height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
     gl.viewport(0, 0, canvas.width, canvas.height);
   };
-  const observer = new ResizeObserver(resize);
+  // Setting a canvas's size clears it, and the observer runs after this
+  // frame's draw: draw again at once, so a canvas that is being resized
+  // never shows a blank frame.
+  const observer = new ResizeObserver(() => {
+    resize();
+    draw();
+  });
   observer.observe(canvas);
   resize();
 ${pointer ? pointerSetup : ""}
@@ -283,6 +289,11 @@ ${pointer ? pointerSetup : ""}
   let time = 0;
   let last = performance.now();
   let lastDraw = 0;
+  const draw = () => {
+    gl.uniform1f(uTime, time);
+    gl.uniform2f(uResolution, canvas.width, canvas.height);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  };
   const render = () => {
     raf = requestAnimationFrame(render);
     const now = performance.now();
@@ -296,9 +307,7 @@ ${pointer ? pointerSetup : ""}
     } else {
       time += dt;
     }
-${pointer ? "    steer(dt);\n" : ""}    gl.uniform1f(uTime, time);
-    gl.uniform2f(uResolution, canvas.width, canvas.height);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+${pointer ? "    steer(dt);\n" : ""}    draw();
   };
   render();
 
