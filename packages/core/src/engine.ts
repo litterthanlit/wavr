@@ -1021,17 +1021,33 @@ export class GradientEngine {
     return this.renderScale;
   }
 
+  /**
+   * Sizes the canvas for a box of `width` x `height` CSS pixels. Setting a
+   * canvas's size clears it, and a ResizeObserver runs after the frame's draw
+   * and before its paint, so when the size changes the last state is drawn
+   * again at once: a canvas that is being resized (a window drag, a container
+   * that animates) never presents a blank frame, and a paused one is not left
+   * blank.
+   */
   resize(width: number, height: number) {
     const gl = this.gl;
     const dpr = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
     const nextWidth = Math.max(1, Math.floor(width * dpr));
     const nextHeight = Math.max(1, Math.floor(height * dpr));
-    if (gl.canvas.width !== nextWidth || gl.canvas.height !== nextHeight) {
+    const resized = gl.canvas.width !== nextWidth || gl.canvas.height !== nextHeight;
+    if (resized) {
       gl.canvas.width = nextWidth;
       gl.canvas.height = nextHeight;
       this.renderScaleController?.reset(performance.now());
     }
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    const state = this.lastState;
+    if (!resized || !state || gl.isContextLost()) return;
+    try {
+      this.render(state);
+    } catch {
+      // A frame that can't be drawn fails the render loop, which reports it.
+    }
   }
 
   private initFeedbackFBOs(halfFloat: boolean) {
