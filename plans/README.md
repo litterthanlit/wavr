@@ -14,7 +14,7 @@ and update your row when done.
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
 | [001](001-cove-light-field.md) | Wavr has a Cove look: a frame lit from its edges round a dark core | P1 | M | — | DONE (commits `535fe3f`, `3fdc3cc`, `8409970`; reviewed) |
-| [002](002-redraw-on-resize.md) | A Wavr canvas never shows a blank frame while it is resized | P1 | S | — | TODO |
+| [002](002-redraw-on-resize.md) | A Wavr canvas never shows a blank frame while it is resized | P1 | S | — | DONE (commits `07916f8`, `2acceab`, `5264728`; reviewed) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned)
 
@@ -44,6 +44,20 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
     hit` in the output).
 - Plan 002 was refreshed after 001 landed: one line added to `engine.ts`
   moved its line references down by one. Its excerpts still match the code.
+- **002, 2026-11-11: DONE.** Executed in an isolated worktree on top of the
+  merged Cove work and reviewed: the 5 changed files are in scope and the
+  code is the plan's; lint, tests (731 in the editor) and build pass. The new
+  tests detect the bug: with `engine.ts` put back, the engine test fails
+  ("expected 2 to be greater than 2"), and with `portable-runtime.ts` put
+  back, the runtime test fails for both languages.
+  - Checked with the real engine in a browser, which planning could not do: a
+    page that wires `createGradient` to a `ResizeObserver` as `@wavr/gradient`
+    does, showing the Cove preset in a container resized every frame, on
+    headless Chromium (SwiftShader). Built without the fix, 39 of 40
+    screenshots showed a blank canvas and a paused canvas stayed blank after
+    one resize; with the fix, 0 of 40 and the paused canvas kept its picture.
+  - Still to see by eye on a real GPU: drag the editor window's edge while
+    paused.
 
 ## Dependency notes
 
