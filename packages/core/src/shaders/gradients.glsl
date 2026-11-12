@@ -1081,84 +1081,6 @@ vec3 coveGradient(vec2 uv, float time) {
 }
 #endif
 
-// Vista: a landscape made of light, after landscape photographs: mostly muted,
-// tinted neutrals with one accent, and colour in every part of the frame. The
-// stops are the layers of the view, one band each: the first is the ground at
-// the bottom of the frame and the last the top of the sky. Where the next stop
-// up is lighter, a band is land receding into haze, with a rolling crest and
-// mist pooling under it; where it is darker, the bands melt into one another as
-// a sky does. The brightest stop is the light: a soft, low sun glow that drifts
-// along the horizon at its band. Softness is the mist, from crisp ridgelines to
-// a pure gradient. Distortion is the relief: at 0 every band is level.
-// Complexity is the roughness of the ridgelines. Scale is the width of the
-// forms.
-#if WAVR_GRADIENT == 30
-// A ridgeline: slow, broad noise along x, with finer relief on top as `rough` grows.
-float vistaRidge(float x, float seed, float time, float rough) {
-  float n = snoise(vec2(x + time, seed));
-  n += rough * 0.45 * snoise(vec2(x * 2.3 + 11.0 - time * 1.3, seed * 1.7));
-  return n;
-}
-
-float vistaLuma(vec3 c) {
-  return dot(c, vec3(0.2126, 0.7152, 0.0722));
-}
-#endif
-
-#if WAVR_GRADIENT == 30
-vec3 vistaGradient(vec2 uv, float time) {
-  vec2 p = centeredUV(uv);
-  int last = max(u_colorCount - 1, 0);
-  float bands = float(last + 1);
-  float soft = clamp(u_softness, 0.0, 1.0);
-  float relief = clamp(u_distortion, 0.0, 1.0);
-  float rough = (clamp(u_complexity, 1.0, 8.0) - 1.0) / 7.0;
-  float px = 1.0 / u_resolution.y;
-  float y = p.y + 0.5;
-  float x = p.x / u_scale;
-
-  // The brightest stop is where the light is: the low sun behind the haze.
-  float sunBand = 0.0;
-  float sunLuma = -1.0;
-  for (int i = 0; i < 8; i++) {
-    if (i > last) break;
-    float l = vistaLuma(lightStop(i, 0, last));
-    if (l > sunLuma) {
-      sunLuma = l;
-      sunBand = float(i);
-    }
-  }
-
-  // From the top of the sky down to the ground, each layer laid over the ones behind it.
-  vec3 col = lightStop(last, 0, last);
-  for (int k = 0; k < 7; k++) {
-    int i = last - 1 - k;
-    if (i < 0) break;
-    float fi = float(i);
-    float depth = fi / max(float(last) - 1.0, 1.0);
-    vec3 here = lightStop(i, 0, last);
-    vec3 behind = lightStop(i + 1, 0, last);
-    // Lighter behind: land receding into haze. Darker behind: sky deepening.
-    float land = smoothstep(0.0, 0.05, vistaLuma(behind) - vistaLuma(here));
-    float line = (fi + 1.0) / bands
-               + relief * land * mix(0.10, 0.04, depth) * vistaRidge(x * mix(0.9, 1.7, depth), fi * 7.3, time * mix(0.05, 0.015, depth), rough)
-               + relief * (1.0 - land) * 0.05 * snoise(vec2(x * 0.45 + time * 0.02, fi * 3.1 + y * 0.8));
-    float w = max(mix(mix(0.002, 0.12, soft * soft), 0.6 / bands, 1.0 - land), px);
-    float s = smoothstep(line - w, line + w, y);
-    // Below its crest a layer pales toward the one behind it, as mist pools in a valley.
-    float d = clamp((line - y) * bands, 0.0, 1.0);
-    vec3 layer = mix(here, behind, land * mix(0.12, 0.7, soft) * d);
-    col = mix(layer, col, s);
-  }
-
-  // The sun's glow, wide and low, drifting slowly along the horizon.
-  vec2 g = vec2((p.x - 0.25 * sin(time * 0.05)) / 0.55, (y - (sunBand + 0.5) / bands) / 0.16);
-  float glow = exp(-dot(g, g));
-  col += lightStop(int(sunBand), 0, last) * 0.35 * glow;
-  return lightToDisplay(col);
-}
-#endif
-
 // ============================================================
 // Image Gradient (type 8) — samples uploaded texture
 // ============================================================
@@ -1208,8 +1130,6 @@ vec3 computeGradient(vec2 uv, float time) {
   return pulseGradient(uv, time);
 #elif WAVR_GRADIENT == 29
   return coveGradient(uv, time);
-#elif WAVR_GRADIENT == 30
-  return vistaGradient(uv, time);
 #else
 #error Unknown WAVR_GRADIENT
 #endif
