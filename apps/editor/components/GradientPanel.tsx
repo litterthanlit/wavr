@@ -16,6 +16,7 @@ import { Button } from "@/components/litt/button";
 import { TextField } from "@/components/litt/input";
 import { ImageIcon, PlusIcon, XIcon } from "@/components/litt/icons";
 import LookPicker from "@/components/LookPicker";
+import PalettePicker from "@/components/PalettePicker";
 import type { MaskParams, TextMaskAlign } from "@wavr/core";
 import { GRADIENT_OPTIONS, curatedPalette } from "@/lib/gradient-types";
 import { maskMode, maskModePatch, type MaskMode } from "@/lib/layer-mask";
@@ -325,6 +326,16 @@ export default function GradientPanel() {
                 </Button>
               )}
             </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-litt-small text-litt-fg-subtle">From nature</span>
+            <PalettePicker
+              colors={colors}
+              onPick={(next) => {
+                store.setDiscrete({ colors: next });
+                setSelectedStop(0);
+              }}
+            />
           </div>
         </Section>
       )}
