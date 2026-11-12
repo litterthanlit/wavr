@@ -136,6 +136,8 @@ vec2 mouseWarpWave(vec2 uv) {
 #define WAVR_MOUSE_WARP mouseWarpLens
 #elif WAVR_GRADIENT == 29
 #define WAVR_MOUSE_WARP mouseWarpLens
+#elif WAVR_GRADIENT == 30
+#define WAVR_MOUSE_WARP mouseWarpPush
 #else
 #error No mouse warp style for this WAVR_GRADIENT
 #endif
