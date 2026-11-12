@@ -7,6 +7,7 @@ export const PRESET_OPTIONS: { id: string; label: string }[] = [
   { id: "aperture", label: "Aperture" },
   { id: "ganzfeld", label: "Ganzfeld" },
   { id: "cove", label: "Cove" },
+  { id: "vista", label: "Vista" },
   { id: "halo", label: "Halo" },
   { id: "corona", label: "Corona" },
   { id: "lightWall", label: "Light wall" },

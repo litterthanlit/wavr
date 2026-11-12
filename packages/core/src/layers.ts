@@ -20,6 +20,7 @@ export function defaultSoftnessForGradientType(type: GradientType): number {
     case "flow":
     case "pulse":
     case "cove":
+    case "vista":
       return 0.5;
     case "corona":
       return 0.3;
@@ -61,6 +62,7 @@ export type LightGradientType = keyof typeof LIGHT_GRADIENT_PALETTES;
 export const LIGHT_FIELD_PALETTES = {
   aperture: [[0.253, 0.261, 0.41], [0.392, 0.506, 1], [0.625, 0.509, 0.998], [0.827, 0.568, 0.998], [0.864, 0.732, 1]],
   cove: [[0.08, 0.1, 0.32], [0.24, 0.3, 1], [0.5, 0.3, 1], [0.4, 0.42, 1], [1, 0.86, 0.95]],
+  vista: [[0.125, 0.118, 0.137], [0.329, 0.306, 0.333], [0.537, 0.463, 0.475], [0.984, 0.541, 0.439], [0.753, 0.227, 0.227], [0.518, 0.216, 0.22]],
   lightWall: [[0.55, 0.36, 0.85], [0.86, 0.24, 0.58], [0.82, 0.72, 1], [0.96, 0.34, 0.44], [0.93, 0.48, 0.86]],
 } satisfies Partial<Record<GradientType, [number, number, number][]>>;
 
@@ -70,6 +72,7 @@ export type LightFieldType = keyof typeof LIGHT_FIELD_PALETTES;
 export const LIGHT_FIELD_PALETTE_ROLES: Record<LightFieldType, string> = {
   aperture: "First colour is the wall; the rest are the light in the opening, from its core to its rim.",
   cove: "First colour is the dark core and the last the pale rim; the ones between are the lights round the frame.",
+  vista: "Colours run from the ground at the bottom of the frame to the top of the sky; the brightest is the light at the horizon.",
   lightWall: "First colour is the glass's own glow; the rest are the lights behind it.",
 };
 

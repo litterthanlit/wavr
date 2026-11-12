@@ -124,6 +124,118 @@ export const emberCove: GradientConfig = {
   realBloomEnabled: false,
 };
 
+// Vista is the exception: its presets are sRGB with no HDR headroom. Their
+// palettes were taken from sRGB photographs of landscapes and their mutedness
+// is the point, and a vista has no separate light to raise above white. Like
+// cove, no grain and no bloom: the smoothness is the look.
+
+// A sunset over fog: grey hills fading into haze under a coral sun, the sky
+// deepening to red above it.
+export const vista: GradientConfig = {
+  layers: [{
+    type: "vista",
+    colors: LIGHT_FIELD_PALETTES.vista,
+    speed: 0.4,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.5,
+  }],
+  grain: 0,
+  toneMapMode: 0,
+  colorProfile: "srgb",
+  realBloomEnabled: false,
+};
+
+// Blue hour: a dark shore and cobalt and periwinkle haze under a pink
+// afterglow, the sky deepening to indigo.
+export const blueHourVista: GradientConfig = {
+  layers: [{
+    type: "vista",
+    colors: [[0.02, 0.043, 0.106], [0.204, 0.227, 0.667], [0.475, 0.514, 0.792], [0.851, 0.663, 0.722], [0.29, 0.341, 0.784], [0.082, 0.11, 0.431]],
+    speed: 0.4,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.5,
+  }],
+  grain: 0,
+  toneMapMode: 0,
+  colorProfile: "srgb",
+  realBloomEnabled: false,
+};
+
+// Dusk by the sea: dark olive ground and grey haze under a rose glow, the
+// sky cooling to lavender and slate blue.
+export const duskVista: GradientConfig = {
+  layers: [{
+    type: "vista",
+    colors: [[0.059, 0.071, 0.055], [0.173, 0.176, 0.129], [0.314, 0.318, 0.329], [0.824, 0.671, 0.678], [0.663, 0.639, 0.706], [0.49, 0.537, 0.639]],
+    speed: 0.4,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.5,
+  }],
+  grain: 0,
+  toneMapMode: 0,
+  colorProfile: "srgb",
+  realBloomEnabled: false,
+};
+
+// A sea of clouds: black ground, then teal and steel-blue cloud rising to a
+// warm cream sky.
+export const cloudSeaVista: GradientConfig = {
+  layers: [{
+    type: "vista",
+    colors: [[0, 0.004, 0.012], [0.016, 0.071, 0.09], [0.169, 0.388, 0.545], [0.486, 0.565, 0.667], [0.761, 0.718, 0.714], [0.996, 0.89, 0.694]],
+    speed: 0.4,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.5,
+  }],
+  grain: 0,
+  toneMapMode: 0,
+  colorProfile: "srgb",
+  realBloomEnabled: false,
+};
+
+// A misty coast: grey-green headlands fading through sea mist into a pale
+// sky.
+export const mistVista: GradientConfig = {
+  layers: [{
+    type: "vista",
+    colors: [[0.184, 0.184, 0.169], [0.357, 0.38, 0.353], [0.463, 0.514, 0.49], [0.592, 0.659, 0.651], [0.773, 0.812, 0.851], [0.918, 0.925, 0.933]],
+    speed: 0.4,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.5,
+  }],
+  grain: 0,
+  toneMapMode: 0,
+  colorProfile: "srgb",
+  realBloomEnabled: false,
+};
+
+// Dunes at dusk: slate ridges rising to pale sand under a dusky blue sky.
+export const duneVista: GradientConfig = {
+  layers: [{
+    type: "vista",
+    colors: [[0.114, 0.133, 0.18], [0.216, 0.227, 0.259], [0.282, 0.353, 0.447], [0.541, 0.565, 0.612], [0.761, 0.773, 0.792], [0.353, 0.427, 0.533]],
+    speed: 0.4,
+    complexity: 3,
+    scale: 1,
+    distortion: 0.5,
+    softness: 0.5,
+  }],
+  grain: 0,
+  toneMapMode: 0,
+  colorProfile: "srgb",
+  realBloomEnabled: false,
+};
+
 // A loop of rose light in a dark, hazy room; its ends burn white.
 export const halo: GradientConfig = {
   layers: [{
