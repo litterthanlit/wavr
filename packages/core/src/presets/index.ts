@@ -1,7 +1,5 @@
 export {
-  aperture, cobaltAperture, duskAperture, ganzfeld, cove, emberCove,
-  vista, blueHourVista, duskVista, cloudSeaVista, mistVista, duneVista,
-  halo, iceHalo, corona, iceVeil, lightWall, lagoonWall,
+  aperture, cobaltAperture, duskAperture, ganzfeld, cove, emberCove, halo, iceHalo, corona, iceVeil, lightWall, lagoonWall,
 } from "./light-fields";
 export {
   liquidChrome, goldChrome, horizonGlow, iceHorizon, inkSmoke, roseSmoke,

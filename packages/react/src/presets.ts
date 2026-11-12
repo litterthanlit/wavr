@@ -5,12 +5,6 @@ import {
   ganzfeld as coreGanzfeld,
   cove as coreCove,
   emberCove as coreEmberCove,
-  vista as coreVista,
-  blueHourVista as coreBlueHourVista,
-  duskVista as coreDuskVista,
-  cloudSeaVista as coreCloudSeaVista,
-  mistVista as coreMistVista,
-  duneVista as coreDuneVista,
   halo as coreHalo,
   iceHalo as coreIceHalo,
   corona as coreCorona,
@@ -40,12 +34,6 @@ export const duskAperture = coreDuskAperture as GradientConfig;
 export const ganzfeld = coreGanzfeld as GradientConfig;
 export const cove = coreCove as GradientConfig;
 export const emberCove = coreEmberCove as GradientConfig;
-export const vista = coreVista as GradientConfig;
-export const blueHourVista = coreBlueHourVista as GradientConfig;
-export const duskVista = coreDuskVista as GradientConfig;
-export const cloudSeaVista = coreCloudSeaVista as GradientConfig;
-export const mistVista = coreMistVista as GradientConfig;
-export const duneVista = coreDuneVista as GradientConfig;
 export const halo = coreHalo as GradientConfig;
 export const iceHalo = coreIceHalo as GradientConfig;
 export const corona = coreCorona as GradientConfig;

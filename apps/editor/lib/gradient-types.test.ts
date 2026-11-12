@@ -56,11 +56,11 @@ describe("gradient types", () => {
 
   it("the Look grid shows the light fields, then the light modes, then the uploaded picture", () => {
     expect(GRADIENT_OPTIONS.map((option) => option.value)).toEqual([
-      "aperture", "cove", "vista", "halo", "corona", "lightWall",
+      "aperture", "cove", "halo", "corona", "lightWall",
       "horizonGlow", "lightLeak", "liquidChrome", "iridescentFoil", "inkSmoke", "plasmaOrb", "flow", "pulse",
       "image",
     ]);
-    for (const option of GRADIENT_OPTIONS.slice(6, 14)) expect(isLightGradientType(option.value), option.value).toBe(true);
+    for (const option of GRADIENT_OPTIONS.slice(5, 13)) expect(isLightGradientType(option.value), option.value).toBe(true);
   });
 
   it("each look says what it is, and the light fields how they read their stops", () => {
@@ -68,7 +68,6 @@ describe("gradient types", () => {
     const description = (type: string) => GRADIENT_OPTIONS.find((option) => option.value === type)?.description;
     expect(description("aperture")).toContain(LIGHT_FIELD_PALETTE_ROLES.aperture);
     expect(description("cove")).toContain(LIGHT_FIELD_PALETTE_ROLES.cove);
-    expect(description("vista")).toContain(LIGHT_FIELD_PALETTE_ROLES.vista);
     expect(description("lightWall")).toContain(LIGHT_FIELD_PALETTE_ROLES.lightWall);
   });
 
@@ -143,7 +142,6 @@ describe("gradient types", () => {
       flow: 27,
       pulse: 28,
       cove: 29,
-      vista: 30,
     });
   });
 

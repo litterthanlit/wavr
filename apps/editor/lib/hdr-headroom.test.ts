@@ -10,17 +10,15 @@ describe("HDR headroom in the editor", () => {
     expect(useGradientStore.getState().hdrHeadroom).toBe(1.5);
   });
 
-  it("gives every light field but vista a headroom, the most where its light fills the least of the frame", () => {
+  it("gives every light field a headroom, the most where its light fills the least of the frame", () => {
     const headroom = Object.fromEntries(
-      PRESET_CATALOG.filter((preset) => preset.category === "lightFields").map((preset) => [preset.id, preset.config.hdrHeadroom ?? 0]),
+      PRESET_CATALOG.filter((preset) => preset.category === "lightFields").map((preset) => [preset.id, preset.config.hdrHeadroom]),
     );
     expect(headroom).toEqual({
       aperture: 1.5, cobaltAperture: 1.5, duskAperture: 1.5,
       ganzfeld: 1, lightWall: 1, lagoonWall: 1,
       halo: 2, iceHalo: 2, corona: 1.5, iceVeil: 1.5,
       cove: 1.5, emberCove: 1.5,
-      // Vista's palettes are muted sRGB photographs with no separate light: standard range.
-      vista: 0, blueHourVista: 0, duskVista: 0, cloudSeaVista: 0, mistVista: 0, duneVista: 0,
     });
     // Nothing else asks for HDR.
     expect(PRESET_CATALOG.filter((preset) => preset.category !== "lightFields" && preset.config.hdrHeadroom)).toEqual([]);
