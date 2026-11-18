@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+import { galleryRooms } from "./gallery";
+import { SOUND_BASE_HZ, SOUND_ROOT_RATIOS, hueOf, passageGains, roomTone, startGallerySound } from "./gallery-sound";
+
+describe("gallery sound", () => {
+  it("reads a colour's hue", () => {
+    expect(hueOf([1, 0, 0])).toBe(0);
+    expect(hueOf([0, 1, 0])).toBe(120);
+    expect(hueOf([0, 0, 1])).toBe(240);
+    expect(hueOf([1, 0, 1])).toBe(300);
+    expect(hueOf([0.4, 0.4, 0.4])).toBe(0);
+  });
+
+  it("gives a room a chord on a just root, low and never harsh", () => {
+    for (const room of galleryRooms()) {
+      const tone = roomTone(room.state.layers[0].colors);
+      const root = tone.partials[0].hz;
+      expect(SOUND_ROOT_RATIOS.map((ratio) => SOUND_BASE_HZ * ratio), room.id).toContain(root);
+      expect(tone.partials.map((p) => +(p.hz / root).toFixed(3)).slice(0, 3), room.id).toEqual([1, 1.5, 2]);
+      expect(tone.partials.reduce((sum, p) => sum + p.gain, 0), room.id).toBeCloseTo(1);
+      // Loudest at the bottom, nothing above 500 Hz, and each tone swells slower than once a second.
+      expect(tone.partials.map((p) => p.gain), room.id).toEqual([...tone.partials.map((p) => p.gain)].sort((a, b) => b - a));
+      expect(Math.max(...tone.partials.map((p) => p.hz)), room.id).toBeLessThan(500);
+      for (const p of tone.partials) expect(p.beat, room.id).toBeLessThan(1);
+      expect(tone.cutoff, room.id).toBeGreaterThanOrEqual(500);
+      expect(tone.cutoff, room.id).toBeLessThanOrEqual(2000);
+    }
+  });
+
+  it("hears the rooms differently: the programme has at least three roots", () => {
+    const roots = new Set(galleryRooms().map((room) => roomTone(room.state.layers[0].colors).partials[0].hz));
+    expect(roots.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it("tunes by the light, not the wall: warm light takes the tenth, cool light the ninth", () => {
+    const top = (colors: [number, number, number][]) => {
+      const tone = roomTone(colors);
+      return +(tone.partials[3].hz / tone.partials[0].hz).toFixed(3);
+    };
+    expect(top([[0, 0, 1], [1, 0.3, 0.1]])).toBe(2.5);
+    expect(top([[1, 0, 0], [0.1, 0.4, 1]])).toBe(2.25);
+    // One colour is its own light; the same colours are the same chord.
+    expect(roomTone([[0.1, 0.4, 1]]).partials[0].hz).toBe(roomTone([[1, 0, 0], [0.1, 0.4, 1]]).partials[0].hz);
+    expect(roomTone([[0, 0, 1], [1, 0.3, 0.1]]).key).toBe(roomTone([[0, 0, 1], [1, 0.3, 0.1]]).key);
+  });
+
+  it("a brighter room opens the filter", () => {
+    expect(roomTone([[0.9, 0.9, 1], [0.5, 0.6, 1]]).cutoff).toBeGreaterThan(roomTone([[0.02, 0.02, 0.1], [0.5, 0.6, 1]]).cutoff);
+  });
+
+  it("passes between rooms at equal power", () => {
+    expect(passageGains(0)).toEqual([1, 0]);
+    expect(passageGains(1)[1]).toBe(1);
+    expect(passageGains(1)[0]).toBeCloseTo(0);
+    for (const mix of [0, 0.2, 0.5, 0.8, 1]) {
+      const [a, b] = passageGains(mix);
+      expect(a * a + b * b).toBeCloseTo(1);
+    }
+    expect(passageGains(-1)).toEqual(passageGains(0));
+  });
+
+  it("is silent where there is no Web Audio", () => {
+    expect(startGallerySound()).toBeNull();
+  });
+});

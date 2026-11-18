@@ -1,0 +1,181 @@
+/**
+ * gallery-sound.ts — the gallery's sound: one held chord of sine tones per
+ * room, tuned from the room's colours, passing from one room's chord to the
+ * next as the picture does.
+ *
+ * Nothing is loaded or played back: the tones are Web Audio oscillators. The
+ * top half of this file is pure (colours to a chord, a passage to two gains)
+ * and tested; the bottom half builds the audio graph and needs a browser.
+ *
+ * Why sines: a room of even, slowly changing light wants a sound with no
+ * attack, no rhythm and no melody. Each tone is two oscillators a fraction of
+ * a hertz apart, so it swells and fades over seconds, as the light breathes.
+ */
+
+type Rgb = readonly [number, number, number];
+
+/** The lowest root, in hertz (A2). Every room's root is a just interval above it. */
+export const SOUND_BASE_HZ = 110;
+/** Roots by the hue of the room's light, a fifth of the wheel each: unison, major second, major third, fifth, major sixth. */
+export const SOUND_ROOT_RATIOS = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3] as const;
+/** The loudest the gallery's sound gets, as a gain (1 is full scale). */
+export const SOUND_LEVEL = 0.16;
+/** Seconds the sound takes to come up on entering, and to go on leaving. */
+export const SOUND_RISE_SECONDS = 8;
+export const SOUND_FALL_SECONDS = 1.5;
+
+export interface RoomTone {
+  /** Identifies the chord: rooms with the same one share a voice. */
+  key: string;
+  /** The tones, in hertz, with their gains (which sum to 1). */
+  partials: { hz: number; gain: number; beat: number }[];
+  /** Low-pass cutoff in hertz: a brighter room sounds brighter. */
+  cutoff: number;
+}
+
+/** Hue in degrees (0 red, 120 green, 240 blue), 0 for a grey. */
+export function hueOf([r, g, b]: Rgb): number {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max - min < 1e-6) return 0;
+  const d = max - min;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+/**
+ * The chord of a room, from its colours (the first is the room or wall, the
+ * rest its light, as the light fields read them). The light's mean hue picks
+ * the root; warm light takes a major tenth on top and cool light a ninth; the
+ * room's overall lightness opens the filter.
+ */
+export function roomTone(colors: readonly Rgb[]): RoomTone {
+  const lights = colors.length > 1 ? colors.slice(1) : colors;
+  const mean = [0, 1, 2].map((i) => lights.reduce((sum, c) => sum + c[i], 0) / Math.max(lights.length, 1)) as [number, number, number];
+  const hue = hueOf(mean);
+  const root = SOUND_BASE_HZ * SOUND_ROOT_RATIOS[Math.floor(hue / 72) % SOUND_ROOT_RATIOS.length];
+  const warm = hue < 75 || hue >= 285;
+  const lightness = colors.reduce((sum, c) => sum + (c[0] + c[1] + c[2]) / 3, 0) / Math.max(colors.length, 1);
+  const ratios = [1, 3 / 2, 2, warm ? 5 / 2 : 9 / 4];
+  const weights = [1, 0.5, 0.35, 0.2];
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  return {
+    key: `${root.toFixed(2)}-${warm ? "warm" : "cool"}-${Math.round(lightness * 20)}`,
+    partials: ratios.map((ratio, i) => ({
+      hz: root * ratio,
+      gain: weights[i] / total,
+      // How far apart the tone's two oscillators are, in hertz: one swell every 3 to 7 seconds.
+      beat: 0.14 + 0.06 * i,
+    })),
+    cutoff: 500 + 1500 * Math.min(Math.max(lightness, 0), 1),
+  };
+}
+
+/** The gains of the room being left and the room being entered at passage `mix` (0..1): equal power, so the loudness holds. */
+export function passageGains(mix: number): [number, number] {
+  const t = Math.min(Math.max(mix, 0), 1) * (Math.PI / 2);
+  return [Math.cos(t), Math.sin(t)];
+}
+
+// ---------------------------------------------------------------------------
+// The audio graph (browser only)
+// ---------------------------------------------------------------------------
+
+interface Voice {
+  gain: GainNode;
+  oscillators: OscillatorNode[];
+}
+
+export interface GallerySound {
+  /** Call every frame: the chord of the room being left, of the one being entered (or null at rest), and the passage (0..1, eased). */
+  follow(a: RoomTone, b: RoomTone | null, mix: number): void;
+  /** The tab went away or came back. */
+  setSuspended(suspended: boolean): void;
+  /** Fades out and releases the audio device. */
+  stop(): void;
+}
+
+/**
+ * Starts the gallery's sound. Call it inside a click or key handler: browsers
+ * only let a page make sound from one. Returns null where there is no Web Audio.
+ */
+export function startGallerySound(): GallerySound | null {
+  const AudioContextClass = typeof window !== "undefined" ? window.AudioContext : undefined;
+  if (!AudioContextClass) return null;
+  let context: AudioContext;
+  try {
+    context = new AudioContextClass();
+  } catch {
+    return null;
+  }
+  void context.resume().catch(() => {});
+
+  const master = context.createGain();
+  master.gain.setValueAtTime(0, context.currentTime);
+  // Up out of silence as the first room rises out of the dark.
+  master.gain.linearRampToValueAtTime(SOUND_LEVEL, context.currentTime + SOUND_RISE_SECONDS);
+  master.connect(context.destination);
+
+  const voices = new Map<string, Voice>();
+  let stopped = false;
+
+  const voiceFor = (tone: RoomTone): Voice => {
+    const existing = voices.get(tone.key);
+    if (existing) return existing;
+    const gain = context.createGain();
+    gain.gain.value = 0;
+    const filter = context.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = tone.cutoff;
+    filter.Q.value = 0.5;
+    filter.connect(gain).connect(master);
+    const oscillators: OscillatorNode[] = [];
+    for (const partial of tone.partials) {
+      for (const offset of [-partial.beat / 2, partial.beat / 2]) {
+        const oscillator = context.createOscillator();
+        oscillator.type = "sine";
+        oscillator.frequency.value = partial.hz + offset;
+        const level = context.createGain();
+        level.gain.value = partial.gain / 2;
+        oscillator.connect(level).connect(filter);
+        oscillator.start();
+        oscillators.push(oscillator);
+      }
+    }
+    const voice = { gain, oscillators };
+    voices.set(tone.key, voice);
+    return voice;
+  };
+
+  const release = (key: string, voice: Voice) => {
+    voices.delete(key);
+    voice.gain.gain.setTargetAtTime(0, context.currentTime, 0.2);
+    for (const oscillator of voice.oscillators) oscillator.stop(context.currentTime + 2);
+  };
+
+  return {
+    follow(a, b, mix) {
+      if (stopped) return;
+      const [gainA, gainB] = b && b.key !== a.key ? passageGains(mix) : [1, 0];
+      // A short time constant: follows the passage frame by frame without zipper noise.
+      voiceFor(a).gain.gain.setTargetAtTime(gainA, context.currentTime, 0.05);
+      if (b && b.key !== a.key) voiceFor(b).gain.gain.setTargetAtTime(gainB, context.currentTime, 0.05);
+      for (const [key, voice] of voices) {
+        if (key !== a.key && key !== b?.key) release(key, voice);
+      }
+    },
+    setSuspended(suspended) {
+      if (stopped) return;
+      void (suspended ? context.suspend() : context.resume()).catch(() => {});
+    },
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      const now = context.currentTime;
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(master.gain.value, now);
+      master.gain.linearRampToValueAtTime(0, now + SOUND_FALL_SECONDS);
+      window.setTimeout(() => void context.close().catch(() => {}), (SOUND_FALL_SECONDS + 0.2) * 1000);
+    },
+  };
+}
