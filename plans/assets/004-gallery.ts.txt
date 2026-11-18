@@ -1,0 +1,138 @@
+/**
+ * gallery.ts — the gallery's programme: which rooms it shows, how long it
+ * stays in each, and the frame it draws while it passes from one to the next.
+ *
+ * Pure: no React, no DOM, no clock of its own (every function takes `now`, in
+ * seconds), so the walk can be tested. `app/gallery/page.tsx` drives it.
+ *
+ * A passage draws both rooms in one frame: the room being left, with the room
+ * being entered over it at a rising opacity. One engine, one canvas, no blank
+ * frame; the engine compiles the second room's shader while the first is still
+ * on screen.
+ */
+
+import { resolveConfig, type EngineState } from "@wavr/core";
+import { PRESET_CATALOG } from "@wavr/core/presets";
+
+/** The rooms, by preset id, in the order they are walked. An id the catalogue doesn't have is skipped. */
+export const GALLERY_ROOM_IDS = [
+  "chamber", "cove", "aperture", "halo", "skyChamber",
+  "emberCove", "ganzfeld", "corona", "duskAperture", "lightWall",
+] as const;
+
+/** Seconds spent in a room before the passage to the next begins. */
+export const GALLERY_HOLD_SECONDS = 80;
+/** Seconds a passage takes when the gallery moves on by itself. */
+export const GALLERY_FADE_SECONDS = 30;
+/** Seconds a passage takes when the visitor asks for it. */
+export const GALLERY_SKIP_SECONDS = 6;
+/** Seconds the first room takes to come up out of the dark. */
+export const GALLERY_ARRIVAL_SECONDS = 8;
+
+export interface GalleryRoom {
+  id: string;
+  name: string;
+  state: EngineState;
+}
+
+/** The programme: every listed preset the catalogue has, resolved to an engine state. */
+export function galleryRooms(): GalleryRoom[] {
+  const rooms: GalleryRoom[] = [];
+  for (const id of GALLERY_ROOM_IDS) {
+    const entry = PRESET_CATALOG.find((preset) => preset.id === id);
+    if (entry) rooms.push({ id: entry.id, name: entry.name, state: resolveConfig(entry.config) });
+  }
+  return rooms;
+}
+
+/** Where the visitor is: in `room`, or passing from it to `next`. Times are seconds on the caller's clock. */
+export interface GalleryWalk {
+  room: number;
+  /** The room being entered, or null while resting in `room`. */
+  next: number | null;
+  /** When the current rest or passage began. */
+  since: number;
+  /** How long the current passage takes. */
+  fadeSeconds: number;
+}
+
+export function startWalk(now: number, room = 0): GalleryWalk {
+  return { room, next: null, since: now, fadeSeconds: GALLERY_FADE_SECONDS };
+}
+
+/** How far the current passage has come, 0..1, linear in time. 0 while resting. */
+export function passage(walk: GalleryWalk, now: number): number {
+  if (walk.next === null) return 0;
+  return Math.min(Math.max((now - walk.since) / walk.fadeSeconds, 0), 1);
+}
+
+/**
+ * The walk at `now`: a finished passage becomes a rest in the new room, and
+ * with `advance` a rest that has lasted GALLERY_HOLD_SECONDS becomes a passage
+ * to the next room. Returns the same object when nothing changed.
+ */
+export function stepWalk(walk: GalleryWalk, now: number, roomCount: number, advance: boolean): GalleryWalk {
+  if (walk.next !== null) {
+    if (now - walk.since < walk.fadeSeconds) return walk;
+    return { room: walk.next, next: null, since: walk.since + walk.fadeSeconds, fadeSeconds: GALLERY_FADE_SECONDS };
+  }
+  if (!advance || roomCount < 2 || now - walk.since < GALLERY_HOLD_SECONDS) return walk;
+  return { room: walk.room, next: (walk.room + 1) % roomCount, since: now, fadeSeconds: GALLERY_FADE_SECONDS };
+}
+
+/**
+ * The visitor asks to move on by `direction` rooms (1 or -1). At rest, a quick
+ * passage begins. During a passage the request hurries it along instead (the
+ * picture never jumps): what is left of it takes at most GALLERY_SKIP_SECONDS.
+ */
+export function skipWalk(walk: GalleryWalk, now: number, roomCount: number, direction: 1 | -1): GalleryWalk {
+  if (roomCount < 2) return walk;
+  if (walk.next === null) {
+    const next = (walk.room + direction + roomCount) % roomCount;
+    return { room: walk.room, next, since: now, fadeSeconds: GALLERY_SKIP_SECONDS };
+  }
+  if (walk.fadeSeconds <= GALLERY_SKIP_SECONDS) return walk;
+  const done = passage(walk, now);
+  return { ...walk, since: now - done * GALLERY_SKIP_SECONDS, fadeSeconds: GALLERY_SKIP_SECONDS };
+}
+
+/** Eases a passage in and out (smootherstep: no visible start or stop). */
+export function easePassage(t: number): number {
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+/** The globals a passage blends; every other one is taken from the nearer room, and must be the same in all rooms. */
+export const GALLERY_BLENDED_KEYS = ["brightness", "saturation", "grain", "vignette", "hdrHeadroom"] as const;
+
+/**
+ * The frame for a passage `mix` (0..1, already eased) of the way from `a` to
+ * `b`: `a`'s layer with `b`'s over it at opacity `mix`, the blended globals
+ * between the two, and the cinematic bloom faded by amount, never switched.
+ */
+export function blendRooms(a: EngineState, b: EngineState, mix: number): EngineState {
+  if (mix <= 0) return a;
+  if (mix >= 1) return b;
+  const frame: EngineState = { ...(mix < 0.5 ? a : b) };
+  for (const key of GALLERY_BLENDED_KEYS) frame[key] = a[key] + (b[key] - a[key]) * mix;
+  frame.layers = [
+    ...a.layers,
+    ...b.layers.map((layer) => ({ ...layer, opacity: layer.opacity * mix })),
+  ];
+  const bloomA = a.realBloomEnabled ? 1 : 0;
+  const bloomB = b.realBloomEnabled ? 1 : 0;
+  frame.realBloomEnabled = bloomA + bloomB > 0;
+  frame.realBloomAmount = bloomA + (bloomB - bloomA) * mix;
+  return frame;
+}
+
+/**
+ * What the gallery draws at `now`. `arrived` is when the visitor came in: the
+ * first room rises out of the dark over GALLERY_ARRIVAL_SECONDS. The pointer
+ * never bends the picture here, and `playing` stills it (reduced motion).
+ */
+export function galleryFrame(rooms: GalleryRoom[], walk: GalleryWalk, now: number, arrived: number, playing: boolean): EngineState {
+  const a = rooms[walk.room].state;
+  const blended = walk.next === null ? a : blendRooms(a, rooms[walk.next].state, easePassage(passage(walk, now)));
+  const risen = easePassage(Math.min(Math.max((now - arrived) / GALLERY_ARRIVAL_SECONDS, 0), 1));
+  return { ...blended, brightness: blended.brightness * risen, mouseReact: 0, playing };
+}

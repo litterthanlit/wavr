@@ -15,6 +15,11 @@ and update your row when done.
 |------|-------|----------|--------|------------|--------|
 | [001](001-cove-light-field.md) | Wavr has a Cove look: a frame lit from its edges round a dark core | P1 | M | — | DONE (commits `535fe3f`, `3fdc3cc`, `8409970`; reviewed) |
 | [002](002-redraw-on-resize.md) | A Wavr canvas never shows a blank frame while it is resized | P1 | S | — | DONE (commits `07916f8`, `2acceab`, `5264728`; reviewed) |
+| [003](003-chamber-light-field.md) | Wavr has a Chamber look: a room of light, seen in depth | P1 | M | — | TODO |
+| [004](004-gallery-mode.md) | Wavr has a gallery: full screen, no interface, a slow walk through rooms of light | P1 | M | — (gains two rooms from 003) | TODO |
+| [005](005-gallery-hdr.md) | The gallery's light is brighter than white on an HDR screen | P1 | S | 004 | TODO |
+| [006](006-chamber-pointer-eye.md) | In Chamber, the pointer is your head | P2 | S | 003 | TODO |
+| [007](007-gallery-sound.md) | The gallery can be heard: a held chord per room, off unless asked for | P3 | S | 004 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned)
 
@@ -61,12 +66,79 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 ## Dependency notes
 
+- 003 and 004 (second run, below) are independent and can run in either order
+  or in parallel. They meet in one place: 004's gallery lists `chamber` and
+  `skyChamber` among its rooms and skips ids the catalogue lacks, so it walks
+  8 rooms before 003 lands and 10 after. Both edit `CLAUDE.md` (different
+  sections) and 003 adds one line to `engine.ts` far from 004's change.
+- Recommended order: 003 first. It is the picture; the gallery is the frame.
+- 006 requires 003: it changes two lines of the Chamber shader and Chamber's
+  pointer style. It is independent of 004 and 005.
+- 007 requires 004: it adds sound to the gallery's page. It is independent of
+  003, 005 and 006 (its page edits are by anchor, so 005 may land before or
+  after). It ends with a listening check only the owner can do.
+- 005 requires 004: it adds HDR to the page 004 creates (its page patch is made
+  against 004's page asset). It does not depend on 003. Its last check needs
+  the owner in front of an HDR display.
+
 - 001 and 002 are independent and touch different code, except that both add
   a line to `CLAUDE.md` (different sections). They can run in either order or
   in parallel.
 - Together they deliver the request: 001 is the picture, 002 is what lets the
   picture survive a container that animates its size. 001 alone already works
   for a card of fixed size and for a full-bleed hero.
+
+## Second run, 2026-11-15: an experience, not only an editor
+
+Written against commit `a104287` for one request: "turn Wavr into a visionary
+sensory experience … make it look 3D … a gallery mode where it goes full
+screen and you're just experiencing it, like a James Turrell exhibition."
+Plans only; a different model implements. A targeted planning run again, not
+an audit.
+
+What the request comes down to:
+
+- **Depth.** Every Wavr look was light on a flat wall. Turrell's rooms read as
+  deep through perspective, light falling off along walls, a reflecting floor
+  and parallax. Plan 003 adds a look with all four, in closed form, at the
+  cost of the existing light fields.
+- **A place to watch.** No interface, full screen, slow change, no cuts. Plan
+  004 adds `/gallery`.
+
+What was verified while planning (in a scratch copy of the repo with
+dependencies installed; nothing in the working tree but `plans/` changed):
+
+- 003's shader was rendered by `pnpm snapshots` (the real engine, headless
+  Chromium) at several shapes, times and settings and tuned by eye; renders are
+  in `assets/003-*.jpg`. Benchmarked level with `cove` and `aperture`.
+- 004's code was written and run: its unit tests and the engine test pass,
+  lint and typecheck are clean, and the page was driven in headless Chromium
+  through enter, a passage, a hold and leave with no errors
+  (`assets/004-gallery-run.jpg`). The sources the plan installs are
+  `assets/004-*.txt`.
+- While prototyping 005 the gallery page's Esc handling turned out to rely on
+  the browser leaving full screen by itself; `assets/004-gallery-page.tsx.txt`
+  was updated on 2026-11-18 so Esc always leaves. Plan 005 says what to do if
+  004 was executed from the earlier asset.
+- Not verified by anyone yet: a real GPU, an HDR display, a phone, 003 under
+  its final id and through the code exports, 004's editor entry points.
+
+Options for the owner, deliberately not planned (each is a decision, not a
+task):
+
+- **HDR in the gallery.** Planned since: plan 005 (written 2026-11-18, when
+  the owner asked for it). Its code was run on a simulated HDR screen; how it
+  looks on a real one is the owner's check.
+- **The pointer as your head.** Planned since: plan 006 (written 2026-11-18).
+  It keeps "gradients never read `u_mouse*`": the eye comes from a helper in
+  `mouse.glsl`. Tilt on phones and the pointer inside the gallery are left as
+  decisions in its maintenance notes.
+- **Sound.** Planned since: plan 007 (written 2026-11-18). Opt-in, generated
+  in the browser, no files. It was measured playing, at a modest level,
+  without clipping; nobody has heard it, and the plan says shipping the
+  gallery silent is an acceptable outcome of listening.
+- **A second depth look** after Turrell's corner projections (a cube of light
+  that seems to float). Only after Chamber has been seen on real screens.
 
 ## What the reference is, and what Wavr was missing
 
@@ -105,6 +177,21 @@ its size is blank for the whole animation. That is plan 002.
   behave as described.
 
 ## Findings considered and rejected
+
+- **Second run: the existing 3D paths** (the raymarched 3D shape projection in
+  `layer.glsl`, the mesh distortion, the Three.js scene overlay) as the way to
+  "look 3D": rejected. They put a gradient on an object; the request is light
+  in a space. The editor has already retired the first two from its panels.
+- **Second run: gallery as a mode of the editor** (hide the panels, full-screen
+  the editor's canvas): rejected. Walking through presets would write to the
+  editor's store, undo history and URL; a separate route has its own engine,
+  is a link anyone can be sent, and loads none of the editor.
+- **Second run: two stacked canvases cross-faded with CSS** for the passages:
+  rejected. Two engines, two contexts, and no path to HDR. One frame with two
+  layers does it in the engine (`assets/004-crossfade.jpg`).
+- **Second run: a raymarched room** for Chamber: rejected. A box seen from
+  inside is three divisions, and a rectangle's light on a wall has an exact
+  formula; a march would cost more and band.
 
 - **Extend `aperture` instead of adding a type**: rejected. Filling the frame
   would need its proportions slider to track the canvas, its wall stop to go

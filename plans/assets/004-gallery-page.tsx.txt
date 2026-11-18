@@ -1,0 +1,237 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { GradientEngine } from "@wavr/core";
+import { Button } from "@/components/litt/button";
+import { buttonClassName } from "@/lib/litt-button-classes";
+import {
+  galleryFrame, galleryRooms, skipWalk, startWalk, stepWalk,
+  type GalleryRoom, type GalleryWalk,
+} from "@/lib/gallery";
+
+/** Seconds the room's label stays up after a room change or a pointer move. */
+const LABEL_SECONDS = 6;
+
+/** A shared scene (`/gallery#<state>`) is the only room. The codec and the store load only for one. */
+async function sharedRoom(): Promise<GalleryRoom | null> {
+  if (window.location.hash.length <= 1) return null;
+  const [{ applyHashToStore }, { useGradientStore }] = await Promise.all([
+    import("@/lib/url-sync"),
+    import("@/lib/store"),
+    import("@/lib/url-codec"),
+  ]);
+  await applyHashToStore();
+  return { id: "shared", name: "Shared scene", state: useGradientStore.getState() };
+}
+
+export default function GalleryPage() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const engineRef = useRef<GradientEngine | null>(null);
+  const roomsRef = useRef<GalleryRoom[]>([]);
+  const walkRef = useRef<GalleryWalk>(startWalk(0));
+  const arrivedRef = useRef(0);
+  const holdingRef = useRef(false);
+  const stillRef = useRef(false);
+  const labelTimerRef = useRef<number | null>(null);
+  const [inside, setInside] = useState(false);
+  const [holding, setHolding] = useState(false);
+  const [room, setRoom] = useState<{ name: string; index: number; count: number } | null>(null);
+  const [labelShown, setLabelShown] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const showLabel = useCallback(() => {
+    setLabelShown(true);
+    if (labelTimerRef.current !== null) window.clearTimeout(labelTimerRef.current);
+    labelTimerRef.current = window.setTimeout(() => setLabelShown(false), LABEL_SECONDS * 1000);
+  }, []);
+
+  // The engine lives as long as the page; the loop only runs while inside.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const parent = canvas?.parentElement;
+    if (!canvas || !parent) return;
+    let engine: GradientEngine;
+    try {
+      engine = new GradientEngine(canvas, { powerPreference: "high-performance" });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to initialize WebGL";
+      requestAnimationFrame(() => setError(message));
+      return;
+    }
+    engineRef.current = engine;
+    engine.setMaxPixelRatio(2);
+    engine.setMaxFrameRate(60);
+    engine.setAdaptiveRenderScale({ minScale: 0.6, targetFps: 45 });
+    const resize = () => engine.resize(Math.max(1, parent.clientWidth), Math.max(1, parent.clientHeight));
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(parent);
+    return () => {
+      observer.disconnect();
+      engine.destroy();
+      engineRef.current = null;
+    };
+  }, []);
+
+  // Inside: the walk, the loop, the screen kept awake, the keys.
+  useEffect(() => {
+    if (!inside) return;
+    const engine = engineRef.current;
+    if (!engine) return;
+    const seconds = () => performance.now() / 1000;
+    let shownRoom = -1;
+    let wakeLock: WakeLockSentinel | null = null;
+    let cancelled = false;
+
+    const start = () => {
+      engine.startLoop(
+        () => {
+          const rooms = roomsRef.current;
+          const now = seconds();
+          const advance = !holdingRef.current && !stillRef.current;
+          walkRef.current = stepWalk(walkRef.current, now, rooms.length, advance);
+          const walk = walkRef.current;
+          const entering = walk.next ?? walk.room;
+          if (entering !== shownRoom) {
+            shownRoom = entering;
+            setRoom({ name: rooms[entering].name, index: entering, count: rooms.length });
+            showLabel();
+          }
+          return galleryFrame(rooms, walk, now, arrivedRef.current, !stillRef.current);
+        },
+        undefined,
+        (err) => setError(err.message),
+      );
+    };
+    const keepAwake = () => {
+      navigator.wakeLock?.request("screen").then(
+        (lock) => {
+          if (cancelled) void lock.release();
+          else wakeLock = lock;
+        },
+        () => {},
+      );
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        engine.stopLoop();
+        return;
+      }
+      start();
+      keepAwake();
+    };
+    const onFullscreen = () => {
+      if (!document.fullscreenElement) setInside(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const rooms = roomsRef.current;
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        walkRef.current = skipWalk(walkRef.current, seconds(), rooms.length, e.key === "ArrowRight" ? 1 : -1);
+      } else if (e.key === " ") {
+        e.preventDefault();
+        holdingRef.current = !holdingRef.current;
+        setHolding(holdingRef.current);
+        showLabel();
+      } else if (e.key === "Escape") {
+        // A browser in full screen takes Esc itself (onFullscreen then brings the threshold back); this is for the rest.
+        if (document.fullscreenElement) void document.exitFullscreen();
+        else setInside(false);
+      }
+    };
+
+    stillRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    sharedRoom()
+      .catch(() => null)
+      .then((shared) => {
+        if (cancelled) return;
+        roomsRef.current = shared ? [shared] : galleryRooms();
+        walkRef.current = startWalk(seconds());
+        arrivedRef.current = seconds();
+        start();
+        keepAwake();
+      });
+    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointermove", showLabel);
+
+    return () => {
+      cancelled = true;
+      engine.stopLoop();
+      void wakeLock?.release();
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("fullscreenchange", onFullscreen);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointermove", showLabel);
+      if (labelTimerRef.current !== null) window.clearTimeout(labelTimerRef.current);
+      holdingRef.current = false;
+      setHolding(false);
+      setLabelShown(false);
+    };
+  }, [inside, showLabel]);
+
+  const enter = () => {
+    // Full screen needs this click; where it isn't offered (an iPhone) the page already fills the window.
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    setInside(true);
+  };
+  const leave = () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else setInside(false);
+  };
+
+  return (
+    <main data-theme="dark" className={`fixed inset-0 overflow-hidden bg-black text-litt-fg ${inside && !labelShown ? "cursor-none" : ""}`}>
+      <canvas ref={canvasRef} className="block h-full w-full" aria-hidden="true" />
+
+      {/* The threshold: what is here, and the click that full screen needs. */}
+      <div
+        inert={inside}
+        className={`absolute inset-0 grid place-items-center bg-black px-litt-gutter transition-opacity duration-[1500ms] ease-litt motion-reduce:transition-none ${inside ? "pointer-events-none opacity-0" : "opacity-100"}`}
+      >
+        <div className="grid max-w-[40ch] justify-items-start gap-8">
+          <div className="grid gap-2">
+            <p className="text-litt-small text-litt-fg-subtle">Wavr gallery</p>
+            <h1 className="text-litt-display text-balance">Light, slowly.</h1>
+            <p className="text-litt-reading text-litt-fg-muted">
+              A walk through rooms of light, each held for a minute or so. Best in a dark room, full screen, with
+              nothing else to do.
+            </p>
+          </div>
+          {error ? (
+            <p role="alert" className="text-litt-body text-litt-fg-muted">The gallery can’t open here: {error}</p>
+          ) : (
+            <Button variant="primary" size="lg" onClick={enter}>Enter</Button>
+          )}
+          <p className="text-litt-small text-litt-fg-subtle">
+            Arrow keys move between rooms. Space holds a room. Esc leaves.
+          </p>
+          <Link href="/" className={buttonClassName({ variant: "ghost", size: "sm" }) + " -ml-litt-control-pad-sm"}>
+            <span className="litt-trim">Back to Wavr</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Inside: a wall label, and a way out while the pointer is moving. */}
+      {inside && room && (
+        <>
+          <p
+            aria-live="polite"
+            className={`pointer-events-none absolute bottom-8 left-8 grid gap-1 transition-opacity duration-[1500ms] ease-litt motion-reduce:transition-none ${labelShown ? "opacity-100" : "opacity-0"}`}
+          >
+            <span className="text-litt-body font-litt-title text-litt-fg">{room.name}</span>
+            <span className="text-litt-small tabular-nums text-litt-fg-muted">
+              {room.count > 1 ? `${room.index + 1} of ${room.count}` : "Wavr"}
+              {holding ? " · holding" : ""}
+            </span>
+          </p>
+          <div className={`absolute right-8 top-8 transition-opacity duration-[1500ms] ease-litt motion-reduce:transition-none ${labelShown ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+            <Button variant="ghost" size="sm" onClick={leave} tabIndex={labelShown ? 0 : -1}>Leave</Button>
+          </div>
+        </>
+      )}
+    </main>
+  );
+}

@@ -1,0 +1,82 @@
+"use client";
+
+import { useEffect, type RefObject } from "react";
+import type { ColorProfile, GradientEngine } from "@wavr/core";
+import type { WebGPUHdrOutput } from "@wavr/core/webgpu-hdr-output";
+import { setHdrStatus } from "./hdr-status";
+import { useHdrDisplay } from "./useHdrDisplay";
+
+interface HdrOutputOptions {
+  /** The engine whose live frames are presented. Read when the effect runs, so call this hook after the effect that creates it. */
+  engineRef: RefObject<GradientEngine | null>;
+  /** The engine's WebGL canvas. It stays in place, invisible, so it keeps the layout and the pointer. */
+  glCanvasRef: RefObject<HTMLCanvasElement | null>;
+  /** The canvas laid over it, hidden until frames go through it. */
+  hdrCanvasRef: RefObject<HTMLCanvasElement | null>;
+  /** Whether what is shown asks for light brighter than white. */
+  wanted: boolean;
+  /** The profile to start in (a stable function); frames carry their own, so this only saves a reconfigure. */
+  initialProfile?: () => ColorProfile;
+  /** Changes identity whenever the engine is rebuilt, so the output is attached to the new one. */
+  engineKey?: unknown;
+}
+
+/**
+ * HDR: while `wanted` and the screen can show it, the engine's frames go to an
+ * extended-range WebGPU canvas laid over the WebGL one (which the engine then
+ * only packs frames onto). Attaching and detaching draw a frame at once, so
+ * the swap shows no blank frame. Reports where it stands through hdr-status.
+ * The WebGPU code loads on demand.
+ */
+export function useHdrOutput({ engineRef, glCanvasRef, hdrCanvasRef, wanted, initialProfile, engineKey }: HdrOutputOptions) {
+  const hdrDisplay = useHdrDisplay();
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    const glCanvas = glCanvasRef.current;
+    const hdrCanvas = hdrCanvasRef.current;
+    if (!wanted || hdrDisplay !== true || !engine || !glCanvas || !hdrCanvas) {
+      setHdrStatus("off");
+      return;
+    }
+    let cancelled = false;
+    let output: WebGPUHdrOutput | null = null;
+    const detach = () => {
+      engine.setHdrOutput(null);
+      glCanvas.style.opacity = "";
+      hdrCanvas.style.display = "";
+    };
+    setHdrStatus("starting");
+    import("@wavr/core/webgpu-hdr-output")
+      .then(({ createWebGPUHdrOutput }) => createWebGPUHdrOutput(hdrCanvas, initialProfile?.()))
+      .then((created) => {
+        if (cancelled) {
+          created?.dispose();
+          return;
+        }
+        if (!created) {
+          setHdrStatus("unsupported");
+          return;
+        }
+        output = created;
+        created.onLost = () => {
+          detach();
+          setHdrStatus("lost");
+        };
+        engine.setHdrOutput(created);
+        hdrCanvas.style.display = "block";
+        glCanvas.style.opacity = "0";
+        setHdrStatus("on");
+      })
+      .catch(() => {
+        if (!cancelled) setHdrStatus("unsupported");
+      });
+    return () => {
+      cancelled = true;
+      if (output) {
+        detach();
+        output.dispose();
+      }
+    };
+  }, [wanted, hdrDisplay, engineKey, initialProfile, engineRef, glCanvasRef, hdrCanvasRef]);
+}
