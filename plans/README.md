@@ -18,6 +18,7 @@ and update your row when done.
 | [003](003-chamber-light-field.md) | Wavr has a Chamber look: a room of light, seen in depth | P1 | M | — | TODO |
 | [004](004-gallery-mode.md) | Wavr has a gallery: full screen, no interface, a slow walk through rooms of light | P1 | M | — (gains two rooms from 003) | TODO |
 | [005](005-gallery-hdr.md) | The gallery's light is brighter than white on an HDR screen | P1 | S | 004 | TODO |
+| [006](006-chamber-pointer-eye.md) | In Chamber, the pointer is your head | P2 | S | 003 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned)
 
@@ -70,6 +71,8 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   8 rooms before 003 lands and 10 after. Both edit `CLAUDE.md` (different
   sections) and 003 adds one line to `engine.ts` far from 004's change.
 - Recommended order: 003 first. It is the picture; the gallery is the frame.
+- 006 requires 003: it changes two lines of the Chamber shader and Chamber's
+  pointer style. It is independent of 004 and 005.
 - 005 requires 004: it adds HDR to the page 004 creates (its page patch is made
   against 004's page asset). It does not depend on 003. Its last check needs
   the owner in front of an HDR display.
@@ -122,10 +125,10 @@ task):
 - **HDR in the gallery.** Planned since: plan 005 (written 2026-11-18, when
   the owner asked for it). Its code was run on a simulated HDR screen; how it
   looks on a real one is the owner's check.
-- **The pointer as your head.** In Chamber, the pointer (or a phone's tilt)
-  moving the eye would make the room answer like a window. It needs the
-  "gradients never read the pointer" rule reworded and two tests changed. Plan
-  003's maintenance notes give the design.
+- **The pointer as your head.** Planned since: plan 006 (written 2026-11-18).
+  It keeps "gradients never read `u_mouse*`": the eye comes from a helper in
+  `mouse.glsl`. Tilt on phones and the pointer inside the gallery are left as
+  decisions in its maintenance notes.
 - **Sound.** A slow drone per room. Powerful when right, tacky when not, and
   browsers block audio until a click (the Enter button would count).
 - **A second depth look** after Turrell's corner projections (a cube of light
