@@ -20,6 +20,7 @@ and update your row when done.
 | [005](005-gallery-hdr.md) | The gallery's light is brighter than white on an HDR screen | P1 | S | 004 | TODO |
 | [006](006-chamber-pointer-eye.md) | In Chamber, the pointer is your head | P2 | S | 003 | TODO |
 | [007](007-gallery-sound.md) | The gallery can be heard: a held chord per room, off unless asked for | P3 | S | 004 | TODO |
+| [008](008-corner-light-field.md) | Wavr has a Corner look: a block of light floating in the corner of a dark room | P2 | M | 003, 006 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned)
 
@@ -77,6 +78,9 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 007 requires 004: it adds sound to the gallery's page. It is independent of
   003, 005 and 006 (its page edits are by anchor, so 005 may land before or
   after). It ends with a listening check only the owner can do.
+- 008 requires 003 and 006: it is wired exactly as Chamber was, takes the next
+  shader id (31), and uses 006's pointer eye. If 004 has landed it also adds
+  itself to the gallery's rooms.
 - 005 requires 004: it adds HDR to the page 004 creates (its page patch is made
   against 004's page asset). It does not depend on 003. Its last check needs
   the owner in front of an HDR display.
@@ -137,8 +141,10 @@ task):
   in the browser, no files. It was measured playing, at a modest level,
   without clipping; nobody has heard it, and the plan says shipping the
   gallery silent is an acceptable outcome of listening.
-- **A second depth look** after Turrell's corner projections (a cube of light
-  that seems to float). Only after Chamber has been seen on real screens.
+- **A second depth look.** Planned since: plan 008 (written 2026-11-18), a
+  block of light projected into a room's corner. Written before Chamber had
+  been seen on real screens, at the owner's request; like Chamber it was
+  rendered and tuned from stills only.
 
 ## What the reference is, and what Wavr was missing
 

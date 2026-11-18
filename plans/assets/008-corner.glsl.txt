@@ -1,0 +1,125 @@
+
+// Corner: a block of light in the corner of a dark room. Two walls meet at a
+// vertical edge straight ahead; onto them a projector beside the viewer casts
+// a six-sided patch of light, split by that edge into two faces, one brighter
+// than the other. Its upper and lower edges slope the way a solid block's
+// would, against the way the room's own lines run, so the eye reads a glowing
+// block floating in front of the corner. It is only light on two walls: as
+// the eye moves (it drifts, and follows the pointer), the block bends with
+// them. The first stop is the room; the others are the light, from the
+// block's outer edges (stop 1) to its near edge (the last stop). The lit
+// walls light each other and the floor and ceiling (exactly: Lambert's
+// formula). Scale is the block's size, complexity its proportions (a tall
+// pillar at 1, a cube at 4, a wide slab at 8), softness the projector's focus
+// and the coving of the room's corners, distortion the haze round the block.
+#if WAVR_GRADIENT == 31
+// One edge of Lambert's formula: what a point with normal `n` receives from
+// the edge of a glowing polygon that runs from direction `a` to direction `b`
+// (unit vectors from the point to the edge's two ends).
+float cornerEdge(vec3 a, vec3 b, vec3 n) {
+  vec3 x = cross(a, b);
+  float s = length(x);
+  return atan(s, dot(a, b)) * dot(x, n) / max(s, 1e-6);
+}
+
+// The irradiance (0..1) at `pos`, on a surface with normal `n`, from a
+// uniformly glowing four-sided patch with corners c0..c3 in order: Lambert's
+// formula, exact. A patch lies on one wall and lights the other surfaces,
+// which all face it, so it needs no clipping; on its own wall it gives 0.
+float cornerIrradiance(vec3 pos, vec3 n, vec3 c0, vec3 c1, vec3 c2, vec3 c3) {
+  vec3 v0 = normalize(c0 - pos);
+  vec3 v1 = normalize(c1 - pos);
+  vec3 v2 = normalize(c2 - pos);
+  vec3 v3 = normalize(c3 - pos);
+  float e = cornerEdge(v0, v1, n) + cornerEdge(v1, v2, n) + cornerEdge(v2, v3, n) + cornerEdge(v3, v0, n);
+  return abs(e) / 6.2831853;
+}
+
+// Where the projector's ray through `a` (on its image plane, `focal` in front
+// of it) lands on the walls, which meet at distance `depth`.
+vec3 cornerOnWall(vec2 a, float focal, float depth) {
+  return vec3(a, focal) * (depth / (focal + abs(a.x)));
+}
+#endif
+
+#if WAVR_GRADIENT == 31
+vec3 cornerGradient(vec2 uv, float time) {
+  float px = 1.0 / u_resolution.y;
+  vec2 p = centeredUV(uv);
+  float soft = clamp(u_softness, 0.0, 1.0);
+  float haze = clamp(u_distortion, 0.0, 1.0);
+  int last = max(u_colorCount - 1, 0);
+  int first = min(1, last);
+
+  // The room: two walls at right angles, meeting straight ahead at distance
+  // `depth` and reaching the frame's left and right edges; floor and ceiling
+  // at the frame's lower and upper edges. One unit is the canvas height.
+  const float CORNER_FOCAL = 1.25;
+  vec2 room = vec2(0.5 * u_resolution.x / u_resolution.y, 0.5);
+  float depth = CORNER_FOCAL + room.x;
+
+  // The eye drifts a little, slowly, and follows the pointer as a head would
+  // (mouseEye(), mouse.glsl). The projector stays where the eye started.
+  const float CORNER_LOOK = 0.6;
+  vec2 eye = vec2(0.07 * sin(time * 0.11), 0.035 * sin(time * 0.083 + 1.3))
+           + mouseEye() * CORNER_LOOK * max(0.8 * room - vec2(0.07, 0.035), 0.0);
+  vec3 dir = vec3(p - eye, CORNER_FOCAL);
+
+  // Where the ray from the eye meets the left wall (z = depth + x), the right
+  // wall (z = depth - x) and the floor or ceiling; the nearest is what we see.
+  float up = dir.y < 0.0 ? -1.0 : 1.0;
+  vec3 ts = vec3((depth + eye.x) / max(CORNER_FOCAL - dir.x, 1e-4),
+                 (depth - eye.x) / max(CORNER_FOCAL + dir.x, 1e-4),
+                 (up * room.y - eye.y) / (up * max(abs(dir.y), 1e-6)));
+  float t = min(min(ts.x, ts.y), ts.z);
+  vec3 pos = vec3(eye, 0.0) + dir * t;
+
+  // Its normal. Softness coves the corners, as in chamber.
+  vec3 wts = exp(-(ts - t) / (mix(0.004, 0.16, soft * soft) * depth / CORNER_FOCAL));
+  vec3 n = normalize(vec3(0.70710678, 0.0, -0.70710678) * wts.x
+                   + vec3(-0.70710678, 0.0, -0.70710678) * wts.y
+                   + vec3(0.0, -up, 0.0) * wts.z);
+
+  // The block, as the projector casts it: six-sided on its image plane, `halfW`
+  // to either side of the corner's edge, `tall` high at that edge and `low`
+  // at its outer edges.
+  float size = 0.2 * u_scale;
+  float halfW = size * exp2((clamp(u_complexity, 1.0, 8.0) - 4.0) * 0.3);
+  float tall = size;
+  float low = 0.7 * size;
+  float slope = (tall - low) / halfW;
+  vec2 a = pos.xy * (CORNER_FOCAL / max(pos.z, 1e-3));
+  float d = max(abs(a.x) - halfW, (abs(a.y) - tall + slope * abs(a.x)) / sqrt(1.0 + slope * slope));
+  float focus = 0.6 * px + 0.02 * soft * soft + 0.006 * haze;
+  float lit = 0.5 - 0.5 * erfApprox(d / (1.41421 * focus));
+
+  // Its light: pale at the near edge (the last stop), deepening to the outer
+  // edges (stop 1); the right face stands in half shadow, deeper
+  // in colour and a little dimmer. It breathes.
+  float across = clamp(abs(a.x) / halfW, 0.0, 1.0);
+  float shadow = smoothstep(-focus, focus, a.x);
+  float breathe = 0.6 * sin(time * 0.21) + 0.4 * sin(time * 0.13 + 1.7);
+  float deep = mix(across * (0.8 + 0.12 * breathe), 0.45 + 0.55 * across, shadow);
+  vec3 light = lightStops(mix(float(last), float(first), deep), first, last);
+  light *= mix(1.0, 0.72, shadow) * (1.0 + 0.07 * sin(time * 0.29 + 0.8));
+
+  // The two faces light the room: each wall the other, both the floor and the
+  // ceiling. Their corners on the walls, then Lambert's formula.
+  vec3 mean = lightStops(mix(float(last), float(first), 0.45), first, last);
+  vec3 nearLo = cornerOnWall(vec2(0.0, -tall), CORNER_FOCAL, depth);
+  vec3 nearHi = cornerOnWall(vec2(0.0, tall), CORNER_FOCAL, depth);
+  float fromLeft = cornerIrradiance(pos, n, cornerOnWall(vec2(-halfW, -low), CORNER_FOCAL, depth), nearLo, nearHi,
+                                    cornerOnWall(vec2(-halfW, low), CORNER_FOCAL, depth));
+  float fromRight = cornerIrradiance(pos, n, nearLo, cornerOnWall(vec2(halfW, -low), CORNER_FOCAL, depth),
+                                     cornerOnWall(vec2(halfW, low), CORNER_FOCAL, depth), nearHi);
+  vec3 spill = mean * (2.2 * (fromLeft + 0.6 * fromRight));
+
+  // The room takes the light up as film does; it is darker toward the eye.
+  vec3 wall = srgbToLinear(u_colors[0]) * (0.45 + 0.55 * clamp(pos.z / depth, 0.0, 1.0));
+  vec3 col = lightToDisplay(mix(wall + (1.0 - exp(-spill)), light * framePeak(), lit));
+
+  // Haze: the block's light hangs in the air round it.
+  float glow = exp(-max(d, 0.0) / (0.1 + 0.25 * haze));
+  return mix(col, lightToDisplay(mean * 0.8 * framePeak()), haze * 0.5 * glow * (1.0 - 0.7 * lit));
+}
+#endif
