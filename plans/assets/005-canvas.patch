@@ -1,0 +1,105 @@
+--- a/apps/editor/components/Canvas.tsx
++++ b/apps/editor/components/Canvas.tsx
+@@ -1,13 +1,11 @@
+ "use client";
+ 
+-import { useEffect, useRef, useCallback, useState } from "react";
++import { useEffect, useMemo, useRef, useCallback, useState } from "react";
+ import { GradientEngine, attachPointer, type EngineMetrics } from "@wavr/core";
+-import type { WebGPUHdrOutput } from "@wavr/core/webgpu-hdr-output";
+ import { useGradientStore, getEditorPerformanceSettings } from "@/lib/store";
+ import { normalizeTimelineTime, type PlaybackMode } from "@/lib/timeline";
+ import { applyEnginePerformanceSettings, applyTimeline, withPerformanceMode } from "@/lib/frame-state";
+-import { setHdrStatus } from "@/lib/hdr-status";
+-import { useHdrDisplay } from "@/lib/useHdrDisplay";
++import { useHdrOutput } from "@/lib/useHdrOutput";
+ import { useRenderStats } from "@/lib/useRenderStats";
+ import Toast from "@/components/ui/Toast";
+ 
+@@ -16,6 +14,11 @@
+   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+ }
+ 
++/** The profile the scene is in now, for the HDR output to start in. */
++function sceneProfile() {
++  return useGradientStore.getState().colorProfile;
++}
++
+ interface CanvasProps {
+   onCanvasReady?: (canvas: HTMLCanvasElement) => void;
+   onEngineReady?: (engine: GradientEngine) => void;
+@@ -26,7 +29,8 @@
+   const hdrCanvasRef = useRef<HTMLCanvasElement>(null);
+   const engineRef = useRef<GradientEngine | null>(null);
+   const hdrWanted = useGradientStore((state) => state.hdrHeadroom > 0);
+-  const hdrDisplay = useHdrDisplay();
++  // A new identity whenever the engine's effect below rebuilds the engine.
++  const engineKey = useMemo(() => [onCanvasReady, onEngineReady], [onCanvasReady, onEngineReady]);
+   const showStats = useRenderStats();
+   const [fps, setFps] = useState(0);
+   const [metrics, setMetrics] = useState<EngineMetrics | null>(null);
+@@ -300,60 +304,10 @@
+     };
+   }, [onCanvasReady, onEngineReady, syncTextMaskTexture]);
+ 
+-  // HDR: while the scene asks for headroom and the screen can show it, frames
+-  // go to an extended-range WebGPU canvas laid over the WebGL one (which the
+-  // engine then only packs frames onto). The WebGL canvas stays in place,
+-  // invisible, so it keeps the layout and the pointer. Attaching and detaching
+-  // draw a frame at once, so the swap shows no blank frame. The effect runs
+-  // after the engine's own, and again whenever that rebuilds the engine.
+-  useEffect(() => {
+-    const engine = engineRef.current;
+-    const glCanvas = canvasRef.current;
+-    const hdrCanvas = hdrCanvasRef.current;
+-    if (!hdrWanted || hdrDisplay !== true || !engine || !glCanvas || !hdrCanvas) {
+-      setHdrStatus("off");
+-      return;
+-    }
+-    let cancelled = false;
+-    let output: WebGPUHdrOutput | null = null;
+-    const detach = () => {
+-      engine.setHdrOutput(null);
+-      glCanvas.style.opacity = "";
+-      hdrCanvas.style.display = "";
+-    };
+-    setHdrStatus("starting");
+-    import("@wavr/core/webgpu-hdr-output")
+-      .then(({ createWebGPUHdrOutput }) => createWebGPUHdrOutput(hdrCanvas, useGradientStore.getState().colorProfile))
+-      .then((created) => {
+-        if (cancelled) {
+-          created?.dispose();
+-          return;
+-        }
+-        if (!created) {
+-          setHdrStatus("unsupported");
+-          return;
+-        }
+-        output = created;
+-        created.onLost = () => {
+-          detach();
+-          setHdrStatus("lost");
+-        };
+-        engine.setHdrOutput(created);
+-        hdrCanvas.style.display = "block";
+-        glCanvas.style.opacity = "0";
+-        setHdrStatus("on");
+-      })
+-      .catch(() => {
+-        if (!cancelled) setHdrStatus("unsupported");
+-      });
+-    return () => {
+-      cancelled = true;
+-      if (output) {
+-        detach();
+-        output.dispose();
+-      }
+-    };
+-  }, [hdrWanted, hdrDisplay, onCanvasReady, onEngineReady]);
++  // HDR: the scene's frames go to an extended-range canvas laid over the WebGL
++  // one while the scene asks for headroom and the screen can show it. After
++  // the engine's effect, and again whenever that rebuilds the engine.
++  useHdrOutput({ engineRef, glCanvasRef: canvasRef, hdrCanvasRef, wanted: hdrWanted, initialProfile: sceneProfile, engineKey });
+ 
+   // Reduced motion: pause by default
+   useEffect(() => {

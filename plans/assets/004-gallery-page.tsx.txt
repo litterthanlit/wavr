@@ -134,8 +134,10 @@ export default function GalleryPage() {
         holdingRef.current = !holdingRef.current;
         setHolding(holdingRef.current);
         showLabel();
-      } else if (e.key === "Escape" && !document.fullscreenElement) {
-        setInside(false);
+      } else if (e.key === "Escape") {
+        // A browser in full screen takes Esc itself (onFullscreen then brings the threshold back); this is for the rest.
+        if (document.fullscreenElement) void document.exitFullscreen();
+        else setInside(false);
       }
     };
 

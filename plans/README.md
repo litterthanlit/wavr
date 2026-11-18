@@ -17,6 +17,7 @@ and update your row when done.
 | [002](002-redraw-on-resize.md) | A Wavr canvas never shows a blank frame while it is resized | P1 | S | — | DONE (commits `07916f8`, `2acceab`, `5264728`; reviewed) |
 | [003](003-chamber-light-field.md) | Wavr has a Chamber look: a room of light, seen in depth | P1 | M | — | TODO |
 | [004](004-gallery-mode.md) | Wavr has a gallery: full screen, no interface, a slow walk through rooms of light | P1 | M | — (gains two rooms from 003) | TODO |
+| [005](005-gallery-hdr.md) | The gallery's light is brighter than white on an HDR screen | P1 | S | 004 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale — finding fixed independently or approach abandoned)
 
@@ -69,6 +70,9 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   8 rooms before 003 lands and 10 after. Both edit `CLAUDE.md` (different
   sections) and 003 adds one line to `engine.ts` far from 004's change.
 - Recommended order: 003 first. It is the picture; the gallery is the frame.
+- 005 requires 004: it adds HDR to the page 004 creates (its page patch is made
+  against 004's page asset). It does not depend on 003. Its last check needs
+  the owner in front of an HDR display.
 
 - 001 and 002 are independent and touch different code, except that both add
   a line to `CLAUDE.md` (different sections). They can run in either order or
@@ -105,17 +109,19 @@ dependencies installed; nothing in the working tree but `plans/` changed):
   through enter, a passage, a hold and leave with no errors
   (`assets/004-gallery-run.jpg`). The sources the plan installs are
   `assets/004-*.txt`.
+- While prototyping 005 the gallery page's Esc handling turned out to rely on
+  the browser leaving full screen by itself; `assets/004-gallery-page.tsx.txt`
+  was updated on 2026-11-18 so Esc always leaves. Plan 005 says what to do if
+  004 was executed from the earlier asset.
 - Not verified by anyone yet: a real GPU, an HDR display, a phone, 003 under
   its final id and through the code exports, 004's editor entry points.
 
 Options for the owner, deliberately not planned (each is a decision, not a
 task):
 
-- **HDR in the gallery.** The single biggest step toward the real thing: on an
-  HDR screen the light is physically brighter than the white around it. The
-  engine and the editor already do it; the gallery needs the editor's attach
-  logic lifted into a shared hook. Needs an HDR display to judge. Plan 004's
-  maintenance notes say where the code is.
+- **HDR in the gallery.** Planned since: plan 005 (written 2026-11-18, when
+  the owner asked for it). Its code was run on a simulated HDR screen; how it
+  looks on a real one is the owner's check.
 - **The pointer as your head.** In Chamber, the pointer (or a phone's tilt)
   moving the eye would make the room answer like a window. It needs the
   "gradients never read the pointer" rule reworded and two tests changed. Plan
