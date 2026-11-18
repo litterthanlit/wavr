@@ -264,9 +264,7 @@ that ends "The style comes from the gradient (WAVR_MOUSE_WARP, below).", add:
 ```
 
 **Verify**: `grep -c "mouseWarpNone" packages/core/src/shaders/mouse.glsl` → `3`
-(two in comments and code of the function and table... count lines: the
-comment mentioning it, the function, the `#define`); the exact number matters
-less than that the next step compiles.
+(the opening comment, the function, Chamber's `#define`).
 
 ### Step 2: Move Chamber's eye
 
@@ -454,8 +452,8 @@ ALL must hold:
 - [ ] `pnpm lint`, `pnpm test`, `pnpm build` exit 0; `pnpm test:parity` exits 0
 - [ ] `pnpm snapshots:diff /tmp/eye-before /tmp/eye-after` shows 0 for every image
 - [ ] `grep -c "u_mouse" packages/core/src/shaders/gradients.glsl` → `0`
-- [ ] `grep -c "mouseEye(" packages/core/src/shaders/gradients.glsl` → `1` in code
-      (comments may add lines; the unit test is the authority)
+- [ ] `grep -c "mouseEye(" packages/core/src/shaders/gradients.glsl` → `2`
+      (the comment above the `eye` lines and the call itself)
 - [ ] Export parity for `chamber` is below 1/255 with and without `--mouse`
 - [ ] `git status` shows no files outside the in-scope list
 - [ ] `plans/README.md` status row updated
